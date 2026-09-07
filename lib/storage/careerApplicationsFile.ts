@@ -1,6 +1,7 @@
-﻿import crypto from 'crypto';
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 
 export interface StoredCareerApplication {
   _id: string;
@@ -45,8 +46,7 @@ async function readAllItems(): Promise<StoredCareerApplication[]> {
 }
 
 async function writeAllItems(items: StoredCareerApplication[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(items, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, items);
 }
 
 export async function createStoredCareerApplication(

@@ -3,11 +3,13 @@ import { Types } from 'mongoose';
 import connectDB from '@/lib/db/mongoose';
 import EPaper from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
+import { resolveReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
 import { getCitySlugFromName } from '@/lib/constants/epaperCities';
 import { getStoredEPaperById } from '@/lib/storage/epapersFile';
 import { resolveEpaperCoverImagePath } from '@/lib/utils/epaperCover';
-import { normalizeEPaperPublicationType } from '@/lib/types/epaper';
+import { normalizeEPaperPublicationType, type EPaperArticleHotspot } from '@/lib/types/epaper';
 import { buildPublicationTypeMongoFilter } from '@/lib/utils/epaperPublication';
+import { isValidEpaperHotspot } from '@/lib/utils/epaperHotspotGeometry';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -69,6 +71,7 @@ function mapArticle(value: unknown) {
 
   return {
     _id: String(source._id || ''),
+    releaseVersion: Number(source.releaseVersion || 0),
     epaperId: String(source.epaperId || ''),
     pageNumber: toPositiveInt(source.pageNumber) || 1,
     title: String(source.title || ''),
@@ -241,14 +244,56 @@ export async function GET(req: NextRequest, context: RouteContext) {
     );
     const articleQuery: Record<string, unknown> = { epaperId: epaper._id };
     if (Number.isFinite(pageNumberFilter) && pageNumberFilter > 0) {
-      articleQuery.pageNumber = Math.floor(pageNumberFilter);
+      const pNum = Math.floor(pageNumberFilter);
+      articleQuery.$or = [
+        { 'releasedSnapshot.pageNumber': pNum },
+        { pageNumber: pNum },
+      ];
     }
 
-    const articles = await EPaperArticle.find(articleQuery)
+    const records = await EPaperArticle.find(articleQuery)
       .sort({ pageNumber: 1, createdAt: 1 })
       .lean();
-    const pages = normalizePages(epaper.pages);
+
     const epaperSource = asObject(epaper);
+    const pages = normalizePages(epaperSource.pages);
+
+    const articles = records
+      .map((record) => {
+        const released = resolveReleasedEpaperStory(record as unknown as Record<string, unknown>);
+        if (released) return released;
+
+        // Ensure any story created/mapped by the Lokswami team is clickable immediately
+        const r = record as Record<string, unknown>;
+        const hotspot = asObject(r.hotspot);
+        const w = Number(hotspot.w || 0);
+        const h = Number(hotspot.h || 0);
+        if (!r.title || w <= 0 || h <= 0) return null;
+        const pageNum = toPositiveInt(r.pageNumber) || 1;
+        const pageObj = pages.find((p) => p.pageNumber === pageNum);
+
+        return {
+          _id: String(r._id || ''),
+          epaperId: String(r.epaperId || ''),
+          title: String(r.title || ''),
+          slug: String(r.slug || ''),
+          pageNumber: pageNum,
+          contentHtml: String(r.contentHtml || ''),
+          excerpt: String(r.excerpt || ''),
+          coverImagePath: String(r.coverImagePath || ''),
+          pageImagePath: String(pageObj?.imagePath || ''),
+          hotspot: {
+            x: Number(hotspot.x || 0),
+            y: Number(hotspot.y || 0),
+            w,
+            h,
+          },
+          releaseVersion: 1,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        };
+      })
+      .filter(Boolean);
 
     return NextResponse.json({
       success: true,

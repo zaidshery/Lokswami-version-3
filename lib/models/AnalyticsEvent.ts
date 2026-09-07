@@ -15,11 +15,11 @@ export interface IAnalyticsEvent extends mongoose.Document {
 const AnalyticsEventSchema = new mongoose.Schema<IAnalyticsEvent>(
   {
     event: { type: String, required: true, trim: true, maxlength: 80, index: true },
-    page: { type: String, required: true, trim: true, maxlength: 200 },
+    page: { type: String, required: true, trim: true, maxlength: 1024 },
     source: { type: String, required: true, trim: true, maxlength: 80, default: 'web' },
     sessionId: { type: String, required: true, trim: true, maxlength: 120, index: true },
     ipAddress: { type: String, trim: true, maxlength: 120, default: '' },
-    userAgent: { type: String, trim: true, maxlength: 500, default: '' },
+    userAgent: { type: String, trim: true, maxlength: 1024, default: '' },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }

@@ -413,4 +413,26 @@ describe('article reader actions', () => {
     await user.click(screen.getByRole('button', { name: 'Load More Stories' }));
     expect(screen.getAllByRole('link', { name: /Related story/ })).toHaveLength(10);
   });
+
+  it('does not render font size controls or print button in article reader actions', async () => {
+    const ArticleDetailClient = (
+      await import('@/app/(reader)/main/article/[id]/ArticleDetailClient')
+    ).default;
+
+    render(createElement(ArticleDetailClient, { article, relatedArticles }));
+
+    // Verify Print button is removed on all viewports
+    const printBtn = screen.queryByRole('button', { name: /Print article|प्रिंट करें|Print/i });
+    expect(printBtn).toBeNull();
+
+    // Verify font-size toggle ("ओ" / "अ" / "font") controls are removed
+    const fontBtns = screen.queryByRole('button', { name: /Large font|Small font|font/i });
+    expect(fontBtns).toBeNull();
+
+    // Verify core reader actions remain present and accessible
+    expect(screen.getByRole('button', { name: 'Save article' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share article' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'E-Paper' })).toBeInTheDocument();
+  });
 });
+

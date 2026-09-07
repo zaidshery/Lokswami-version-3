@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 
 export interface StoredAnalyticsEvent {
   _id: string;
@@ -43,8 +44,7 @@ export async function listStoredAnalyticsEvents() {
 }
 
 async function writeAllEvents(events: StoredAnalyticsEvent[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(events, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, events);
 }
 
 export async function createStoredAnalyticsEvent(input: CreateAnalyticsEventInput) {
@@ -72,5 +72,6 @@ export async function createStoredAnalyticsEvent(input: CreateAnalyticsEventInpu
   // Keep file size bounded for local fallback mode.
   const bounded = all.slice(0, 2000);
   await writeAllEvents(bounded);
+
   return item;
 }

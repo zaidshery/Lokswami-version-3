@@ -45,6 +45,10 @@ type VideoMetadataInput = {
   image?: string;
 };
 
+type SwipeMetadataInput = VideoMetadataInput & {
+  slug: string;
+};
+
 function formatTitle(title: string) {
   return title.includes(COMPANY_INFO.name) ? title : `${title} | ${COMPANY_INFO.name}`;
 }
@@ -199,6 +203,28 @@ export function buildVideoPageMetadata(input: VideoMetadataInput) {
       'news video',
       'hindi video update',
       category ? `${category.toLowerCase()} video` : '',
+    ].filter(Boolean),
+  });
+}
+
+export function buildSwipePageMetadata(input: SwipeMetadataInput) {
+  const slug = String(input.slug || '').trim();
+  const title = String(input.title || '').trim();
+  const description = String(input.description || '').trim();
+  const category = String(input.category || '').trim();
+
+  return buildMetadata({
+    title: title ? `${title} | Lokswami Swipe` : 'Lokswami Swipe',
+    description:
+      description ||
+      'Watch this Lokswami Swipe news update, open the quick summary, and read the complete published report.',
+    path: slug ? `/main/shorts/${encodeURIComponent(slug)}` : '/main/videos',
+    image: input.image,
+    keywords: [
+      'lokswami swipe',
+      'hindi news shorts',
+      'vertical news video',
+      category ? `${category.toLowerCase()} news video` : '',
     ].filter(Boolean),
   });
 }

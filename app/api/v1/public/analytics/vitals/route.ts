@@ -20,11 +20,11 @@ export async function POST(req: Request) {
 
     const eventPayload = {
       event: `web_vital_${metric.name.toLowerCase()}`,
-      page: metric.path,
+      page: (metric.path || '/').slice(0, 1024),
       source: 'web_vitals_beacon',
       sessionId: metric.id,
-      ipAddress: null, // Privacy safeguard: do not store IP addresses for vitals
-      userAgent: null,
+      ipAddress: '', // Privacy safeguard: do not store IP addresses for vitals
+      userAgent: '',
       metadata: {
         metric: metric.name,
         value: metric.value,

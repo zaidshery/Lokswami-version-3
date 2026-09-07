@@ -197,6 +197,8 @@ export function buildEpaperReadiness(params: {
   }
 
   return {
+    assetReadiness: blockers.length ? 'not-ready' : 'ready',
+    mappingReadiness: editorialPageNumbers.every((pageNumber) => pageByNumber.get(pageNumber)?.reviewStatus === 'ready') && articlesMissingReadableText === 0 && missingHotspotPages.length === 0 ? 'ready' : 'needs-review',
     status:
       blockers.length > 0 ? 'not-ready' : warnings.length > 0 ? 'needs-review' : 'ready',
     blockers,

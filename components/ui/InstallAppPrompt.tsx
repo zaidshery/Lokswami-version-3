@@ -420,7 +420,7 @@ export default function InstallAppPrompt() {
   }, []);
 
   useEffect(() => {
-    if (!eligiblePath || isStandalone || hasAcceptedInstallPrompt) {
+    if (!eligiblePath || isStandalone || hasAcceptedInstallPrompt || isVideoRoute) {
       setIsVisible(false);
       setShowIosInstructions(false);
       releaseActiveSurface('install-app');

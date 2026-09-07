@@ -8,6 +8,7 @@ export interface IEPaperOcrSuggestion {
   epaperId: mongoose.Types.ObjectId;
   pageNumber: number;
   runId: string;
+  sourceKey?: string;
   fingerprint: string;
   title: string;
   excerpt: string;
@@ -44,6 +45,7 @@ const EPaperOcrSuggestionSchema = new mongoose.Schema<IEPaperOcrSuggestion>(
     },
     pageNumber: { type: Number, required: true, min: 1 },
     runId: { type: String, required: true, trim: true, maxlength: 120 },
+    sourceKey: { type: String, trim: true },
     fingerprint: { type: String, required: true, trim: true, maxlength: 120 },
     title: { type: String, trim: true, maxlength: 220, default: '' },
     excerpt: { type: String, trim: true, maxlength: 1000, default: '' },

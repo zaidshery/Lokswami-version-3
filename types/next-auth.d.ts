@@ -10,6 +10,8 @@ declare module 'next-auth' {
       userId: string;
       role: UserRole;
       isActive: boolean;
+      whatsappNumber?: string | null;
+      optInDailyEpaper?: boolean;
       image?: string | null;
       createdAt?: string;
       savedArticles: string[];
@@ -21,6 +23,8 @@ declare module 'next-auth' {
     userId?: string;
     role?: UserRole;
     isActive?: boolean;
+    whatsappNumber?: string | null;
+    optInDailyEpaper?: boolean;
     image?: string | null;
     createdAt?: string;
     savedArticles?: string[];
@@ -33,6 +37,8 @@ declare module 'next-auth/jwt' {
     userId?: string;
     role?: UserRole;
     isActive?: boolean;
+    whatsappNumber?: string | null;
+    optInDailyEpaper?: boolean;
     picture?: string | null;
     createdAt?: string;
     savedArticles?: string[];

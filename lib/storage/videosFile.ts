@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 import {
   createWorkflowMeta,
   isWorkflowCommentKind,
@@ -11,6 +12,16 @@ import {
   type WorkflowPriority,
   type WorkflowStatus,
 } from '@/lib/workflow/types';
+import {
+  buildVideoSlug,
+  inferVideoMediaProvider,
+  normalizeVideoAspectRatio,
+  normalizeVideoProcessingStatus,
+  normalizeVideoSlug,
+  type VideoAspectRatio,
+  type VideoMediaProvider,
+  type VideoProcessingStatus,
+} from '@/lib/content/videoPublication';
 
 export interface StoredWorkflowComment {
   id: string;
@@ -52,6 +63,18 @@ export interface StoredVideo {
   publishedAt: string;
   updatedAt: string;
   workflow: StoredWorkflowMeta;
+  slug: string;
+  articleId: string;
+  posterUrl: string;
+  mediaProvider: VideoMediaProvider;
+  playbackUrl: string;
+  hlsUrl: string;
+  aspectRatio: VideoAspectRatio;
+  captionUrl: string;
+  transcript: string;
+  processingStatus: VideoProcessingStatus;
+  instagramUrl: string;
+  youtubeUrl: string;
 }
 
 export interface CreateVideoInput {
@@ -68,6 +91,18 @@ export interface CreateVideoInput {
   createdAt?: string;
   publishedAt?: string;
   workflow?: Partial<StoredWorkflowMeta>;
+  slug?: string;
+  articleId?: string;
+  posterUrl?: string;
+  mediaProvider?: VideoMediaProvider;
+  playbackUrl?: string;
+  hlsUrl?: string;
+  aspectRatio?: VideoAspectRatio;
+  captionUrl?: string;
+  transcript?: string;
+  processingStatus?: VideoProcessingStatus;
+  instagramUrl?: string;
+  youtubeUrl?: string;
 }
 
 const dataDir = path.resolve(process.cwd(), 'data');
@@ -173,8 +208,13 @@ function normalizeStoredVideo(input: unknown): StoredVideo | null {
 
   const isPublished = source.isPublished === false ? false : true;
 
+  const id = typeof source._id === 'string' && source._id.trim() ? source._id : createId();
+  const playbackUrl = typeof source.playbackUrl === 'string' && source.playbackUrl.trim()
+    ? source.playbackUrl.trim()
+    : videoUrl;
+
   return {
-    _id: typeof source._id === 'string' && source._id.trim() ? source._id : createId(),
+    _id: id,
     title,
     description,
     thumbnail,
@@ -198,6 +238,21 @@ function normalizeStoredVideo(input: unknown): StoredVideo | null {
         ? source.updatedAt
         : new Date().toISOString(),
     workflow: normalizeWorkflowMeta(source.workflow, isPublished),
+    slug: normalizeVideoSlug(source.slug) || buildVideoSlug(title, id),
+    articleId: typeof source.articleId === 'string' ? source.articleId.trim() : '',
+    posterUrl:
+      typeof source.posterUrl === 'string' && source.posterUrl.trim()
+        ? source.posterUrl.trim()
+        : thumbnail,
+    mediaProvider: inferVideoMediaProvider(source.mediaProvider || playbackUrl),
+    playbackUrl,
+    hlsUrl: typeof source.hlsUrl === 'string' ? source.hlsUrl.trim() : '',
+    aspectRatio: normalizeVideoAspectRatio(source.aspectRatio),
+    captionUrl: typeof source.captionUrl === 'string' ? source.captionUrl.trim() : '',
+    transcript: typeof source.transcript === 'string' ? source.transcript.trim() : '',
+    processingStatus: normalizeVideoProcessingStatus(source.processingStatus),
+    instagramUrl: typeof source.instagramUrl === 'string' ? source.instagramUrl.trim() : '',
+    youtubeUrl: typeof source.youtubeUrl === 'string' ? source.youtubeUrl.trim() : '',
   };
 }
 
@@ -216,8 +271,7 @@ async function readAllVideos(): Promise<StoredVideo[]> {
 }
 
 async function writeAllVideos(videos: StoredVideo[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(videos, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, videos);
 }
 
 export async function listStoredVideos(params: {
@@ -308,8 +362,23 @@ export async function createStoredVideo(input: CreateVideoInput) {
   const all = await readAllVideos();
   const isPublished = input.isPublished === false ? false : true;
 
+  const id = createId();
+  const requestedSlug = normalizeVideoSlug(input.slug);
+  const baseSlug = requestedSlug || buildVideoSlug(input.title, id);
+  const existingSlugs = new Set(all.map((item) => item.slug));
+  if (requestedSlug && existingSlugs.has(requestedSlug)) {
+    throw Object.assign(new Error('Video slug is already in use.'), { code: 11000 });
+  }
+  let slug = baseSlug;
+  let suffix = 2;
+  while (existingSlugs.has(slug)) {
+    slug = `${baseSlug.slice(0, 170)}-${suffix}`;
+    suffix += 1;
+  }
+
+  const playbackUrl = input.playbackUrl?.trim() || input.videoUrl;
   const video: StoredVideo = {
-    _id: createId(),
+    _id: id,
     title: input.title,
     description: input.description,
     thumbnail: input.thumbnail,
@@ -324,6 +393,18 @@ export async function createStoredVideo(input: CreateVideoInput) {
     publishedAt: input.publishedAt || now,
     updatedAt: now,
     workflow: normalizeWorkflowMeta(input.workflow, isPublished),
+    slug,
+    articleId: input.articleId?.trim() || '',
+    posterUrl: input.posterUrl?.trim() || input.thumbnail,
+    mediaProvider: inferVideoMediaProvider(input.mediaProvider || playbackUrl),
+    playbackUrl,
+    hlsUrl: input.hlsUrl?.trim() || '',
+    aspectRatio: normalizeVideoAspectRatio(input.aspectRatio),
+    captionUrl: input.captionUrl?.trim() || '',
+    transcript: input.transcript?.trim() || '',
+    processingStatus: normalizeVideoProcessingStatus(input.processingStatus),
+    instagramUrl: input.instagramUrl?.trim() || '',
+    youtubeUrl: input.youtubeUrl?.trim() || '',
   };
 
   all.push(video);
@@ -366,7 +447,40 @@ export async function updateStoredVideo(
       updates.workflow !== undefined
         ? normalizeWorkflowMeta({ ...current.workflow, ...updates.workflow }, nextIsPublished)
         : current.workflow,
+    slug:
+      updates.slug !== undefined
+        ? normalizeVideoSlug(updates.slug) || current.slug
+        : current.slug,
+    articleId: updates.articleId !== undefined ? updates.articleId.trim() : current.articleId,
+    posterUrl: updates.posterUrl !== undefined ? updates.posterUrl.trim() : current.posterUrl,
+    mediaProvider:
+      updates.mediaProvider !== undefined
+        ? inferVideoMediaProvider(updates.mediaProvider)
+        : current.mediaProvider,
+    playbackUrl:
+      updates.playbackUrl !== undefined ? updates.playbackUrl.trim() : current.playbackUrl,
+    hlsUrl: updates.hlsUrl !== undefined ? updates.hlsUrl.trim() : current.hlsUrl,
+    aspectRatio:
+      updates.aspectRatio !== undefined
+        ? normalizeVideoAspectRatio(updates.aspectRatio)
+        : current.aspectRatio,
+    captionUrl:
+      updates.captionUrl !== undefined ? updates.captionUrl.trim() : current.captionUrl,
+    transcript:
+      updates.transcript !== undefined ? updates.transcript.trim() : current.transcript,
+    processingStatus:
+      updates.processingStatus !== undefined
+        ? normalizeVideoProcessingStatus(updates.processingStatus)
+        : current.processingStatus,
+    instagramUrl:
+      updates.instagramUrl !== undefined ? updates.instagramUrl.trim() : current.instagramUrl,
+    youtubeUrl:
+      updates.youtubeUrl !== undefined ? updates.youtubeUrl.trim() : current.youtubeUrl,
   };
+
+  if (all.some((item, itemIndex) => itemIndex !== index && item.slug === next.slug)) {
+    throw Object.assign(new Error('Video slug is already in use.'), { code: 11000 });
+  }
 
   all[index] = next;
   await writeAllVideos(all);

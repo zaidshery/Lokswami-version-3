@@ -5,6 +5,7 @@ const ANALYTICS_SESSION_KEY = 'lokswami_analytics_session_id';
 declare global {
   interface Window {
     dataLayer?: Array<Record<string, unknown>>;
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
@@ -43,9 +44,21 @@ function trackGoogleTagManagerEvent(payload: {
       event: payload.event,
       lokswami_page: payload.page,
       lokswami_source: payload.source,
-      lokswami_session_id: payload.sessionId,
       lokswami_metadata: payload.metadata,
     });
+
+    if (typeof window.gtag === 'function' && /^[a-z][a-z0-9_]{0,39}$/.test(payload.event)) {
+      window.gtag('event', payload.event, {
+        page_path: payload.page,
+        content_group: payload.source,
+        device_category: String(payload.metadata.deviceCategory || ''),
+        viewport_bucket: String(payload.metadata.viewportBucket || ''),
+        page_type: String(payload.metadata.pageType || ''),
+        content_section: String(payload.metadata.section || ''),
+        referrer_category: String(payload.metadata.referrerCategory || ''),
+        campaign_name: String(payload.metadata.utmCampaign || ''),
+      });
+    }
   } catch {
     // no-op
   }
@@ -199,27 +212,39 @@ export function trackClientEvent(input: TrackClientEventInput) {
   const event = String(input.event || '').trim().toLowerCase();
   if (!event) return;
 
-  const referrer = getReferrerMetadata();
-  const campaign = getCampaignMetadata();
+  const source = String(input.source || 'web').slice(0, 80);
+  const isAnonymousSwipeEvent = source === 'lokswami_swipe';
+  const referrer = isAnonymousSwipeEvent
+    ? { referrerHost: '', referrerCategory: '' }
+    : getReferrerMetadata();
+  const campaign = isAnonymousSwipeEvent
+    ? { utmSource: '', utmMedium: '', utmCampaign: '', utmTerm: '', utmContent: '' }
+    : getCampaignMetadata();
   const payload = {
     event,
     page: String(input.page || window.location.pathname).slice(0, 200),
-    source: String(input.source || 'web').slice(0, 80),
-    sessionId: getSessionId(),
-    metadata: {
-      ...input.metadata,
-      deviceCategory: getDeviceCategory(),
-      viewportBucket: getViewportBucket(),
-      browserTimeZone: getBrowserTimeZone(),
-      browserLanguage: String(navigator.language || '').slice(0, 32),
-      referrerHost: referrer.referrerHost,
-      referrerCategory: referrer.referrerCategory,
-      utmSource: campaign.utmSource,
-      utmMedium: campaign.utmMedium,
-      utmCampaign: campaign.utmCampaign,
-      utmTerm: campaign.utmTerm,
-      utmContent: campaign.utmContent,
-    },
+    source,
+    sessionId: isAnonymousSwipeEvent ? '' : getSessionId(),
+    metadata: isAnonymousSwipeEvent
+      ? {
+          ...input.metadata,
+          deviceCategory: getDeviceCategory(),
+          viewportBucket: getViewportBucket(),
+        }
+      : {
+          ...input.metadata,
+          deviceCategory: getDeviceCategory(),
+          viewportBucket: getViewportBucket(),
+          browserTimeZone: getBrowserTimeZone(),
+          browserLanguage: String(navigator.language || '').slice(0, 32),
+          referrerHost: referrer.referrerHost,
+          referrerCategory: referrer.referrerCategory,
+          utmSource: campaign.utmSource,
+          utmMedium: campaign.utmMedium,
+          utmCampaign: campaign.utmCampaign,
+          utmTerm: campaign.utmTerm,
+          utmContent: campaign.utmContent,
+        },
   };
 
   trackGoogleTagManagerEvent(payload);

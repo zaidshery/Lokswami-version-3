@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 import type { EPaperCity } from '@/lib/constants/epaperCities';
 import {
   normalizeArticleHotspots,
@@ -56,8 +57,7 @@ async function readAllEPapers(): Promise<StoredEPaper[]> {
 }
 
 async function writeAllEPapers(epapers: StoredEPaper[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(epapers, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, epapers);
 }
 
 export async function listStoredEPapers(params: {

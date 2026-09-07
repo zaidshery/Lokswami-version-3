@@ -79,6 +79,8 @@ export interface EPaperPageData {
 }
 
 export interface EPaperReadiness {
+  assetReadiness?: 'ready' | 'not-ready';
+  mappingReadiness?: 'ready' | 'needs-review';
   status: EPaperReadinessStatus;
   blockers: string[];
   warnings: string[];
@@ -159,6 +161,7 @@ export interface EPaperArticleHotspot {
 }
 
 export interface EPaperArticleRecord {
+  releaseVersion?: number;
   _id: string;
   epaperId: string;
   pageNumber: number;

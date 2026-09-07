@@ -71,6 +71,24 @@ function cleanMetadata(input: unknown): Record<string, unknown> {
   return safe;
 }
 
+const SWIPE_METADATA_KEYS = new Set([
+  'videoId',
+  'videoSlug',
+  'mediaProvider',
+  'fromVideoId',
+  'toVideoId',
+  'articleId',
+  'articleSlug',
+  'deviceCategory',
+  'viewportBucket',
+]);
+
+function cleanAnonymousSwipeMetadata(input: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(input).filter(([key]) => SWIPE_METADATA_KEYS.has(key))
+  );
+}
+
 function getCountryCode(req: NextRequest) {
   const candidates = [
     req.headers.get('x-vercel-ip-country'),
@@ -110,7 +128,7 @@ export async function POST(req: NextRequest) {
     }
 
     const eventInput = clean(body.event, 80).toLowerCase();
-    const pageInput = clean(body.page, 200);
+    const pageInput = clean(body.page, 1024);
     const sourceInput = clean(body.source, 80).toLowerCase();
     const sessionInput = clean(body.sessionId, 120);
 
@@ -129,15 +147,21 @@ export async function POST(req: NextRequest) {
     }
 
     const source = SOURCE_REGEX.test(sourceInput) ? sourceInput : 'web';
-    const sessionId = SESSION_ID_REGEX.test(sessionInput)
-      ? sessionInput
-      : generateSessionId();
+    const isAnonymousSwipeEvent = source === 'lokswami_swipe';
+    const sessionId = isAnonymousSwipeEvent
+      ? generateSessionId()
+      : SESSION_ID_REGEX.test(sessionInput)
+        ? sessionInput
+        : generateSessionId();
 
-    const cleanedMetadata = cleanMetadata(body.metadata);
-    if (!cleanedMetadata.browserLanguage) {
+    const baseMetadata = cleanMetadata(body.metadata);
+    const cleanedMetadata = isAnonymousSwipeEvent
+      ? cleanAnonymousSwipeMetadata(baseMetadata)
+      : baseMetadata;
+    if (!isAnonymousSwipeEvent && !cleanedMetadata.browserLanguage) {
       cleanedMetadata.browserLanguage = getAcceptLanguage(req);
     }
-    if (!cleanedMetadata.countryCode) {
+    if (!isAnonymousSwipeEvent && !cleanedMetadata.countryCode) {
       const countryCode = getCountryCode(req);
       if (countryCode) {
         cleanedMetadata.countryCode = countryCode;
@@ -149,8 +173,8 @@ export async function POST(req: NextRequest) {
       page: pageInput,
       source,
       sessionId,
-      ipAddress: getClientIp(req),
-      userAgent: clean(req.headers.get('user-agent'), 500),
+      ipAddress: isAnonymousSwipeEvent ? '' : getClientIp(req),
+      userAgent: isAnonymousSwipeEvent ? '' : clean(req.headers.get('user-agent'), 500),
       metadata: cleanedMetadata,
     };
 

@@ -121,49 +121,31 @@ describe('short share redirect routes', () => {
     );
   });
 
-  it('redirects short e-paper share URLs to the reader with full query names', async () => {
-    const { GET } = await import('@/app/e/[paper]/route');
-    const response = await GET(new Request('https://lokswami.com/e/paper-1?p=12&s=front'), {
-      params: Promise.resolve({ paper: 'paper-1' }),
-    });
+  it('resolves short e-paper share URLs to the reader with full query names', async () => {
+    const { resolveShortEpaperTargetPath } = await import('@/app/e/[paper]/page');
+    expect(
+      resolveShortEpaperTargetPath({ paperId: 'paper-1', page: '12', story: 'front' })
+    ).toBe('/main/epaper?paper=paper-1&page=12&story=front');
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe(
-      'https://lokswami.com/main/epaper?paper=paper-1&page=12&story=front'
+    expect(resolveShortEpaperTargetPath({ paperId: 'paper-1', page: 7 })).toBe(
+      '/main/epaper?paper=paper-1&page=7'
     );
+
+    expect(resolveShortEpaperTargetPath({ paperId: 'paper-1', story: 'lead-story' })).toBe(
+      '/main/epaper?paper=paper-1&story=lead-story'
+    );
+
+    expect(resolveShortEpaperTargetPath({})).toBe('/main/epaper');
   });
 
-  it('uses the forwarded public origin when the app receives an internal e-paper share URL', async () => {
-    const { GET } = await import('@/app/e/[paper]/route');
-    const response = await GET(
-      new Request('http://0.0.0.0:3000/e/paper-1?p=7', {
-        headers: {
-          'x-forwarded-host': 'lokswami.com',
-          'x-forwarded-proto': 'https',
-        },
-      }),
-      {
-        params: Promise.resolve({ paper: 'paper-1' }),
-      }
-    );
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe(
-      'https://lokswami.com/main/epaper?paper=paper-1&page=7'
-    );
-  });
-
-  it('falls back to the configured public site URL for internal e-paper share origins', async () => {
-    process.env.NEXT_PUBLIC_SITE_URL = 'https://lokswami.com';
-
-    const { GET } = await import('@/app/e/[paper]/route');
-    const response = await GET(new Request('http://0.0.0.0:3000/e/paper-1?s=lead-story'), {
+  it('builds rich social metadata for short e-paper share pages', async () => {
+    const { generateMetadata } = await import('@/app/e/[paper]/page');
+    const metadata = await generateMetadata({
       params: Promise.resolve({ paper: 'paper-1' }),
+      searchParams: Promise.resolve({ p: '2', s: 'top-news' }),
     });
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe(
-      'https://lokswami.com/main/epaper?paper=paper-1&story=lead-story'
-    );
+    expect(metadata).toBeDefined();
+    expect(metadata.openGraph).toBeDefined();
   });
 });

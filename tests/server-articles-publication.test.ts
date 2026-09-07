@@ -182,4 +182,27 @@ describe('server article publication helpers', () => {
       }),
     ]);
   });
+
+  it('correctly handles scheduled articles: past due are visible, future are hidden', async () => {
+    const { isPubliclyPublishedArticle } = await import('@/lib/content/articlePublication');
+
+    const now = new Date('2026-05-10T12:00:00.000Z');
+
+    const futureScheduled = {
+      workflow: {
+        status: 'scheduled',
+        scheduledFor: '2026-05-10T15:00:00.000Z',
+      },
+    };
+
+    const pastScheduled = {
+      workflow: {
+        status: 'scheduled',
+        scheduledFor: '2026-05-10T10:00:00.000Z',
+      },
+    };
+
+    expect(isPubliclyPublishedArticle(futureScheduled, now)).toBe(false);
+    expect(isPubliclyPublishedArticle(pastScheduled, now)).toBe(true);
+  });
 });

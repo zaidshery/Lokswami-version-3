@@ -166,6 +166,19 @@ describe('HomePageClient v1 home-feed integration', () => {
     vi.unstubAllGlobals();
   });
 
+  it('keeps an empty or unavailable public feed free of demo stories', async () => {
+    const { default: HomePageClient } = await import('@/app/(reader)/main/HomePageClient');
+    await act(async () => {
+      render(createElement(HomePageClient, {
+        initialHomeFeed: { articles: [], epaper: null, emagazine: null },
+      }));
+    });
+    await waitFor(() => expect(mocks.fetchPublicArticlesPage).toHaveBeenCalledWith({ limit: 100 }));
+    expect(screen.getByTestId('hero-carousel')).toBeEmptyDOMElement();
+    expect(within(screen.getByTestId('live-updates-rail')).queryByRole('link')).not.toBeInTheDocument();
+    expect(mocks.fetchMergedLiveArticles).not.toHaveBeenCalled();
+  });
+
   it('renders initial v1 home-feed state through the existing homepage slots', async () => {
     const HomePageClient = (await import('@/app/(reader)/main/HomePageClient'))
       .default;
@@ -285,9 +298,9 @@ describe('HomePageClient v1 home-feed integration', () => {
     expect(screen.getByTestId('hero-carousel')).toHaveTextContent(
       'Lead Story From Feed'
     );
-    expect(screen.queryAllByTestId('news-card').some((node) =>
-      node.textContent?.includes('Latest Story From Feed')
-    ) || screen.getByTestId('hero-carousel').textContent?.includes('Latest Story From Feed') || true).toBe(true);
+    for (const link of screen.getAllByRole('link', { name: /Latest Story From Feed/ })) {
+      expect(link).toHaveAttribute('href', '/main/article/article-6');
+    }
     expect(await screen.findByTestId('epaper-card')).toHaveTextContent('Indore Edition');
     const emagazineLink = screen.getByRole('link', {
       name: /read latest e-magazine/i,

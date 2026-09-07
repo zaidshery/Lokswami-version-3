@@ -16,15 +16,15 @@ import {
   BookOpen,
   CalendarDays,
   Clock3,
-  Eye,
   Flame,
 } from 'lucide-react';
 import HeroCarousel from '@/components/ui/HeroCarousel';
 import NewsCard from '@/components/ui/NewsCard';
 import ReaderImage from '@/components/ui/ReaderImage';
 import DesktopHeroEpaperCard from '@/components/ui/DesktopHeroEpaperCard';
-import { articles as mockArticles, type Article } from '@/lib/mock/data';
-import { categoryMatches, fetchMergedLiveArticles } from '@/lib/content/liveArticles';
+import HomeShortsSection from '@/components/video/HomeShortsSection';
+import type { Article } from '@/lib/mock/data';
+import { categoryMatches } from '@/lib/content/liveArticles';
 import {
   fetchHomeFeedForHomePage,
   type HomePageEpaperPreview,
@@ -48,8 +48,8 @@ import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 import { formatUiDate } from '@/lib/utils/dateFormat';
 import { normalizePublicationIssueMonth } from '@/lib/utils/epaperPublication';
 
-function hexToRgba(hex: string, alpha: number) {
-  const cleaned = hex.replace('#', '').trim();
+function hexToRgba(hex?: string | null, alpha = 1) {
+  const cleaned = String(hex || '').replace('#', '').trim();
   const normalized = cleaned.length === 3
     ? cleaned.split('').map((token) => token + token).join('')
     : cleaned;
@@ -113,18 +113,20 @@ function getPublishedTimestamp(article: Article | null | undefined) {
 }
 
 function buildHomepageRail(
-  articles: Article[],
+  articles: Article[] | undefined | null,
   isPriority: (article: Article) => boolean,
   limit: number,
   fallbackCompare?: (a: Article, b: Article) => number
 ) {
-  const safeList = Array.isArray(articles) ? articles.filter((a): a is Article => Boolean(a && a.id)) : [];
+  const safeList = Array.isArray(articles)
+    ? articles.filter((a): a is Article => Boolean(a && typeof a === 'object' && a.id))
+    : [];
   const priority: Article[] = [];
   const fallback: Article[] = [];
 
   for (const article of safeList) {
     try {
-      if (isPriority(article)) {
+      if (typeof isPriority === 'function' && isPriority(article)) {
         priority.push(article);
       } else {
         fallback.push(article);
@@ -157,6 +159,7 @@ const CATEGORY_INITIAL_STORIES_COUNT = 4;
 const CATEGORY_STORIES_PAGE_STEP = 4;
 const CATEGORY_FETCH_LIMIT = 12;
 const CATEGORY_VIEWPORT_ROOT_MARGIN = '700px 0px';
+const HOME_EPAPER_CITY_SLUG = 'indore';
 const HI_EPAPER_CITY_LABELS: Record<string, string> = {
   indore: '\u0907\u0902\u0926\u094c\u0930',
   ujjain: '\u0909\u091c\u094d\u091c\u0948\u0928',
@@ -171,6 +174,13 @@ type HomeEpaperResponse = {
 type HomePageProps = {
   initialHomeFeed?: HomePageFeedState | null;
 };
+
+function isIndoreEpaperPreview(paper: HomePageEpaperPreview | null | undefined) {
+  if (!paper) return false;
+  const citySlug = String(paper.citySlug || '').trim().toLowerCase();
+  const cityName = String(paper.cityName || '').trim().toLowerCase();
+  return citySlug === HOME_EPAPER_CITY_SLUG || (!citySlug && cityName === 'indore');
+}
 
 type CategorySectionViewModel = {
   slug: string;
@@ -197,17 +207,6 @@ type PublicationPromoCard = {
   ctaLabel: string;
   ariaLabel: string;
 };
-
-function formatCompactViews(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return '0';
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-  }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
-  }
-  return String(Math.floor(value));
-}
 
 function getSectionCopy(language: 'en' | 'hi', hi: string, en: string) {
   return language === 'hi' ? hi : en;
@@ -249,9 +248,11 @@ function LiveUpdateStory({
   article,
   language,
 }: {
-  article: Article;
+  article?: Article | null;
   language: 'en' | 'hi';
 }) {
+  if (!article || !article.id) return null;
+
   const href = buildArticlePublicPath({ id: article.id, slug: article.slug });
   const timeLabel = formatDesktopHeroDate(article.publishedAt, language);
 
@@ -293,6 +294,8 @@ function HeadlineImageCard({
   language,
   priority = false,
 }: ArticleTileProps) {
+  if (!article || !article.id) return null;
+
   const href = buildArticlePublicPath({ id: article.id, slug: article.slug });
   const timeLabel = formatDesktopHeroDate(article.publishedAt, language);
 
@@ -325,12 +328,6 @@ function HeadlineImageCard({
             <Clock3 className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{timeLabel}</span>
           </span>
-          {article.views > 0 ? (
-            <span className="inline-flex shrink-0 items-center gap-1">
-              <Eye className="h-3.5 w-3.5" />
-              {formatCompactViews(article.views)}
-            </span>
-          ) : null}
         </div>
       </div>
     </Link>
@@ -344,6 +341,10 @@ function RankedStoryList({
   articles: Article[];
   language: 'en' | 'hi';
 }) {
+  const safeArticles = Array.isArray(articles)
+    ? articles.filter((a): a is Article => Boolean(a && a.id))
+    : [];
+
   return (
     <div className="newsroom-panel newsroom-right-rail rounded-xl border border-orange-500/25 p-3 shadow-sm">
       <NewsroomSectionHeader
@@ -352,7 +353,7 @@ function RankedStoryList({
         cta={getSectionCopy(language, 'सभी देखें', 'View All')}
       />
       <div className="space-y-2" data-testid="popular-news-rail">
-        {articles.slice(0, 6).map((article) => (
+        {safeArticles.slice(0, 6).map((article) => (
           <Link
             key={article.id}
             href={buildArticlePublicPath({ id: article.id, slug: article.slug })}
@@ -387,11 +388,13 @@ function FeaturedStoryBand({
   articles,
   language,
 }: {
-  articles: Article[];
+  articles?: Article[] | null;
   language: 'en' | 'hi';
 }) {
-  const feature = articles[0];
-  const support = articles[1];
+  const safeArticles = Array.isArray(articles)
+    ? articles.filter((a): a is Article => Boolean(a && a.id))
+    : [];
+  const feature = safeArticles[0];
 
   if (!feature) return null;
 
@@ -410,7 +413,7 @@ function FeaturedStoryBand({
           {feature.title}
         </h2>
         <p className="newsroom-card-summary-match newsroom-muted mt-2 line-clamp-1">
-          {support?.title || feature.summary}
+          {feature.summary}
         </p>
       </div>
       <div className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-[260px] opacity-70 sm:block">
@@ -701,12 +704,15 @@ async function fetchLatestPublicationPreview(
       limit: '1',
       publicationType,
     });
+    if (publicationType === 'epaper') {
+      query.set('citySlug', HOME_EPAPER_CITY_SLUG);
+    }
     const response = await fetch(`/api/v1/public/epapers/latest?${query.toString()}`);
     const payload = (await response.json().catch(() => ({}))) as HomeEpaperResponse;
     if (!response.ok) return null;
 
     const first = Array.isArray(payload.items) ? payload.items[0] : null;
-    if (!first) return null;
+    if (!first || (publicationType === 'epaper' && !isIndoreEpaperPreview(first))) return null;
 
     return {
       _id: String(first._id || ''),
@@ -734,32 +740,37 @@ function fetchLatestEmagazinePreview() {
 export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
   const { language } = useAppStore();
   const [isClientReady, setIsClientReady] = useState(false);
+  const [isFeedLoading, setIsFeedLoading] = useState(!initialHomeFeed?.articles?.length);
   const [feedArticles, setFeedArticles] = useState<Article[]>(
-    () => (initialHomeFeed?.articles?.length ? initialHomeFeed.articles : mockArticles)
+    () => initialHomeFeed?.articles || []
   );
   const [latestEpaper, setLatestEpaper] = useState<HomePageEpaperPreview | null>(
-    () => initialHomeFeed?.epaper || null
+    () => (isIndoreEpaperPreview(initialHomeFeed?.epaper) ? initialHomeFeed?.epaper || null : null)
   );
   const [latestEmagazine, setLatestEmagazine] = useState<HomePageEpaperPreview | null>(
     () => initialHomeFeed?.emagazine || null
   );
   const hasInitialArticles = Boolean(initialHomeFeed?.articles?.length);
-  const hasInitialEpaper = Boolean(initialHomeFeed?.epaper);
+  const hasInitialEpaper = isIndoreEpaperPreview(initialHomeFeed?.epaper);
   const hasInitialEmagazine = Boolean(initialHomeFeed?.emagazine);
   const [visibleCategoryStoryCounts, setVisibleCategoryStoryCounts] = useState<Record<string, number>>({});
   const [categoryArticlesBySlug, setCategoryArticlesBySlug] = useState<Record<string, Article[]>>({});
   const requestedCategorySlugsRef = useRef<Set<string>>(new Set());
   const categoryRequestGenerationRef = useRef(0);
-  const latestPublishedArticles = useMemo(
-    () => {
-      const source = feedArticles?.length ? feedArticles : mockArticles;
-      return [...source].sort(
-        (a, b) => getPublishedTimestamp(b) - getPublishedTimestamp(a)
-      );
-    },
-    [feedArticles]
-  );
-  const heroArticles = useMemo(() => latestPublishedArticles.slice(0, 5), [latestPublishedArticles]);
+  const latestPublishedArticles = useMemo(() => {
+    const safeSource = (Array.isArray(feedArticles) ? feedArticles : []).filter(
+      (a): a is Article => Boolean(a && typeof a === 'object' && a.id)
+    );
+    return [...safeSource].sort(
+      (a, b) => getPublishedTimestamp(b) - getPublishedTimestamp(a)
+    );
+  }, [feedArticles]);
+
+  const heroArticles = useMemo(() => {
+    const articles = latestPublishedArticles.slice(0, 5);
+    return articles;
+  }, [latestPublishedArticles]);
+
   const liveUpdateStories = useMemo(
     () =>
       buildHomepageRail(
@@ -770,6 +781,7 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
       ),
     [latestPublishedArticles]
   );
+
   const featuredSidebar = useMemo(
     () =>
       buildHomepageRail(
@@ -780,14 +792,19 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
       ),
     [latestPublishedArticles]
   );
+
   const categorySections = useMemo(() => {
     return NEWS_CATEGORY_DEFINITIONS.map((definition) => {
       const slug = definition.slug;
       const category = resolveNewsCategory(slug);
-      const fetchedItems = categoryArticlesBySlug[slug] || [];
-      const feedItems = latestPublishedArticles
-        .filter((article) => categoryMatches(article.category, slug, NEWS_CATEGORY_DEFINITIONS));
-      const items = (fetchedItems.length ? fetchedItems : feedItems).slice(0, CATEGORY_FETCH_LIMIT);
+      const fetchedItems = Array.isArray(categoryArticlesBySlug[slug]) ? categoryArticlesBySlug[slug] : [];
+      const feedItems = latestPublishedArticles.filter(
+        (article) => article && categoryMatches(article.category, slug, NEWS_CATEGORY_DEFINITIONS)
+      );
+      const rawItems = fetchedItems.length ? fetchedItems : feedItems;
+      const items = (Array.isArray(rawItems) ? rawItems : [])
+        .filter((a): a is Article => Boolean(a && a.id))
+        .slice(0, CATEGORY_FETCH_LIMIT);
 
       return {
         slug,
@@ -853,7 +870,7 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
             setFeedArticles(homeFeed.articles);
             hasArticles = true;
           }
-          if (!hasEpaper && homeFeed.epaper) {
+          if (!hasEpaper && isIndoreEpaperPreview(homeFeed.epaper)) {
             setLatestEpaper(homeFeed.epaper);
             hasEpaper = true;
           }
@@ -865,15 +882,17 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
       }
 
       const [fallbackArticles, fallbackEpaper, fallbackEmagazine] = await Promise.all([
-        hasArticles ? Promise.resolve(null) : fetchMergedLiveArticles(100),
+        hasArticles ? Promise.resolve(null) : fetchPublicArticlesPage({ limit: 100 }),
         hasEpaper ? Promise.resolve(null) : fetchLatestEpaperPreview(),
         hasEmagazine ? Promise.resolve(null) : fetchLatestEmagazinePreview(),
       ]);
 
       if (!active) return;
 
-      if (fallbackArticles?.length) {
-        setFeedArticles(fallbackArticles);
+      setIsFeedLoading(false);
+
+      if (fallbackArticles) {
+        setFeedArticles(mapPublicArticlesToUiArticles(fallbackArticles.items));
       }
       if (fallbackEpaper) {
         setLatestEpaper(fallbackEpaper);
@@ -1021,6 +1040,13 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
               </div>
               <div className="min-w-0">
                 <HeroCarousel articles={heroArticles} variant="modern" />
+                {heroArticles.length === 0 ? (
+                  <p role="status" className="newsroom-muted px-4 py-10 text-center text-sm">
+                    {isFeedLoading
+                      ? getSectionCopy(language, 'खबरें लोड हो रही हैं…', 'Loading stories…')
+                      : getSectionCopy(language, 'अभी खबरें उपलब्ध नहीं हैं। कृपया थोड़ी देर बाद फिर देखें।', 'Stories are unavailable right now. Please check again shortly.')}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -1071,7 +1097,7 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
 
         <section className="mt-[var(--section-gap)] grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.40fr)]">
           <div className="space-y-4">
-            <FeaturedStoryBand articles={latestPublishedArticles.slice(1, 4)} language={language} />
+            <HomeShortsSection shorts={initialHomeFeed?.shorts} language={language} />
 
             <div>
               <NewsroomSectionHeader
@@ -1126,6 +1152,3 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
     </div>
   );
 }
-
-
-

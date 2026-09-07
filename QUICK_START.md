@@ -1,5 +1,9 @@
 # Lokswami Quick Start
 
+For the September 5 repository, live deployment, architecture, and CMS review,
+see [Project 360 review](docs/PROJECT_360_REVIEW_2026_09_05.md).
+Regenerate the source inventory with `npm run audit:structure`.
+
 ## 5-Minute Setup
 
 1. Copy `.env.local.example` to `.env.local`.
@@ -38,7 +42,7 @@ Notes:
 ## Current Auth Model
 
 - Auth is handled by NextAuth at `/api/auth/[...nextauth]`.
-- Reader sign-in uses Google when OAuth is configured.
+- Reader sign-in supports the registered reader credentials flow in this checkout, and Google when OAuth is configured. This local account work is not part of the currently deployed commit.
 - Admin sign-in uses the NextAuth credentials provider when `ADMIN_LOGIN_ID` or `ADMIN_USERNAME` and `ADMIN_PASSWORD_HASH` are set.
 - Admin Google sign-in is optional and requires `ADMIN_GOOGLE_LOGIN_ENABLED=true` plus an allowlist in `ADMIN_EMAILS`.
 - Admin APIs rely on the authenticated session cookie. There is no `/api/admin/login` token endpoint.
@@ -97,12 +101,18 @@ Important limitation:
 
 ## Smoke Checks
 
-These checks currently pass in this repo:
+Check the target environment with `npm run verify:deploy -- https://lokswami.com`.
+The command checks runtime health, JS/CSS assets, public article HTML and SEO,
+then CMS guest boundaries. Expected authentication behavior:
 
 - `GET /signin` returns `200`
 - `GET /login` redirects to `/signin`
 - `GET /admin` redirects guests to `/signin?redirect=%2Fadmin`
 - `GET /main/saved` redirects guests to `/signin?redirect=%2Fmain%2Fsaved`
+
+On Windows PowerShell, use `npm.cmd` if the `npm.ps1` execution policy blocks npm.
+Use Node 20.x to match production. Run focused tests, `npm run typecheck`,
+`npm run lint`, and `npm run build:ci` before releasing changes.
 
 ## Common Errors
 

@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 import connectDB from '@/lib/db/mongoose';
 import type {
   LeadershipReportDeliveryMode,
@@ -45,8 +46,7 @@ async function readAllRuns(): Promise<LeadershipReportRunHistoryEntry[]> {
 }
 
 async function writeAllRuns(runs: LeadershipReportRunHistoryEntry[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(runs, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, runs);
 }
 
 function shouldUseFileStore() {

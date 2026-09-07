@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 import connectDB from '@/lib/db/mongoose';
 import LeadershipReportAlertState from '@/lib/models/LeadershipReportAlertState';
 
@@ -77,8 +78,7 @@ async function readStateFile(): Promise<LeadershipReportCriticalAlertState> {
 }
 
 async function writeStateFile(state: LeadershipReportCriticalAlertState) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(state, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, state);
 }
 
 async function readStateMongo(): Promise<LeadershipReportCriticalAlertState> {

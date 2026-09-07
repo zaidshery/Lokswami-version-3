@@ -94,10 +94,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist'],
+  serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'tesseract.js'],
   outputFileTracingIncludes: {
     '/api/admin/epapers/**/*': [
       './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+      './scripts/epaper-local-ocr-worker.cjs',
+      './node_modules/tesseract.js/**/*',
+      './node_modules/tesseract.js-core/**/*',
+      './node_modules/@tesseract.js-data/**/*',
     ],
   },
   // Hostinger currently normalizes some routes to a trailing slash at the edge.
@@ -202,6 +206,11 @@ const nextConfig = {
       },
       {
         source: '/main/videos/:path*',
+        missing: appRouterFlightRequestSignals,
+        headers: publicPageCache,
+      },
+      {
+        source: '/main/shorts/:path*',
         missing: appRouterFlightRequestSignals,
         headers: publicPageCache,
       },

@@ -41,8 +41,14 @@ test-results/
 playwright-report/
 .seo-audit/
 
+# OCR models & language packs
+*.traineddata
+*.traineddata.gz
+
 # Local content / uploads
 data/articles.json
+data/users.json
+data/article-locks.json
 public/uploads/*
 
 # Local secret env files

@@ -1,5 +1,5 @@
 const CACHE_NAME = 'lokswami-app-shell-v7';
-const RUNTIME_CACHE_NAME = 'lokswami-runtime-v2';
+const RUNTIME_CACHE_NAME = 'lokswami-runtime-v3';
 const EPAPER_OFFLINE_CACHE_NAME = 'lokswami-epaper-offline-v2';
 const LEGACY_EPAPER_OFFLINE_CACHE_NAMES = ['lokswami-epaper-offline-v1'];
 const APP_SHELL_URLS = [
@@ -16,6 +16,9 @@ const APP_SHELL_URLS = [
 ];
 
 function isRuntimeCacheable(url) {
+  if (/\.(?:mp4|m3u8|m4s|ts|webm|mov)(?:$|[?#])/i.test(url.pathname)) {
+    return false;
+  }
   return (
     url.pathname.startsWith('/api/epapers/') ||
     url.pathname.startsWith('/api/public/epapers/') ||

@@ -1,5 +1,6 @@
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 import { isPubliclyPublishedArticle } from '@/lib/content/articlePublication';
+import { PUBLIC_VIDEO_PROJECTION, toPublicVideoItem } from '@/lib/content/videoPublication';
 import { getCitySlugFromName } from '@/lib/constants/epaperCities';
 import Article from '@/lib/models/Article';
 import EPaper from '@/lib/models/EPaper';
@@ -47,6 +48,7 @@ export type PublicHomeFeedBreakingItem = {
 
 export type PublicHomeFeedVideo = {
   id: string;
+  slug?: string;
   title: string;
   description: string;
   thumbnail: string;
@@ -289,16 +291,19 @@ function compareBreakingItems(
 }
 
 function mapVideo(raw: unknown, forceShort?: boolean): PublicHomeFeedVideo | null {
-  const input = asObject(raw);
-  const id = toId(input._id || input.id);
+  const input = toPublicVideoItem(asObject(raw), { requireShort: forceShort === true });
+  if (!input) return null;
+  const id = input._id;
   const title = String(input.title || '').trim();
   const category = String(input.category || '').trim();
   if (!id || !title || !category) return null;
 
   const publishedAt = toIsoDate(input.publishedAt || input.createdAt);
+  const slug = String(input.slug || '').trim();
 
   return {
     id,
+    slug: slug || undefined,
     title,
     description: String(input.description || '').trim(),
     thumbnail: String(input.thumbnail || '').trim(),
@@ -398,7 +403,19 @@ async function loadMongoFeed(
   );
 
   const [articleDocs, videoDocs, shortDocs, epaperDocs, emagazineDocs] = await Promise.all([
-    Article.find({})
+    Article.find({
+      $or: [
+        { 'workflow.status': 'published' },
+        {
+          'workflow.status': 'scheduled',
+          'workflow.scheduledFor': { $lte: new Date() },
+        },
+        {
+          'workflow.status': { $in: [null, undefined] },
+          publishedAt: { $exists: true, $ne: null },
+        },
+      ],
+    })
       .select(
         '_id slug title summary image category author publishedAt updatedAt views isBreaking isTrending editorial workflow reporterMeta breakingTts'
       )
@@ -407,14 +424,14 @@ async function loadMongoFeed(
       .lean(),
     limits.videos > 0
       ? Video.find({ isPublished: true, isShort: { $ne: true } })
-          .select('_id title description thumbnail videoUrl duration category isShort views publishedAt createdAt')
+          .select(PUBLIC_VIDEO_PROJECTION)
           .sort({ publishedAt: -1, _id: -1 })
           .limit(limits.videos)
           .lean()
       : Promise.resolve([]),
     limits.shorts > 0
       ? Video.find({ isPublished: true, isShort: true })
-          .select('_id title description thumbnail videoUrl duration category isShort views publishedAt createdAt')
+          .select(PUBLIC_VIDEO_PROJECTION)
           .sort({ createdAt: -1, _id: -1 })
           .limit(limits.shorts)
           .lean()
@@ -422,6 +439,7 @@ async function loadMongoFeed(
     EPaper.find({
       status: 'published',
       isCurrentRevision: { $ne: false },
+      citySlug: 'indore',
       ...buildPublicationTypeMongoFilter('epaper'),
     })
       .select('_id publicationType citySlug cityName title publishDate thumbnailPath thumbnail pdfPath pdfUrl pageCount pages')
@@ -499,6 +517,7 @@ async function loadFileFeed(limits: Required<PublicHomeFeedLimits>) {
   const latestEPaper: PublicHomeFeedEPaper | null = epaperRows
     .map((item) => mapFileEPaper(item))
     .filter((item): item is PublicHomeFeedEPaper => Boolean(item))
+    .filter((item) => item.citySlug === 'indore')
     .sort((a, b) => b.publishDate.localeCompare(a.publishDate))[0] ?? null;
 
   return {

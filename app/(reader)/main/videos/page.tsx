@@ -4,7 +4,8 @@ import {
   buildVideosPageMetadata,
 } from '@/lib/seo/readerPageMetadata';
 import { getPublicVideoForMetadata } from '@/lib/server/publicVideoMetadata';
-import { resolveRequestOrigin } from '@/lib/server/requestOrigin';
+import { getPublicVideoFeedPage } from '@/lib/server/publicVideos';
+import { isSwipeBetaEnabled } from '@/lib/content/swipeBeta';
 import VideosPageClient, {
   type PublicCursor,
   type PublicVideoFeedItem,
@@ -12,22 +13,9 @@ import VideosPageClient, {
 
 const VIDEOS_LIMIT = 20;
 
-type VideosLatestResponse = {
-  items?: PublicVideoFeedItem[];
-  limit?: number;
-  hasMore?: boolean;
-  nextCursor?: PublicCursor | null;
-};
-
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function parseLimit(value: unknown) {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return VIDEOS_LIMIT;
-  return parsed;
-}
 
 function toSingleString(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] || '';
@@ -55,33 +43,15 @@ function mapMetadataVideoToFeedItem(
 
 async function fetchInitialVideosFeed() {
   try {
-    const origin = await resolveRequestOrigin();
-    const response = await fetch(`${origin}/api/v1/public/videos?limit=${VIDEOS_LIMIT}`, {
-      next: { revalidate: 60 },
-    });
-
-    if (!response.ok) {
-      return {
-        items: [] as PublicVideoFeedItem[],
-        limit: VIDEOS_LIMIT,
-        hasMore: false,
-        nextCursor: null as PublicCursor | null,
-      };
-    }
-
-    const payload = (await response.json()) as VideosLatestResponse;
+    const result = await getPublicVideoFeedPage({ limit: VIDEOS_LIMIT });
     return {
-      items: Array.isArray(payload.items) ? payload.items : [],
-      limit: parseLimit(payload.limit),
-      hasMore: Boolean(payload.hasMore),
-      nextCursor:
-        payload.nextCursor &&
-        typeof payload.nextCursor.publishedAt === 'string' &&
-        typeof payload.nextCursor.id === 'string'
-          ? payload.nextCursor
-          : null,
+      items: result.items as unknown as PublicVideoFeedItem[],
+      limit: result.limit,
+      hasMore: result.hasMore,
+      nextCursor: result.nextCursor,
     };
-  } catch {
+  } catch (error) {
+    console.error('Failed to load initial videos feed directly:', error);
     return {
       items: [] as PublicVideoFeedItem[],
       limit: VIDEOS_LIMIT,
@@ -127,13 +97,39 @@ export default async function VideosPage({ searchParams }: PageProps) {
       ? [mapMetadataVideoToFeedItem(selectedVideo), ...initial.items]
       : initial.items;
 
+  const primaryVideo = selectedVideo
+    ? mapMetadataVideoToFeedItem(selectedVideo)
+    : initialItems[0] || null;
+
+  const videoJsonLd = primaryVideo
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'VideoObject',
+        name: primaryVideo.title,
+        description: primaryVideo.description || primaryVideo.title,
+        thumbnailUrl: [primaryVideo.thumbnail],
+        uploadDate: primaryVideo.publishedAt,
+        contentUrl: primaryVideo.videoUrl,
+        duration: primaryVideo.duration ? `PT${primaryVideo.duration}S` : undefined,
+      }
+    : null;
+
   return (
-    <VideosPageClient
-      initialItems={initialItems}
-      initialLimit={initial.limit}
-      initialHasMore={initial.hasMore}
-      initialNextCursor={initial.nextCursor}
-      initialSelectedVideoId={selectedVideo ? selectedVideo.id : selectedVideoId}
-    />
+    <>
+      {videoJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(videoJsonLd) }}
+        />
+      ) : null}
+      <VideosPageClient
+        initialItems={initialItems}
+        initialLimit={initial.limit}
+        initialHasMore={initial.hasMore}
+        initialNextCursor={initial.nextCursor}
+        initialSelectedVideoId={selectedVideo ? selectedVideo.id : selectedVideoId}
+        swipeBetaEnabled={isSwipeBetaEnabled()}
+      />
+    </>
   );
 }

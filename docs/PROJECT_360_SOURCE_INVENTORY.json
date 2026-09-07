@@ -1,0 +1,4199 @@
+﻿{
+  "generatedAt": "2026-09-05T09:13:20.569Z",
+  "scope": "Structural inventory; file inclusion is not a claim of line-by-line review.",
+  "sourceFileCount": 918,
+  "sourceLineCount": 202970,
+  "apiRoutes": [
+    "app/api/admin/analytics/alert-notifications/[id]/acknowledge/route.ts",
+    "app/api/admin/analytics/alert-notifications/[id]/resolve/route.ts",
+    "app/api/admin/analytics/alert-notifications/mute/route.ts",
+    "app/api/admin/analytics/briefing-schedules/[id]/run/route.ts",
+    "app/api/admin/analytics/briefing-schedules/preview/route.ts",
+    "app/api/admin/analytics/briefing-schedules/retry-failed/route.ts",
+    "app/api/admin/analytics/briefing-schedules/route.ts",
+    "app/api/admin/analytics/briefing-schedules/run-due/route.ts",
+    "app/api/admin/analytics/briefing/route.ts",
+    "app/api/admin/analytics/export/route.ts",
+    "app/api/admin/analytics/live/route.ts",
+    "app/api/admin/analytics/live/stream/route.ts",
+    "app/api/admin/analytics/top-lead-pages/route.ts",
+    "app/api/admin/analytics/value-scoring/route.ts",
+    "app/api/admin/articles/[id]/activity/route.ts",
+    "app/api/admin/articles/[id]/breaking-tts/route.ts",
+    "app/api/admin/articles/[id]/lock/route.ts",
+    "app/api/admin/articles/[id]/revisions/[revisionId]/restore/route.ts",
+    "app/api/admin/articles/[id]/revisions/route.ts",
+    "app/api/admin/articles/[id]/route.ts",
+    "app/api/admin/articles/[id]/tts/route.ts",
+    "app/api/admin/articles/assist/route.ts",
+    "app/api/admin/articles/assist/translate/route.ts",
+    "app/api/admin/articles/route.ts",
+    "app/api/admin/articles/trending-signal/route.ts",
+    "app/api/admin/categories/[id]/route.ts",
+    "app/api/admin/categories/route.ts",
+    "app/api/admin/contact-messages/[id]/route.ts",
+    "app/api/admin/contact-messages/route.ts",
+    "app/api/admin/elections/delete/route.ts",
+    "app/api/admin/elections/results/route.ts",
+    "app/api/admin/elections/upload/route.ts",
+    "app/api/admin/epapers/[id]/activity/route.ts",
+    "app/api/admin/epapers/[id]/articles/[articleId]/tts/route.ts",
+    "app/api/admin/epapers/[id]/articles/route.ts",
+    "app/api/admin/epapers/[id]/crop-hotspot/route.ts",
+    "app/api/admin/epapers/[id]/generate-page-images/route.ts",
+    "app/api/admin/epapers/[id]/ocr/[suggestionId]/route.ts",
+    "app/api/admin/epapers/[id]/ocr/route.ts",
+    "app/api/admin/epapers/[id]/pages/route.ts",
+    "app/api/admin/epapers/[id]/processing/retry/route.ts",
+    "app/api/admin/epapers/[id]/processing/route.ts",
+    "app/api/admin/epapers/[id]/revisions/route.ts",
+    "app/api/admin/epapers/[id]/route.ts",
+    "app/api/admin/epapers/[id]/tts/route.ts",
+    "app/api/admin/epapers/[id]/uploads/finalize/route.ts",
+    "app/api/admin/epapers/assist/route.ts",
+    "app/api/admin/epapers/import/route.ts",
+    "app/api/admin/epapers/jobs/run-due/route.ts",
+    "app/api/admin/epapers/route.ts",
+    "app/api/admin/epapers/upload/route.ts",
+    "app/api/admin/epapers/uploads/route.ts",
+    "app/api/admin/media/[id]/route.ts",
+    "app/api/admin/media/route.ts",
+    "app/api/admin/notifications/route.ts",
+    "app/api/admin/polls/[id]/route.ts",
+    "app/api/admin/polls/route.ts",
+    "app/api/admin/settings/leadership-reports/route.ts",
+    "app/api/admin/social-posts/[id]/dispatch/route.ts",
+    "app/api/admin/social-posts/[id]/route.ts",
+    "app/api/admin/social-posts/generate/route.ts",
+    "app/api/admin/social-posts/route.ts",
+    "app/api/admin/stories/[id]/activity/route.ts",
+    "app/api/admin/stories/[id]/download/route.ts",
+    "app/api/admin/stories/[id]/route.ts",
+    "app/api/admin/stories/[id]/video-production/route.ts",
+    "app/api/admin/stories/route.ts",
+    "app/api/admin/team/[id]/route.ts",
+    "app/api/admin/team/[id]/setup-link/route.ts",
+    "app/api/admin/team/options/route.ts",
+    "app/api/admin/team/route.ts",
+    "app/api/admin/tts/assets/route.ts",
+    "app/api/admin/tts/cleanup/route.ts",
+    "app/api/admin/tts/jobs/run-due/route.ts",
+    "app/api/admin/tts/prewarm/route.ts",
+    "app/api/admin/tts/retry/route.ts",
+    "app/api/admin/tts/revalidate/route.ts",
+    "app/api/admin/tts/settings/route.ts",
+    "app/api/admin/upload/route.ts",
+    "app/api/admin/uploads/article-tts/complete/route.ts",
+    "app/api/admin/uploads/article-tts/init/route.ts",
+    "app/api/admin/uploads/breaking-tts/complete/route.ts",
+    "app/api/admin/uploads/breaking-tts/init/route.ts",
+    "app/api/admin/uploads/epaper-asset/complete/route.ts",
+    "app/api/admin/uploads/epaper-asset/init/route.ts",
+    "app/api/admin/uploads/story-video/complete/route.ts",
+    "app/api/admin/uploads/story-video/init/route.ts",
+    "app/api/admin/users/route.ts",
+    "app/api/admin/videos/[id]/activity/route.ts",
+    "app/api/admin/videos/[id]/route.ts",
+    "app/api/admin/videos/route.ts",
+    "app/api/admin/work-queue/actions/route.ts",
+    "app/api/admin/work-queue/assignee-suggestions/route.ts",
+    "app/api/admin/work-queue/bulk/route.ts",
+    "app/api/admin/work-queue/route.ts",
+    "app/api/admin/workflow-notifications/jobs/run-due/route.ts",
+    "app/api/advertise/inquiry/route.ts",
+    "app/api/ai/summary/route.ts",
+    "app/api/ai/tts/route.ts",
+    "app/api/analytics/track/route.ts",
+    "app/api/articles/[id]/route.ts",
+    "app/api/articles/[id]/tts/route.ts",
+    "app/api/articles/latest/route.ts",
+    "app/api/auth/[...nextauth]/route.ts",
+    "app/api/auth/register/route.ts",
+    "app/api/auth/staff-setup/route.ts",
+    "app/api/breaking/route.ts",
+    "app/api/careers/apply/route.ts",
+    "app/api/contact/route.ts",
+    "app/api/docs/openapi.json/route.ts",
+    "app/api/elections/results/route.ts",
+    "app/api/epapers/[id]/articles/[articleId]/tts/route.ts",
+    "app/api/epapers/[id]/route.ts",
+    "app/api/epapers/latest/route.ts",
+    "app/api/epapers/route.ts",
+    "app/api/health/route.ts",
+    "app/api/marketing/lead/route.ts",
+    "app/api/poll/current/route.ts",
+    "app/api/poll/status/route.ts",
+    "app/api/poll/vote/route.ts",
+    "app/api/public/epapers/[id]/pdf/route.ts",
+    "app/api/public/uploads/[...path]/route.ts",
+    "app/api/security/csp-report/route.ts",
+    "app/api/shorts/latest/route.ts",
+    "app/api/subscribe/route.ts",
+    "app/api/user/profile/route.ts",
+    "app/api/user/save/route.ts",
+    "app/api/user/track/route.ts",
+    "app/api/v1/public/analytics/vitals/route.ts",
+    "app/api/v1/public/articles/[slug]/route.ts",
+    "app/api/v1/public/articles/latest/route.ts",
+    "app/api/v1/public/articles/route.ts",
+    "app/api/v1/public/breaking/route.ts",
+    "app/api/v1/public/categories/route.ts",
+    "app/api/v1/public/cities/route.ts",
+    "app/api/v1/public/epapers/latest/route.ts",
+    "app/api/v1/public/epapers/route.ts",
+    "app/api/v1/public/health/route.ts",
+    "app/api/v1/public/home-feed/route.ts",
+    "app/api/v1/public/search/route.ts",
+    "app/api/v1/public/shorts/[slug]/route.ts",
+    "app/api/v1/public/shorts/latest/route.ts",
+    "app/api/v1/public/shorts/route.ts",
+    "app/api/v1/public/videos/latest/route.ts",
+    "app/api/v1/public/videos/route.ts",
+    "app/api/videos/latest/route.ts"
+  ],
+  "cmsPages": [
+    "app/(admin)/admin/ai/page.tsx",
+    "app/(admin)/admin/analytics/business-value/page.tsx",
+    "app/(admin)/admin/analytics/page.tsx",
+    "app/(admin)/admin/api-docs/page.tsx",
+    "app/(admin)/admin/articles/[id]/edit/page.tsx",
+    "app/(admin)/admin/articles/new/page.tsx",
+    "app/(admin)/admin/articles/page.tsx",
+    "app/(admin)/admin/assignments/page.tsx",
+    "app/(admin)/admin/audit-log/page.tsx",
+    "app/(admin)/admin/categories/page.tsx",
+    "app/(admin)/admin/contact-messages/page.tsx",
+    "app/(admin)/admin/content-queue/page.tsx",
+    "app/(admin)/admin/copy-desk/page.tsx",
+    "app/(admin)/admin/emagazines/[id]/edit/page.tsx",
+    "app/(admin)/admin/emagazines/[id]/page.tsx",
+    "app/(admin)/admin/emagazines/[id]/page/[pageNumber]/page.tsx",
+    "app/(admin)/admin/emagazines/new/page.tsx",
+    "app/(admin)/admin/emagazines/page.tsx",
+    "app/(admin)/admin/epapers/[id]/edit/page.tsx",
+    "app/(admin)/admin/epapers/[id]/page.tsx",
+    "app/(admin)/admin/epapers/[id]/page/[pageNumber]/page.tsx",
+    "app/(admin)/admin/epapers/new/page.tsx",
+    "app/(admin)/admin/epapers/page.tsx",
+    "app/(admin)/admin/media/page.tsx",
+    "app/(admin)/admin/my-work/page.tsx",
+    "app/(admin)/admin/notifications/page.tsx",
+    "app/(admin)/admin/operations-diagnostics/page.tsx",
+    "app/(admin)/admin/operations/page.tsx",
+    "app/(admin)/admin/page.tsx",
+    "app/(admin)/admin/permission-review/page.tsx",
+    "app/(admin)/admin/polls/page.tsx",
+    "app/(admin)/admin/push-alerts/page.tsx",
+    "app/(admin)/admin/revenue/page.tsx",
+    "app/(admin)/admin/review-queue/page.tsx",
+    "app/(admin)/admin/settings/elections/page.tsx",
+    "app/(admin)/admin/settings/newsroom/page.tsx",
+    "app/(admin)/admin/settings/page.tsx",
+    "app/(admin)/admin/social-posts/page.tsx",
+    "app/(admin)/admin/stories/[id]/edit/page.tsx",
+    "app/(admin)/admin/stories/new/page.tsx",
+    "app/(admin)/admin/stories/page.tsx",
+    "app/(admin)/admin/team/page.tsx",
+    "app/(admin)/admin/users/page.tsx",
+    "app/(admin)/admin/videos/[id]/edit/page.tsx",
+    "app/(admin)/admin/videos/new/page.tsx",
+    "app/(admin)/admin/videos/page.tsx",
+    "app/(admin)/admin/work/bulk/page.tsx",
+    "app/(admin)/admin/work/page.tsx",
+    "app/(admin)/dashboard/page.tsx"
+  ],
+  "readerPages": [
+    "app/(reader)/article/[id]/page.tsx",
+    "app/(reader)/business/page.tsx",
+    "app/(reader)/education/page.tsx",
+    "app/(reader)/entertainment/page.tsx",
+    "app/(reader)/epaper/page.tsx",
+    "app/(reader)/health/page.tsx",
+    "app/(reader)/lifestyle/page.tsx",
+    "app/(reader)/main/about/page.tsx",
+    "app/(reader)/main/account/page.tsx",
+    "app/(reader)/main/advertise/page.tsx",
+    "app/(reader)/main/article/[id]/page.tsx",
+    "app/(reader)/main/author/[id]/page.tsx",
+    "app/(reader)/main/careers/page.tsx",
+    "app/(reader)/main/category/[slug]/page.tsx",
+    "app/(reader)/main/contact/page.tsx",
+    "app/(reader)/main/cookies/page.tsx",
+    "app/(reader)/main/digital-newsroom/page.tsx",
+    "app/(reader)/main/disclaimer/page.tsx",
+    "app/(reader)/main/e-magazine/page.tsx",
+    "app/(reader)/main/elections/page.tsx",
+    "app/(reader)/main/epaper/page.tsx",
+    "app/(reader)/main/ftaftaf/page.tsx",
+    "app/(reader)/main/latest/page.tsx",
+    "app/(reader)/main/news/page.tsx",
+    "app/(reader)/main/page.tsx",
+    "app/(reader)/main/preferences/page.tsx",
+    "app/(reader)/main/privacy/page.tsx",
+    "app/(reader)/main/saved/page.tsx",
+    "app/(reader)/main/search/page.tsx",
+    "app/(reader)/main/shorts/[slug]/page.tsx",
+    "app/(reader)/main/sitemap/page.tsx",
+    "app/(reader)/main/terms/page.tsx",
+    "app/(reader)/main/videos/page.tsx",
+    "app/(reader)/news/page.tsx",
+    "app/(reader)/profile/page.tsx",
+    "app/(reader)/science/page.tsx",
+    "app/(reader)/sports/page.tsx",
+    "app/(reader)/technology/page.tsx",
+    "app/(reader)/world/page.tsx"
+  ],
+  "models": [
+    "lib/models/AdvertiseInquiry.ts",
+    "lib/models/AnalyticsEvent.ts",
+    "lib/models/Article.ts",
+    "lib/models/ArticleLock.ts",
+    "lib/models/AuditLog.ts",
+    "lib/models/Author.ts",
+    "lib/models/CareerApplication.ts",
+    "lib/models/Category.ts",
+    "lib/models/ContactMessage.ts",
+    "lib/models/ContentActivity.ts",
+    "lib/models/EPaper.ts",
+    "lib/models/EPaperArticle.ts",
+    "lib/models/EPaperOcrSuggestion.ts",
+    "lib/models/EPaperProcessingJob.ts",
+    "lib/models/LeadershipReportAlertNotification.ts",
+    "lib/models/LeadershipReportAlertState.ts",
+    "lib/models/LeadershipReportRun.ts",
+    "lib/models/LeadershipReportSchedule.ts",
+    "lib/models/MarketingLead.ts",
+    "lib/models/Media.ts",
+    "lib/models/Poll.ts",
+    "lib/models/PollVote.ts",
+    "lib/models/schemas/newsroom.ts",
+    "lib/models/schemas/workflow.ts",
+    "lib/models/SocialPost.ts",
+    "lib/models/Story.ts",
+    "lib/models/Subscriber.ts",
+    "lib/models/Tag.ts",
+    "lib/models/TtsAsset.ts",
+    "lib/models/TtsAuditEvent.ts",
+    "lib/models/TtsConfig.ts",
+    "lib/models/User.ts",
+    "lib/models/Video.ts",
+    "lib/models/WorkflowNotification.ts"
+  ],
+  "largeFiles": [
+    {
+      "path": "package-lock.json",
+      "lines": 10507
+    },
+    {
+      "path": "app/(admin)/admin/articles/[id]/edit/EditArticlePageClient.tsx",
+      "lines": 3890
+    },
+    {
+      "path": "app/(reader)/main/epaper/EPaperPageClient.tsx",
+      "lines": 3188
+    },
+    {
+      "path": "app/(admin)/admin/stories/[id]/edit/page.tsx",
+      "lines": 3069
+    },
+    {
+      "path": "app/(admin)/admin/epapers/[id]/page/[pageNumber]/page.tsx",
+      "lines": 2900
+    },
+    {
+      "path": "app/(admin)/admin/articles/new/ArticleCreatePageClient.tsx",
+      "lines": 2684
+    },
+    {
+      "path": "app/api/admin/articles/[id]/route.ts",
+      "lines": 2286
+    },
+    {
+      "path": "app/(admin)/admin/epapers/[id]/page.tsx",
+      "lines": 2068
+    },
+    {
+      "path": "app/globals.css",
+      "lines": 1822
+    },
+    {
+      "path": "scripts/audit-seo-indexing.ts",
+      "lines": 1723
+    },
+    {
+      "path": "app/(admin)/admin/analytics/LeadershipReportDeliveryPanel.tsx",
+      "lines": 1707
+    },
+    {
+      "path": "app/(admin)/admin/stories/new/page.tsx",
+      "lines": 1551
+    },
+    {
+      "path": "lib/admin/audienceAnalytics.ts",
+      "lines": 1434
+    },
+    {
+      "path": "app/(admin)/admin/settings/LeadershipReportsSettingsPanel.tsx",
+      "lines": 1379
+    },
+    {
+      "path": "tests/api/admin-article-by-id-route.test.ts",
+      "lines": 1326
+    },
+    {
+      "path": "app/(admin)/admin/articles/ArticlesManagementClient.tsx",
+      "lines": 1280
+    },
+    {
+      "path": "app/api/admin/stories/[id]/route.ts",
+      "lines": 1174
+    },
+    {
+      "path": "app/(admin)/admin/videos/[id]/edit/page.tsx",
+      "lines": 1167
+    },
+    {
+      "path": "app/(reader)/main/HomePageClient.tsx",
+      "lines": 1145
+    },
+    {
+      "path": "app/(auth)/signin/SignInPageClient.tsx",
+      "lines": 1122
+    },
+    {
+      "path": "app/(reader)/main/article/[id]/ArticleDetailClient.tsx",
+      "lines": 1111
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/route.ts",
+      "lines": 1012
+    },
+    {
+      "path": "app/api/admin/videos/[id]/route.ts",
+      "lines": 1008
+    },
+    {
+      "path": "components/ui/VideoShortsFeed.tsx",
+      "lines": 1003
+    },
+    {
+      "path": "lib/storage/articlesFile.ts",
+      "lines": 939
+    },
+    {
+      "path": "tests/seo-indexing-audit.test.ts",
+      "lines": 900
+    },
+    {
+      "path": "app/api/admin/articles/route.ts",
+      "lines": 899
+    },
+    {
+      "path": "lib/admin/newsroomPipeline.ts",
+      "lines": 873
+    },
+    {
+      "path": "app/(admin)/admin/AdminShell.tsx",
+      "lines": 866
+    },
+    {
+      "path": "lib/server/publicArticles.ts",
+      "lines": 859
+    },
+    {
+      "path": "app/(admin)/admin/stories/page.tsx",
+      "lines": 842
+    },
+    {
+      "path": "app/(admin)/admin/videos/new/page.tsx",
+      "lines": 811
+    },
+    {
+      "path": "lib/admin/analyticsExport.ts",
+      "lines": 811
+    },
+    {
+      "path": "app/(reader)/main/contact/page.tsx",
+      "lines": 808
+    },
+    {
+      "path": "lib/utils/articleAssistant.ts",
+      "lines": 798
+    },
+    {
+      "path": "lib/admin/articleWorkflowOverview.ts",
+      "lines": 793
+    },
+    {
+      "path": "lib/auth.ts",
+      "lines": 788
+    },
+    {
+      "path": "app/(admin)/admin/analytics/page.tsx",
+      "lines": 758
+    },
+    {
+      "path": "app/(reader)/main/account/page.tsx",
+      "lines": 753
+    },
+    {
+      "path": "app/api/admin/epapers/route.ts",
+      "lines": 753
+    },
+    {
+      "path": "lib/utils/adminEpaperIngestion.ts",
+      "lines": 743
+    },
+    {
+      "path": "components/forms/StructuredArticleEditor.tsx",
+      "lines": 733
+    },
+    {
+      "path": "components/ui/useBreakingNewsController.ts",
+      "lines": 724
+    },
+    {
+      "path": "app/(admin)/admin/polls/PollManagementClient.tsx",
+      "lines": 699
+    },
+    {
+      "path": "app/(admin)/admin/team/TeamManagementClient.tsx",
+      "lines": 691
+    },
+    {
+      "path": "app/(admin)/admin/analytics/AnalyticsLiveCharts.tsx",
+      "lines": 677
+    },
+    {
+      "path": "app/api/admin/stories/route.ts",
+      "lines": 672
+    },
+    {
+      "path": "tests/article-create-manual-audio.test.tsx",
+      "lines": 672
+    },
+    {
+      "path": "app/(admin)/admin/settings/elections/page.tsx",
+      "lines": 661
+    },
+    {
+      "path": "lib/utils/epaperLocalOcrClient.ts",
+      "lines": 661
+    },
+    {
+      "path": "components/ui/VideoPlayer.tsx",
+      "lines": 643
+    },
+    {
+      "path": "components/forms/ArticleEditorStudio.tsx",
+      "lines": 641
+    },
+    {
+      "path": "lib/security/auditLogger.ts",
+      "lines": 638
+    },
+    {
+      "path": "app/api/admin/videos/route.ts",
+      "lines": 637
+    },
+    {
+      "path": "components/ui/InstallAppPrompt.tsx",
+      "lines": 632
+    },
+    {
+      "path": "app/(admin)/admin/ai/TtsOperationsPanel.tsx",
+      "lines": 631
+    },
+    {
+      "path": "tests/api/admin-articles-route.test.ts",
+      "lines": 629
+    },
+    {
+      "path": "components/forms/EpaperHotspotEditor.tsx",
+      "lines": 624
+    },
+    {
+      "path": "lib/utils/digitalOceanSpaces.ts",
+      "lines": 603
+    },
+    {
+      "path": "lib/seo/articleSeo.ts",
+      "lines": 601
+    }
+  ],
+  "missingScriptTargets": [],
+  "files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "lines": 46
+    },
+    {
+      "path": ".github/workflows/deploy-hostinger.yml",
+      "lines": 67
+    },
+    {
+      "path": "app/(admin)/admin/AdminShell.tsx",
+      "lines": 866
+    },
+    {
+      "path": "app/(admin)/admin/ai/page.tsx",
+      "lines": 61
+    },
+    {
+      "path": "app/(admin)/admin/ai/TtsOperationsPanel.tsx",
+      "lines": 631
+    },
+    {
+      "path": "app/(admin)/admin/analytics/AnalyticsLiveCharts.tsx",
+      "lines": 677
+    },
+    {
+      "path": "app/(admin)/admin/analytics/AnalyticsShareActions.tsx",
+      "lines": 51
+    },
+    {
+      "path": "app/(admin)/admin/analytics/business-value/layout.tsx",
+      "lines": 18
+    },
+    {
+      "path": "app/(admin)/admin/analytics/business-value/page.tsx",
+      "lines": 183
+    },
+    {
+      "path": "app/(admin)/admin/analytics/LeadershipReportActions.tsx",
+      "lines": 51
+    },
+    {
+      "path": "app/(admin)/admin/analytics/LeadershipReportDeliveryPanel.tsx",
+      "lines": 1707
+    },
+    {
+      "path": "app/(admin)/admin/analytics/page.tsx",
+      "lines": 758
+    },
+    {
+      "path": "app/(admin)/admin/api-docs/page.tsx",
+      "lines": 66
+    },
+    {
+      "path": "app/(admin)/admin/articles/[id]/edit/EditArticlePageClient.tsx",
+      "lines": 3890
+    },
+    {
+      "path": "app/(admin)/admin/articles/[id]/edit/page.tsx",
+      "lines": 24
+    },
+    {
+      "path": "app/(admin)/admin/articles/ArticlesManagementClient.tsx",
+      "lines": 1280
+    },
+    {
+      "path": "app/(admin)/admin/articles/new/ArticleCreatePageClient.tsx",
+      "lines": 2684
+    },
+    {
+      "path": "app/(admin)/admin/articles/new/page.tsx",
+      "lines": 24
+    },
+    {
+      "path": "app/(admin)/admin/articles/new/ReporterArticleCreate.tsx",
+      "lines": 156
+    },
+    {
+      "path": "app/(admin)/admin/articles/page.tsx",
+      "lines": 19
+    },
+    {
+      "path": "app/(admin)/admin/assignments/page.tsx",
+      "lines": 8
+    },
+    {
+      "path": "app/(admin)/admin/audit-log/page.tsx",
+      "lines": 405
+    },
+    {
+      "path": "app/(admin)/admin/categories/page.tsx",
+      "lines": 305
+    },
+    {
+      "path": "app/(admin)/admin/contact-messages/page.tsx",
+      "lines": 502
+    },
+    {
+      "path": "app/(admin)/admin/content-queue/page.tsx",
+      "lines": 8
+    },
+    {
+      "path": "app/(admin)/admin/copy-desk/page.tsx",
+      "lines": 247
+    },
+    {
+      "path": "app/(admin)/admin/copy-desk/StoryAssetDownloadActions.tsx",
+      "lines": 67
+    },
+    {
+      "path": "app/(admin)/admin/DeskWorkflowActions.tsx",
+      "lines": 567
+    },
+    {
+      "path": "app/(admin)/admin/emagazines/[id]/edit/page.tsx",
+      "lines": 23
+    },
+    {
+      "path": "app/(admin)/admin/emagazines/[id]/page.tsx",
+      "lines": 2
+    },
+    {
+      "path": "app/(admin)/admin/emagazines/[id]/page/[pageNumber]/page.tsx",
+      "lines": 2
+    },
+    {
+      "path": "app/(admin)/admin/emagazines/new/page.tsx",
+      "lines": 2
+    },
+    {
+      "path": "app/(admin)/admin/emagazines/page.tsx",
+      "lines": 2
+    },
+    {
+      "path": "app/(admin)/admin/epapers/[id]/edit/page.tsx",
+      "lines": 23
+    },
+    {
+      "path": "app/(admin)/admin/epapers/[id]/page.tsx",
+      "lines": 2068
+    },
+    {
+      "path": "app/(admin)/admin/epapers/[id]/page/[pageNumber]/page.tsx",
+      "lines": 2900
+    },
+    {
+      "path": "app/(admin)/admin/epapers/new/page.tsx",
+      "lines": 461
+    },
+    {
+      "path": "app/(admin)/admin/epapers/page.tsx",
+      "lines": 466
+    },
+    {
+      "path": "app/(admin)/admin/layout.tsx",
+      "lines": 25
+    },
+    {
+      "path": "app/(admin)/admin/loading.tsx",
+      "lines": 17
+    },
+    {
+      "path": "app/(admin)/admin/media/page.tsx",
+      "lines": 510
+    },
+    {
+      "path": "app/(admin)/admin/my-work/page.tsx",
+      "lines": 8
+    },
+    {
+      "path": "app/(admin)/admin/notifications/NotificationsPageClient.tsx",
+      "lines": 61
+    },
+    {
+      "path": "app/(admin)/admin/notifications/page.tsx",
+      "lines": 14
+    },
+    {
+      "path": "app/(admin)/admin/operations-diagnostics/page.tsx",
+      "lines": 503
+    },
+    {
+      "path": "app/(admin)/admin/operations/page.tsx",
+      "lines": 117
+    },
+    {
+      "path": "app/(admin)/admin/page.tsx",
+      "lines": 22
+    },
+    {
+      "path": "app/(admin)/admin/permission-review/page.tsx",
+      "lines": 244
+    },
+    {
+      "path": "app/(admin)/admin/polls/page.tsx",
+      "lines": 16
+    },
+    {
+      "path": "app/(admin)/admin/polls/PollManagementClient.tsx",
+      "lines": 699
+    },
+    {
+      "path": "app/(admin)/admin/push-alerts/page.tsx",
+      "lines": 62
+    },
+    {
+      "path": "app/(admin)/admin/push-alerts/PushAlertDeskClient.tsx",
+      "lines": 177
+    },
+    {
+      "path": "app/(admin)/admin/revenue/page.tsx",
+      "lines": 106
+    },
+    {
+      "path": "app/(admin)/admin/review-queue/page.tsx",
+      "lines": 8
+    },
+    {
+      "path": "app/(admin)/admin/settings/DeploymentSafeguardsPanel.tsx",
+      "lines": 195
+    },
+    {
+      "path": "app/(admin)/admin/settings/elections/page.tsx",
+      "lines": 661
+    },
+    {
+      "path": "app/(admin)/admin/settings/LeadershipReportsSettingsPanel.tsx",
+      "lines": 1379
+    },
+    {
+      "path": "app/(admin)/admin/settings/newsroom/page.tsx",
+      "lines": 143
+    },
+    {
+      "path": "app/(admin)/admin/settings/page.tsx",
+      "lines": 103
+    },
+    {
+      "path": "app/(admin)/admin/settings/TtsSettingsPanel.tsx",
+      "lines": 543
+    },
+    {
+      "path": "app/(admin)/admin/social-posts/page.tsx",
+      "lines": 411
+    },
+    {
+      "path": "app/(admin)/admin/stories/[id]/edit/page.tsx",
+      "lines": 3069
+    },
+    {
+      "path": "app/(admin)/admin/stories/new/page.tsx",
+      "lines": 1551
+    },
+    {
+      "path": "app/(admin)/admin/stories/page.tsx",
+      "lines": 842
+    },
+    {
+      "path": "app/(admin)/admin/team/page.tsx",
+      "lines": 21
+    },
+    {
+      "path": "app/(admin)/admin/team/TeamManagementClient.tsx",
+      "lines": 691
+    },
+    {
+      "path": "app/(admin)/admin/users/page.tsx",
+      "lines": 15
+    },
+    {
+      "path": "app/(admin)/admin/users/UsersManagementClient.tsx",
+      "lines": 532
+    },
+    {
+      "path": "app/(admin)/admin/videos/[id]/edit/page.tsx",
+      "lines": 1167
+    },
+    {
+      "path": "app/(admin)/admin/videos/new/page.tsx",
+      "lines": 811
+    },
+    {
+      "path": "app/(admin)/admin/videos/page.tsx",
+      "lines": 522
+    },
+    {
+      "path": "app/(admin)/admin/work/bulk/BulkTriageClient.tsx",
+      "lines": 103
+    },
+    {
+      "path": "app/(admin)/admin/work/bulk/page.tsx",
+      "lines": 19
+    },
+    {
+      "path": "app/(admin)/admin/work/page.tsx",
+      "lines": 12
+    },
+    {
+      "path": "app/(admin)/dashboard/page.tsx",
+      "lines": 18
+    },
+    {
+      "path": "app/(admin)/layout.tsx",
+      "lines": 28
+    },
+    {
+      "path": "app/(auth)/login/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(auth)/setup-admin-account/page.tsx",
+      "lines": 435
+    },
+    {
+      "path": "app/(auth)/signin/page.tsx",
+      "lines": 107
+    },
+    {
+      "path": "app/(auth)/signin/SignInPageClient.tsx",
+      "lines": 1122
+    },
+    {
+      "path": "app/(marketing)/about/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(marketing)/advertise/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(marketing)/careers/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(marketing)/contact/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(marketing)/digital-newsroom/page.tsx",
+      "lines": 2
+    },
+    {
+      "path": "app/(marketing)/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/article/[id]/page.tsx",
+      "lines": 25
+    },
+    {
+      "path": "app/(reader)/business/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/education/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/entertainment/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/epaper/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/health/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/lifestyle/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/main/about/page.tsx",
+      "lines": 240
+    },
+    {
+      "path": "app/(reader)/main/account/page.tsx",
+      "lines": 753
+    },
+    {
+      "path": "app/(reader)/main/advertise/page.tsx",
+      "lines": 116
+    },
+    {
+      "path": "app/(reader)/main/article/[id]/ArticleDetailClient.tsx",
+      "lines": 1111
+    },
+    {
+      "path": "app/(reader)/main/article/[id]/layout.tsx",
+      "lines": 91
+    },
+    {
+      "path": "app/(reader)/main/article/[id]/page.tsx",
+      "lines": 95
+    },
+    {
+      "path": "app/(reader)/main/author/[id]/page.tsx",
+      "lines": 94
+    },
+    {
+      "path": "app/(reader)/main/careers/page.tsx",
+      "lines": 330
+    },
+    {
+      "path": "app/(reader)/main/category/[slug]/CategoryPageClient.tsx",
+      "lines": 271
+    },
+    {
+      "path": "app/(reader)/main/category/[slug]/layout.tsx",
+      "lines": 20
+    },
+    {
+      "path": "app/(reader)/main/category/[slug]/page.tsx",
+      "lines": 35
+    },
+    {
+      "path": "app/(reader)/main/contact/layout.tsx",
+      "lines": 46
+    },
+    {
+      "path": "app/(reader)/main/contact/page.tsx",
+      "lines": 808
+    },
+    {
+      "path": "app/(reader)/main/cookies/page.tsx",
+      "lines": 234
+    },
+    {
+      "path": "app/(reader)/main/digital-newsroom/page.tsx",
+      "lines": 321
+    },
+    {
+      "path": "app/(reader)/main/disclaimer/page.tsx",
+      "lines": 179
+    },
+    {
+      "path": "app/(reader)/main/e-magazine/page.tsx",
+      "lines": 18
+    },
+    {
+      "path": "app/(reader)/main/elections/page.tsx",
+      "lines": 32
+    },
+    {
+      "path": "app/(reader)/main/epaper/EPaperPageClient.tsx",
+      "lines": 3188
+    },
+    {
+      "path": "app/(reader)/main/epaper/EPaperPageServer.tsx",
+      "lines": 219
+    },
+    {
+      "path": "app/(reader)/main/epaper/page.tsx",
+      "lines": 15
+    },
+    {
+      "path": "app/(reader)/main/ftaftaf/page.tsx",
+      "lines": 236
+    },
+    {
+      "path": "app/(reader)/main/HomePageClient.tsx",
+      "lines": 1145
+    },
+    {
+      "path": "app/(reader)/main/latest/LatestFeedClient.tsx",
+      "lines": 253
+    },
+    {
+      "path": "app/(reader)/main/latest/page.tsx",
+      "lines": 50
+    },
+    {
+      "path": "app/(reader)/main/layout.tsx",
+      "lines": 163
+    },
+    {
+      "path": "app/(reader)/main/news/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/main/page.tsx",
+      "lines": 53
+    },
+    {
+      "path": "app/(reader)/main/preferences/page.tsx",
+      "lines": 103
+    },
+    {
+      "path": "app/(reader)/main/privacy/page.tsx",
+      "lines": 287
+    },
+    {
+      "path": "app/(reader)/main/saved/page.tsx",
+      "lines": 304
+    },
+    {
+      "path": "app/(reader)/main/search/page.tsx",
+      "lines": 11
+    },
+    {
+      "path": "app/(reader)/main/search/SearchClient.tsx",
+      "lines": 278
+    },
+    {
+      "path": "app/(reader)/main/shorts/[slug]/page.tsx",
+      "lines": 83
+    },
+    {
+      "path": "app/(reader)/main/sitemap/page.tsx",
+      "lines": 156
+    },
+    {
+      "path": "app/(reader)/main/terms/page.tsx",
+      "lines": 277
+    },
+    {
+      "path": "app/(reader)/main/videos/page.tsx",
+      "lines": 136
+    },
+    {
+      "path": "app/(reader)/main/videos/VideosPageClient.tsx",
+      "lines": 277
+    },
+    {
+      "path": "app/(reader)/news/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/profile/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/science/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/sports/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/technology/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/(reader)/world/page.tsx",
+      "lines": 6
+    },
+    {
+      "path": "app/a/[id]/page.tsx",
+      "lines": 70
+    },
+    {
+      "path": "app/a/[id]/ShortArticleRedirectClient.tsx",
+      "lines": 15
+    },
+    {
+      "path": "app/api/admin/analytics/alert-notifications/[id]/acknowledge/route.ts",
+      "lines": 68
+    },
+    {
+      "path": "app/api/admin/analytics/alert-notifications/[id]/resolve/route.ts",
+      "lines": 68
+    },
+    {
+      "path": "app/api/admin/analytics/alert-notifications/mute/route.ts",
+      "lines": 86
+    },
+    {
+      "path": "app/api/admin/analytics/briefing-schedules/[id]/run/route.ts",
+      "lines": 86
+    },
+    {
+      "path": "app/api/admin/analytics/briefing-schedules/preview/route.ts",
+      "lines": 154
+    },
+    {
+      "path": "app/api/admin/analytics/briefing-schedules/retry-failed/route.ts",
+      "lines": 58
+    },
+    {
+      "path": "app/api/admin/analytics/briefing-schedules/route.ts",
+      "lines": 86
+    },
+    {
+      "path": "app/api/admin/analytics/briefing-schedules/run-due/route.ts",
+      "lines": 67
+    },
+    {
+      "path": "app/api/admin/analytics/briefing/route.ts",
+      "lines": 65
+    },
+    {
+      "path": "app/api/admin/analytics/export/route.ts",
+      "lines": 77
+    },
+    {
+      "path": "app/api/admin/analytics/live/route.ts",
+      "lines": 49
+    },
+    {
+      "path": "app/api/admin/analytics/live/stream/route.ts",
+      "lines": 99
+    },
+    {
+      "path": "app/api/admin/analytics/top-lead-pages/route.ts",
+      "lines": 104
+    },
+    {
+      "path": "app/api/admin/analytics/value-scoring/route.ts",
+      "lines": 81
+    },
+    {
+      "path": "app/api/admin/articles/[id]/activity/route.ts",
+      "lines": 106
+    },
+    {
+      "path": "app/api/admin/articles/[id]/breaking-tts/route.ts",
+      "lines": 318
+    },
+    {
+      "path": "app/api/admin/articles/[id]/lock/route.ts",
+      "lines": 337
+    },
+    {
+      "path": "app/api/admin/articles/[id]/revisions/[revisionId]/restore/route.ts",
+      "lines": 325
+    },
+    {
+      "path": "app/api/admin/articles/[id]/revisions/route.ts",
+      "lines": 132
+    },
+    {
+      "path": "app/api/admin/articles/[id]/route.ts",
+      "lines": 2286
+    },
+    {
+      "path": "app/api/admin/articles/[id]/tts/route.ts",
+      "lines": 156
+    },
+    {
+      "path": "app/api/admin/articles/assist/route.ts",
+      "lines": 90
+    },
+    {
+      "path": "app/api/admin/articles/assist/translate/route.ts",
+      "lines": 184
+    },
+    {
+      "path": "app/api/admin/articles/route.ts",
+      "lines": 899
+    },
+    {
+      "path": "app/api/admin/articles/trending-signal/route.ts",
+      "lines": 84
+    },
+    {
+      "path": "app/api/admin/categories/[id]/route.ts",
+      "lines": 55
+    },
+    {
+      "path": "app/api/admin/categories/route.ts",
+      "lines": 175
+    },
+    {
+      "path": "app/api/admin/contact-messages/[id]/route.ts",
+      "lines": 251
+    },
+    {
+      "path": "app/api/admin/contact-messages/route.ts",
+      "lines": 215
+    },
+    {
+      "path": "app/api/admin/elections/delete/route.ts",
+      "lines": 40
+    },
+    {
+      "path": "app/api/admin/elections/results/route.ts",
+      "lines": 27
+    },
+    {
+      "path": "app/api/admin/elections/upload/route.ts",
+      "lines": 80
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/activity/route.ts",
+      "lines": 63
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/articles/[articleId]/tts/route.ts",
+      "lines": 221
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/articles/route.ts",
+      "lines": 375
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/crop-hotspot/route.ts",
+      "lines": 238
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/generate-page-images/route.ts",
+      "lines": 29
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/ocr/[suggestionId]/route.ts",
+      "lines": 168
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/ocr/route.ts",
+      "lines": 338
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/pages/route.ts",
+      "lines": 522
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/processing/retry/route.ts",
+      "lines": 73
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/processing/route.ts",
+      "lines": 67
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/revisions/route.ts",
+      "lines": 196
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/route.ts",
+      "lines": 1012
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/tts/route.ts",
+      "lines": 121
+    },
+    {
+      "path": "app/api/admin/epapers/[id]/uploads/finalize/route.ts",
+      "lines": 133
+    },
+    {
+      "path": "app/api/admin/epapers/assist/route.ts",
+      "lines": 86
+    },
+    {
+      "path": "app/api/admin/epapers/import/route.ts",
+      "lines": 90
+    },
+    {
+      "path": "app/api/admin/epapers/jobs/run-due/route.ts",
+      "lines": 42
+    },
+    {
+      "path": "app/api/admin/epapers/route.ts",
+      "lines": 753
+    },
+    {
+      "path": "app/api/admin/epapers/upload/route.ts",
+      "lines": 25
+    },
+    {
+      "path": "app/api/admin/epapers/uploads/route.ts",
+      "lines": 219
+    },
+    {
+      "path": "app/api/admin/media/[id]/route.ts",
+      "lines": 64
+    },
+    {
+      "path": "app/api/admin/media/route.ts",
+      "lines": 133
+    },
+    {
+      "path": "app/api/admin/notifications/route.ts",
+      "lines": 54
+    },
+    {
+      "path": "app/api/admin/polls/[id]/route.ts",
+      "lines": 154
+    },
+    {
+      "path": "app/api/admin/polls/route.ts",
+      "lines": 139
+    },
+    {
+      "path": "app/api/admin/settings/leadership-reports/route.ts",
+      "lines": 86
+    },
+    {
+      "path": "app/api/admin/social-posts/[id]/dispatch/route.ts",
+      "lines": 203
+    },
+    {
+      "path": "app/api/admin/social-posts/[id]/route.ts",
+      "lines": 146
+    },
+    {
+      "path": "app/api/admin/social-posts/generate/route.ts",
+      "lines": 210
+    },
+    {
+      "path": "app/api/admin/social-posts/route.ts",
+      "lines": 88
+    },
+    {
+      "path": "app/api/admin/stories/[id]/activity/route.ts",
+      "lines": 102
+    },
+    {
+      "path": "app/api/admin/stories/[id]/download/route.ts",
+      "lines": 306
+    },
+    {
+      "path": "app/api/admin/stories/[id]/route.ts",
+      "lines": 1174
+    },
+    {
+      "path": "app/api/admin/stories/[id]/video-production/route.ts",
+      "lines": 302
+    },
+    {
+      "path": "app/api/admin/stories/route.ts",
+      "lines": 672
+    },
+    {
+      "path": "app/api/admin/team/[id]/route.ts",
+      "lines": 200
+    },
+    {
+      "path": "app/api/admin/team/[id]/setup-link/route.ts",
+      "lines": 101
+    },
+    {
+      "path": "app/api/admin/team/options/route.ts",
+      "lines": 78
+    },
+    {
+      "path": "app/api/admin/team/route.ts",
+      "lines": 220
+    },
+    {
+      "path": "app/api/admin/tts/assets/route.ts",
+      "lines": 183
+    },
+    {
+      "path": "app/api/admin/tts/cleanup/route.ts",
+      "lines": 190
+    },
+    {
+      "path": "app/api/admin/tts/jobs/run-due/route.ts",
+      "lines": 42
+    },
+    {
+      "path": "app/api/admin/tts/prewarm/route.ts",
+      "lines": 15
+    },
+    {
+      "path": "app/api/admin/tts/retry/route.ts",
+      "lines": 16
+    },
+    {
+      "path": "app/api/admin/tts/revalidate/route.ts",
+      "lines": 115
+    },
+    {
+      "path": "app/api/admin/tts/settings/route.ts",
+      "lines": 96
+    },
+    {
+      "path": "app/api/admin/upload/route.ts",
+      "lines": 373
+    },
+    {
+      "path": "app/api/admin/uploads/article-tts/complete/route.ts",
+      "lines": 107
+    },
+    {
+      "path": "app/api/admin/uploads/article-tts/init/route.ts",
+      "lines": 78
+    },
+    {
+      "path": "app/api/admin/uploads/breaking-tts/complete/route.ts",
+      "lines": 286
+    },
+    {
+      "path": "app/api/admin/uploads/breaking-tts/init/route.ts",
+      "lines": 111
+    },
+    {
+      "path": "app/api/admin/uploads/epaper-asset/complete/route.ts",
+      "lines": 205
+    },
+    {
+      "path": "app/api/admin/uploads/epaper-asset/init/route.ts",
+      "lines": 72
+    },
+    {
+      "path": "app/api/admin/uploads/story-video/complete/route.ts",
+      "lines": 59
+    },
+    {
+      "path": "app/api/admin/uploads/story-video/init/route.ts",
+      "lines": 52
+    },
+    {
+      "path": "app/api/admin/users/route.ts",
+      "lines": 277
+    },
+    {
+      "path": "app/api/admin/videos/[id]/activity/route.ts",
+      "lines": 99
+    },
+    {
+      "path": "app/api/admin/videos/[id]/route.ts",
+      "lines": 1008
+    },
+    {
+      "path": "app/api/admin/videos/route.ts",
+      "lines": 637
+    },
+    {
+      "path": "app/api/admin/work-queue/actions/route.ts",
+      "lines": 17
+    },
+    {
+      "path": "app/api/admin/work-queue/assignee-suggestions/route.ts",
+      "lines": 72
+    },
+    {
+      "path": "app/api/admin/work-queue/bulk/route.ts",
+      "lines": 57
+    },
+    {
+      "path": "app/api/admin/work-queue/route.ts",
+      "lines": 30
+    },
+    {
+      "path": "app/api/admin/workflow-notifications/jobs/run-due/route.ts",
+      "lines": 74
+    },
+    {
+      "path": "app/api/advertise/inquiry/route.ts",
+      "lines": 146
+    },
+    {
+      "path": "app/api/ai/summary/route.ts",
+      "lines": 87
+    },
+    {
+      "path": "app/api/ai/tts/route.ts",
+      "lines": 28
+    },
+    {
+      "path": "app/api/analytics/track/route.ts",
+      "lines": 209
+    },
+    {
+      "path": "app/api/articles/[id]/route.ts",
+      "lines": 86
+    },
+    {
+      "path": "app/api/articles/[id]/tts/route.ts",
+      "lines": 148
+    },
+    {
+      "path": "app/api/articles/latest/route.ts",
+      "lines": 329
+    },
+    {
+      "path": "app/api/auth/[...nextauth]/route.ts",
+      "lines": 4
+    },
+    {
+      "path": "app/api/auth/register/route.ts",
+      "lines": 176
+    },
+    {
+      "path": "app/api/auth/staff-setup/route.ts",
+      "lines": 110
+    },
+    {
+      "path": "app/api/breaking/route.ts",
+      "lines": 180
+    },
+    {
+      "path": "app/api/careers/apply/route.ts",
+      "lines": 158
+    },
+    {
+      "path": "app/api/contact/route.ts",
+      "lines": 312
+    },
+    {
+      "path": "app/api/docs/openapi.json/route.ts",
+      "lines": 12
+    },
+    {
+      "path": "app/api/elections/results/route.ts",
+      "lines": 17
+    },
+    {
+      "path": "app/api/epapers/[id]/articles/[articleId]/tts/route.ts",
+      "lines": 198
+    },
+    {
+      "path": "app/api/epapers/[id]/route.ts",
+      "lines": 282
+    },
+    {
+      "path": "app/api/epapers/latest/route.ts",
+      "lines": 51
+    },
+    {
+      "path": "app/api/epapers/route.ts",
+      "lines": 269
+    },
+    {
+      "path": "app/api/health/route.ts",
+      "lines": 33
+    },
+    {
+      "path": "app/api/marketing/lead/route.ts",
+      "lines": 128
+    },
+    {
+      "path": "app/api/og/article/[id]/route.tsx",
+      "lines": 48
+    },
+    {
+      "path": "app/api/og/epaper/route.tsx",
+      "lines": 70
+    },
+    {
+      "path": "app/api/og/video/route.tsx",
+      "lines": 24
+    },
+    {
+      "path": "app/api/poll/current/route.ts",
+      "lines": 33
+    },
+    {
+      "path": "app/api/poll/status/route.ts",
+      "lines": 67
+    },
+    {
+      "path": "app/api/poll/vote/route.ts",
+      "lines": 181
+    },
+    {
+      "path": "app/api/public/epapers/[id]/pdf/route.ts",
+      "lines": 130
+    },
+    {
+      "path": "app/api/public/uploads/[...path]/route.ts",
+      "lines": 60
+    },
+    {
+      "path": "app/api/security/csp-report/route.ts",
+      "lines": 20
+    },
+    {
+      "path": "app/api/shorts/latest/route.ts",
+      "lines": 27
+    },
+    {
+      "path": "app/api/subscribe/route.ts",
+      "lines": 67
+    },
+    {
+      "path": "app/api/user/profile/route.ts",
+      "lines": 257
+    },
+    {
+      "path": "app/api/user/save/route.ts",
+      "lines": 266
+    },
+    {
+      "path": "app/api/user/track/route.ts",
+      "lines": 212
+    },
+    {
+      "path": "app/api/v1/public/analytics/vitals/route.ts",
+      "lines": 57
+    },
+    {
+      "path": "app/api/v1/public/articles/[slug]/route.ts",
+      "lines": 50
+    },
+    {
+      "path": "app/api/v1/public/articles/latest/route.ts",
+      "lines": 2
+    },
+    {
+      "path": "app/api/v1/public/articles/route.ts",
+      "lines": 61
+    },
+    {
+      "path": "app/api/v1/public/breaking/route.ts",
+      "lines": 2
+    },
+    {
+      "path": "app/api/v1/public/categories/route.ts",
+      "lines": 19
+    },
+    {
+      "path": "app/api/v1/public/cities/route.ts",
+      "lines": 19
+    },
+    {
+      "path": "app/api/v1/public/epapers/latest/route.ts",
+      "lines": 2
+    },
+    {
+      "path": "app/api/v1/public/epapers/route.ts",
+      "lines": 20
+    },
+    {
+      "path": "app/api/v1/public/health/route.ts",
+      "lines": 20
+    },
+    {
+      "path": "app/api/v1/public/home-feed/route.ts",
+      "lines": 34
+    },
+    {
+      "path": "app/api/v1/public/search/route.ts",
+      "lines": 73
+    },
+    {
+      "path": "app/api/v1/public/shorts/[slug]/route.ts",
+      "lines": 40
+    },
+    {
+      "path": "app/api/v1/public/shorts/latest/route.ts",
+      "lines": 2
+    },
+    {
+      "path": "app/api/v1/public/shorts/route.ts",
+      "lines": 2
+    },
+    {
+      "path": "app/api/v1/public/videos/latest/route.ts",
+      "lines": 2
+    },
+    {
+      "path": "app/api/v1/public/videos/route.ts",
+      "lines": 2
+    },
+    {
+      "path": "app/api/videos/latest/route.ts",
+      "lines": 32
+    },
+    {
+      "path": "app/e/[paper]/route.ts",
+      "lines": 31
+    },
+    {
+      "path": "app/globals.css",
+      "lines": 1822
+    },
+    {
+      "path": "app/layout.tsx",
+      "lines": 380
+    },
+    {
+      "path": "app/manifest.ts",
+      "lines": 69
+    },
+    {
+      "path": "app/news-sitemap.xml/route.ts",
+      "lines": 53
+    },
+    {
+      "path": "app/robots.ts",
+      "lines": 29
+    },
+    {
+      "path": "app/sitemap.ts",
+      "lines": 181
+    },
+    {
+      "path": "app/video-sitemap.xml/route.ts",
+      "lines": 59
+    },
+    {
+      "path": "components/admin/ActionFirstDashboard.tsx",
+      "lines": 119
+    },
+    {
+      "path": "components/admin/AdminMediaImage.tsx",
+      "lines": 12
+    },
+    {
+      "path": "components/admin/analytics/AnalyticsUi.tsx",
+      "lines": 299
+    },
+    {
+      "path": "components/admin/CmsCollectionLayout.tsx",
+      "lines": 175
+    },
+    {
+      "path": "components/admin/CmsEditorLayout.tsx",
+      "lines": 81
+    },
+    {
+      "path": "components/admin/CmsWorkflowActivityTimeline.tsx",
+      "lines": 146
+    },
+    {
+      "path": "components/admin/CmsWorkflowStatusBadge.tsx",
+      "lines": 118
+    },
+    {
+      "path": "components/admin/DatiaElectionEditor.tsx",
+      "lines": 297
+    },
+    {
+      "path": "components/admin/NewsroomOperationsSections.tsx",
+      "lines": 336
+    },
+    {
+      "path": "components/admin/OperationsCenterTabs.tsx",
+      "lines": 73
+    },
+    {
+      "path": "components/admin/SwipeReadinessChecklist.tsx",
+      "lines": 56
+    },
+    {
+      "path": "components/admin/WorkflowNotificationBell.tsx",
+      "lines": 101
+    },
+    {
+      "path": "components/admin/WorkflowRail.tsx",
+      "lines": 47
+    },
+    {
+      "path": "components/admin/WorkQueuePage.tsx",
+      "lines": 43
+    },
+    {
+      "path": "components/admin/WorkQueueWorkbench.tsx",
+      "lines": 343
+    },
+    {
+      "path": "components/analytics/SitePageTracker.tsx",
+      "lines": 111
+    },
+    {
+      "path": "components/auth/AdminSigninBanner.tsx",
+      "lines": 68
+    },
+    {
+      "path": "components/auth/AuthButton.tsx",
+      "lines": 98
+    },
+    {
+      "path": "components/auth/SigninRoleBanner.tsx",
+      "lines": 69
+    },
+    {
+      "path": "components/elections/FeaturedElectionCoverage.tsx",
+      "lines": 250
+    },
+    {
+      "path": "components/epaper/EPaperAudioPlayer.tsx",
+      "lines": 158
+    },
+    {
+      "path": "components/epaper/EPaperCanvas.tsx",
+      "lines": 307
+    },
+    {
+      "path": "components/epaper/EPaperFilmstrip.tsx",
+      "lines": 120
+    },
+    {
+      "path": "components/epaper/EPaperHotspotLayer.tsx",
+      "lines": 77
+    },
+    {
+      "path": "components/epaper/EPaperStoryModal.tsx",
+      "lines": 247
+    },
+    {
+      "path": "components/epaper/EPaperTextLayer.tsx",
+      "lines": 85
+    },
+    {
+      "path": "components/epaper/EPaperToolbar.tsx",
+      "lines": 215
+    },
+    {
+      "path": "components/epaper/reader/EPaperCanvasViewport.tsx",
+      "lines": 417
+    },
+    {
+      "path": "components/epaper/reader/EPaperHotspotLayer.tsx",
+      "lines": 80
+    },
+    {
+      "path": "components/epaper/reader/EPaperPageStrip.tsx",
+      "lines": 124
+    },
+    {
+      "path": "components/epaper/reader/EPaperToolbar.tsx",
+      "lines": 275
+    },
+    {
+      "path": "components/epaper/reader/index.ts",
+      "lines": 8
+    },
+    {
+      "path": "components/epaper/reader/modals/ArticleClippingModal.tsx",
+      "lines": 167
+    },
+    {
+      "path": "components/epaper/reader/modals/ArticleStoryModal.tsx",
+      "lines": 273
+    },
+    {
+      "path": "components/epaper/reader/modals/EPaperDownloadModal.tsx",
+      "lines": 109
+    },
+    {
+      "path": "components/forms/article-create/ArticleComposeModule.tsx",
+      "lines": 234
+    },
+    {
+      "path": "components/forms/article-create/ArticleDraftModule.tsx",
+      "lines": 56
+    },
+    {
+      "path": "components/forms/article-create/ArticleMediaModule.tsx",
+      "lines": 134
+    },
+    {
+      "path": "components/forms/article-create/ArticlePublishModule.tsx",
+      "lines": 108
+    },
+    {
+      "path": "components/forms/article-create/ArticleReadinessModule.tsx",
+      "lines": 105
+    },
+    {
+      "path": "components/forms/article-create/ArticleSeoModule.tsx",
+      "lines": 80
+    },
+    {
+      "path": "components/forms/ArticleDraftRecoveryNotice.tsx",
+      "lines": 56
+    },
+    {
+      "path": "components/forms/ArticleEditorialChecklist.tsx",
+      "lines": 192
+    },
+    {
+      "path": "components/forms/ArticleEditorStudio.tsx",
+      "lines": 641
+    },
+    {
+      "path": "components/forms/ArticleFeaturedImageReaderPreview.tsx",
+      "lines": 133
+    },
+    {
+      "path": "components/forms/ArticleTranslationReview.tsx",
+      "lines": 142
+    },
+    {
+      "path": "components/forms/ArticleWorkbenchAssistant.tsx",
+      "lines": 270
+    },
+    {
+      "path": "components/forms/EpaperHotspotEditor.tsx",
+      "lines": 624
+    },
+    {
+      "path": "components/forms/LiveSearch.tsx",
+      "lines": 163
+    },
+    {
+      "path": "components/forms/RichTextEditor.tsx",
+      "lines": 3
+    },
+    {
+      "path": "components/forms/StructuredArticleEditor.tsx",
+      "lines": 733
+    },
+    {
+      "path": "components/forms/TurnstileWidget.tsx",
+      "lines": 102
+    },
+    {
+      "path": "components/forms/useArticleServerDraft.ts",
+      "lines": 253
+    },
+    {
+      "path": "components/layout/BottomNav.tsx",
+      "lines": 159
+    },
+    {
+      "path": "components/layout/Container.tsx",
+      "lines": 19
+    },
+    {
+      "path": "components/layout/DesktopNav.tsx",
+      "lines": 87
+    },
+    {
+      "path": "components/layout/Footer.tsx",
+      "lines": 460
+    },
+    {
+      "path": "components/layout/Header.tsx",
+      "lines": 315
+    },
+    {
+      "path": "components/layout/Logo.tsx",
+      "lines": 231
+    },
+    {
+      "path": "components/layout/MobileMenu.tsx",
+      "lines": 313
+    },
+    {
+      "path": "components/layout/MobileSwipeTabs.tsx",
+      "lines": 125
+    },
+    {
+      "path": "components/layout/SideRail.tsx",
+      "lines": 73
+    },
+    {
+      "path": "components/providers/AuthSync.tsx",
+      "lines": 160
+    },
+    {
+      "path": "components/providers/FullscreenFix.tsx",
+      "lines": 45
+    },
+    {
+      "path": "components/providers/SessionProvider.tsx",
+      "lines": 18
+    },
+    {
+      "path": "components/providers/ThemeProvider.tsx",
+      "lines": 93
+    },
+    {
+      "path": "components/seo/WebVitalsBeacon.tsx",
+      "lines": 166
+    },
+    {
+      "path": "components/swipe/QuickArticleSheet.tsx",
+      "lines": 155
+    },
+    {
+      "path": "components/swipe/SwipeActions.tsx",
+      "lines": 66
+    },
+    {
+      "path": "components/swipe/SwipeFeed.tsx",
+      "lines": 356
+    },
+    {
+      "path": "components/swipe/SwipeSettingsSheet.tsx",
+      "lines": 129
+    },
+    {
+      "path": "components/swipe/SwipeStates.tsx",
+      "lines": 40
+    },
+    {
+      "path": "components/swipe/SwipeVideoCard.tsx",
+      "lines": 177
+    },
+    {
+      "path": "components/swipe/types.ts",
+      "lines": 19
+    },
+    {
+      "path": "components/swipe/useSwipeAnalytics.ts",
+      "lines": 76
+    },
+    {
+      "path": "components/ui/ArticleMetaRow.tsx",
+      "lines": 183
+    },
+    {
+      "path": "components/ui/BreakingNews.module.css",
+      "lines": 318
+    },
+    {
+      "path": "components/ui/BreakingNews.tsx",
+      "lines": 210
+    },
+    {
+      "path": "components/ui/DailyEpaperAlert.tsx",
+      "lines": 312
+    },
+    {
+      "path": "components/ui/DateInputField.tsx",
+      "lines": 125
+    },
+    {
+      "path": "components/ui/DesktopHeroEpaperCard.tsx",
+      "lines": 140
+    },
+    {
+      "path": "components/ui/ElectionImageWidget.tsx",
+      "lines": 326
+    },
+    {
+      "path": "components/ui/EPaperCityPicker.tsx",
+      "lines": 132
+    },
+    {
+      "path": "components/ui/EPaperDatePicker.tsx",
+      "lines": 258
+    },
+    {
+      "path": "components/ui/ErrorBoundary.tsx",
+      "lines": 68
+    },
+    {
+      "path": "components/ui/form/FormInput.tsx",
+      "lines": 82
+    },
+    {
+      "path": "components/ui/form/FormSelect.tsx",
+      "lines": 69
+    },
+    {
+      "path": "components/ui/form/FormSwitch.tsx",
+      "lines": 73
+    },
+    {
+      "path": "components/ui/form/PasswordInput.tsx",
+      "lines": 77
+    },
+    {
+      "path": "components/ui/form/WhatsAppPhoneInput.tsx",
+      "lines": 48
+    },
+    {
+      "path": "components/ui/HeroCard.tsx",
+      "lines": 193
+    },
+    {
+      "path": "components/ui/HeroCarousel.tsx",
+      "lines": 162
+    },
+    {
+      "path": "components/ui/InstallAppPrompt.tsx",
+      "lines": 632
+    },
+    {
+      "path": "components/ui/LanguageToggle.tsx",
+      "lines": 81
+    },
+    {
+      "path": "components/ui/LegalPageLayout.tsx",
+      "lines": 191
+    },
+    {
+      "path": "components/ui/modal/ConfirmModal.tsx",
+      "lines": 79
+    },
+    {
+      "path": "components/ui/modal/Modal.tsx",
+      "lines": 135
+    },
+    {
+      "path": "components/ui/modal/QuickAuthModal.tsx",
+      "lines": 321
+    },
+    {
+      "path": "components/ui/NewsCard.tsx",
+      "lines": 375
+    },
+    {
+      "path": "components/ui/NewsPoll.tsx",
+      "lines": 482
+    },
+    {
+      "path": "components/ui/PopupOrchestrator.tsx",
+      "lines": 581
+    },
+    {
+      "path": "components/ui/ReaderImage.tsx",
+      "lines": 48
+    },
+    {
+      "path": "components/ui/ShareMenu.tsx",
+      "lines": 446
+    },
+    {
+      "path": "components/ui/SkeletonCard.tsx",
+      "lines": 44
+    },
+    {
+      "path": "components/ui/SmartEngagementPopup.tsx",
+      "lines": 342
+    },
+    {
+      "path": "components/ui/ThemeToggle.tsx",
+      "lines": 50
+    },
+    {
+      "path": "components/ui/toast/ToastProvider.tsx",
+      "lines": 147
+    },
+    {
+      "path": "components/ui/toast/useToast.ts",
+      "lines": 3
+    },
+    {
+      "path": "components/ui/useBreakingNewsController.ts",
+      "lines": 724
+    },
+    {
+      "path": "components/ui/VideoPlayer.tsx",
+      "lines": 643
+    },
+    {
+      "path": "components/ui/VideoScrubber.tsx",
+      "lines": 187
+    },
+    {
+      "path": "components/ui/VideoShortsFeed.tsx",
+      "lines": 1003
+    },
+    {
+      "path": "components/video/HomeShortsSection.tsx",
+      "lines": 193
+    },
+    {
+      "path": "components/video/types.ts",
+      "lines": 296
+    },
+    {
+      "path": "components/video/VideoDetailHero.tsx",
+      "lines": 150
+    },
+    {
+      "path": "components/video/VideoFeedGrid.tsx",
+      "lines": 314
+    },
+    {
+      "path": "components/video/VideoFilterBar.tsx",
+      "lines": 304
+    },
+    {
+      "path": "components/video/VideoWatchLaterDrawer.tsx",
+      "lines": 186
+    },
+    {
+      "path": "eslint.config.mjs",
+      "lines": 49
+    },
+    {
+      "path": "hooks/useArticleLock.ts",
+      "lines": 7
+    },
+    {
+      "path": "lib/admin/adminAuditCenter.ts",
+      "lines": 365
+    },
+    {
+      "path": "lib/admin/analyticsCenter.ts",
+      "lines": 356
+    },
+    {
+      "path": "lib/admin/analyticsExport.ts",
+      "lines": 811
+    },
+    {
+      "path": "lib/admin/analyticsLiveCharts.ts",
+      "lines": 460
+    },
+    {
+      "path": "lib/admin/articleWorkflowOverview.ts",
+      "lines": 793
+    },
+    {
+      "path": "lib/admin/audienceAnalytics.ts",
+      "lines": 1434
+    },
+    {
+      "path": "lib/admin/businessGrowthInsights.ts",
+      "lines": 347
+    },
+    {
+      "path": "lib/admin/dashboard.ts",
+      "lines": 361
+    },
+    {
+      "path": "lib/admin/deploymentSafeguards.ts",
+      "lines": 232
+    },
+    {
+      "path": "lib/admin/epaperInsights.ts",
+      "lines": 233
+    },
+    {
+      "path": "lib/admin/leadershipReportCriticalAlertNotifier.ts",
+      "lines": 215
+    },
+    {
+      "path": "lib/admin/leadershipReportDeliveryDiagnostics.ts",
+      "lines": 173
+    },
+    {
+      "path": "lib/admin/leadershipReportDeliveryMetrics.ts",
+      "lines": 181
+    },
+    {
+      "path": "lib/admin/leadershipReportDeliveryPerformanceAlerts.ts",
+      "lines": 93
+    },
+    {
+      "path": "lib/admin/leadershipReportDeliveryTrends.ts",
+      "lines": 219
+    },
+    {
+      "path": "lib/admin/leadershipReportHealth.ts",
+      "lines": 257
+    },
+    {
+      "path": "lib/admin/leadershipReportRunner.ts",
+      "lines": 264
+    },
+    {
+      "path": "lib/admin/leadershipReports.ts",
+      "lines": 533
+    },
+    {
+      "path": "lib/admin/newsroomControlCenter.ts",
+      "lines": 150
+    },
+    {
+      "path": "lib/admin/newsroomPipeline.ts",
+      "lines": 873
+    },
+    {
+      "path": "lib/admin/operationalDiagnostics.ts",
+      "lines": 381
+    },
+    {
+      "path": "lib/admin/permissionReview.ts",
+      "lines": 128
+    },
+    {
+      "path": "lib/admin/roleWorkflowGuide.ts",
+      "lines": 81
+    },
+    {
+      "path": "lib/admin/superAdminDashboard.ts",
+      "lines": 380
+    },
+    {
+      "path": "lib/admin/systemHealth.ts",
+      "lines": 287
+    },
+    {
+      "path": "lib/admin/teamHealth.ts",
+      "lines": 182
+    },
+    {
+      "path": "lib/admin/workQueue.ts",
+      "lines": 358
+    },
+    {
+      "path": "lib/ai/geminiTts.ts",
+      "lines": 4
+    },
+    {
+      "path": "lib/ai/summarizer.ts",
+      "lines": 161
+    },
+    {
+      "path": "lib/ai/ttsClient.ts",
+      "lines": 124
+    },
+    {
+      "path": "lib/analytics/trackClient.ts",
+      "lines": 258
+    },
+    {
+      "path": "lib/analytics/trafficSource.ts",
+      "lines": 164
+    },
+    {
+      "path": "lib/analytics/webVitals.ts",
+      "lines": 96
+    },
+    {
+      "path": "lib/api/adminRoute.ts",
+      "lines": 189
+    },
+    {
+      "path": "lib/api/cache.ts",
+      "lines": 63
+    },
+    {
+      "path": "lib/api/errors.ts",
+      "lines": 109
+    },
+    {
+      "path": "lib/api/openapi.ts",
+      "lines": 352
+    },
+    {
+      "path": "lib/api/response.ts",
+      "lines": 85
+    },
+    {
+      "path": "lib/api/validation.ts",
+      "lines": 158
+    },
+    {
+      "path": "lib/auth.ts",
+      "lines": 788
+    },
+    {
+      "path": "lib/auth/admin.ts",
+      "lines": 93
+    },
+    {
+      "path": "lib/auth/adminBanner.ts",
+      "lines": 30
+    },
+    {
+      "path": "lib/auth/adminCredentials.ts",
+      "lines": 116
+    },
+    {
+      "path": "lib/auth/articleAuthorScope.ts",
+      "lines": 63
+    },
+    {
+      "path": "lib/auth/clientToken.ts",
+      "lines": 12
+    },
+    {
+      "path": "lib/auth/cookies.ts",
+      "lines": 9
+    },
+    {
+      "path": "lib/auth/jwt.ts",
+      "lines": 39
+    },
+    {
+      "path": "lib/auth/jwtSecret.ts",
+      "lines": 30
+    },
+    {
+      "path": "lib/auth/permissions.ts",
+      "lines": 506
+    },
+    {
+      "path": "lib/auth/readerCredentials.ts",
+      "lines": 102
+    },
+    {
+      "path": "lib/auth/redirect.ts",
+      "lines": 16
+    },
+    {
+      "path": "lib/auth/roles.ts",
+      "lines": 103
+    },
+    {
+      "path": "lib/auth/routeGuards.ts",
+      "lines": 112
+    },
+    {
+      "path": "lib/auth/staffCredentials.ts",
+      "lines": 331
+    },
+    {
+      "path": "lib/auth/storyEditing.ts",
+      "lines": 151
+    },
+    {
+      "path": "lib/constants/company.ts",
+      "lines": 71
+    },
+    {
+      "path": "lib/constants/epaperCities.ts",
+      "lines": 99
+    },
+    {
+      "path": "lib/constants/newsCategories.ts",
+      "lines": 130
+    },
+    {
+      "path": "lib/constants/readerNavigation.ts",
+      "lines": 27
+    },
+    {
+      "path": "lib/constants/tts.ts",
+      "lines": 87
+    },
+    {
+      "path": "lib/contact/ticket.ts",
+      "lines": 21
+    },
+    {
+      "path": "lib/content/articleDocument.ts",
+      "lines": 134
+    },
+    {
+      "path": "lib/content/articleDraftRecovery.ts",
+      "lines": 40
+    },
+    {
+      "path": "lib/content/articleEditorial.ts",
+      "lines": 242
+    },
+    {
+      "path": "lib/content/articleMediaMetadata.ts",
+      "lines": 78
+    },
+    {
+      "path": "lib/content/articlePublication.ts",
+      "lines": 33
+    },
+    {
+      "path": "lib/content/homeFeed.ts",
+      "lines": 249
+    },
+    {
+      "path": "lib/content/liveArticles.ts",
+      "lines": 156
+    },
+    {
+      "path": "lib/content/newsroomMetadata.ts",
+      "lines": 182
+    },
+    {
+      "path": "lib/content/newsroomPublishing.ts",
+      "lines": 250
+    },
+    {
+      "path": "lib/content/publicArticles.ts",
+      "lines": 338
+    },
+    {
+      "path": "lib/content/publicSitemap.ts",
+      "lines": 98
+    },
+    {
+      "path": "lib/content/serverArticles.ts",
+      "lines": 266
+    },
+    {
+      "path": "lib/content/storyMedia.ts",
+      "lines": 161
+    },
+    {
+      "path": "lib/content/storyPersistence.ts",
+      "lines": 66
+    },
+    {
+      "path": "lib/content/swipeBeta.ts",
+      "lines": 8
+    },
+    {
+      "path": "lib/content/videoPublication.ts",
+      "lines": 266
+    },
+    {
+      "path": "lib/db/mongoAvailability.ts",
+      "lines": 148
+    },
+    {
+      "path": "lib/db/mongoose.ts",
+      "lines": 133
+    },
+    {
+      "path": "lib/editor/articleTiptapExtensions.ts",
+      "lines": 178
+    },
+    {
+      "path": "lib/elections/results.ts",
+      "lines": 384
+    },
+    {
+      "path": "lib/elections/storage.ts",
+      "lines": 31
+    },
+    {
+      "path": "lib/hooks/useArticleLock.ts",
+      "lines": 238
+    },
+    {
+      "path": "lib/hooks/useArticleTts.ts",
+      "lines": 492
+    },
+    {
+      "path": "lib/mock/data.ts",
+      "lines": 459
+    },
+    {
+      "path": "lib/models/AdvertiseInquiry.ts",
+      "lines": 97
+    },
+    {
+      "path": "lib/models/AnalyticsEvent.ts",
+      "lines": 36
+    },
+    {
+      "path": "lib/models/Article.ts",
+      "lines": 285
+    },
+    {
+      "path": "lib/models/ArticleLock.ts",
+      "lines": 35
+    },
+    {
+      "path": "lib/models/AuditLog.ts",
+      "lines": 190
+    },
+    {
+      "path": "lib/models/Author.ts",
+      "lines": 19
+    },
+    {
+      "path": "lib/models/CareerApplication.ts",
+      "lines": 90
+    },
+    {
+      "path": "lib/models/Category.ts",
+      "lines": 40
+    },
+    {
+      "path": "lib/models/ContactMessage.ts",
+      "lines": 123
+    },
+    {
+      "path": "lib/models/ContentActivity.ts",
+      "lines": 63
+    },
+    {
+      "path": "lib/models/EPaper.ts",
+      "lines": 186
+    },
+    {
+      "path": "lib/models/EPaperArticle.ts",
+      "lines": 64
+    },
+    {
+      "path": "lib/models/EPaperOcrSuggestion.ts",
+      "lines": 102
+    },
+    {
+      "path": "lib/models/EPaperProcessingJob.ts",
+      "lines": 73
+    },
+    {
+      "path": "lib/models/LeadershipReportAlertNotification.ts",
+      "lines": 57
+    },
+    {
+      "path": "lib/models/LeadershipReportAlertState.ts",
+      "lines": 40
+    },
+    {
+      "path": "lib/models/LeadershipReportRun.ts",
+      "lines": 62
+    },
+    {
+      "path": "lib/models/LeadershipReportSchedule.ts",
+      "lines": 68
+    },
+    {
+      "path": "lib/models/MarketingLead.ts",
+      "lines": 43
+    },
+    {
+      "path": "lib/models/Media.ts",
+      "lines": 16
+    },
+    {
+      "path": "lib/models/Poll.ts",
+      "lines": 89
+    },
+    {
+      "path": "lib/models/PollVote.ts",
+      "lines": 60
+    },
+    {
+      "path": "lib/models/schemas/newsroom.ts",
+      "lines": 50
+    },
+    {
+      "path": "lib/models/schemas/workflow.ts",
+      "lines": 65
+    },
+    {
+      "path": "lib/models/SocialPost.ts",
+      "lines": 45
+    },
+    {
+      "path": "lib/models/Story.ts",
+      "lines": 134
+    },
+    {
+      "path": "lib/models/Subscriber.ts",
+      "lines": 35
+    },
+    {
+      "path": "lib/models/Tag.ts",
+      "lines": 10
+    },
+    {
+      "path": "lib/models/TtsAsset.ts",
+      "lines": 96
+    },
+    {
+      "path": "lib/models/TtsAuditEvent.ts",
+      "lines": 55
+    },
+    {
+      "path": "lib/models/TtsConfig.ts",
+      "lines": 99
+    },
+    {
+      "path": "lib/models/User.ts",
+      "lines": 201
+    },
+    {
+      "path": "lib/models/Video.ts",
+      "lines": 93
+    },
+    {
+      "path": "lib/models/WorkflowNotification.ts",
+      "lines": 48
+    },
+    {
+      "path": "lib/notifications/contactAckEmail.ts",
+      "lines": 115
+    },
+    {
+      "path": "lib/notifications/leadershipReportEmail.ts",
+      "lines": 369
+    },
+    {
+      "path": "lib/notifications/leadershipReportWebhook.ts",
+      "lines": 439
+    },
+    {
+      "path": "lib/notifications/teamInviteEmail.ts",
+      "lines": 111
+    },
+    {
+      "path": "lib/popups/popupManager.ts",
+      "lines": 540
+    },
+    {
+      "path": "lib/popups/usePopupState.ts",
+      "lines": 15
+    },
+    {
+      "path": "lib/pwa/client.ts",
+      "lines": 145
+    },
+    {
+      "path": "lib/security/antiBot.ts",
+      "lines": 191
+    },
+    {
+      "path": "lib/security/auditLogger.ts",
+      "lines": 638
+    },
+    {
+      "path": "lib/security/cspReport.ts",
+      "lines": 85
+    },
+    {
+      "path": "lib/security/distributedLock.ts",
+      "lines": 194
+    },
+    {
+      "path": "lib/security/getRateLimiter.ts",
+      "lines": 390
+    },
+    {
+      "path": "lib/security/ipUtils.ts",
+      "lines": 66
+    },
+    {
+      "path": "lib/security/publicApiRateLimitPolicy.ts",
+      "lines": 31
+    },
+    {
+      "path": "lib/security/rateLimiter.ts",
+      "lines": 156
+    },
+    {
+      "path": "lib/security/redisClient.ts",
+      "lines": 129
+    },
+    {
+      "path": "lib/security/requestLogger.ts",
+      "lines": 154
+    },
+    {
+      "path": "lib/security/requestLogReader.ts",
+      "lines": 118
+    },
+    {
+      "path": "lib/security/validateRequest.ts",
+      "lines": 335
+    },
+    {
+      "path": "lib/security/VALIDATION_EXAMPLES.ts",
+      "lines": 237
+    },
+    {
+      "path": "lib/security/validation.ts",
+      "lines": 269
+    },
+    {
+      "path": "lib/seo/articleMetadata.ts",
+      "lines": 121
+    },
+    {
+      "path": "lib/seo/articleSeo.ts",
+      "lines": 601
+    },
+    {
+      "path": "lib/seo/cmsSeoValidator.ts",
+      "lines": 192
+    },
+    {
+      "path": "lib/seo/readerPageMetadata.ts",
+      "lines": 349
+    },
+    {
+      "path": "lib/server/articleActivity.ts",
+      "lines": 308
+    },
+    {
+      "path": "lib/server/articleTtsManual.ts",
+      "lines": 90
+    },
+    {
+      "path": "lib/server/breakingTts.ts",
+      "lines": 452
+    },
+    {
+      "path": "lib/server/contentActivity.ts",
+      "lines": 227
+    },
+    {
+      "path": "lib/server/epaperActivity.ts",
+      "lines": 241
+    },
+    {
+      "path": "lib/server/epaperImageAutomation.ts",
+      "lines": 60
+    },
+    {
+      "path": "lib/server/epaperLayoutAutoDetector.ts",
+      "lines": 113
+    },
+    {
+      "path": "lib/server/epaperObservability.ts",
+      "lines": 18
+    },
+    {
+      "path": "lib/server/epaperOcrPreprocess.ts",
+      "lines": 51
+    },
+    {
+      "path": "lib/server/epaperPdfRenderer.ts",
+      "lines": 105
+    },
+    {
+      "path": "lib/server/epaperProcessingJobs.ts",
+      "lines": 484
+    },
+    {
+      "path": "lib/server/epaperStoryAudioAutomation.ts",
+      "lines": 72
+    },
+    {
+      "path": "lib/server/epaperWorkflowAutomation.ts",
+      "lines": 136
+    },
+    {
+      "path": "lib/server/epaperWorkflowPolicy.ts",
+      "lines": 86
+    },
+    {
+      "path": "lib/server/newsroomStoryLinks.ts",
+      "lines": 226
+    },
+    {
+      "path": "lib/server/pdf/pdfWorker.ts",
+      "lines": 241
+    },
+    {
+      "path": "lib/server/poll.ts",
+      "lines": 244
+    },
+    {
+      "path": "lib/server/publicArticles.ts",
+      "lines": 859
+    },
+    {
+      "path": "lib/server/publicEpaperFeed.ts",
+      "lines": 287
+    },
+    {
+      "path": "lib/server/publicEpaperMetadata.ts",
+      "lines": 369
+    },
+    {
+      "path": "lib/server/publicHomeFeed.ts",
+      "lines": 593
+    },
+    {
+      "path": "lib/server/publicSwipeFeed.ts",
+      "lines": 83
+    },
+    {
+      "path": "lib/server/publicTaxonomy.ts",
+      "lines": 42
+    },
+    {
+      "path": "lib/server/publicVideoMetadata.ts",
+      "lines": 138
+    },
+    {
+      "path": "lib/server/publicVideos.ts",
+      "lines": 166
+    },
+    {
+      "path": "lib/server/requestOrigin.ts",
+      "lines": 118
+    },
+    {
+      "path": "lib/server/socialAutomation.ts",
+      "lines": 182
+    },
+    {
+      "path": "lib/server/socialPostDrafts.ts",
+      "lines": 112
+    },
+    {
+      "path": "lib/server/socialPreviewImage.ts",
+      "lines": 121
+    },
+    {
+      "path": "lib/server/storyActivity.ts",
+      "lines": 274
+    },
+    {
+      "path": "lib/server/storyVideoUsage.ts",
+      "lines": 131
+    },
+    {
+      "path": "lib/server/ttsAssets.ts",
+      "lines": 421
+    },
+    {
+      "path": "lib/server/videoActivity.ts",
+      "lines": 274
+    },
+    {
+      "path": "lib/server/workflowNotificationEvents.ts",
+      "lines": 80
+    },
+    {
+      "path": "lib/server/workQueueCommands.ts",
+      "lines": 69
+    },
+    {
+      "path": "lib/storage/advertiseInquiriesFile.ts",
+      "lines": 84
+    },
+    {
+      "path": "lib/storage/analyticsEventsFile.ts",
+      "lines": 78
+    },
+    {
+      "path": "lib/storage/articleLocksFile.ts",
+      "lines": 227
+    },
+    {
+      "path": "lib/storage/articlesFile.ts",
+      "lines": 939
+    },
+    {
+      "path": "lib/storage/articleTtsUpload.ts",
+      "lines": 204
+    },
+    {
+      "path": "lib/storage/atomicStorage.ts",
+      "lines": 95
+    },
+    {
+      "path": "lib/storage/breakingTtsUpload.ts",
+      "lines": 204
+    },
+    {
+      "path": "lib/storage/careerApplicationsFile.ts",
+      "lines": 81
+    },
+    {
+      "path": "lib/storage/contactMessagesFile.ts",
+      "lines": 316
+    },
+    {
+      "path": "lib/storage/epaperAssetUpload.ts",
+      "lines": 359
+    },
+    {
+      "path": "lib/storage/epapersFile.ts",
+      "lines": 184
+    },
+    {
+      "path": "lib/storage/leadershipReportAlertNotificationHistoryFile.ts",
+      "lines": 333
+    },
+    {
+      "path": "lib/storage/leadershipReportCriticalAlertStateFile.ts",
+      "lines": 195
+    },
+    {
+      "path": "lib/storage/leadershipReportRunHistoryFile.ts",
+      "lines": 218
+    },
+    {
+      "path": "lib/storage/leadershipReportSchedulesFile.ts",
+      "lines": 563
+    },
+    {
+      "path": "lib/storage/marketingLeadsFile.ts",
+      "lines": 96
+    },
+    {
+      "path": "lib/storage/socialPostsFile.ts",
+      "lines": 392
+    },
+    {
+      "path": "lib/storage/storiesFile.ts",
+      "lines": 502
+    },
+    {
+      "path": "lib/storage/storyVideoUpload.ts",
+      "lines": 330
+    },
+    {
+      "path": "lib/storage/usersFile.ts",
+      "lines": 136
+    },
+    {
+      "path": "lib/storage/videosFile.ts",
+      "lines": 499
+    },
+    {
+      "path": "lib/storage/workflowNotifications.ts",
+      "lines": 186
+    },
+    {
+      "path": "lib/store/appStore.ts",
+      "lines": 188
+    },
+    {
+      "path": "lib/types/breaking.ts",
+      "lines": 151
+    },
+    {
+      "path": "lib/types/epaper.ts",
+      "lines": 211
+    },
+    {
+      "path": "lib/types/poll.ts",
+      "lines": 35
+    },
+    {
+      "path": "lib/types/tts.ts",
+      "lines": 63
+    },
+    {
+      "path": "lib/utils/adminEpaperIngestion.ts",
+      "lines": 743
+    },
+    {
+      "path": "lib/utils/articleAssistant.ts",
+      "lines": 798
+    },
+    {
+      "path": "lib/utils/articleEditorAnalysis.ts",
+      "lines": 79
+    },
+    {
+      "path": "lib/utils/articleEditorTemplates.ts",
+      "lines": 135
+    },
+    {
+      "path": "lib/utils/articleImageUpload.ts",
+      "lines": 130
+    },
+    {
+      "path": "lib/utils/articleMedia.ts",
+      "lines": 68
+    },
+    {
+      "path": "lib/utils/articlePasteFormatting.ts",
+      "lines": 125
+    },
+    {
+      "path": "lib/utils/articleRichContent.ts",
+      "lines": 163
+    },
+    {
+      "path": "lib/utils/articleShare.ts",
+      "lines": 212
+    },
+    {
+      "path": "lib/utils/articleTtsUploadClient.ts",
+      "lines": 135
+    },
+    {
+      "path": "lib/utils/authorProfileImageUpload.ts",
+      "lines": 38
+    },
+    {
+      "path": "lib/utils/breakingTtsUploadClient.ts",
+      "lines": 141
+    },
+    {
+      "path": "lib/utils/cn.ts",
+      "lines": 7
+    },
+    {
+      "path": "lib/utils/cursorPage.ts",
+      "lines": 302
+    },
+    {
+      "path": "lib/utils/dataUri.ts",
+      "lines": 34
+    },
+    {
+      "path": "lib/utils/dateFormat.ts",
+      "lines": 155
+    },
+    {
+      "path": "lib/utils/digitalOceanSpaces.ts",
+      "lines": 603
+    },
+    {
+      "path": "lib/utils/electionImageUpload.ts",
+      "lines": 38
+    },
+    {
+      "path": "lib/utils/epaperAdminReadiness.ts",
+      "lines": 227
+    },
+    {
+      "path": "lib/utils/epaperArticles.ts",
+      "lines": 92
+    },
+    {
+      "path": "lib/utils/epaperCover.ts",
+      "lines": 60
+    },
+    {
+      "path": "lib/utils/epaperDirectUploadClient.ts",
+      "lines": 180
+    },
+    {
+      "path": "lib/utils/epaperFiles.ts",
+      "lines": 100
+    },
+    {
+      "path": "lib/utils/epaperHotspotCrop.ts",
+      "lines": 105
+    },
+    {
+      "path": "lib/utils/epaperHotspotDetectionClient.ts",
+      "lines": 104
+    },
+    {
+      "path": "lib/utils/epaperHotspots.ts",
+      "lines": 152
+    },
+    {
+      "path": "lib/utils/epaperLocalOcrClient.ts",
+      "lines": 661
+    },
+    {
+      "path": "lib/utils/epaperOcrAssist.ts",
+      "lines": 501
+    },
+    {
+      "path": "lib/utils/epaperPageImage.ts",
+      "lines": 144
+    },
+    {
+      "path": "lib/utils/epaperPageImageGeneration.ts",
+      "lines": 220
+    },
+    {
+      "path": "lib/utils/epaperPublication.ts",
+      "lines": 242
+    },
+    {
+      "path": "lib/utils/epaperQualitySignals.ts",
+      "lines": 187
+    },
+    {
+      "path": "lib/utils/epaperReaderLibrary.ts",
+      "lines": 354
+    },
+    {
+      "path": "lib/utils/epaperStorage.ts",
+      "lines": 574
+    },
+    {
+      "path": "lib/utils/epaperSuggestionQuality.ts",
+      "lines": 198
+    },
+    {
+      "path": "lib/utils/formatNumber.ts",
+      "lines": 11
+    },
+    {
+      "path": "lib/utils/pdfThumbnailClient.ts",
+      "lines": 360
+    },
+    {
+      "path": "lib/utils/phone.ts",
+      "lines": 83
+    },
+    {
+      "path": "lib/utils/publicEpaperFilters.ts",
+      "lines": 272
+    },
+    {
+      "path": "lib/utils/readerContentPaths.ts",
+      "lines": 16
+    },
+    {
+      "path": "lib/utils/storyVideoUploadClient.ts",
+      "lines": 93
+    },
+    {
+      "path": "lib/utils/ttsStorage.ts",
+      "lines": 319
+    },
+    {
+      "path": "lib/utils/youtube.ts",
+      "lines": 127
+    },
+    {
+      "path": "lib/workflow/article.ts",
+      "lines": 261
+    },
+    {
+      "path": "lib/workflow/epaper.ts",
+      "lines": 242
+    },
+    {
+      "path": "lib/workflow/fastPublish.ts",
+      "lines": 24
+    },
+    {
+      "path": "lib/workflow/feedback.ts",
+      "lines": 285
+    },
+    {
+      "path": "lib/workflow/readiness.ts",
+      "lines": 227
+    },
+    {
+      "path": "lib/workflow/story.ts",
+      "lines": 106
+    },
+    {
+      "path": "lib/workflow/transitions.ts",
+      "lines": 93
+    },
+    {
+      "path": "lib/workflow/types.ts",
+      "lines": 130
+    },
+    {
+      "path": "lib/workflow/video.ts",
+      "lines": 106
+    },
+    {
+      "path": "middleware.ts",
+      "lines": 397
+    },
+    {
+      "path": "next.config.js",
+      "lines": 324
+    },
+    {
+      "path": "package-lock.json",
+      "lines": 10507
+    },
+    {
+      "path": "package.json",
+      "lines": 127
+    },
+    {
+      "path": "playwright.config.mjs",
+      "lines": 21
+    },
+    {
+      "path": "postcss.config.js",
+      "lines": 7
+    },
+    {
+      "path": "scripts/audit-project-structure.js",
+      "lines": 58
+    },
+    {
+      "path": "scripts/audit-seo-indexing.ts",
+      "lines": 1723
+    },
+    {
+      "path": "scripts/browser-smoke-local.js",
+      "lines": 86
+    },
+    {
+      "path": "scripts/clean-next-artifacts.js",
+      "lines": 76
+    },
+    {
+      "path": "scripts/create-upload-zip.js",
+      "lines": 118
+    },
+    {
+      "path": "scripts/dev-server-state.js",
+      "lines": 130
+    },
+    {
+      "path": "scripts/generate-cms-sop-pdf.js",
+      "lines": 52
+    },
+    {
+      "path": "scripts/hash-password.ts",
+      "lines": 49
+    },
+    {
+      "path": "scripts/hostinger-release-utils.js",
+      "lines": 319
+    },
+    {
+      "path": "scripts/load-test-public.js",
+      "lines": 225
+    },
+    {
+      "path": "scripts/migrate-epaper-workflow-v3.ts",
+      "lines": 272
+    },
+    {
+      "path": "scripts/migrate-epapers-to-v2.ts",
+      "lines": 358
+    },
+    {
+      "path": "scripts/migrate-four-role-admin.js",
+      "lines": 97
+    },
+    {
+      "path": "scripts/migrate-swipe-videos.ts",
+      "lines": 117
+    },
+    {
+      "path": "scripts/prepare-hostinger.js",
+      "lines": 166
+    },
+    {
+      "path": "scripts/rollback-hostinger-release.js",
+      "lines": 55
+    },
+    {
+      "path": "scripts/seed.js",
+      "lines": 268
+    },
+    {
+      "path": "scripts/seed.ts",
+      "lines": 181
+    },
+    {
+      "path": "scripts/seo-health-audit.js",
+      "lines": 151
+    },
+    {
+      "path": "scripts/seo-smoke-check.js",
+      "lines": 486
+    },
+    {
+      "path": "scripts/smoke-check-deploy.js",
+      "lines": 368
+    },
+    {
+      "path": "scripts/start-hostinger.js",
+      "lines": 544
+    },
+    {
+      "path": "scripts/start-next-dev.js",
+      "lines": 81
+    },
+    {
+      "path": "scripts/sync-next-env-dist.js",
+      "lines": 42
+    },
+    {
+      "path": "scripts/test-admin-credentials.ts",
+      "lines": 186
+    },
+    {
+      "path": "scripts/test-admin-runtime.js",
+      "lines": 212
+    },
+    {
+      "path": "scripts/test-auth-guards.ts",
+      "lines": 174
+    },
+    {
+      "path": "scripts/test-digitalocean-spaces.js",
+      "lines": 311
+    },
+    {
+      "path": "scripts/test-gemini-tts.ts",
+      "lines": 62
+    },
+    {
+      "path": "scripts/validate-dependency-security.js",
+      "lines": 118
+    },
+    {
+      "path": "scripts/validate-production-env.js",
+      "lines": 273
+    },
+    {
+      "path": "scripts/verify-deploy.js",
+      "lines": 74
+    },
+    {
+      "path": "setupTests.ts",
+      "lines": 39
+    },
+    {
+      "path": "tailwind.config.js",
+      "lines": 109
+    },
+    {
+      "path": "tests/admin-shell-navigation.test.tsx",
+      "lines": 127
+    },
+    {
+      "path": "tests/analytics-export.test.ts",
+      "lines": 444
+    },
+    {
+      "path": "tests/analytics-traffic-attribution.test.ts",
+      "lines": 76
+    },
+    {
+      "path": "tests/api-foundation-utils.test.ts",
+      "lines": 68
+    },
+    {
+      "path": "tests/api/admin-article-breaking-tts-route.test.ts",
+      "lines": 160
+    },
+    {
+      "path": "tests/api/admin-article-by-id-route.test.ts",
+      "lines": 1326
+    },
+    {
+      "path": "tests/api/admin-article-revision-restore-route.test.ts",
+      "lines": 391
+    },
+    {
+      "path": "tests/api/admin-article-translation-route.test.ts",
+      "lines": 95
+    },
+    {
+      "path": "tests/api/admin-article-trending-signal-route.test.ts",
+      "lines": 92
+    },
+    {
+      "path": "tests/api/admin-article-tts-upload-routes.test.ts",
+      "lines": 180
+    },
+    {
+      "path": "tests/api/admin-articles-assist-route.test.ts",
+      "lines": 118
+    },
+    {
+      "path": "tests/api/admin-articles-route.test.ts",
+      "lines": 629
+    },
+    {
+      "path": "tests/api/admin-breaking-tts-upload-routes.test.ts",
+      "lines": 326
+    },
+    {
+      "path": "tests/api/admin-business-value-routes.test.ts",
+      "lines": 104
+    },
+    {
+      "path": "tests/api/admin-categories-route.test.ts",
+      "lines": 65
+    },
+    {
+      "path": "tests/api/admin-epaper-direct-upload-routes.test.ts",
+      "lines": 303
+    },
+    {
+      "path": "tests/api/admin-epaper-role-guard.test.ts",
+      "lines": 69
+    },
+    {
+      "path": "tests/api/admin-polls-route.test.ts",
+      "lines": 186
+    },
+    {
+      "path": "tests/api/admin-sensitive-role-guards.test.ts",
+      "lines": 92
+    },
+    {
+      "path": "tests/api/admin-social-post-dispatch-route.test.ts",
+      "lines": 143
+    },
+    {
+      "path": "tests/api/admin-social-posts-generate-route.test.ts",
+      "lines": 145
+    },
+    {
+      "path": "tests/api/admin-story-download-route.test.ts",
+      "lines": 294
+    },
+    {
+      "path": "tests/api/admin-story-route.test.ts",
+      "lines": 251
+    },
+    {
+      "path": "tests/api/admin-story-video-list-parity.test.ts",
+      "lines": 219
+    },
+    {
+      "path": "tests/api/admin-story-video-production-route.test.ts",
+      "lines": 157
+    },
+    {
+      "path": "tests/api/admin-story-video-upload-routes.test.ts",
+      "lines": 153
+    },
+    {
+      "path": "tests/api/admin-swipe-video-routes.test.ts",
+      "lines": 239
+    },
+    {
+      "path": "tests/api/admin-team-routes.test.ts",
+      "lines": 161
+    },
+    {
+      "path": "tests/api/admin-team-setup-link-route.test.ts",
+      "lines": 175
+    },
+    {
+      "path": "tests/api/admin-upload-route.test.ts",
+      "lines": 308
+    },
+    {
+      "path": "tests/api/admin-work-queue-bulk-route.test.ts",
+      "lines": 40
+    },
+    {
+      "path": "tests/api/auth-registration.test.ts",
+      "lines": 60
+    },
+    {
+      "path": "tests/api/breaking-route.test.ts",
+      "lines": 163
+    },
+    {
+      "path": "tests/api/leadership-alert-notification-ack-route.test.ts",
+      "lines": 81
+    },
+    {
+      "path": "tests/api/leadership-alert-notification-mute-route.test.ts",
+      "lines": 142
+    },
+    {
+      "path": "tests/api/leadership-alert-notification-resolve-route.test.ts",
+      "lines": 83
+    },
+    {
+      "path": "tests/api/poll-routes.test.ts",
+      "lines": 276
+    },
+    {
+      "path": "tests/api/public-articles-routes.test.ts",
+      "lines": 278
+    },
+    {
+      "path": "tests/api/public-epaper-story-tts-route.test.ts",
+      "lines": 131
+    },
+    {
+      "path": "tests/api/public-epapers-fallback-routes.test.ts",
+      "lines": 117
+    },
+    {
+      "path": "tests/api/public-home-feed-route.test.ts",
+      "lines": 72
+    },
+    {
+      "path": "tests/api/public-swipe-routes.test.ts",
+      "lines": 109
+    },
+    {
+      "path": "tests/api/public-v1-articles-routes.test.ts",
+      "lines": 177
+    },
+    {
+      "path": "tests/api/public-v1-taxonomy-routes.test.ts",
+      "lines": 42
+    },
+    {
+      "path": "tests/api/staff-setup-route.test.ts",
+      "lines": 111
+    },
+    {
+      "path": "tests/api/swipe-analytics-privacy.test.ts",
+      "lines": 75
+    },
+    {
+      "path": "tests/api/videos-latest-route.test.ts",
+      "lines": 55
+    },
+    {
+      "path": "tests/api/workflow-notifications-run-due-route.test.ts",
+      "lines": 59
+    },
+    {
+      "path": "tests/app-router-flight-cache.test.ts",
+      "lines": 64
+    },
+    {
+      "path": "tests/article-assistant.test.ts",
+      "lines": 281
+    },
+    {
+      "path": "tests/article-create-manual-audio.test.tsx",
+      "lines": 672
+    },
+    {
+      "path": "tests/article-document.test.ts",
+      "lines": 38
+    },
+    {
+      "path": "tests/article-edit-draft-safety.test.ts",
+      "lines": 112
+    },
+    {
+      "path": "tests/article-editor-analysis.test.ts",
+      "lines": 38
+    },
+    {
+      "path": "tests/article-editor-templates.test.ts",
+      "lines": 48
+    },
+    {
+      "path": "tests/article-editorial-flags.test.ts",
+      "lines": 39
+    },
+    {
+      "path": "tests/article-image-packaging-preview.test.tsx",
+      "lines": 29
+    },
+    {
+      "path": "tests/article-locks-api.test.ts",
+      "lines": 325
+    },
+    {
+      "path": "tests/article-locks-file.test.ts",
+      "lines": 149
+    },
+    {
+      "path": "tests/article-media.test.ts",
+      "lines": 29
+    },
+    {
+      "path": "tests/article-model-revisions.test.ts",
+      "lines": 42
+    },
+    {
+      "path": "tests/article-page-ssr.test.tsx",
+      "lines": 301
+    },
+    {
+      "path": "tests/article-reader-actions.test.tsx",
+      "lines": 458
+    },
+    {
+      "path": "tests/article-redirect-governance.test.tsx",
+      "lines": 243
+    },
+    {
+      "path": "tests/article-seo.test.ts",
+      "lines": 151
+    },
+    {
+      "path": "tests/article-share.test.ts",
+      "lines": 80
+    },
+    {
+      "path": "tests/article-translation-review.test.tsx",
+      "lines": 64
+    },
+    {
+      "path": "tests/article-tts-upload.test.ts",
+      "lines": 120
+    },
+    {
+      "path": "tests/article-url-governance.test.ts",
+      "lines": 479
+    },
+    {
+      "path": "tests/article-workflow-cas-clients.test.ts",
+      "lines": 57
+    },
+    {
+      "path": "tests/article-workflow-overview.test.ts",
+      "lines": 323
+    },
+    {
+      "path": "tests/articles-file-concurrency.test.ts",
+      "lines": 330
+    },
+    {
+      "path": "tests/atomic-storage.test.ts",
+      "lines": 43
+    },
+    {
+      "path": "tests/audience-analytics.test.ts",
+      "lines": 459
+    },
+    {
+      "path": "tests/breaking-tts-upload.test.ts",
+      "lines": 120
+    },
+    {
+      "path": "tests/business-growth-insights.test.ts",
+      "lines": 224
+    },
+    {
+      "path": "tests/category-page-client-v1.test.tsx",
+      "lines": 79
+    },
+    {
+      "path": "tests/cms-seo-validator.test.ts",
+      "lines": 68
+    },
+    {
+      "path": "tests/cms-workflow-activity-timeline.test.tsx",
+      "lines": 81
+    },
+    {
+      "path": "tests/cms-workflow-status-badge.test.tsx",
+      "lines": 45
+    },
+    {
+      "path": "tests/dependency-security-validator.test.ts",
+      "lines": 18
+    },
+    {
+      "path": "tests/deployment-safeguards.test.ts",
+      "lines": 56
+    },
+    {
+      "path": "tests/desktop-nav-responsive.test.tsx",
+      "lines": 65
+    },
+    {
+      "path": "tests/dev-server-safeguards.test.ts",
+      "lines": 102
+    },
+    {
+      "path": "tests/digitalocean-spaces-direct-upload.test.ts",
+      "lines": 48
+    },
+    {
+      "path": "tests/distributed-lock.test.ts",
+      "lines": 167
+    },
+    {
+      "path": "tests/dynamic-sitemap-pagination.test.ts",
+      "lines": 50
+    },
+    {
+      "path": "tests/e2e/admin-critical-flows.spec.js",
+      "lines": 15
+    },
+    {
+      "path": "tests/e2e/epaper-screenshots.spec.js",
+      "lines": 33
+    },
+    {
+      "path": "tests/election-results.test.ts",
+      "lines": 93
+    },
+    {
+      "path": "tests/epaper-asset-upload.test.ts",
+      "lines": 171
+    },
+    {
+      "path": "tests/epaper-clipping-modal.test.tsx",
+      "lines": 117
+    },
+    {
+      "path": "tests/epaper-cover.test.ts",
+      "lines": 60
+    },
+    {
+      "path": "tests/epaper-crop-text-ocr.test.ts",
+      "lines": 162
+    },
+    {
+      "path": "tests/epaper-hotspot-crop.test.ts",
+      "lines": 98
+    },
+    {
+      "path": "tests/epaper-image-automation.test.ts",
+      "lines": 165
+    },
+    {
+      "path": "tests/epaper-loading-performance.test.ts",
+      "lines": 96
+    },
+    {
+      "path": "tests/epaper-ocr-preprocess.test.ts",
+      "lines": 59
+    },
+    {
+      "path": "tests/epaper-page-image-quality.test.ts",
+      "lines": 280
+    },
+    {
+      "path": "tests/epaper-pdf-client-conversion.test.ts",
+      "lines": 114
+    },
+    {
+      "path": "tests/epaper-pdf-renderer.test.ts",
+      "lines": 52
+    },
+    {
+      "path": "tests/epaper-publication.test.ts",
+      "lines": 75
+    },
+    {
+      "path": "tests/epaper-story-modal-lifecycle.test.tsx",
+      "lines": 36
+    },
+    {
+      "path": "tests/epaper-suggestion-quality.test.ts",
+      "lines": 68
+    },
+    {
+      "path": "tests/epaper-workflow-v3.test.ts",
+      "lines": 151
+    },
+    {
+      "path": "tests/fast-publish-workflow.test.ts",
+      "lines": 35
+    },
+    {
+      "path": "tests/fixtures/seo-indexing.ts",
+      "lines": 46
+    },
+    {
+      "path": "tests/hero-card-responsive-media.test.tsx",
+      "lines": 62
+    },
+    {
+      "path": "tests/home-feed-mapper.test.ts",
+      "lines": 124
+    },
+    {
+      "path": "tests/home-page-client-home-feed.test.tsx",
+      "lines": 456
+    },
+    {
+      "path": "tests/home-page-shorts-section.test.tsx",
+      "lines": 132
+    },
+    {
+      "path": "tests/hostinger-static-assets.test.ts",
+      "lines": 46
+    },
+    {
+      "path": "tests/latest-feed-client-v1.test.tsx",
+      "lines": 99
+    },
+    {
+      "path": "tests/leadership-report-critical-alert-notifier.test.ts",
+      "lines": 261
+    },
+    {
+      "path": "tests/leadership-report-delivery-diagnostics.test.ts",
+      "lines": 79
+    },
+    {
+      "path": "tests/leadership-report-delivery-metrics.test.ts",
+      "lines": 106
+    },
+    {
+      "path": "tests/leadership-report-delivery-performance-alerts.test.ts",
+      "lines": 86
+    },
+    {
+      "path": "tests/leadership-report-delivery-trends.test.ts",
+      "lines": 91
+    },
+    {
+      "path": "tests/leadership-report-email.test.ts",
+      "lines": 51
+    },
+    {
+      "path": "tests/leadership-report-health.test.ts",
+      "lines": 200
+    },
+    {
+      "path": "tests/leadership-report-runner.test.ts",
+      "lines": 335
+    },
+    {
+      "path": "tests/leadership-report-schedules.test.ts",
+      "lines": 116
+    },
+    {
+      "path": "tests/leadership-report-webhook.test.ts",
+      "lines": 143
+    },
+    {
+      "path": "tests/leadership-reports.test.ts",
+      "lines": 87
+    },
+    {
+      "path": "tests/legacy-work-queue-views.test.ts",
+      "lines": 19
+    },
+    {
+      "path": "tests/media-sharing-surfaces.test.ts",
+      "lines": 25
+    },
+    {
+      "path": "tests/metadata-routes.test.ts",
+      "lines": 141
+    },
+    {
+      "path": "tests/middleware-heavy-rate-limit.test.ts",
+      "lines": 54
+    },
+    {
+      "path": "tests/middleware-login-rate-limit.test.ts",
+      "lines": 56
+    },
+    {
+      "path": "tests/mobile-header-logo.test.tsx",
+      "lines": 32
+    },
+    {
+      "path": "tests/mobile-runtime-compatibility.test.ts",
+      "lines": 38
+    },
+    {
+      "path": "tests/mocks/server-only.ts",
+      "lines": 2
+    },
+    {
+      "path": "tests/navigation-mobile-refactor.test.tsx",
+      "lines": 114
+    },
+    {
+      "path": "tests/news-discovery-internal-links.test.ts",
+      "lines": 38
+    },
+    {
+      "path": "tests/news-poll.test.tsx",
+      "lines": 183
+    },
+    {
+      "path": "tests/newsroom-metadata.test.ts",
+      "lines": 68
+    },
+    {
+      "path": "tests/newsroom-pipeline.test.ts",
+      "lines": 208
+    },
+    {
+      "path": "tests/newsroom-publishing.test.ts",
+      "lines": 68
+    },
+    {
+      "path": "tests/newsroom-workflow-transitions.test.ts",
+      "lines": 33
+    },
+    {
+      "path": "tests/operational-diagnostics.test.ts",
+      "lines": 53
+    },
+    {
+      "path": "tests/operations-center-tabs.test.tsx",
+      "lines": 34
+    },
+    {
+      "path": "tests/pdf-worker-isolation.test.ts",
+      "lines": 105
+    },
+    {
+      "path": "tests/permission-review.test.ts",
+      "lines": 20
+    },
+    {
+      "path": "tests/permissions-governance.test.ts",
+      "lines": 233
+    },
+    {
+      "path": "tests/production-env-validation.test.ts",
+      "lines": 51
+    },
+    {
+      "path": "tests/public-api-rate-limit-policy.test.ts",
+      "lines": 30
+    },
+    {
+      "path": "tests/public-articles-client.test.ts",
+      "lines": 216
+    },
+    {
+      "path": "tests/public-articles-service.test.ts",
+      "lines": 524
+    },
+    {
+      "path": "tests/public-home-feed-service.test.ts",
+      "lines": 253
+    },
+    {
+      "path": "tests/public-videos.test.ts",
+      "lines": 105
+    },
+    {
+      "path": "tests/reader-content-paths.test.ts",
+      "lines": 11
+    },
+    {
+      "path": "tests/reader-navigation.test.ts",
+      "lines": 24
+    },
+    {
+      "path": "tests/reader-page-metadata.test.ts",
+      "lines": 197
+    },
+    {
+      "path": "tests/redis-rate-limiter.test.ts",
+      "lines": 170
+    },
+    {
+      "path": "tests/reporter-article-create.test.tsx",
+      "lines": 81
+    },
+    {
+      "path": "tests/rich-text-editor-formatting.test.ts",
+      "lines": 42
+    },
+    {
+      "path": "tests/role-workflow-guide.test.ts",
+      "lines": 30
+    },
+    {
+      "path": "tests/security-audit-logger.test.ts",
+      "lines": 45
+    },
+    {
+      "path": "tests/security-csp-report.test.ts",
+      "lines": 35
+    },
+    {
+      "path": "tests/security-rate-limiter.test.ts",
+      "lines": 185
+    },
+    {
+      "path": "tests/security-request-log-reader.test.ts",
+      "lines": 86
+    },
+    {
+      "path": "tests/security-request-logger.test.ts",
+      "lines": 53
+    },
+    {
+      "path": "tests/security-validation.test.ts",
+      "lines": 311
+    },
+    {
+      "path": "tests/seo-health-audit.test.ts",
+      "lines": 27
+    },
+    {
+      "path": "tests/seo-indexing-audit.test.ts",
+      "lines": 900
+    },
+    {
+      "path": "tests/seo-schema-and-sitemaps.test.ts",
+      "lines": 174
+    },
+    {
+      "path": "tests/seo-smoke-check.test.ts",
+      "lines": 559
+    },
+    {
+      "path": "tests/server-articles-publication.test.ts",
+      "lines": 209
+    },
+    {
+      "path": "tests/share-menu.test.tsx",
+      "lines": 183
+    },
+    {
+      "path": "tests/share-redirect-routes.test.ts",
+      "lines": 170
+    },
+    {
+      "path": "tests/social-automation.test.ts",
+      "lines": 111
+    },
+    {
+      "path": "tests/social-post-drafts.test.ts",
+      "lines": 109
+    },
+    {
+      "path": "tests/social-preview-image.test.ts",
+      "lines": 110
+    },
+    {
+      "path": "tests/story-editing-permissions.test.ts",
+      "lines": 126
+    },
+    {
+      "path": "tests/story-media.test.ts",
+      "lines": 104
+    },
+    {
+      "path": "tests/story-video-upload-validation.test.ts",
+      "lines": 60
+    },
+    {
+      "path": "tests/structured-article-editor.test.tsx",
+      "lines": 92
+    },
+    {
+      "path": "tests/super-admin-page-boundaries.test.tsx",
+      "lines": 75
+    },
+    {
+      "path": "tests/swipe-beta.test.ts",
+      "lines": 11
+    },
+    {
+      "path": "tests/swipe-feed.test.tsx",
+      "lines": 135
+    },
+    {
+      "path": "tests/swipe-metadata.test.ts",
+      "lines": 20
+    },
+    {
+      "path": "tests/swipe-permissions.test.ts",
+      "lines": 30
+    },
+    {
+      "path": "tests/swipe-service-worker.test.ts",
+      "lines": 13
+    },
+    {
+      "path": "tests/swipe-trust-ui.test.ts",
+      "lines": 19
+    },
+    {
+      "path": "tests/tts-manual-assets.test.ts",
+      "lines": 133
+    },
+    {
+      "path": "tests/tts-queue.test.ts",
+      "lines": 17
+    },
+    {
+      "path": "tests/use-article-server-draft.test.tsx",
+      "lines": 228
+    },
+    {
+      "path": "tests/use-article-tts.test.ts",
+      "lines": 330
+    },
+    {
+      "path": "tests/user-management.test.ts",
+      "lines": 78
+    },
+    {
+      "path": "tests/video-detail-hero-streamlined.test.tsx",
+      "lines": 116
+    },
+    {
+      "path": "tests/video-publication.test.ts",
+      "lines": 102
+    },
+    {
+      "path": "tests/video-sitemap-route.test.ts",
+      "lines": 74
+    },
+    {
+      "path": "tests/web-vitals-instrumentation.test.ts",
+      "lines": 113
+    },
+    {
+      "path": "tests/work-queue-overview.test.ts",
+      "lines": 53
+    },
+    {
+      "path": "tests/work-queue-workbench.test.tsx",
+      "lines": 55
+    },
+    {
+      "path": "tests/workflow-feedback.test.ts",
+      "lines": 50
+    },
+    {
+      "path": "tests/workflow-notification-events.test.ts",
+      "lines": 52
+    },
+    {
+      "path": "tests/workflow-readiness.test.ts",
+      "lines": 42
+    },
+    {
+      "path": "tests/youtube-live-video-pipeline.test.ts",
+      "lines": 75
+    },
+    {
+      "path": "tsconfig.json",
+      "lines": 53
+    },
+    {
+      "path": "types/custom.d.ts",
+      "lines": 15
+    },
+    {
+      "path": "types/next-auth.d.ts",
+      "lines": 47
+    },
+    {
+      "path": "types/pdfjs-dist-worker.d.ts",
+      "lines": 4
+    },
+    {
+      "path": "vitest.config.ts",
+      "lines": 23
+    }
+  ]
+}

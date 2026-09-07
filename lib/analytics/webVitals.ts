@@ -42,7 +42,11 @@ export function sanitizeMetricPath(rawPath: unknown): string {
     const url = new URL(trimmed, 'https://lokswami.com');
     // Strip framework-only query parameters and retain safe pathname
     const cleanPath = url.pathname.replace(/\/+$/, '') || '/';
-    return cleanPath;
+    try {
+      return decodeURI(cleanPath).slice(0, 1024);
+    } catch {
+      return cleanPath.slice(0, 1024);
+    }
   } catch {
     return '/';
   }

@@ -45,6 +45,31 @@ describe('public home feed service', () => {
     delete process.env.MONGODB_URI;
   });
 
+  it('excludes non-public and unfinished videos even when their legacy publish flag is true', async () => {
+    listAllStoredArticlesMock.mockResolvedValue([]);
+    listAllStoredEPapersMock.mockResolvedValue([]);
+    const published = {
+      title: 'Published video', category: 'News', thumbnail: '/poster.jpg',
+      videoUrl: '/video.mp4', isPublished: true, publishedAt: '2026-01-01T00:00:00Z',
+      workflow: { status: 'published' },
+    };
+    listAllStoredVideosMock.mockResolvedValue([
+      { ...published, _id: 'ready', playbackUrl: '/ready.mp4' },
+      { ...published, _id: 'draft', workflow: { status: 'draft' } },
+      { ...published, _id: 'review', workflow: { status: 'in_review' } },
+      { ...published, _id: 'future', publishedAt: '2099-01-01T00:00:00Z' },
+      { ...published, _id: 'scheduled', workflow: { status: 'scheduled', scheduledFor: '2099-01-01' } },
+      { ...published, _id: 'processing', processingStatus: 'processing' },
+      { ...published, _id: 'failed', processingStatus: 'failed', isShort: true },
+      { ...published, _id: 'landscape-short', isShort: true, aspectRatio: '16:9' },
+      { ...published, _id: 'ready-short', isShort: true, aspectRatio: '9:16' },
+    ]);
+    const { getPublicHomeFeed } = await import('@/lib/server/publicHomeFeed');
+    const { feed } = await getPublicHomeFeed();
+    expect(feed.videos.map((item) => item.id)).toEqual(['ready']);
+    expect(feed.shorts.map((item) => item.id)).toEqual(['ready-short']);
+  });
+
   it('builds a mobile-ready home feed from file-store data without legacy route fetches', async () => {
     listAllStoredArticlesMock.mockResolvedValue([
       {
@@ -112,6 +137,15 @@ describe('public home feed service', () => {
       },
     ]);
     listAllStoredEPapersMock.mockResolvedValue([
+      {
+        _id: 'paper-mumbai-newer',
+        city: 'Mumbai',
+        title: 'Mumbai Edition',
+        publishDate: '2026-05-10',
+        thumbnailPath: '/mumbai-paper.jpg',
+        pdfPath: '/mumbai-paper.pdf',
+        pages: 16,
+      },
       {
         _id: 'paper-1',
         city: 'Indore',

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { WorkflowMetaSchema } from '@/lib/models/schemas/workflow';
 import type { WorkflowMeta } from '@/lib/workflow/types';
+import type { ReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
 
 export interface IEPaperArticleHotspot {
   x: number;
@@ -21,6 +22,7 @@ export interface IEPaperArticle {
   videoUrl?: string;
   hotspot: IEPaperArticleHotspot;
   workflow: WorkflowMeta;
+  releasedSnapshot?: ReleasedEpaperStory | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +49,7 @@ const EPaperArticleSchema = new mongoose.Schema<IEPaperArticle>(
     videoUrl: { type: String, trim: true, default: '' },
     hotspot: { type: HotspotSchema, required: true },
     workflow: { type: WorkflowMetaSchema, default: () => ({}) },
+    releasedSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
 );

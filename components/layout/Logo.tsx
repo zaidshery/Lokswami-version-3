@@ -17,18 +17,45 @@ export interface LogoSizeConfig {
 }
 
 export const LOGO_SIZES: Record<LogoSize, LogoSizeConfig> = {
-  sm: { icon: 36, wordmarkW: 122, wordmarkH: 24, gap: 4, iconX: 0, iconY: 0, wordmarkY: 0 },
-  md: { icon: 34, wordmarkW: 158, wordmarkH: 34, gap: 8, iconX: 0, iconY: 0, wordmarkY: 0 },
-  lg: { icon: 44, wordmarkW: 200, wordmarkH: 43, gap: 8, iconX: 0, iconY: 0, wordmarkY: 0 },
-  headerCompact: { icon: 38, wordmarkW: 136, wordmarkH: 28, gap: 6, iconX: 1, iconY: 1, wordmarkY: 0 },
-  headerMobile: { icon: 44, wordmarkW: 156, wordmarkH: 33, gap: 8, iconX: 2, iconY: 1, wordmarkY: 0 },
-  headerDesktop: { icon: 54, wordmarkW: 192, wordmarkH: 40, gap: 10, iconX: 4, iconY: 3, wordmarkY: 0 },
+  sm: { icon: 38, wordmarkW: 136, wordmarkH: 28, gap: 8, iconX: 0, iconY: 3, wordmarkY: 0 },
+  md: { icon: 42, wordmarkW: 168, wordmarkH: 34, gap: 10, iconX: 0, iconY: 4, wordmarkY: 0 },
+  lg: { icon: 54, wordmarkW: 220, wordmarkH: 45, gap: 12, iconX: 0, iconY: 5, wordmarkY: 0 },
+  headerCompact: { icon: 40, wordmarkW: 154, wordmarkH: 32, gap: 8, iconX: 0, iconY: 3, wordmarkY: 0 },
+  headerMobile: { icon: 46, wordmarkW: 172, wordmarkH: 36, gap: 10, iconX: 0, iconY: 4.5, wordmarkY: 0 },
+  headerDesktop: { icon: 44, wordmarkW: 208, wordmarkH: 42, gap: 10, iconX: 0, iconY: 3.5, wordmarkY: 0 },
 };
 
 export interface LogoIconProps {
   size?: LogoSize;
   variant?: 'standard';
   className?: string;
+}
+
+export const MOBILE_HEADER_LOGO_SRC = '/logo-3.png';
+
+interface MobileHeaderLogoIconProps {
+  className?: string;
+}
+
+/** The supplied red-tab artwork used only by the compact mobile header. */
+export function MobileHeaderLogoIcon({ className = '' }: MobileHeaderLogoIconProps) {
+  return (
+    <span
+      aria-hidden="true"
+      data-logo-element="mobile-header-icon"
+      className={`relative inline-flex h-12 w-[58px] shrink-0 items-center justify-center overflow-hidden ${className}`}
+    >
+      <Image
+        src={MOBILE_HEADER_LOGO_SRC}
+        alt=""
+        width={90}
+        height={60}
+        priority
+        sizes="90px"
+        className="absolute left-1/2 top-1/2 block h-[60px] w-[90px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+      />
+    </span>
+  );
 }
 
 /** Standalone targetable 'लो' Logo Emblem component */
@@ -42,7 +69,7 @@ export function LogoIcon({
   return (
     <span
       data-logo-element="icon"
-      className={`lokswami-logo-icon relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md ${className}`}
+      className={`lokswami-logo-icon relative inline-flex shrink-0 items-center justify-center overflow-visible ${className}`}
       style={{
         transform: `translate(${sizeConfig.iconX}px, ${sizeConfig.iconY}px)`,
         width: `${sizeConfig.icon}px`,
@@ -54,9 +81,9 @@ export function LogoIcon({
         alt="Lokswami Emblem"
         width={sizeConfig.icon}
         height={sizeConfig.icon}
-        className="relative z-[1] block h-auto w-full object-contain transition-transform duration-300 motion-safe:group-hover/logo:rotate-[2deg] motion-safe:group-hover/logo:scale-[1.06]"
+        className="relative z-[1] block h-full w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-300 motion-safe:group-hover/logo:scale-[1.06]"
         priority={size === 'headerCompact' || size === 'headerMobile' || size === 'headerDesktop'}
-        sizes="(max-width: 639px) 38px, (max-width: 1023px) 44px, 54px"
+        sizes="(max-width: 639px) 44px, (max-width: 1023px) 50px, 58px"
       />
     </span>
   );
@@ -78,22 +105,23 @@ export function LogoWordmark({
 
   const maxWClass =
     size === 'headerCompact'
-      ? 'max-w-[136px]'
+      ? 'max-w-[154px]'
       : size === 'headerMobile'
-        ? 'max-w-[156px]'
+        ? 'max-w-[172px]'
         : '';
 
   return (
     <span
       data-logo-element="wordmark"
-      className={`lokswami-logo-wordmark relative inline-flex items-center overflow-hidden ${className}`}
+      className={`lokswami-logo-wordmark relative inline-flex items-center justify-center overflow-hidden ${className}`}
       style={{ transform: `translateY(${sizeConfig.wordmarkY}px)` }}
     >
       <div
-        className={`relative block ${maxWClass}`}
+        className={`relative block max-w-full ${maxWClass}`}
         style={{
           width: `${sizeConfig.wordmarkW}px`,
           height: `${sizeConfig.wordmarkH}px`,
+          maxWidth: '100%',
         }}
       >
         <Image
@@ -101,15 +129,14 @@ export function LogoWordmark({
           alt="Lokswami"
           width={sizeConfig.wordmarkW}
           height={sizeConfig.wordmarkH}
-          className={`block h-full w-full object-contain ${
-            variant === 'white'
-              ? 'brightness-0 invert'
-              : variant === 'dark'
-                ? 'brightness-0'
-                : 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)] dark:brightness-0 dark:invert'
-          }`}
+          className={`block h-full w-full object-contain ${variant === 'white'
+            ? 'brightness-0 invert'
+            : variant === 'dark'
+              ? 'brightness-0'
+              : 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)] dark:brightness-0 dark:invert'
+            }`}
           priority={size === 'headerCompact' || size === 'headerMobile' || size === 'headerDesktop'}
-          sizes="(max-width: 639px) 136px, (max-width: 1023px) 156px, 192px"
+          sizes="(max-width: 639px) 154px, (max-width: 1023px) 172px, 208px"
         />
       </div>
 

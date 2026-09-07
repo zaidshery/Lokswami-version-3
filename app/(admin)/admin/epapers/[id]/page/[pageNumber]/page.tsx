@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import EpaperStoryReleaseButton from '@/components/admin/EpaperStoryReleaseButton';
 import { useParams, usePathname } from 'next/navigation';
 import {
   PointerEvent as ReactPointerEvent,
@@ -2872,6 +2873,13 @@ export default function EPaperPageHotspotEditor() {
                       {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                       Save
                     </button>
+                    <EpaperStoryReleaseButton
+                      epaperId={epaperId}
+                      storyId={article._id}
+                      updatedAt={article.updatedAt}
+                      releaseVersion={article.releaseVersion}
+                      onReleased={() => void fetchData()}
+                    />
                     <button
                       type="button"
                       onClick={() => void deleteArticle(article._id)}

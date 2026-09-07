@@ -8,6 +8,7 @@ import AuthSync from '@/components/providers/AuthSync';
 import AuthSessionProvider from '@/components/providers/SessionProvider';
 import InstallAppPrompt from '@/components/ui/InstallAppPrompt';
 import FullscreenFix from '@/components/providers/FullscreenFix';
+import ToastProvider from '@/components/ui/toast/ToastProvider';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://lokswami.com';
 
@@ -254,7 +255,22 @@ const ASSET_RECOVERY_SCRIPT = `
   });
 })();
 `;
-const googleTagManagerId = process.env.NEXT_PUBLIC_GTM_ID?.trim() || '';
+function readPublicAnalyticsId(value: string | undefined, pattern: RegExp) {
+  const normalized = String(value || '').trim().toUpperCase();
+  return pattern.test(normalized) ? normalized : '';
+}
+
+const googleTagManagerId = readPublicAnalyticsId(
+  process.env.NEXT_PUBLIC_GTM_ID,
+  /^GTM-[A-Z0-9]+$/
+);
+const googleAnalyticsMeasurementId = readPublicAnalyticsId(
+  process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID,
+  /^G-[A-Z0-9]+$/
+);
+const loadDirectGoogleAnalytics = Boolean(
+  googleAnalyticsMeasurementId && !googleTagManagerId
+);
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -338,13 +354,31 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: ASSET_RECOVERY_SCRIPT }}
         />
         {googleTagManagerId ? (
-          <Script id="lokswami-google-tag-manager" strategy="beforeInteractive">
+          <Script id="lokswami-google-tag-manager" strategy="afterInteractive">
             {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','${googleTagManagerId}');`}
           </Script>
+        ) : null}
+        {loadDirectGoogleAnalytics ? (
+          <>
+            <Script
+              id="lokswami-google-analytics-loader"
+              src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="lokswami-google-analytics" strategy="afterInteractive">
+              {`window.dataLayer=window.dataLayer||[];
+window.gtag=window.gtag||function(){window.dataLayer.push(arguments);};
+window.gtag('js',new Date());
+window.gtag('config','${googleAnalyticsMeasurementId}',{
+  send_page_view:false,
+  anonymize_ip:true
+});`}
+            </Script>
+          </>
         ) : null}
       </head>
       <body
@@ -363,11 +397,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         ) : null}
         <AuthSessionProvider>
           <ThemeProvider>
-            <AuthSync />
-            <FullscreenFix />
-            <SitePageTracker />
-            {children}
-            <InstallAppPrompt />
+            <ToastProvider>
+              <AuthSync />
+              <FullscreenFix />
+              <SitePageTracker />
+              {children}
+              <InstallAppPrompt />
+            </ToastProvider>
           </ThemeProvider>
         </AuthSessionProvider>
       </body>

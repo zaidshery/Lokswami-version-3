@@ -32,6 +32,32 @@ export function getCitySlugFromName(name: string): EPaperCitySlug | '' {
   return match?.slug || '';
 }
 
+/** Public-facing label. The legacy `delhi` slug remains stable for stored data and URLs. */
+export function getEpaperCityDisplayName(
+  value: string,
+  language: 'en' | 'hi' = 'en'
+) {
+  const normalized = String(value || '').trim();
+  const slug = isEPaperCitySlug(normalized.toLowerCase())
+    ? (normalized.toLowerCase() as EPaperCitySlug)
+    : getCitySlugFromName(normalized);
+
+  if (slug === 'delhi') {
+    return language === 'hi' ? 'डिजिटल' : 'Digital';
+  }
+
+  return EPAPER_CITY_OPTIONS.find((item) => item.slug === slug)?.name || normalized;
+}
+
+export function getEpaperEditionDisplayLabel(
+  value: string,
+  language: 'en' | 'hi' = 'en'
+) {
+  const city = getEpaperCityDisplayName(value, language);
+  if (!city) return '';
+  return language === 'hi' ? `${city} संस्करण` : `${city} Edition`;
+}
+
 export function normalizeCitySlug(value: string) {
   const normalized = value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   return isEPaperCitySlug(normalized) ? normalized : '';

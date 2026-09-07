@@ -3,6 +3,7 @@ import { getCitySlugFromName } from '@/lib/constants/epaperCities';
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 import EPaper from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
+import { resolveReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
 import {
   getStoredEPaperById,
   listAllStoredEPapers,
@@ -28,6 +29,9 @@ export type PublicEpaperMetadata = {
 };
 
 export type PublicEpaperStoryMetadata = {
+  releaseVersion?: number;
+  pageImagePath?: string;
+  hotspot?: import('@/lib/types/epaper').EPaperArticleHotspot;
   id: string;
   slug: string;
   title: string;
@@ -296,28 +300,70 @@ async function getMongoEpaperStoryMetadata(query: PublicEpaperStoryMetadataQuery
       status: 'published',
       isCurrentRevision: { $ne: false },
     })
-      .select('_id')
+      .select('_id pages')
       .lean();
     if (!parent) return null;
 
     const normalizedStoryToken = storyToken.toLowerCase();
     const storyQuery: Record<string, unknown> = {
       epaperId: new Types.ObjectId(epaperId),
-      slug: normalizedStoryToken,
     };
 
     if (Types.ObjectId.isValid(storyToken)) {
       storyQuery.$or = [
+        { 'releasedSnapshot.slug': normalizedStoryToken },
         { slug: normalizedStoryToken },
         { _id: new Types.ObjectId(storyToken) },
       ];
-      delete storyQuery.slug;
+    } else {
+      storyQuery.$or = [
+        { 'releasedSnapshot.slug': normalizedStoryToken },
+        { slug: normalizedStoryToken },
+      ];
     }
 
     const record = await EPaperArticle.findOne(storyQuery)
-      .select('_id slug title excerpt coverImagePath pageNumber')
+      .select('_id epaperId slug title excerpt pageNumber coverImagePath hotspot releasedSnapshot')
       .lean();
-    return mapMongoEpaperStory(record);
+    if (!record) return null;
+
+    const released = resolveReleasedEpaperStory(record as unknown as Record<string, unknown> | null);
+    if (released) {
+      const mapped = mapMongoEpaperStory(released);
+      return mapped ? {
+        ...mapped,
+        releaseVersion: Number(released.releaseVersion || 1),
+        hotspot: released.hotspot as import('@/lib/types/epaper').EPaperArticleHotspot,
+        pageImagePath: String(released.pageImagePath || ''),
+      } : null;
+    }
+
+    const rec = record as Record<string, unknown>;
+    const hotspot = asObject(rec.hotspot);
+    const w = Number(hotspot.w || 0);
+    const h = Number(hotspot.h || 0);
+    if (!rec.title || w <= 0 || h <= 0) return null;
+
+    const pageNumber = toPositiveInt(rec.pageNumber, 1);
+    const parentPages = Array.isArray(parent.pages) ? (parent.pages as Record<string, unknown>[]) : [];
+    const pageObj = parentPages.find((p) => Number(p.pageNumber) === pageNumber);
+
+    return {
+      id: String(rec._id),
+      slug: String(rec.slug || ''),
+      title: String(rec.title || ''),
+      excerpt: String(rec.excerpt || ''),
+      coverImagePath: String(rec.coverImagePath || ''),
+      pageNumber,
+      releaseVersion: 1,
+      hotspot: {
+        x: Number(hotspot.x || 0),
+        y: Number(hotspot.y || 0),
+        w,
+        h,
+      },
+      pageImagePath: String(pageObj?.imagePath || ''),
+    };
   } catch (error) {
     console.error('Failed to load public e-paper story metadata from MongoDB, falling back.', error);
     return null;

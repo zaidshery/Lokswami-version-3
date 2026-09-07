@@ -28,7 +28,7 @@ export function resolveEpaperPreviewMaxZoom(width: unknown) {
 
 export function resolveEpaperTouchPreviewMaxZoom(width: unknown) {
   const desktopMaxZoom = resolveEpaperPreviewMaxZoom(width);
-  return desktopMaxZoom >= 4 ? 5 : desktopMaxZoom;
+  return desktopMaxZoom >= 4 ? 6 : desktopMaxZoom;
 }
 
 export function resolveEpaperPageResizeDimensions(width: number, height: number) {

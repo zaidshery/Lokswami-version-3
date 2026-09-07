@@ -14,10 +14,22 @@ export type HomePageEpaperPreview = {
   pageCount: number;
 };
 
+export type HomePageShortItem = {
+  id: string;
+  slug?: string;
+  title: string;
+  thumbnail: string;
+  videoUrl?: string;
+  duration: number;
+  category: string;
+  publishedAt: string;
+};
+
 export type HomePageFeedState = {
   articles: Article[];
   epaper: HomePageEpaperPreview | null;
   emagazine: HomePageEpaperPreview | null;
+  shorts?: HomePageShortItem[];
 };
 
 type PublicHomeFeedArticle = {
@@ -55,6 +67,7 @@ type PublicHomeFeedData = {
   trending?: PublicHomeFeedArticle[];
   epaper?: PublicHomeFeedEPaper | null;
   emagazine?: PublicHomeFeedEPaper | null;
+  shorts?: Array<Record<string, unknown>>;
 };
 
 type PublicHomeFeedEnvelope = {
@@ -190,12 +203,34 @@ export function mapHomeFeedToHomePageState(payload: unknown): HomePageFeedState 
   const epaper = mapHomeFeedEPaper(data.epaper);
   const emagazine = mapHomeFeedEPaper(data.emagazine);
 
-  if (!articles.length && !epaper && !emagazine) return null;
+  const rawShorts = Array.isArray(data.shorts) ? data.shorts : [];
+  const shorts = rawShorts.reduce<HomePageShortItem[]>((acc, s, idx) => {
+    const item = asObject(s);
+    const id = String(item.id || item._id || `short-${idx}`).trim();
+    const title = String(item.title || '').trim();
+    const thumbnail = String(item.thumbnail || '').trim();
+    if (!id || !title) return acc;
+    const slug = String(item.slug || '').trim();
+    acc.push({
+      id,
+      slug: slug || undefined,
+      title,
+      thumbnail,
+      videoUrl: String(item.videoUrl || '').trim() || undefined,
+      duration: Math.max(0, Math.floor(Number(item.duration) || 0)),
+      category: String(item.category || 'National').trim(),
+      publishedAt: String(item.publishedAt || new Date().toISOString()),
+    });
+    return acc;
+  }, []);
+
+  if (!articles.length && !epaper && !emagazine && !shorts.length) return null;
 
   return {
     articles,
     epaper,
     emagazine,
+    shorts,
   };
 }
 

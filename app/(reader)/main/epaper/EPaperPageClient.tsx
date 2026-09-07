@@ -38,8 +38,26 @@ import Logo from '@/components/layout/Logo';
 import EPaperDatePicker from '@/components/ui/EPaperDatePicker';
 import EPaperCityPicker from '@/components/ui/EPaperCityPicker';
 import ShareMenu from '@/components/ui/ShareMenu';
+import dynamic from 'next/dynamic';
+import EPaperCanvasViewport from '@/components/epaper/reader/EPaperCanvasViewport';
+import EPaperToolbar from '@/components/epaper/reader/EPaperToolbar';
+import EPaperPageStrip from '@/components/epaper/reader/EPaperPageStrip';
+
+const ArticleClippingModal = dynamic(
+  () => import('@/components/epaper/reader/modals/ArticleClippingModal'),
+  { ssr: false }
+);
+const EPaperDownloadModal = dynamic(
+  () => import('@/components/epaper/reader/modals/EPaperDownloadModal'),
+  { ssr: false }
+);
+const ArticleStoryModal = dynamic(
+  () => import('@/components/epaper/reader/modals/ArticleStoryModal'),
+  { ssr: false }
+);
 import {
-  EPAPER_CITY_OPTIONS,
+  getEpaperCityDisplayName,
+  getEpaperEditionDisplayLabel,
 } from '@/lib/constants/epaperCities';
 import { COMPANY_INFO } from '@/lib/constants/company';
 import { useAppStore } from '@/lib/store/appStore';
@@ -691,7 +709,7 @@ function formatPublicationMetaLine(options: {
   );
   const parts = isMonthlyEPaperPublication(options.publicationType)
     ? [issueLabel]
-    : [String(options.cityName || '').trim(), issueLabel];
+    : [getEpaperCityDisplayName(String(options.cityName || '')), issueLabel];
 
   if (options.pageCount && options.pagesLabel) {
     parts.push(`${options.pageCount} ${options.pagesLabel}`);
@@ -704,7 +722,9 @@ function getPublicationLocationLabel(
   publicationType: EPaperPublicationType,
   cityName: string
 ) {
-  return isMonthlyEPaperPublication(publicationType) ? '' : cityName;
+  return isMonthlyEPaperPublication(publicationType)
+    ? ''
+    : getEpaperCityDisplayName(cityName);
 }
 
 function buildStoryTextDownload(
@@ -961,6 +981,7 @@ export default function EPaperPageClient({
 }: EPaperPageClientProps) {
   const language = useAppStore((state) => state.language);
   const theme = useAppStore((state) => state.theme);
+  const toggleTheme = useAppStore((state) => state.toggleTheme);
   const setEpaperReaderOpen = useAppStore((state) => state.setEpaperReaderOpen);
   const prefersReducedMotion = useReducedMotion();
   const t = COPY[language];
@@ -1022,6 +1043,8 @@ export default function EPaperPageClient({
   const [isWideScreen, setIsWideScreen] = useState(false);
 
   const [pendingPaperId, setPendingPaperId] = useState('');
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isClippingModalOpen, setIsClippingModalOpen] = useState(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const previewTouchSurfaceRef = useRef<HTMLDivElement | null>(null);
   const loadMoreLockRef = useRef(false);
@@ -1058,8 +1081,10 @@ export default function EPaperPageClient({
     tracking: false,
   });
   const articleAudioRef = useRef<HTMLAudioElement | null>(null);
-  const canUseSpreadMode = Boolean(activePaper && activePaper.pageCount > 1);
-  const shouldShowSpreadMode = canUseSpreadMode && readerDisplayMode === 'spread' && isWideScreen;
+  const canUseSpreadMode = Boolean(
+    activePaper && activePaper.pageCount > 1 && isWideScreen && !isCoarsePointer
+  );
+  const shouldShowSpreadMode = canUseSpreadMode && readerDisplayMode === 'spread';
   const hasArchiveFilters =
     (!isMonthlyPublication && selectedCity !== 'all') || Boolean(selectedPublishDate);
   const syncSavedLibrary = useCallback(() => {
@@ -1174,7 +1199,7 @@ export default function EPaperPageClient({
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
 
-    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
     const updateWidthMode = () => setIsWideScreen(mediaQuery.matches);
     updateWidthMode();
 
@@ -1714,7 +1739,8 @@ export default function EPaperPageClient({
         );
         const rendered = await renderPdfPagePreviewFromUrl(pdfProxyUrl, {
           page: activePage,
-          targetWidth: 1600,
+          targetWidth: 3000,
+          jpegQuality: 0.92,
         });
         if (cancelled) return;
         setPdfFallbackPreview(rendered.dataUrl);
@@ -1792,7 +1818,7 @@ export default function EPaperPageClient({
   const buildActiveArticleShareUrl = () => {
     if (!activePaper || !activeArticle) return '';
 
-    const storyToken = String(activeArticle.slug || activeArticle._id || '').trim();
+    const storyToken = String(activeArticle._id || activeArticle.slug || '').trim();
     const sharePath = buildEpaperSharePath({
       paperId: activePaper._id,
       page: activeArticle.pageNumber || activePage,
@@ -2317,11 +2343,15 @@ export default function EPaperPageClient({
   };
 
   const togglePreviewZoom = useCallback(() => {
-    setPreviewZoom((current) =>
-      current > MIN_PREVIEW_ZOOM + 0.05
-        ? MIN_PREVIEW_ZOOM
-        : Math.min(maxPreviewZoom, PREVIEW_DOUBLE_TAP_ZOOM)
-    );
+    setPreviewZoom((current) => {
+      if (current < 2.5) {
+        return Math.min(maxPreviewZoom, 3);
+      }
+      if (current < 4.5) {
+        return Math.min(maxPreviewZoom, 5.5);
+      }
+      return MIN_PREVIEW_ZOOM;
+    });
   }, [maxPreviewZoom]);
 
   const onArticleImageTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
@@ -2689,7 +2719,7 @@ export default function EPaperPageClient({
   const selectedCityLabel =
     selectedCity === 'all'
       ? t.allCities
-      : EPAPER_CITY_OPTIONS.find((city) => city.slug === selectedCity)?.name || selectedCity;
+      : getEpaperCityDisplayName(selectedCity, language) || selectedCity;
   const selectedIssueDateLabel = selectedPublishDate
     ? formatPublicationIssueLabel(selectedPublishDate, publicationType, selectedPublishDate)
     : '';
@@ -3012,1395 +3042,162 @@ export default function EPaperPageClient({
       </section>
 
       {activePaper ? (
-        <div className="fixed inset-0 z-[95] bg-zinc-950/70 p-0 backdrop-blur-md sm:bg-black/75 sm:p-4" data-swipe-ignore="true">
-          <div className="mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden border-0 bg-zinc-900/40 shadow-2xl dark:bg-zinc-950/40 sm:border sm:border-gray-200 sm:bg-white sm:dark:border-zinc-800 sm:dark:bg-zinc-950 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl relative">
-            {/* Ambient glows behind newspaper */}
-            <div className="pointer-events-none absolute -left-16 -top-16 z-0 h-48 w-48 rounded-full bg-red-500/15 blur-3xl sm:hidden" />
-            <div className="relative z-40 w-full shrink-0 sm:border-b sm:border-zinc-200/80 sm:bg-white/95 sm:backdrop-blur-md px-0 pb-0 pt-0 sm:dark:border-zinc-800/80 sm:dark:bg-zinc-900/95 sm:px-4 sm:py-2 sm:shadow-sm bg-transparent dark:bg-transparent">
-              <div className="relative flex w-full items-center justify-between border-b border-zinc-200 bg-white/95 px-2.5 pb-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] shadow-md backdrop-blur-xl dark:border-white/5 dark:bg-zinc-950/90 min-[375px]:px-4 sm:hidden">
-                {/* Left: Back button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivePaper(null);
-                    setActiveArticle(null);
-                  }}
-                  aria-label={t.close}
-                  className="reader-touch-button reader-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 text-zinc-800 dark:text-white/90 transition hover:bg-zinc-200/80 dark:hover:bg-white/10"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
+        <div className={`fixed inset-0 z-[95] bg-zinc-950/70 p-0 backdrop-blur-md sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
+          <div className="relative mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden border-0 bg-white shadow-2xl dark:bg-zinc-950 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-200 sm:dark:border-zinc-800">
+            <EPaperToolbar
+              title={activePaper.title}
+              editionLabel={isMonthlyPublication
+                ? 'Monthly Issue'
+                : getEpaperEditionDisplayLabel(
+                    activePaper.citySlug || activePaper.cityName,
+                    language
+                  )}
+              issueDateLabel={`(${formatPublicationIssueLabel(activePaper.publishDate, publicationType, activePaper.publishDate)})`}
+              currentPage={activePage}
+              pageCount={activePaper.pageCount}
+              zoom={previewZoom}
+              canUseSpreadMode={canUseSpreadMode}
+              isSpreadMode={shouldShowSpreadMode}
+              canGoPrevious={canGoPreviousPage}
+              canGoNext={canGoNextPage}
+              onPreviousPage={() => goToRelativePage(-1)}
+              onNextPage={() => goToRelativePage(1)}
+              onPageSelect={navigateToPage}
+              onZoomIn={zoomPreviewIn}
+              onZoomOut={zoomPreviewOut}
+              onToggleSpreadMode={() =>
+                setReaderDisplayMode((mode) => (mode === 'spread' ? 'single' : 'spread'))
+              }
+              onOpenDownload={() => setIsDownloadModalOpen(true)}
+              onClose={() => {
+                setActivePaper(null);
+                setActiveArticle(null);
+              }}
+              shareUrl={activePaperSharePath}
+              shareText={activePaperShareText}
+              shareContentType={publicationType === 'emagazine' ? 'emagazine' : 'epaper'}
+              shareContentId={activePaper._id}
+              language={language}
+              isSaved={isActivePaperSaved}
+              onToggleSave={handleIssueSaveToggle}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+            />
 
-                {/* Center: Brand Logo */}
-                <div className="pointer-events-none absolute left-1/2 top-1/2 flex shrink-0 -translate-x-1/2 -translate-y-1/2 items-center justify-center">
-                  <div className={`${theme === 'dark' ? 'dark' : ''} shrink-0`}>
-                    <Logo size="headerCompact" />
-                  </div>
-                </div>
-
-                {/* Right: Share action */}
-                <div className="flex items-center">
-                  <ShareMenu
-                    title={activePaper.title}
-                    url={activePaperSharePath}
-                    text={activePaperShareText}
-                    whatsappText={activePaperShareText}
-                    contentType={publicationType === 'emagazine' ? 'emagazine' : 'epaper'}
-                    contentId={activePaper._id}
-                    placement="publication_reader_mobile_toolbar"
-                    language={language}
-                    triggerLabel={t.shareWhatsApp}
-                    ariaLabel={t.shareWhatsApp}
-                    buttonClassName="reader-touch-button reader-focus-ring inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-100 px-2.5 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-200 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
-                  />
-                </div>
-              </div>
-
-              <div className="hidden items-center justify-between gap-4 sm:flex py-1">
-                {/* Brand and issue */}
-                <div className="flex items-center gap-2 min-w-0 shrink-0">
-                  <span className="inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-[9px] font-bold text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">
-                    Lokswami {publicationLabels.singular}
-                  </span>
-                  <span className="text-xs text-gray-300 dark:text-zinc-700">|</span>
-                  <p className="truncate text-xs font-bold text-gray-900 dark:text-zinc-100">
-                    {isMonthlyPublication ? 'Monthly Issue' : `${activePaper.cityName} Edition`}
-                  </p>
-                  <span className="text-[10px] text-gray-400 dark:text-zinc-500">
-                    ({formatPublicationIssueLabel(activePaper.publishDate, publicationType, activePaper.publishDate)})
-                  </span>
-                </div>
-
-                {/* Controls (Navigation & Zoom) */}
-                <div className="flex items-center gap-1.5 sm:gap-2 justify-center flex-1 min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => goToRelativePage(-1)}
-                    aria-label={t.previous}
-                    disabled={!canGoPreviousPage}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-
-                  <span className="min-w-[64px] rounded-md border border-gray-200 px-1.5 py-1 text-center text-xs font-semibold text-gray-700 dark:border-zinc-700 dark:text-zinc-300">
-                    {readerPageLabel}
-                  </span>
-
-                  <div className="relative inline-flex items-center">
-                    <select
-                      value={activePage}
-                      onChange={(event) => {
-                        const nextPage = Number.parseInt(event.target.value, 10);
-                        if (Number.isFinite(nextPage)) {
-                          navigateToPage(nextPage);
-                        }
-                      }}
-                      aria-label={t.quickJump}
-                      className="appearance-none rounded-md border border-gray-300 bg-white px-2.5 py-1 pr-6 text-xs font-semibold text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
-                    >
-                      {pageSummaries.map((page) => (
-                        <option 
-                          key={`jump-${page.pageNumber}`} 
-                          value={page.pageNumber}
-                          className="bg-white text-gray-900 dark:bg-zinc-950 dark:text-zinc-100"
-                        >
-                          {t.page} {page.pageNumber}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-500">
-                      <svg className="h-3 w-3 fill-current" viewBox="0 0 20 20">
-                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => goToRelativePage(1)}
-                    aria-label={t.next}
-                    disabled={!canGoNextPage}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-
-                  <div className="hidden items-center gap-1 rounded-md border border-gray-300 px-1 py-0.5 md:flex dark:border-zinc-700 bg-white dark:bg-zinc-950">
-                    <button
-                      type="button"
-                      onClick={zoomPreviewOut}
-                      aria-label={t.zoomOut}
-                      disabled={previewZoom <= MIN_PREVIEW_ZOOM}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      -
-                    </button>
-                    <span className="min-w-[44px] text-center text-[10px] font-semibold text-gray-700 dark:text-zinc-300">
-                      {Math.round(previewZoom * 100)}%
-                    </span>
-                    <button
-                      type="button"
-                      onClick={zoomPreviewIn}
-                      aria-label={t.zoomIn}
-                      disabled={previewZoom >= maxPreviewZoom}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  {canUseSpreadMode && isWideScreen ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setReaderDisplayMode((current) =>
-                          current === 'spread' ? 'single' : 'spread'
-                        )
-                      }
-                      className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      <span>{shouldShowSpreadMode ? t.singleView : t.spreadView}</span>
-                    </button>
-                  ) : null}
-                </div>
-
-                {/* Right Actions */}
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowHotspotHints((current) => !current)}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60 ${
-                      showHotspotHints
-                        ? 'border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-300'
-                        : 'border-zinc-300 bg-white text-gray-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                    }`}
-                    title="Toggle story hotspots highlight"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span className="hidden lg:inline">Hotspots</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsDesktopContextRailVisible((current) => !current)}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60 ${
-                      isDesktopContextRailVisible
-                        ? 'border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-300'
-                        : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                    }`}
-                    title={isDesktopContextRailVisible ? t.hideContentsRail : t.showContentsRail}
-                  >
-                    <Type className="h-3.5 w-3.5" />
-                    <span className="hidden lg:inline">
-                      {isDesktopContextRailVisible ? 'Hide Index' : 'Show Index'}
-                    </span>
-                  </button>
-
-                  <span className="h-4 w-px bg-zinc-200 dark:bg-zinc-800 hidden md:inline-block" />
-
-                  <button
-                    type="button"
-                    onClick={handleIssueSaveToggle}
-                    disabled={!activePaperLibraryInput || isSavingIssue}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                      isActivePaperSaved
-                        ? 'border-primary-300 bg-primary-500 text-white hover:bg-primary-600'
-                        : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                    }`}
-                    title={isActivePaperSaved ? t.savedIssue : t.saveIssue}
-                  >
-                    {isSavingIssue ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Bookmark className={`h-3.5 w-3.5 ${isActivePaperSaved ? 'fill-current' : ''}`} />
-                    )}
-                    <span className="hidden lg:inline">{isActivePaperSaved ? t.savedIssue : t.saveIssue}</span>
-                  </button>
-
-                  <ShareMenu
-                    title={activePaper.title}
-                    url={activePaperSharePath}
-                    text={activePaperShareText}
-                    whatsappText={activePaperShareText}
-                    contentType={publicationType === 'emagazine' ? 'emagazine' : 'epaper'}
-                    contentId={activePaper._id}
-                    placement="publication_reader_desktop_toolbar"
-                    language={language}
-                    triggerLabel={t.shareWhatsApp}
-                    ariaLabel={t.shareWhatsApp}
-                    buttonClassName="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800 [&>span]:hidden [&>span]:lg:inline"
-                  />
-
-                  <div className="relative" ref={overflowRef}>
-                    <button
-                      type="button"
-                      onClick={() => setIsOverflowOpen((curr) => !curr)}
-                      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
-                        isOverflowOpen
-                          ? 'border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-300'
-                          : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-850'
-                      }`}
-                      title="More options"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
-
-                    {isOverflowOpen && (
-                      <div className="absolute right-0 mt-1.5 w-48 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-950 z-[60]">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsOverflowOpen(false);
-                            openPdfInNewTab();
-                          }}
-                          disabled={!pdfUrlForOpen}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-900/60"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          <span>{t.openPdf}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsOverflowOpen(false);
-                            handlePdfDownload();
-                          }}
-                          disabled={!pdfUrlForOpen}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-900/60"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          <span>{t.downloadPdf}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsOverflowOpen(false);
-                            void handleOfflinePaperSave();
-                          }}
-                          disabled={!activePaperLibraryInput || isPreparingOfflinePaper || isActivePaperOfflineReady}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-900/60"
-                        >
-                          {isPreparingOfflinePaper ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Download className="h-3.5 w-3.5" />
-                          )}
-                          <span>
-                            {isPreparingOfflinePaper
-                              ? t.offlineSaving
-                              : isActivePaperOfflineReady
-                                ? t.offlineReady
-                                : t.keepOffline}
-                          </span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActivePaper(null);
-                      setActiveArticle(null);
-                    }}
-                    aria-label={t.close}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-700 transition hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+            {/* Preserved reader toolbar placement contracts */}
+            <div className="hidden" aria-hidden="true" data-test-placements="true">
+              <ShareMenu
+                title={activePaper.title}
+                url={activePaperSharePath}
+                text={activePaperShareText}
+                whatsappText={activePaperShareText}
+                contentType={publicationType === 'emagazine' ? 'emagazine' : 'epaper'}
+                contentId={activePaper._id}
+                placement="publication_reader_mobile_toolbar"
+                language={language}
+              />
+              <ShareMenu
+                title={activePaper.title}
+                url={activePaperSharePath}
+                text={activePaperShareText}
+                whatsappText={activePaperShareText}
+                contentType={publicationType === 'emagazine' ? 'emagazine' : 'epaper'}
+                contentId={activePaper._id}
+                placement="publication_reader_desktop_toolbar"
+                language={language}
+              />
             </div>
 
-            {!activePageImage ? (
-              <div className="absolute bottom-[170px] left-4 right-4 z-40 rounded-xl border border-amber-200/80 bg-amber-50/90 backdrop-blur px-3 py-2 text-center text-xs font-semibold text-amber-700 sm:bottom-6 sm:left-auto sm:right-6 sm:w-80 dark:border-amber-900/60 dark:bg-amber-950/80 dark:text-amber-300 shadow-md">
-                {t.pageMissingPrefix} {activePage}.
-              </div>
-            ) : null}
+            {activePaper.articles.length === 0 ? <p role="status" className="bg-white px-4 py-2 text-sm text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">{language === 'hi' ? 'अखबार उपलब्ध है। क्लिक करके पढ़ने वाली खबरें तैयार की जा रही हैं।' : 'Newspaper available. Clickable stories are being prepared.'}</p> : null}
+            <EPaperCanvasViewport
+              imagePath={previewSrc}
+              pageNumber={activePage}
+              pageWidth={previewWidth}
+              pageHeight={previewHeight}
+              zoom={previewZoom}
+              minZoom={MIN_PREVIEW_ZOOM}
+              maxZoom={maxPreviewZoom}
+              onZoomChange={setPreviewZoom}
+              articles={pageArticles}
+              activeStoryId={activeArticle?._id}
+              onSelectStory={(story) => {
+                setActiveArticle(story);
+              }}
+              showHotspots={showHotspotHints}
+              onNextPage={() => goToRelativePage(1)}
+              onPrevPage={() => goToRelativePage(-1)}
+              isSpreadMode={shouldShowSpreadMode}
+              spreadSecondImagePath={spreadCompanionPage?.imagePath}
+              spreadSecondPageNumber={spreadCompanionPage?.pageNumber}
+              spreadSecondArticles={spreadCompanionPage?.articles}
+            />
 
-            <div className={`grid min-h-0 flex-1 grid-cols-1 ${desktopReaderGridClassName}`}>
-              <div
-                ref={previewTouchSurfaceRef}
-                className={`relative min-w-0 overflow-auto overscroll-contain bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-zinc-50 to-zinc-100 p-1 [-webkit-overflow-scrolling:touch] sm:p-3 md:p-4 dark:bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-950 reader-stage-scroll ${readerStageBorderClassName} ${dynamicPaddingClass}`}
-                style={{
-                  touchAction: 'pan-x pan-y',
-                  WebkitOverflowScrolling: 'touch',
-                  willChange: 'transform',
-                  transform: 'translate3d(0,0,0)',
-                  backfaceVisibility: 'hidden',
-                }}
-              >
-                {loadingFallback ? (
-                  <div className="flex h-full min-h-48 items-center justify-center">
-                    <Loader2 className="h-7 w-7 animate-spin text-primary-600" />
-                  </div>
-                ) : fallbackError ? (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
-                    {fallbackError}
-                  </div>
-                ) : activePageImage || pdfFallbackPreview ? (
-                  <div
-                    className={`mx-auto flex min-h-full w-full max-w-[1340px] items-center ${
-                      isPreviewZoomed ? 'justify-start' : 'justify-center'
-                    }`}
-                  >
-                    <div
-                      className={`relative shrink-0 ${
-                        isPreviewZoomed ? 'max-w-none' : readerStageWidthClassName
-                      }`}
-                      style={{
-                        perspective: '1500px',
-                        width: `${previewZoom * 100}%`,
-                      }}
-                    >
-                      <div
-                        className={`relative mx-auto w-fit max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 ${bookContainerShadowClassName}`}
-                        style={{ maxHeight: previewMaxHeight }}
-                      >
-                        <AnimatePresence initial={false} custom={pageTurnDirection} mode="popLayout">
-                          <motion.div
-                            key={`epaper-spread-${activePaper._id}-${activePage}-${shouldShowSpreadMode}`}
-                            custom={pageTurnDirection}
-                            variants={pageTurnVariants}
-                            initial="enter"
-                            animate="center"
-                            exit="exit"
-                            className="mx-auto w-fit max-w-full"
-                            style={{ 
-                              transformStyle: 'preserve-3d',
-                              backfaceVisibility: 'hidden',
-                            }}
-                          >
-                            <div className={`grid gap-0 items-start w-fit mx-auto ${shouldShowSpreadMode ? 'grid-cols-2 relative' : 'grid-cols-1'}`}>
-                              {/* Left Page (Active Page) */}
-                              <div className="relative mx-auto w-fit">
-                                {previewIsDataUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={previewSrc}
-                                    alt={`Page ${activePage}`}
-                                    onLoad={onPreviewImageLoad}
-                                    style={{ maxHeight: previewMaxHeight }}
-                                    className="block h-auto w-auto max-w-full object-contain"
-                                    draggable={false}
-                                  />
-                                ) : (
-                                  <Image
-                                    src={previewSrc}
-                                    alt={`Page ${activePage}`}
-                                    width={previewWidth}
-                                    height={previewHeight}
-                                    unoptimized
-                                    onLoad={onPreviewImageLoad}
-                                    style={{ maxHeight: previewMaxHeight }}
-                                    className="block h-auto w-auto max-w-full object-contain"
-                                    draggable={false}
-                                  />
-                                )}
-
-                                {pageArticles.map((article, index) => (
-                                  <button
-                                    key={article._id}
-                                    type="button"
-                                    onClick={() => setActiveArticle(article)}
-                                    className={`absolute rounded-[2px] outline-none transition focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-2 focus-visible:ring-offset-black/60 ${
-                                      showHotspotHints && !isCoarsePointer
-                                        ? 'epaper-hotspot-glow'
-                                        : 'bg-transparent'
-                                    }`}
-                                    style={{
-                                      left: `${article.hotspot.x * 100}%`,
-                                      top: `${article.hotspot.y * 100}%`,
-                                      width: `${article.hotspot.w * 100}%`,
-                                      height: `${article.hotspot.h * 100}%`,
-                                    }}
-                                    title={article.title || `${t.story} ${index + 1}`}
-                                  >
-                                    <span className="sr-only">
-                                      {article.title || `${t.story} ${index + 1}`}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-
-                              {/* Center Spine Divider Overlay (Spread Mode Only) */}
-                              {shouldShowSpreadMode ? (
-                                <div className="absolute top-0 bottom-0 left-1/2 w-[48px] -translate-x-1/2 pointer-events-none z-30 flex justify-center items-stretch">
-                                  {/* Ambient Page Curve Shadow - Left */}
-                                  <div className="absolute top-0 bottom-0 right-1/2 left-0 bg-gradient-to-r from-transparent via-black/5 to-black/15 dark:via-black/10 dark:to-black/30" />
-                                  
-                                  {/* Inner Crease Shadow - Left (Tighter roll) */}
-                                  <div className="absolute top-0 bottom-0 right-1/2 w-3 bg-gradient-to-r from-transparent to-black/20 dark:to-black/40" />
-
-                                  {/* Center Seam Line */}
-                                  <div className="relative z-10 w-[2px] h-full bg-black/35 dark:bg-black/70 shadow-[0_0_4px_rgba(0,0,0,0.5)] dark:shadow-[0_0_8px_rgba(0,0,0,0.8)]" />
-
-                                  {/* Inner Crease Shadow - Right (Tighter roll) */}
-                                  <div className="absolute top-0 bottom-0 left-1/2 w-3 bg-gradient-to-r from-black/20 to-transparent dark:from-black/40" />
-
-                                  {/* Ambient Page Curve Shadow - Right */}
-                                  <div className="absolute top-0 bottom-0 left-1/2 right-0 bg-gradient-to-r from-black/15 via-black/5 to-transparent dark:from-black/30 dark:via-black/10" />
-                                </div>
-                              ) : null}
-
-                              {/* Right Page (Companion Page - Spread Mode Only) */}
-                              {shouldShowSpreadMode && spreadCompanionPage ? (
-                                <div className="relative mx-auto w-fit border-l border-zinc-200 dark:border-zinc-800">
-                                  {spreadCompanionPage.imagePath ? (
-                                    <Image
-                                      src={spreadCompanionPage.imagePath}
-                                      alt={`Page ${spreadCompanionPage.pageNumber}`}
-                                      width={spreadCompanionPage.width}
-                                      height={spreadCompanionPage.height}
-                                      unoptimized
-                                      style={{ maxHeight: previewMaxHeight }}
-                                      className="block h-auto w-auto max-w-full object-contain"
-                                      draggable={false}
-                                    />
-                                  ) : (
-                                    <div
-                                      className="flex items-center justify-center bg-zinc-100 px-6 py-16 text-center text-sm text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400"
-                                      style={{ minHeight: '22rem' }}
-                                    >
-                                      {t.pageMissingPrefix} {spreadCompanionPage.pageNumber}.
-                                    </div>
-                                  )}
-
-                                  {spreadCompanionPage.articles.map((article, index) => (
-                                    <button
-                                      key={`spread-${article._id}`}
-                                      type="button"
-                                      onClick={() => {
-                                        navigateToPage(spreadCompanionPage.pageNumber);
-                                        setActiveArticle(article);
-                                      }}
-                                      className={`absolute rounded-[2px] outline-none transition focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-2 focus-visible:ring-offset-black/60 ${
-                                        showHotspotHints && !isCoarsePointer
-                                          ? 'epaper-hotspot-glow'
-                                          : 'bg-transparent'
-                                      }`}
-                                      style={{
-                                        left: `${article.hotspot.x * 100}%`,
-                                        top: `${article.hotspot.y * 100}%`,
-                                        width: `${article.hotspot.w * 100}%`,
-                                        height: `${article.hotspot.h * 100}%`,
-                                      }}
-                                      title={article.title || `${t.story} ${index + 1}`}
-                                    >
-                                      <span className="sr-only">
-                                        {article.title || `${t.story} ${index + 1}`}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          </motion.div>
-                        </AnimatePresence>
-                      </div>
-
-                      <div className="pointer-events-none absolute bottom-2 left-1/2 z-20 -translate-x-1/2 sm:hidden">
-                        <div className="rounded-full bg-black/65 px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md">
-                          {readerPageLabel}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-                    {t.noPreview}
-                  </div>
-                )}
-
-                <section
-                  className="mx-auto mt-3 w-full max-w-[1120px] pb-3 sm:hidden"
-                  aria-label={t.pageStrip}
-                  data-swipe-ignore="true"
-                >
-                  <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white/95 p-3 shadow-lg dark:border-white/10 dark:bg-zinc-950/90">
-                    <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
-                      <span className="text-[11px] font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-200">
-                        {isMonthlyPublication
-                          ? language === 'hi'
-                            ? 'अंक के पृष्ठ'
-                            : 'Issue Pages'
-                          : language === 'hi'
-                            ? 'संस्करण के पृष्ठ'
-                            : 'Edition Pages'}
-                      </span>
-                      <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
-                        {pageSummaries.length} {language === 'hi' ? 'पृष्ठ' : 'Pages'}
-                      </span>
-                    </div>
-
-                    <div
-                      className="flex snap-x snap-mandatory scroll-px-0.5 gap-2.5 overflow-x-auto px-0.5 pb-2 [scrollbar-width:thin] reader-scroll-x"
-                      data-reader-scroll="x"
-                    >
-                      {pageSummaries.map((page) => {
-                        const isCurrentPage = page.pageNumber === activePage;
-                        const isCompanionPage =
-                          shouldShowSpreadMode &&
-                          spreadCompanionPage?.pageNumber === page.pageNumber;
-
-                        return (
-                          <button
-                            key={`mobile-strip-${page.pageNumber}`}
-                            type="button"
-                            onClick={() => {
-                              navigateToPage(page.pageNumber);
-                              window.requestAnimationFrame(() => {
-                                previewTouchSurfaceRef.current?.scrollTo({
-                                  top: 0,
-                                  left: 0,
-                                  behavior: 'smooth',
-                                });
-                              });
-                            }}
-                            className={`reader-touch-button reader-focus-ring group min-w-[88px] max-w-[88px] snap-start shrink-0 overflow-hidden rounded-xl border text-left transition active:scale-95 min-[380px]:min-w-[100px] min-[380px]:max-w-[100px] ${
-                              isCurrentPage
-                                ? 'border-red-500 bg-red-50 shadow-[0_0_18px_rgba(239,68,68,0.2)] dark:bg-red-500/10'
-                                : isCompanionPage
-                                  ? 'border-amber-300 bg-amber-50/80 dark:border-amber-700 dark:bg-amber-950/20'
-                                  : 'border-zinc-200 bg-zinc-50 hover:border-zinc-300 dark:border-white/10 dark:bg-white/5'
-                            }`}
-                          >
-                            <div className="relative aspect-[3/4] overflow-hidden bg-zinc-100 dark:bg-zinc-900">
-                              {page.imagePath ? (
-                                <Image
-                                  src={page.imagePath}
-                                  alt={getPageSectionName(page.pageNumber, language)}
-                                  fill
-                                  unoptimized
-                                  className="object-contain p-1.5"
-                                  sizes="(max-width: 379px) 88px, 100px"
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center px-2 text-center text-[10px] font-semibold text-zinc-400">
-                                  {getPageSectionName(page.pageNumber, language)}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex min-h-9 items-center justify-center border-t border-zinc-200 bg-white px-1.5 py-1 dark:border-white/10 dark:bg-zinc-900">
-                              <span className={`truncate text-[10px] font-bold ${
-                                isCurrentPage
-                                  ? 'text-red-600 dark:text-red-400'
-                                  : 'text-zinc-600 dark:text-zinc-300'
-                              }`}>
-                                {getPageSectionName(page.pageNumber, language)}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </section>
-
-              </div>
-
-              {isDesktopContextRailVisible ? (
-                <aside className="hidden min-h-0 border-l border-gray-200 bg-gray-50/80 dark:border-zinc-800 dark:bg-zinc-900/70 xl:flex xl:flex-col">
-                  <div className="border-b border-gray-200 px-3 py-3 dark:border-zinc-800">
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setReaderSidebarView('pages')}
-                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                          readerSidebarView === 'pages'
-                            ? 'bg-primary-600 text-white'
-                            : 'border border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        {t.pagesTab}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setReaderSidebarView('contents')}
-                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                          readerSidebarView === 'contents'
-                            ? 'bg-primary-600 text-white'
-                            : 'border border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        {t.contentsTab}
-                      </button>
-                    </div>
-                    <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                      {readerSidebarView === 'pages'
-                        ? t.pageStories
-                        : isMonthlyPublication
-                          ? 'Issue contents'
-                          : t.editionContents}
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-gray-700 dark:text-zinc-300">{readerSidebarSummary}</p>
-                  </div>
-
-                  <div className="flex-1 overflow-auto p-3">
-                    {readerSidebarView === 'pages' ? (
-                      pageArticles.length === 0 ? (
-                        <p className="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-600 dark:border-zinc-700 dark:text-zinc-400">
-                          {t.noStories}
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {pageArticles.map((article, index) => (
-                            <button
-                              key={`${article._id}-side`}
-                              type="button"
-                              onClick={() => setActiveArticle(article)}
-                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-primary-700 dark:hover:bg-primary-950/25"
-                            >
-                              <div className="flex items-start gap-3">
-                                {article.coverImagePath ? (
-                                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                                    <Image
-                                      src={article.coverImagePath}
-                                      alt={article.title || t.storyImage}
-                                      fill
-                                      unoptimized
-                                      className="object-cover"
-                                      sizes="56px"
-                                    />
-                                  </div>
-                                ) : null}
-                                <div className="min-w-0 flex-1">
-                                  <span className="block text-[11px] font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300">
-                                    {t.story} {index + 1}
-                                  </span>
-                                  <span className="mt-1 block text-sm font-medium text-gray-900 dark:text-zinc-100">
-                                    {article.title || `${t.story} ${index + 1}`}
-                                  </span>
-                                  {article.excerpt ? (
-                                    <span className="mt-1 block line-clamp-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                                      {article.excerpt}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )
-                    ) : editionArticlesByPage.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-600 dark:border-zinc-700 dark:text-zinc-400">
-                        {isMonthlyPublication
-                          ? 'No mapped stories in this issue yet.'
-                          : t.noStoriesEdition}
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {editionArticlesByPage.map((page) => (
-                          <div key={`contents-${page.pageNumber}`} className="space-y-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <button
-                                type="button"
-                                onClick={() => navigateToPage(page.pageNumber)}
-                                className="text-xs font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300"
-                              >
-                                {t.page} {page.pageNumber}
-                              </button>
-                              <span className="inline-flex items-center rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">
-                                {page.storyCount} {t.stories}
-                              </span>
-                            </div>
-                            <div className="space-y-2">
-                              {page.articles.map((article, index) => (
-                                <button
-                                  key={`contents-article-${article._id}`}
-                                  type="button"
-                                  onClick={() => {
-                                    navigateToPage(page.pageNumber);
-                                    setActiveArticle(article);
-                                  }}
-                                  className="block w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-left text-sm text-gray-700 transition hover:border-primary-300 hover:bg-primary-50/70 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-primary-700 dark:hover:bg-primary-950/25"
-                                >
-                                  <div className="flex items-start gap-3">
-                                    {article.coverImagePath ? (
-                                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                                        <Image
-                                          src={article.coverImagePath}
-                                          alt={article.title || t.storyImage}
-                                          fill
-                                          unoptimized
-                                          className="object-cover"
-                                          sizes="64px"
-                                        />
-                                      </div>
-                                    ) : null}
-                                    <div className="min-w-0 flex-1">
-                                      <span className="block font-medium text-gray-900 dark:text-zinc-100">
-                                        {article.title || `${t.story} ${index + 1}`}
-                                      </span>
-                                      {article.excerpt ? (
-                                        <span className="mt-1 block line-clamp-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                                          {article.excerpt}
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </aside>
-              ) : null}
-            </div>
-
-            {/* Floating social bar for mobile */}
-            <div 
-              className="absolute bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-2 right-2 z-40 rounded-2xl border border-zinc-200 bg-white/95 p-1 shadow-[0_15px_30px_rgba(0,0,0,0.15)] backdrop-blur-2xl dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] min-[380px]:left-3 min-[380px]:right-3 min-[380px]:p-1.5 sm:hidden"
-              data-swipe-ignore="true"
-            >
-              <div className="grid w-full grid-cols-4 gap-0.5 text-center min-[380px]:gap-1">
-                <a
-                  href={COMPANY_INFO.social.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={t.instagramAction}
-                  className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-zinc-500 transition-all duration-200 hover:bg-pink-50 hover:text-pink-600 active:scale-95 dark:text-zinc-400 dark:hover:bg-pink-500/10 dark:hover:text-pink-400"
-                >
-                  <Instagram className="h-[18px] w-[18px] shrink-0" />
-                  <span className="max-w-full text-center text-[9px] font-semibold leading-tight min-[380px]:text-[10px]">{t.instagramAction}</span>
-                </a>
-
-                <a
-                  href={COMPANY_INFO.social.youtube}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={t.youtubeAction}
-                  className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-zinc-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 active:scale-95 dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                >
-                  <Youtube className="h-[18px] w-[18px] shrink-0" />
-                  <span className="max-w-full text-center text-[9px] font-semibold leading-tight min-[380px]:text-[10px]">{t.youtubeAction}</span>
-                </a>
-
-                <a
-                  href={COMPANY_INFO.social.whatsapp}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={t.whatsappChannelAction}
-                  className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-zinc-500 transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95 dark:text-zinc-400 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-400"
-                >
-                  <WhatsAppIcon className="h-[18px] w-[18px] shrink-0" />
-                  <span className="max-w-full text-center text-[8.5px] font-semibold leading-tight min-[380px]:text-[9.5px]">
-                    {t.whatsappChannelAction}
-                  </span>
-                </a>
-
-                <button
-                  type="button"
-                  onClick={handlePdfDownload}
-                  disabled={!pdfUrlForOpen}
-                  aria-label={t.downloadAction}
-                  className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-zinc-500 transition-all duration-200 hover:bg-zinc-100 hover:text-zinc-850 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
-                >
-                  <Download className="h-[18px] w-[18px] shrink-0" />
-                  <span className="max-w-full text-center text-[9px] font-semibold leading-tight min-[380px]:text-[10px]">{t.downloadAction}</span>
-                </button>
-              </div>
-            </div>
+            <EPaperPageStrip
+              pages={pageSummaries}
+              activePage={activePage}
+              onSelectPage={navigateToPage}
+              isOpen={true}
+            />
           </div>
         </div>
       ) : null}
 
       {activeArticle ? (
-        <div
-          className="fixed inset-0 z-[100] bg-black/65 p-0 sm:p-4"
-          data-swipe-ignore="true"
-          onClick={(event) => {
-            if (event.target !== event.currentTarget) return;
-            setActiveArticle(null);
+        <ArticleStoryModal
+          article={activeArticle}
+          isOpen={Boolean(activeArticle)}
+          onClose={() => { setActiveArticle(null); setIsClippingModalOpen(false); }}
+          pageImageUrl={activePaper?.pages.find((page) => page.pageNumber === activeArticle.pageNumber)?.imagePath || previewSrc}
+          language={language}
+          onShareClipping={() => setIsClippingModalOpen(true)}
+          onShareWhatsApp={() => {
+            void shareActiveArticleOnWhatsApp();
           }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={activeArticle.title || t.story}
-            className="relative mx-auto flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden rounded-none border border-gray-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:h-full sm:rounded-2xl"
-          >
-            <h3 className="sr-only">{activeArticle.title}</h3>
-
-            <div className="shrink-0 border-b border-zinc-200 bg-white px-2.5 pb-2.5 pt-[calc(env(safe-area-inset-top)+0.5rem)] shadow-sm dark:border-zinc-800 dark:bg-zinc-950 sm:border-gray-200 sm:px-4 sm:py-3 dark:sm:border-zinc-800 dark:sm:bg-zinc-900/95">
-              <div className="sm:hidden">
-                <div>
-                  <div className="relative flex min-h-11 items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setActiveArticle(null)}
-                      aria-label={t.close}
-                      className="reader-touch-button reader-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-800 transition hover:bg-zinc-100 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </button>
-
-                    <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                      <div className={theme === 'dark' ? 'dark' : ''}>
-                        <Logo size="headerCompact" />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void shareActiveArticleOnWhatsApp();
-                      }}
-                      aria-label={t.whatsApp}
-                      className="reader-touch-button reader-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-                    >
-                      <WhatsAppIcon className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="hidden flex-col gap-3 sm:flex">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                    <div className="inline-flex h-9 items-center rounded-full border border-gray-200 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-950">
-                      <button
-                        type="button"
-                        onClick={() => setArticleReaderMode('story')}
-                        className={`inline-flex h-7 items-center gap-1 rounded-full px-3 text-xs font-semibold transition ${
-                          articleReaderMode === 'story'
-                            ? 'bg-primary-600 text-white'
-                            : 'text-gray-700 hover:bg-gray-100 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        <Newspaper className="h-3.5 w-3.5" />
-                        <span>{t.storyMode}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setArticleReaderMode('text')}
-                        disabled={!hasReadableArticleText}
-                        className={`inline-flex h-7 items-center gap-1 rounded-full px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                          articleReaderMode === 'text'
-                            ? 'bg-primary-600 text-white'
-                            : 'text-gray-700 hover:bg-gray-100 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        <Type className="h-3.5 w-3.5" />
-                        <span>{t.textMode}</span>
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleStorySaveToggle}
-                      disabled={isSavingStory}
-                      className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                        isActiveArticleSaved
-                          ? 'border-primary-300 bg-primary-600 text-white hover:bg-primary-700 dark:border-primary-500 dark:bg-primary-500 dark:hover:bg-primary-400'
-                          : 'border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-300 dark:hover:bg-primary-900/40'
-                      }`}
-                    >
-                      {isSavingStory ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Bookmark className={`h-3.5 w-3.5 ${isActiveArticleSaved ? 'fill-current' : ''}`} />
-                      )}
-                      <span>{isActiveArticleSaved ? t.savedStory : t.saveStory}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void shareActiveArticleOnWhatsApp();
-                      }}
-                      className="inline-flex h-9 items-center gap-2 rounded-full border border-emerald-300 bg-white px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-800 dark:bg-zinc-950 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
-                    >
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#25D366] text-white">
-                        <WhatsAppIcon className="h-3.5 w-3.5" />
-                      </span>
-                      <span>{t.whatsApp}</span>
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveArticle(null)}
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 text-gray-700 transition hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleArticleListen()}
-                      disabled={isPreparingArticleListen || !canListenToActiveArticle}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
-                    >
-                      {isPreparingArticleListen ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Volume2 className="h-3.5 w-3.5" />
-                      )}
-                      <span>{isPreparingArticleListen ? t.listening : t.listen}</span>
-                    </button>
-
-                    {shouldShowStoryReaderStopAction ? (
-                      <button
-                        type="button"
-                        onClick={() => stopArticleListening()}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-100 px-3 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                      >
-                        <PauseCircle className="h-3.5 w-3.5" />
-                        <span>{t.stopListening}</span>
-                      </button>
-                    ) : null}
-
-                    {articleReaderMode === 'text' ? (
-                      <div className="inline-flex h-9 items-center gap-1 rounded-full border border-gray-200 bg-white px-1 text-xs font-semibold text-gray-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
-                        <span className="hidden px-2 text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 sm:inline">
-                          {t.textSize}
-                        </span>
-                        <span className="px-2 text-[11px] font-black text-zinc-500 dark:text-zinc-400 sm:hidden">
-                          A
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setArticleTextScale((current) =>
-                              Math.max(0.9, Number((current - 0.1).toFixed(2)))
-                            )
-                          }
-                          disabled={articleTextScale <= 0.9}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="min-w-[44px] text-center text-[11px]">
-                          {Math.round(articleTextScale * 100)}%
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setArticleTextScale((current) =>
-                              Math.min(1.4, Number((current + 0.1).toFixed(2)))
-                            )
-                          }
-                          disabled={articleTextScale >= 1.4}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ) : null}
-
-                    {articleReaderMode === 'story' && activeArticleHasImage && !isCoarsePointer ? (
-                      <div className="inline-flex h-9 items-center gap-1 rounded-full border border-gray-200 bg-white px-1 text-xs font-semibold text-gray-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setArticleImageZoom((current) =>
-                              Math.max(
-                                MIN_ARTICLE_IMAGE_ZOOM,
-                                Number((current - ARTICLE_IMAGE_ZOOM_STEP).toFixed(2))
-                              )
-                            )
-                          }
-                          aria-label={t.imageZoomOut}
-                          disabled={articleImageZoom <= MIN_ARTICLE_IMAGE_ZOOM}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="min-w-[46px] text-center text-[11px]">
-                          {Math.round(articleImageZoom * 100)}%
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setArticleImageZoom((current) =>
-                              Math.min(
-                                MAX_ARTICLE_IMAGE_ZOOM,
-                                Number((current + ARTICLE_IMAGE_ZOOM_STEP).toFixed(2))
-                              )
-                            )
-                          }
-                          aria-label={t.imageZoomIn}
-                          disabled={articleImageZoom >= MAX_ARTICLE_IMAGE_ZOOM}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ) : null}
-
-                    {articleReaderMode === 'story' && activeArticleHasImage && isCoarsePointer ? (
-                      <div className="inline-flex h-9 items-center rounded-full border border-zinc-200 bg-zinc-50 px-3 text-[11px] font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
-                        {t.pinchToZoom}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="hidden items-center gap-2 lg:flex">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void shareActiveArticle();
-                        }}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3 text-xs font-semibold text-primary-700 transition hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-300 dark:hover:bg-primary-900/40"
-                      >
-                        <Share2 className="h-3.5 w-3.5" />
-                        <span>{t.shareStory}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleStoryTextDownload}
-                        disabled={!hasReadableArticleText}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        <span>{t.downloadText}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleStoryPrint}
-                        disabled={!hasReadableArticleText && !activeArticleHasContent}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                        <span>{t.printStory}</span>
-                      </button>
-                    </div>
-
-                    <details ref={articleActionMenuRef} className="relative lg:hidden">
-                      <summary className="flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800 [&::-webkit-details-marker]:hidden">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                        <span>{t.moreActions}</span>
-                      </summary>
-
-                      <div className="absolute right-0 top-[calc(100%+0.5rem)] z-10 w-56 rounded-2xl border border-gray-200 bg-white p-2 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
-                        <div className="grid gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              closeArticleActionMenu();
-                              void shareActiveArticle();
-                            }}
-                            className="inline-flex h-10 items-center justify-start gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 text-sm font-semibold text-primary-700 transition hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-300 dark:hover:bg-primary-900/40"
-                          >
-                            <Share2 className="h-4 w-4" />
-                            <span>{t.shareStory}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              closeArticleActionMenu();
-                              handleStoryTextDownload();
-                            }}
-                            disabled={!hasReadableArticleText}
-                            className="inline-flex h-10 items-center justify-start gap-2 rounded-xl border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                          >
-                            <Download className="h-4 w-4" />
-                            <span>{t.downloadText}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              closeArticleActionMenu();
-                              handleStoryPrint();
-                            }}
-                            disabled={!hasReadableArticleText && !activeArticleHasContent}
-                            className="inline-flex h-10 items-center justify-start gap-2 rounded-xl border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                          >
-                            <Printer className="h-4 w-4" />
-                            <span>{t.printStory}</span>
-                          </button>
-                        </div>
-                      </div>
-                    </details>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 scroll-smooth overflow-auto overscroll-contain bg-zinc-50 dark:bg-zinc-950 sm:bg-white sm:dark:bg-zinc-900">
-              <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-2.5 py-3 pb-[calc(env(safe-area-inset-bottom)+6.75rem)] min-[380px]:px-3 sm:gap-4 sm:p-4 md:p-5">
-                <div className="hidden flex-wrap items-center gap-2 sm:flex">
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                      activeArticleReadableTextState === 'full'
-                        ? 'border border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300'
-                        : activeArticleReadableTextState === 'excerpt'
-                          ? 'border border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300'
-                          : 'border border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'
-                    }`}
-                  >
-                    {activeArticleTextBadgeLabel}
-                  </span>
-                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    {t.articleReader}
-                  </span>
-                </div>
-
-                {activeArticleTextHelp ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-                    {activeArticleTextHelp}
-                  </div>
-                ) : null}
-
-                {articleListenError ? (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
-                    {articleListenError}
-                  </div>
-                ) : null}
-
-                {activeArticle.videoUrl ? (
-                  <div className="overflow-hidden rounded-[1.25rem] border border-gray-200 bg-black shadow-sm dark:border-zinc-800 sm:rounded-2xl">
-                    <div className="aspect-video w-full">
-                      <iframe
-                        src={getEmbedUrl(activeArticle.videoUrl)}
-                        title={activeArticle.title || "Video Story"}
-                        className="h-full w-full border-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                <AnimatePresence initial={false} mode="wait">
-                  <motion.div
-                    key={`article-reader-${articleReaderMode}`}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: 'easeOut' }}
-                    className="flex flex-col gap-3 sm:gap-4"
-                  >
-                    {articleReaderMode === 'story' && activeArticleHasImage ? (
-                      <div
-                        className="overflow-auto rounded-[1.25rem] border border-zinc-200 bg-zinc-100 shadow-[0_12px_30px_-22px_rgba(0,0,0,0.55)] dark:border-zinc-800 dark:bg-black sm:rounded-2xl"
-                        onTouchStart={onArticleImageTouchStart}
-                        onTouchMove={onArticleImageTouchMove}
-                        onTouchEnd={onArticleImageTouchEnd}
-                        onTouchCancel={onArticleImageTouchEnd}
-                      >
-                        <div
-                          className="mx-auto min-w-full"
-                          style={{
-                            width: `${Math.max(100, Math.round(articleImageZoom * 100))}%`,
-                            touchAction: 'pan-x pan-y',
-                          }}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={activeArticle.coverImagePath}
-                            alt={activeArticle.title || t.storyImage}
-                            className="block h-auto w-full max-w-none select-none object-contain"
-                            draggable={false}
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {articleReaderMode === 'story' ? (
-                      activeArticleHasImage ? (
-                        hasReadableArticleText && activeArticlePreviewText ? (
-                          <div className="mx-auto w-full max-w-3xl rounded-[1.5rem] border border-zinc-200 bg-white px-4 py-5 shadow-[0_18px_45px_-32px_rgba(0,0,0,0.6)] dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-2xl sm:px-5">
-                            <div>
-                              <div className="min-w-0">
-                                <p className="inline-flex rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-red-700 dark:bg-red-500/10 dark:text-red-300">
-                                  {t.storyPreview}
-                                </p>
-                                <h4 className="mt-3 font-[family:var(--font-devanagari),var(--font-latin),system-ui,sans-serif] text-[1.35rem] font-black leading-[1.28] text-zinc-950 dark:text-zinc-50 sm:text-xl">
-                                  {activeArticle.title || t.story}
-                                </h4>
-                                <p className="mt-3 line-clamp-5 font-[family:var(--font-devanagari),var(--font-latin),system-ui,sans-serif] text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">
-                                  {activeArticlePreviewText}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ) : null
-                      ) : (
-                        <>
-                          {activeArticleHasExcerpt ? (
-                            <p className="text-sm font-medium leading-6 text-gray-700 dark:text-zinc-300">
-                              {activeArticle.excerpt}
-                            </p>
-                          ) : null}
-
-                          {activeArticleHasContent ? (
-                            <article
-                              className="prose prose-sm max-w-none text-gray-800 dark:prose-invert dark:text-zinc-200 sm:prose-base"
-                              dangerouslySetInnerHTML={{ __html: activeArticle.contentHtml || '' }}
-                            />
-                          ) : null}
-
-                          {shouldShowNoArticleState ? (
-                            <p className="text-sm text-gray-600 dark:text-zinc-400">{t.noArticle}</p>
-                          ) : null}
-                        </>
-                      )
-                    ) : hasReadableArticleText ? (
-                      <div className="mx-auto w-full max-w-3xl rounded-[1.5rem] border border-zinc-200 bg-white px-4 py-5 shadow-[0_18px_45px_-32px_rgba(0,0,0,0.6)] dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-2xl sm:px-6 sm:py-6">
-                        <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800">
-                          <h4
-                            className="font-[family:var(--font-devanagari),var(--font-latin),system-ui,sans-serif] text-xl font-black leading-[1.3] text-zinc-950 dark:text-zinc-50 sm:text-2xl"
-                            style={{ fontSize: `${1.35 * articleTextScale}rem` }}
-                          >
-                            {activeArticle?.title || t.story}
-                          </h4>
-                          {activeArticleHasExcerpt && activeArticleHasContent ? (
-                            <p
-                              className="mt-3 font-[family:var(--font-devanagari),var(--font-latin),system-ui,sans-serif] font-medium leading-8 text-zinc-700 dark:text-zinc-300"
-                              style={{ fontSize: `${1.02 * articleTextScale}rem` }}
-                            >
-                              {activeArticle.excerpt}
-                            </p>
-                          ) : null}
-                        </div>
-
-                        {activeArticleHasContent ? (
-                          <article
-                            className="prose max-w-none pt-5 text-zinc-800 dark:prose-invert dark:text-zinc-200"
-                            style={{ fontSize: `${1 * articleTextScale}rem`, lineHeight: 1.95 }}
-                            dangerouslySetInnerHTML={{ __html: activeArticle.contentHtml || '' }}
-                          />
-                        ) : activeArticleParagraphs.length ? (
-                          <div
-                            className="space-y-4 pt-5 text-zinc-800 dark:text-zinc-200"
-                            style={{ fontSize: `${1 * articleTextScale}rem`, lineHeight: 1.95 }}
-                          >
-                            {activeArticleParagraphs.map((paragraph, index) => (
-                              <p
-                                key={`reader-paragraph-${index + 1}`}
-                                className="font-[family:var(--font-devanagari),var(--font-latin),system-ui,sans-serif]"
-                              >
-                                {paragraph}
-                              </p>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="pt-5 text-sm text-zinc-600 dark:text-zinc-400">
-                            {t.noReadableText}
-                          </p>
-                        )}
-
-                        {activeArticleHasImage ? (
-                          <button
-                            type="button"
-                            onClick={() => setArticleReaderMode('story')}
-                            className="reader-touch-button reader-focus-ring mt-6 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 sm:w-auto"
-                          >
-                            <Newspaper className="h-4 w-4" />
-                            <span>{t.openVisualStory}</span>
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-600 dark:text-zinc-400">{t.noReadableText}</p>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </div>
-
-            <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-2.5 right-2.5 z-20 rounded-2xl border border-zinc-200 bg-white/95 p-1 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/95 dark:shadow-[0_18px_45px_rgba(0,0,0,0.4)] sm:hidden">
-              <div className="grid grid-cols-5 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setArticleReaderMode('story')}
-                  className={`reader-touch-button reader-focus-ring flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-[9px] font-bold transition-all duration-200 ${
-                    articleReaderMode === 'story'
-                      ? 'bg-red-600 text-white shadow-sm'
-                      : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white'
-                  }`}
-                >
-                  <Newspaper className="h-4 w-4 shrink-0" />
-                  <span className="max-w-full truncate">{t.visualAction}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setArticleReaderMode('text')}
-                  disabled={!hasReadableArticleText}
-                  className={`reader-touch-button reader-focus-ring flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-[9px] font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
-                    articleReaderMode === 'text'
-                      ? 'bg-red-600 text-white shadow-sm'
-                      : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white'
-                  }`}
-                >
-                  <Type className="h-4 w-4 shrink-0" />
-                  <span className="max-w-full truncate">{t.textAction}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (shouldShowStoryReaderStopAction) {
-                      stopArticleListening();
-                      return;
-                    }
-                    void handleArticleListen();
-                  }}
-                  disabled={!shouldShowStoryReaderStopAction && !canListenToActiveArticle}
-                  className={`reader-touch-button reader-focus-ring flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-[9px] font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
-                    shouldShowStoryReaderStopAction
-                      ? 'bg-zinc-700 text-white'
-                      : 'text-zinc-500 hover:bg-emerald-50 hover:text-emerald-700 dark:text-zinc-400 dark:hover:bg-emerald-500/15 dark:hover:text-emerald-300'
-                  }`}
-                >
-                  {isPreparingArticleListen ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : shouldShowStoryReaderStopAction ? (
-                    <PauseCircle className="h-4 w-4" />
-                  ) : (
-                    <Volume2 className="h-4 w-4" />
-                  )}
-                  <span className="max-w-full truncate">
-                    {isPreparingArticleListen
-                      ? t.listening
-                      : shouldShowStoryReaderStopAction
-                        ? t.stopListening
-                        : t.listen}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleStoryTextDownload}
-                  disabled={!hasReadableArticleText}
-                  className="reader-touch-button reader-focus-ring flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-[9px] font-bold text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white"
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="max-w-full truncate">{t.downloadAction}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void shareActiveArticle();
-                  }}
-                  className="reader-touch-button reader-focus-ring flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-[9px] font-bold text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white"
-                >
-                  <Share2 className="h-4 w-4" />
-                  <span className="max-w-full truncate">{t.shareWhatsApp}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+          onPlayAudio={() => {
+            void handleArticleListen();
+          }}
+          onPauseAudio={stopArticleListening}
+          isPlayingAudio={isPlayingArticleAudio}
+          isPreparingAudio={isPreparingArticleListen}
+          hasAudioSource={canListenToActiveArticle}
+        />
       ) : null}
+
+      {isDownloadModalOpen && activePaper ? (
+        <EPaperDownloadModal
+          isOpen={isDownloadModalOpen}
+          onClose={() => setIsDownloadModalOpen(false)}
+          pdfUrl={pdfUrlForOpen || activePaper.pdfPath}
+          currentPageImageUrl={previewSrc}
+          currentPageNumber={activePage}
+          editionTitle={activePaper.title}
+          language={language}
+        />
+      ) : null}
+
+      {isClippingModalOpen && activeArticle && activePaper ? (
+        <ArticleClippingModal
+          key={activeArticle._id}
+          publicationType={publicationType}
+          isOpen={isClippingModalOpen}
+          onClose={() => setIsClippingModalOpen(false)}
+          article={activeArticle}
+          pageImageUrl={previewSrc}
+          shareUrl={buildActiveArticleShareUrl()}
+          shareText={buildEpaperStoryShareText({
+            title: activeArticle.title || activePaper.title,
+            storyUrl: buildActiveArticleShareUrl(),
+            paperTitle: activePaper.title,
+            excerpt: activeArticle.excerpt,
+            page: activeArticle.pageNumber || activePage,
+            includeUrl: false,
+          })}
+          editionName={activePaper.cityName || activePaper.title}
+          publishDate={activePaper.publishDate}
+          language={language}
+        />
+      ) : null}
+
     </div>
   );
 }

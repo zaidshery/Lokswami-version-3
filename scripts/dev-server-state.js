@@ -44,7 +44,13 @@ function getActiveDevServerState(projectRoot = process.cwd()) {
     return null;
   }
 
-  return isProcessAlive(state.launcherPid) || isProcessAlive(state.childPid) ? state : null;
+  // The launcher is the process that owns the development lifecycle.
+  // If the launcher is dead, the claim is stale and should not block new runs.
+  if (state.launcherPid && isProcessAlive(state.launcherPid)) {
+    return state;
+  }
+
+  return null;
 }
 
 function removeStateFile(projectRoot = process.cwd()) {

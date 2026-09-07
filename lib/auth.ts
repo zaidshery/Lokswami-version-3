@@ -13,6 +13,7 @@ import {
 import { getJwtSecretOrNull } from '@/lib/auth/jwtSecret';
 import connectDB from '@/lib/db/mongoose';
 import User from '@/lib/models/User';
+import { authorizeReaderCredentials } from '@/lib/auth/readerCredentials';
 import { logAuthAuditEvent } from '@/lib/security/auditLogger';
 import { getLoginLimiter } from '@/lib/security/getRateLimiter';
 
@@ -24,6 +25,8 @@ type SyncableUser = {
   image?: string | null;
   role?: UserRole;
   isActive?: boolean;
+  whatsappNumber?: string | null;
+  optInDailyEpaper?: boolean;
   createdAt?: string;
   savedArticles?: string[];
 };
@@ -79,6 +82,8 @@ type DbUserRecord = {
   image?: string;
   role?: unknown;
   isActive?: boolean;
+  whatsappNumber?: string;
+  optInDailyEpaper?: boolean;
   createdAt?: Date | string;
   savedArticles?: unknown;
 };
@@ -90,6 +95,8 @@ type SessionProfile = {
   image: string | null;
   role: UserRole;
   isActive: boolean;
+  whatsappNumber?: string | null;
+  optInDailyEpaper?: boolean;
   createdAt?: string;
   savedArticles: string[];
 };
@@ -221,6 +228,8 @@ function buildSessionProfileFromDbUser(dbUser: DbUserRecord): SessionProfile | n
     image: (dbUser.image || '').trim() || null,
     role,
     isActive: dbUser.isActive !== false,
+    whatsappNumber: typeof dbUser.whatsappNumber === 'string' ? dbUser.whatsappNumber : undefined,
+    optInDailyEpaper: dbUser.optInDailyEpaper !== false,
     createdAt: normalizeCreatedAt(dbUser.createdAt),
     savedArticles: normalizeSavedArticles(dbUser.savedArticles),
   };
@@ -234,6 +243,8 @@ function assignProfileToUser(user: SyncableUser, profile: SessionProfile) {
   user.image = profile.image;
   user.role = profile.role;
   user.isActive = profile.isActive;
+  user.whatsappNumber = profile.whatsappNumber;
+  user.optInDailyEpaper = profile.optInDailyEpaper;
   user.createdAt = profile.createdAt;
   user.savedArticles = profile.savedArticles;
 }
@@ -268,6 +279,12 @@ function buildProviders(): NonNullable<NextAuthConfig['providers']> {
         if (staffUser) {
           credentialLimit.loginLimiter.reset(credentialLimit.key);
           return staffUser;
+        }
+
+        const readerUser = await authorizeReaderCredentials({ loginId, password });
+        if (readerUser) {
+          credentialLimit.loginLimiter.reset(credentialLimit.key);
+          return readerUser;
         }
 
         const rateLimitResult = credentialLimit.loginLimiter.check(credentialLimit.key);
@@ -645,6 +662,8 @@ function buildAuthOptions(): NextAuthConfig {
           token.userId = userId;
           token.role = user.role || 'reader';
           token.isActive = user.isActive !== false;
+          token.whatsappNumber = user.whatsappNumber;
+          token.optInDailyEpaper = user.optInDailyEpaper;
           token.savedArticles = Array.isArray(user.savedArticles)
             ? user.savedArticles
             : [];
@@ -697,6 +716,10 @@ function buildAuthOptions(): NextAuthConfig {
         session.user.userId = fallbackUserId;
         session.user.role = fallbackRole;
         session.user.isActive = token.isActive !== false;
+        session.user.whatsappNumber =
+          typeof token.whatsappNumber === 'string' ? token.whatsappNumber : undefined;
+        session.user.optInDailyEpaper =
+          typeof token.optInDailyEpaper === 'boolean' ? token.optInDailyEpaper : undefined;
         session.user.savedArticles = Array.isArray(token.savedArticles)
           ? token.savedArticles
           : [];
@@ -731,6 +754,8 @@ function buildAuthOptions(): NextAuthConfig {
             session.user.name = dbProfile.name;
             session.user.email = dbProfile.email;
             session.user.image = dbProfile.image;
+            session.user.whatsappNumber = dbProfile.whatsappNumber;
+            session.user.optInDailyEpaper = dbProfile.optInDailyEpaper;
             session.user.createdAt = dbProfile.createdAt;
             session.user.savedArticles = dbProfile.savedArticles;
 
@@ -738,6 +763,8 @@ function buildAuthOptions(): NextAuthConfig {
             token.userId = dbProfile.userId;
             token.role = dbProfile.role;
             token.isActive = dbProfile.isActive;
+            token.whatsappNumber = dbProfile.whatsappNumber;
+            token.optInDailyEpaper = dbProfile.optInDailyEpaper;
             token.createdAt = dbProfile.createdAt;
             token.savedArticles = dbProfile.savedArticles;
             token.picture = dbProfile.image;

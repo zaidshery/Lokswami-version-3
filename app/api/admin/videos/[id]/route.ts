@@ -16,6 +16,7 @@ import {
   recordVideoActivity,
 } from '@/lib/server/videoActivity';
 import { notifyWorkflowEvent } from '@/lib/server/workflowNotificationEvents';
+import { getPublicArticleBySlug } from '@/lib/server/publicArticles';
 import type { CreateVideoInput } from '@/lib/storage/videosFile';
 import {
   deleteStoredVideo,
@@ -69,8 +70,14 @@ const WORKFLOW_ACTIONS = new Set<ContentTransitionAction>([
 import {
   extractYouTubeVideoId,
   getYouTubeThumbnail,
-  isYouTubeLiveUrl,
 } from '@/lib/utils/youtube';
+import {
+  inferVideoMediaProvider,
+  normalizeVideoAspectRatio,
+  normalizeVideoProcessingStatus,
+  normalizeVideoSlug,
+  validateSwipePublishFields,
+} from '@/lib/content/videoPublication';
 
 function normalizeVideoUpdate(body: unknown) {
   const source = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
@@ -81,13 +88,33 @@ function normalizeVideoUpdate(body: unknown) {
   if (typeof source.thumbnail === 'string') updates.thumbnail = source.thumbnail.trim();
   if (typeof source.videoUrl === 'string') {
     const videoUrl = source.videoUrl.trim();
-    if (!videoUrl || !extractYouTubeVideoId(videoUrl)) {
-      return { updates: null, error: 'Video URL must be a valid YouTube or YouTube Live URL' };
+    const isDirectHttpsVideo = /^https:\/\/[^\s]+(?:\.mp4)(?:[?#].*)?$/i.test(videoUrl);
+    if (!videoUrl || (!extractYouTubeVideoId(videoUrl) && !isDirectHttpsVideo)) {
+      return { updates: null, error: 'Video must use a valid YouTube URL or an HTTPS MP4 playback URL' };
     }
     updates.videoUrl = videoUrl;
     if (!updates.thumbnail) {
       updates.thumbnail = getYouTubeThumbnail(videoUrl) || '';
     }
+  }
+
+  if (typeof source.slug === 'string') updates.slug = normalizeVideoSlug(source.slug);
+  if (typeof source.articleId === 'string') updates.articleId = source.articleId.trim();
+  if (typeof source.posterUrl === 'string') updates.posterUrl = source.posterUrl.trim();
+  if (typeof source.playbackUrl === 'string') updates.playbackUrl = source.playbackUrl.trim();
+  if (typeof source.hlsUrl === 'string') updates.hlsUrl = source.hlsUrl.trim();
+  if (typeof source.captionUrl === 'string') updates.captionUrl = source.captionUrl.trim();
+  if (typeof source.transcript === 'string') updates.transcript = source.transcript.trim();
+  if (typeof source.instagramUrl === 'string') updates.instagramUrl = source.instagramUrl.trim();
+  if (typeof source.youtubeUrl === 'string') updates.youtubeUrl = source.youtubeUrl.trim();
+  if (source.mediaProvider !== undefined) {
+    updates.mediaProvider = inferVideoMediaProvider(source.mediaProvider);
+  }
+  if (source.aspectRatio !== undefined) {
+    updates.aspectRatio = normalizeVideoAspectRatio(source.aspectRatio);
+  }
+  if (source.processingStatus !== undefined) {
+    updates.processingStatus = normalizeVideoProcessingStatus(source.processingStatus);
   }
 
   if (typeof source.category === 'string') {
@@ -135,6 +162,20 @@ function normalizeVideoUpdate(body: unknown) {
   }
 
   return { updates, error: null };
+}
+
+function validateSwipeReadiness(record: Record<string, unknown>, action?: string) {
+  if (action !== 'publish' && action !== 'fast_publish' && record.isPublished !== true) return null;
+  return validateSwipePublishFields(record);
+}
+
+async function validatePublishedSwipeArticle(record: Record<string, unknown>) {
+  if (!record.isShort) return null;
+  const articleId = String(record.articleId || '').trim();
+  if (!articleId || !(await getPublicArticleBySlug(articleId))) {
+    return 'Swipe News requires a related article that is already published.';
+  }
+  return null;
 }
 
 function getErrorMessage(error: unknown) {
@@ -400,6 +441,21 @@ export async function PATCH(
       }
 
       const currentVideoWorkflow = resolveVideoWorkflow(currentVideo);
+      const swipeReadinessError = validateSwipeReadiness(
+        currentVideo as unknown as Record<string, unknown>,
+        action
+      );
+      if (swipeReadinessError) {
+        return NextResponse.json({ success: false, error: swipeReadinessError }, { status: 400 });
+      }
+      if (action === 'publish' || action === 'fast_publish') {
+        const articleReadinessError = await validatePublishedSwipeArticle(
+          currentVideo as unknown as Record<string, unknown>
+        );
+        if (articleReadinessError) {
+          return NextResponse.json({ success: false, error: articleReadinessError }, { status: 400 });
+        }
+      }
       const readinessError = validateEditorialPublishReadiness({
         contentType: 'video',
         title: currentVideo.title,
@@ -539,6 +595,16 @@ export async function PATCH(
     }
 
     const currentVideoWorkflow = resolveVideoWorkflow(current);
+    const swipeReadinessError = validateSwipeReadiness(current, action);
+    if (swipeReadinessError) {
+      return NextResponse.json({ success: false, error: swipeReadinessError }, { status: 400 });
+    }
+    if (action === 'publish' || action === 'fast_publish') {
+      const articleReadinessError = await validatePublishedSwipeArticle(current);
+      if (articleReadinessError) {
+        return NextResponse.json({ success: false, error: articleReadinessError }, { status: 400 });
+      }
+    }
     const readinessError = validateEditorialPublishReadiness({
       contentType: 'video',
       title: current.title,
@@ -710,6 +776,29 @@ export async function PUT(
         resolveVideoWorkflow(currentVideo),
         publishedState
       );
+      const requiresSwipeReadiness =
+        nextWorkflow.status === 'published' &&
+        ((publishedState === true && resolveVideoWorkflow(currentVideo).status !== 'published') ||
+          (updates.isShort === true && currentVideo.isShort !== true));
+      const swipeReadinessError = requiresSwipeReadiness
+        ? validateSwipeReadiness({
+            ...(currentVideo as unknown as Record<string, unknown>),
+            ...updates,
+            isPublished: true,
+          })
+        : null;
+      if (swipeReadinessError) {
+        return NextResponse.json({ success: false, error: swipeReadinessError }, { status: 400 });
+      }
+      if (requiresSwipeReadiness) {
+        const articleReadinessError = await validatePublishedSwipeArticle({
+          ...(currentVideo as unknown as Record<string, unknown>),
+          ...updates,
+        });
+        if (articleReadinessError) {
+          return NextResponse.json({ success: false, error: articleReadinessError }, { status: 400 });
+        }
+      }
 
       const normalizedForFileStore = {
         ...(updates as Partial<CreateVideoInput> & { publishedAt?: string; updatedAt?: string }),
@@ -774,6 +863,26 @@ export async function PUT(
       resolveVideoWorkflow(current),
       publishedState
     );
+    const requiresSwipeReadiness =
+      nextWorkflow.status === 'published' &&
+      ((publishedState === true && resolveVideoWorkflow(current).status !== 'published') ||
+        (updates.isShort === true && current.isShort !== true));
+    const swipeReadinessError = requiresSwipeReadiness
+      ? validateSwipeReadiness({
+          ...current,
+          ...updates,
+          isPublished: true,
+        })
+      : null;
+    if (swipeReadinessError) {
+      return NextResponse.json({ success: false, error: swipeReadinessError }, { status: 400 });
+    }
+    if (requiresSwipeReadiness) {
+      const articleReadinessError = await validatePublishedSwipeArticle({ ...current, ...updates });
+      if (articleReadinessError) {
+        return NextResponse.json({ success: false, error: articleReadinessError }, { status: 400 });
+      }
+    }
 
     const video = await Video.findByIdAndUpdate(
       id,
@@ -811,6 +920,12 @@ export async function PUT(
     });
   } catch (error: unknown) {
     console.error('Error updating video:', error);
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) {
+      return NextResponse.json(
+        { success: false, error: 'That Swipe slug is already in use. Choose a unique slug.' },
+        { status: 409 }
+      );
+    }
     const message =
       process.env.NODE_ENV !== 'production'
         ? getErrorMessage(error) || 'Failed to update video'

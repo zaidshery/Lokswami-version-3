@@ -638,6 +638,7 @@ export default function EditArticle() {
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [isUploadingAuthorPhoto, setIsUploadingAuthorPhoto] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLockedByOther, setIsLockedByOther] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSeoSlugTouched, setIsSeoSlugTouched] = useState(false);
@@ -2545,6 +2546,9 @@ export default function EditArticle() {
                     Tip: Paste a YouTube link on its own line or use the YouTube button in the toolbar.
                   </p>
                   <ArticleEditorStudio
+                    articleId={articleId}
+                    currentUserRole={session?.user?.role}
+                    onLockChange={(hasLock) => setIsLockedByOther(!hasLock)}
                     title={formData.title}
                     summary={formData.summary}
                     content={formData.content}
@@ -3785,13 +3789,18 @@ export default function EditArticle() {
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                disabled={isSaving || isLoadingImage}
+                disabled={isSaving || isLoadingImage || isLockedByOther}
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-spanish-red text-white font-medium rounded-lg hover:bg-guardsman-red transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving || isLoadingImage ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Saving...
+                  </>
+                ) : isLockedByOther ? (
+                  <>
+                    <Upload className="w-5 h-5" />
+                    Locked by Editor
                   </>
                 ) : (
                   <>
@@ -3833,13 +3842,18 @@ export default function EditArticle() {
               <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="submit"
-                  disabled={isSaving || isLoadingImage}
+                  disabled={isSaving || isLoadingImage || isLockedByOther}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-spanish-red py-3 text-white font-medium transition-colors hover:bg-guardsman-red disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSaving || isLoadingImage ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       Saving...
+                    </>
+                  ) : isLockedByOther ? (
+                    <>
+                      <Upload className="w-5 h-5" />
+                      Locked by Editor
                     </>
                   ) : (
                     <>

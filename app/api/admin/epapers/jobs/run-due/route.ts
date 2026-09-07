@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongoose';
+import { processQueuedEpaperOcrJobs } from '@/lib/server/epaperOcrJobs';
 import {
   cleanupAbandonedEpaperUploads,
   processQueuedEpaperJobs,
@@ -37,5 +38,6 @@ export async function POST(request: NextRequest) {
     processQueuedEpaperJobs({ limit: 1 }),
     cleanupAbandonedEpaperUploads(),
   ]);
-  return NextResponse.json({ success: true, data: { processing, cleanup } });
+  const ocr = await processQueuedEpaperOcrJobs();
+  return NextResponse.json({ success: true, data: { processing, cleanup, ocr } });
 }

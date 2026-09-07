@@ -4,12 +4,13 @@ import { getToken } from 'next-auth/jwt';
 import { LOKSWAMI_SESSION_COOKIE } from '@/lib/auth/cookies';
 import { getJwtSecretOrNull } from '@/lib/auth/jwtSecret';
 import { resolveRouteGuardDecision } from '@/lib/auth/routeGuards';
+import { checkRateLimit } from '@/lib/security/getRateLimiter';
+import type { RateLimitCheckResult } from '@/lib/security/getRateLimiter';
 import {
-  getAdminLimiter,
-  getApiLimiter,
-  getHeavyRouteLimiter,
-} from '@/lib/security/getRateLimiter';
-import { getIpRateLimitKey, getUserRateLimitKey } from '@/lib/security/ipUtils';
+  getClientIp,
+  getIpRateLimitKey,
+  getUserRateLimitKey,
+} from '@/lib/security/ipUtils';
 import {
   getRouteScopedApiLimiterPrefix,
   isCacheablePublicReadApiRoute,
@@ -82,7 +83,51 @@ function getHeavyRateLimitPrefix(pathname: string) {
   return route ? `heavy:${route.scope}` : null;
 }
 
-function createRateLimitResponse(error: string, message: string, retryAfter: number) {
+function isHeavyStrictRoute(pathname: string): boolean {
+  return (
+    /^\/api\/admin\/epapers\/[^/]+\/ocr(?:\/|$)/.test(pathname) ||
+    /^\/api\/epaper(?:s)?\/[^/]+\/render(?:\/|$)/.test(pathname)
+  );
+}
+
+function isPublicWriteRoute(pathname: string, method: string): boolean {
+  if (method === 'GET' || method === 'HEAD') return false;
+  return (
+    pathname === '/api/comments' ||
+    pathname.startsWith('/api/comments/') ||
+    pathname === '/api/contact' ||
+    pathname.startsWith('/api/contact/')
+  );
+}
+
+function shouldRateLimitAuthWrite(pathname: string, method: string): boolean {
+  if (method.toUpperCase() !== 'POST') return false;
+
+  return pathname === '/api/auth/register' || pathname === '/api/auth/staff-setup';
+}
+
+function createRateLimitResponse(
+  error: string,
+  message: string,
+  rateLimitInfo: number | Partial<RateLimitCheckResult>
+) {
+  const retryAfter =
+    typeof rateLimitInfo === 'number'
+      ? rateLimitInfo
+      : rateLimitInfo.retryAfter || 60;
+  const limit =
+    typeof rateLimitInfo === 'object' && rateLimitInfo.limit
+      ? rateLimitInfo.limit
+      : 100;
+  const remaining =
+    typeof rateLimitInfo === 'object' && rateLimitInfo.remaining !== undefined
+      ? rateLimitInfo.remaining
+      : 0;
+  const reset =
+    typeof rateLimitInfo === 'object' && rateLimitInfo.reset
+      ? rateLimitInfo.reset
+      : Math.ceil((Date.now() + retryAfter * 1000) / 1000);
+
   return new NextResponse(
     JSON.stringify({
       error,
@@ -95,6 +140,9 @@ function createRateLimitResponse(error: string, message: string, retryAfter: num
         'Content-Type': 'application/json',
         'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
         'Retry-After': String(retryAfter),
+        'X-RateLimit-Limit': String(limit),
+        'X-RateLimit-Remaining': String(Math.max(0, remaining)),
+        'X-RateLimit-Reset': String(reset),
       },
     }
   );
@@ -176,41 +224,93 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     const heavyRateLimitPrefix = getHeavyRateLimitPrefix(pathname);
     const isHeavyRoute = Boolean(heavyRateLimitPrefix);
     const isPublicReadRoute = isCacheablePublicReadApiRoute(request.method, pathname);
+    const clientIp = getClientIp(request);
+
+    // Limit account-creation/setup writes only. Auth.js session, providers and
+    // CSRF requests are part of one normal sign-in flow and must not consume a
+    // shared attempt bucket. Credential failures keep their stricter per-login
+    // limiter inside lib/auth.ts.
+    if (shouldRateLimitAuthWrite(pathname, request.method)) {
+      const authResult = await checkRateLimit({
+        scope: 'auth',
+        identifier: clientIp,
+      });
+
+      if (!authResult.allowed) {
+        const retryAfter = authResult.retryAfter || 60;
+        return scheduleRequestLog(
+          createRateLimitResponse(
+            'Too many authentication attempts',
+            `Please try again in ${retryAfter} seconds`,
+            authResult
+          )
+        );
+      }
+    }
 
     if (isApiRequest && !isAdminArea && !isAuthApiRoute) {
       if (heavyRateLimitPrefix) {
-        const heavyLimiter = getHeavyRouteLimiter();
+        const isStrict = isHeavyStrictRoute(pathname);
+        const heavyScope = isStrict ? 'heavy_strict' : 'heavy';
         const heavyKey = getIpRateLimitKey(request, heavyRateLimitPrefix);
-        const heavyResult = heavyLimiter.check(heavyKey);
+        const heavyResult = await checkRateLimit({
+          scope: heavyScope,
+          identifier: heavyKey,
+        });
 
         if (!heavyResult.allowed) {
           const retryAfter = heavyResult.retryAfter || 600;
-          return scheduleRequestLog(createRateLimitResponse(
-            'Too many expensive requests',
-            `Please try again in ${retryAfter} seconds`,
-            retryAfter
-          ));
+          return scheduleRequestLog(
+            createRateLimitResponse(
+              'Too many expensive requests',
+              `Please try again in ${retryAfter} seconds`,
+              heavyResult
+            )
+          );
+        }
+      }
+
+      // Public writes (e.g. /api/comments, /api/contact): 20 req / 60s
+      if (isPublicWriteRoute(pathname, request.method)) {
+        const writeResult = await checkRateLimit({
+          scope: 'public_write',
+          identifier: clientIp,
+        });
+
+        if (!writeResult.allowed) {
+          const retryAfter = writeResult.retryAfter || 60;
+          return scheduleRequestLog(
+            createRateLimitResponse(
+              'Too many submission requests',
+              `Please try again in ${retryAfter} seconds`,
+              writeResult
+            )
+          );
         }
       }
 
       // Reader pages fan out across several cacheable GET APIs at once. Keep
       // the app limiter focused on writes and non-cacheable public APIs; use
       // CDN/WAF rules for bulk public read traffic.
-      if (!isPublicReadRoute && !isHeavyRoute) {
-        const apiLimiter = getApiLimiter();
+      if (!isPublicReadRoute && !isHeavyRoute && !isPublicWriteRoute(pathname, request.method)) {
         const apiKey = getIpRateLimitKey(
           request,
           getRouteScopedApiLimiterPrefix(pathname)
         );
-        const apiResult = apiLimiter.check(apiKey);
+        const apiResult = await checkRateLimit({
+          scope: 'api',
+          identifier: apiKey,
+        });
 
         if (!apiResult.allowed) {
           const retryAfter = apiResult.retryAfter || 300;
-          return scheduleRequestLog(createRateLimitResponse(
-            'Too many API requests',
-            `Please try again in ${retryAfter} seconds`,
-            retryAfter
-          ));
+          return scheduleRequestLog(
+            createRateLimitResponse(
+              'Too many API requests',
+              `Please try again in ${retryAfter} seconds`,
+              apiResult
+            )
+          );
         }
       }
     }
@@ -220,32 +320,42 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     const userId = typeof session?.userId === 'string' ? session.userId.trim() : '';
 
     if (heavyRateLimitPrefix && isAdminArea) {
-      const heavyLimiter = getHeavyRouteLimiter();
+      const isStrict = isHeavyStrictRoute(pathname);
+      const heavyScope = isStrict ? 'heavy_strict' : 'heavy';
       const heavyKey = getSessionAwareRateLimitKey(request, session, heavyRateLimitPrefix);
-      const heavyResult = heavyLimiter.check(heavyKey);
+      const heavyResult = await checkRateLimit({
+        scope: heavyScope,
+        identifier: heavyKey,
+      });
 
       if (!heavyResult.allowed) {
         const retryAfter = heavyResult.retryAfter || 600;
-        return scheduleRequestLog(createRateLimitResponse(
-          'Too many expensive requests',
-          `Please try again in ${retryAfter} seconds`,
-          retryAfter
-        ));
+        return scheduleRequestLog(
+          createRateLimitResponse(
+            'Too many expensive requests',
+            `Please try again in ${retryAfter} seconds`,
+            heavyResult
+          )
+        );
       }
     }
 
     if (isAdminArea) {
-      const adminLimiter = getAdminLimiter();
       const adminKey = getSessionAwareRateLimitKey(request, session, 'admin');
-      const adminResult = adminLimiter.check(adminKey);
+      const adminResult = await checkRateLimit({
+        scope: 'admin',
+        identifier: adminKey,
+      });
 
       if (!adminResult.allowed) {
         const retryAfter = adminResult.retryAfter || 600;
-        return scheduleRequestLog(createRateLimitResponse(
-          'Too many admin requests',
-          `Please try again in ${retryAfter} seconds`,
-          retryAfter
-        ));
+        return scheduleRequestLog(
+          createRateLimitResponse(
+            'Too many admin requests',
+            `Please try again in ${retryAfter} seconds`,
+            adminResult
+          )
+        );
       }
     }
 

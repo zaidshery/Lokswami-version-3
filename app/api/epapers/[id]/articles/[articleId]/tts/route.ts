@@ -3,9 +3,10 @@ import { Types } from 'mongoose';
 import connectDB from '@/lib/db/mongoose';
 import EPaper from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
+import { resolveReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
+import type { ReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
 import {
   buildEpaperStoryTtsText,
-  findReadyManualTtsAsset,
 } from '@/lib/server/ttsAssets';
 import { getStoredEPaperById } from '@/lib/storage/epapersFile';
 
@@ -23,6 +24,7 @@ type EpaperStoryListenSource = {
   title: string;
   excerpt: string;
   contentHtml: string;
+  audio?: ReleasedEpaperStory['audio'];
 };
 
 async function shouldUseFileStore() {
@@ -70,7 +72,7 @@ async function loadEpaperStoryForListen(params: {
   paperId: string;
   articleId: string;
   useFileStore: boolean;
-}) {
+}): Promise<EpaperStoryListenSource | null> {
   if (params.useFileStore) {
     const stored = await getStoredEPaperById(params.paperId);
     if (!stored) return null;
@@ -82,15 +84,16 @@ async function loadEpaperStoryForListen(params: {
   }
 
   const epaper = await EPaper.findById(params.paperId)
-    .select('_id title cityName publishDate status');
-  if (!epaper || epaper.status !== 'published') {
+    .select('_id title cityName publishDate status isCurrentRevision');
+  if (!epaper || epaper.status !== 'published' || epaper.isCurrentRevision === false) {
     return null;
   }
 
-  const story = await EPaperArticle.findOne({
+  const record = await EPaperArticle.findOne({
     _id: params.articleId,
     epaperId: params.paperId,
-  }).select('_id epaperId pageNumber title excerpt contentHtml');
+  }).select('_id epaperId releasedSnapshot').lean();
+  const story = resolveReleasedEpaperStory(record as unknown as Record<string, unknown> | null);
 
   if (!story) {
     return null;
@@ -109,6 +112,7 @@ async function loadEpaperStoryForListen(params: {
     title: String(story.title || '').trim(),
     excerpt: String(story.excerpt || '').trim(),
     contentHtml: String(story.contentHtml || '').trim(),
+    audio: story.audio as ReleasedEpaperStory['audio'],
   } satisfies EpaperStoryListenSource;
 }
 
@@ -140,11 +144,7 @@ export async function POST(_req: NextRequest, context: RouteContext) {
     }
 
     if (!useFileStore) {
-      const manualAsset = await findReadyManualTtsAsset({
-        sourceType: 'epaperArticle',
-        sourceId: story.storyId,
-        variant: 'epaper_story',
-      });
+      const manualAsset = story.audio;
       if (manualAsset?.audioUrl) {
         return NextResponse.json({
           success: true,

@@ -15,6 +15,7 @@ export interface IUser extends mongoose.Document {
   image: string;
   role: UserRole;
   loginId?: string;
+  whatsappNumber?: string;
   passwordHash?: string;
   passwordSetAt?: Date;
   setupTokenHash?: string;
@@ -30,6 +31,7 @@ export interface IUser extends mongoose.Document {
   preferredCategories: string[];
   state?: string;
   district?: string;
+  optInDailyEpaper: boolean;
   pushEnabled: boolean;
   notifPromptShown: boolean;
   notificationsEnabled: boolean;
@@ -69,6 +71,11 @@ const UserSchema = new mongoose.Schema<IUser>(
       unique: true,
       sparse: true,
     },
+    whatsappNumber: {
+      type: String,
+      trim: true,
+      sparse: true,
+    },
     passwordHash: { type: String, default: '' },
     passwordSetAt: { type: Date },
     setupTokenHash: { type: String, default: '' },
@@ -95,6 +102,7 @@ const UserSchema = new mongoose.Schema<IUser>(
     },
     state: { type: String, trim: true, default: '' },
     district: { type: String, trim: true, default: '' },
+    optInDailyEpaper: { type: Boolean, default: true },
     pushEnabled: { type: Boolean, default: false },
     notifPromptShown: { type: Boolean, default: false },
     notificationsEnabled: { type: Boolean, default: false },
@@ -113,6 +121,11 @@ function ensureUserSchemaCompatibility(schema: mongoose.Schema<IUser>) {
       trim: true,
       lowercase: true,
       unique: true,
+      sparse: true,
+    },
+    whatsappNumber: {
+      type: String,
+      trim: true,
       sparse: true,
     },
     passwordHash: { type: String, default: '' },
@@ -140,6 +153,7 @@ function ensureUserSchemaCompatibility(schema: mongoose.Schema<IUser>) {
     },
     state: { type: String, trim: true, default: '' },
     district: { type: String, trim: true, default: '' },
+    optInDailyEpaper: { type: Boolean, default: true },
     pushEnabled: { type: Boolean, default: false },
     notifPromptShown: { type: Boolean, default: false },
     notificationsEnabled: { type: Boolean, default: false },
@@ -155,12 +169,21 @@ function ensureUserSchemaCompatibility(schema: mongoose.Schema<IUser>) {
     schema.add(additions);
   }
 
-  const hasLoginIdIndex = schema
-    .indexes()
-    .some(([fields]) => Object.keys(fields).length === 1 && Object.prototype.hasOwnProperty.call(fields, 'loginId'));
+  const indexes = schema.indexes();
+  const hasLoginIdIndex = indexes.some(([fields]) =>
+    Object.keys(fields).length === 1 && Object.prototype.hasOwnProperty.call(fields, 'loginId')
+  );
 
   if (!hasLoginIdIndex) {
     schema.index({ loginId: 1 }, { unique: true, sparse: true });
+  }
+
+  const hasWhatsappIndex = indexes.some(([fields]) =>
+    Object.keys(fields).length === 1 && Object.prototype.hasOwnProperty.call(fields, 'whatsappNumber')
+  );
+
+  if (!hasWhatsappIndex) {
+    schema.index({ whatsappNumber: 1 }, { sparse: true });
   }
 }
 

@@ -23,10 +23,12 @@ import {
   ListChecks,
   Settings,
   Settings2,
+  Search,
   ShieldCheck,
   Share2,
   Sun,
   UserCog,
+  Users,
   Video,
   X,
 } from 'lucide-react';
@@ -146,6 +148,7 @@ const ADMIN_SURFACES: SidebarItem[] = [
   { icon: Settings2, labelEn: 'AI Ops', labelHi: '\u090f\u0906\u0908 \u0911\u092a\u0930\u0947\u0936\u0902\u0938', href: '/admin/ai', pageKey: 'ai_ops', section: 'insights' },
   { icon: ClipboardList, labelEn: 'Audit Log', labelHi: HI.auditLog, href: '/admin/audit-log', pageKey: 'audit_log', section: 'governance' },
   { icon: ShieldCheck, labelEn: 'Permission Review', labelHi: HI.permissionReview, href: '/admin/permission-review', pageKey: 'permission_review', section: 'governance' },
+  { icon: Users, labelEn: 'Users & Subscribers', labelHi: 'उपयोगकर्ता एवं ग्राहक', href: '/admin/users', pageKey: 'users', section: 'governance' },
   { icon: Activity, labelEn: 'Operations Diagnostics', labelHi: HI.operationsDiagnostics, href: '/admin/operations-diagnostics', pageKey: 'operations_diagnostics', section: 'governance' },
   { icon: Activity, labelEn: 'Elections', labelHi: '\u091a\u0941\u0928\u093e\u0935', href: '/admin/settings/elections', pageKey: 'newsroom_settings', section: 'governance' },
   { icon: Settings2, labelEn: 'Newsroom Settings', labelHi: HI.newsroomSettings, href: '/admin/settings/newsroom', pageKey: 'newsroom_settings', section: 'governance' },
@@ -381,6 +384,7 @@ export default function AdminShell({
   const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [toolSearch, setToolSearch] = useState('');
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const mobileNavButtonRef = useRef<HTMLButtonElement>(null);
   const mobileDrawerRef = useRef<HTMLElement>(null);
@@ -476,8 +480,16 @@ export default function AdminShell({
   const effectiveTheme = isHydrated ? theme : 'dark';
   const sidebarItems = useMemo(() => getSidebarItems(resolvedUser.role), [resolvedUser.role]);
   const sidebarSections = useMemo(
-    () => getSidebarSections(resolvedUser.role, sidebarItems),
-    [resolvedUser.role, sidebarItems]
+    () => {
+      const query = toolSearch.trim().toLocaleLowerCase();
+      const matches = query
+        ? sidebarItems.filter((item) =>
+            `${item.labelEn} ${item.labelHi}`.toLocaleLowerCase().includes(query)
+          )
+        : sidebarItems;
+      return getSidebarSections(resolvedUser.role, matches).filter((section) => section.items.length);
+    },
+    [resolvedUser.role, sidebarItems, toolSearch]
   );
   const mobileDockItems = useMemo(
     () => getMobileDockItems(resolvedUser.role, sidebarItems),
@@ -551,7 +563,28 @@ export default function AdminShell({
         </button>
       </div>
 
+      <div className="px-3 pt-3">
+        <label className="flex items-center gap-2 rounded-xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface-muted)] px-3 focus-within:ring-2 focus-within:ring-red-500">
+          <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--admin-shell-text-muted)]" />
+          <input
+            type="search"
+            value={toolSearch}
+            onChange={(event) => setToolSearch(event.target.value)}
+            aria-label={isHindi ? 'न्यूजरूम टूल खोजें' : 'Find newsroom tools'}
+            placeholder={isHindi ? 'टूल खोजें…' : 'Find a tool…'}
+            className="h-11 min-w-0 w-full bg-transparent text-sm text-[color:var(--admin-shell-text)] outline-none"
+          />
+        </label>
+      </div>
       <nav aria-label="Newsroom tools" className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 pb-20">
+        {sidebarSections.length === 0 ? (
+          <div role="status" className="px-2 py-3 text-sm text-[color:var(--admin-shell-text-muted)]">
+            <p>{isHindi ? 'कोई टूल नहीं मिला।' : 'No matching tools.'}</p>
+            <button type="button" onClick={() => setToolSearch('')} className="mt-2 min-h-11 font-semibold text-red-600 dark:text-red-400">
+              {isHindi ? 'खोज साफ़ करें' : 'Clear search'}
+            </button>
+          </div>
+        ) : null}
         {sidebarSections.map((section) => (
           <div key={section.labelEn} className="space-y-1.5">
             <p className="px-2 pb-1 text-[9px] font-bold uppercase tracking-[0.2em] text-[color:var(--admin-shell-text-muted)]">

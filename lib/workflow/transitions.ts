@@ -26,9 +26,9 @@ const EPAPER_PRODUCTION_TRANSITIONS: Record<
   readonly EPaperProductionStatus[]
 > = {
   draft_upload: ['pages_ready'],
-  pages_ready: ['ocr_review'],
-  ocr_review: ['hotspot_mapping'],
-  hotspot_mapping: ['ready_to_publish'],
+  pages_ready: ['ocr_review', 'published'],
+  ocr_review: ['hotspot_mapping', 'published'],
+  hotspot_mapping: ['ready_to_publish', 'published'],
   ready_to_publish: ['hotspot_mapping', 'published'],
   published: ['archived'],
   archived: ['published'],

@@ -10,10 +10,7 @@ import {
   recordEpaperActivity,
 } from '@/lib/server/epaperActivity';
 import { applyEpaperWorkflowAutomation } from '@/lib/server/epaperWorkflowAutomation';
-import {
-  assertEpaperDraftEditable,
-  invalidateEpaperQa,
-} from '@/lib/server/epaperWorkflowPolicy';
+import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
 import {
   buildEpaperPlaceholderTitle,
   normalizeHotspot,
@@ -309,6 +306,24 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return Boolean(existing);
     });
 
+    const pageRecord = (epaper.pages || []).find((p) => Number(p.pageNumber || 0) === pageNumber);
+    const pageImagePath = pageRecord?.imagePath || '';
+
+    const releasedSnapshot = {
+      title,
+      slug,
+      pageNumber,
+      excerpt,
+      contentHtml,
+      coverImagePath,
+      pageImagePath,
+      hotspot: { ...hotspot },
+      version: 1,
+      releasedAt: new Date().toISOString(),
+      releasedById: admin.id,
+      sourceUpdatedAt: new Date().toISOString(),
+    };
+
     const created = await EPaperArticle.create({
       epaperId: id,
       pageNumber,
@@ -318,6 +333,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       contentHtml,
       coverImagePath,
       hotspot,
+      releasedSnapshot,
+      workflow: {
+        status: 'published',
+        publishedAt: new Date(),
+        reviewedBy: {
+          id: admin.id,
+          name: admin.name || admin.email || 'Admin',
+          email: admin.email || '',
+          role: admin.role,
+        },
+      },
     });
 
     await recordEpaperActivity({
@@ -336,19 +362,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
       Number(page.pageNumber || 0) === pageNumber
         ? {
             ...page,
-            reviewStatus: 'pending',
-            reviewedAt: null,
-            reviewedBy: null,
+            reviewStatus: 'ready',
+            reviewedAt: new Date(),
+            reviewedBy: admin.id,
           }
         : page
     );
     await EPaper.findByIdAndUpdate(id, { pages });
-    await invalidateEpaperQa({
-      epaperId: id,
-      actor: admin,
-      reason: 'A mapped story was created.',
-      pageNumbers: [pageNumber],
-    });
 
     await applyEpaperWorkflowAutomation({
       epaperId: id,

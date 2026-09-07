@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 import { type BreakingTtsMetadata, normalizeBreakingTtsMetadata } from '@/lib/types/breaking';
 import {
   createEmptyCopyEditorMeta,
@@ -520,8 +521,7 @@ async function readAllArticles(options: { failOnReadError?: boolean } = {}) {
 }
 
 async function writeAllArticles(articles: StoredArticle[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(articles, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, articles);
 }
 
 export async function listStoredArticles(params: {

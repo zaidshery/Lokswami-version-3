@@ -4,10 +4,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Bookmark, Newspaper, Sparkles, Volume2, PauseCircle, Loader2, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Bookmark,
+  Loader2,
+  Newspaper,
+  Pause,
+  PauseCircle,
+  Play,
+  Sparkles,
+  Square,
+  Volume2,
+  X,
+} from 'lucide-react';
 import NewsCard from '@/components/ui/NewsCard';
 import ShareMenu from '@/components/ui/ShareMenu';
 import type { Article } from '@/lib/mock/data';
+import { useArticleTts } from '@/lib/hooks/useArticleTts';
 import { useAppStore } from '@/lib/store/appStore';
 import {
   buildArticleSharePath,
@@ -102,11 +115,9 @@ export default function ArticleDetailClient({
   const [listenLanguageCode, setListenLanguageCode] = useState('hi-IN');
   const [listenVoiceId, setListenVoiceId] = useState('');
   const [isPreparingListen, setIsPreparingListen] = useState(false);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isSavingBookmark, setIsSavingBookmark] = useState(false);
   const [listenError, setListenError] = useState('');
   const [preparedListenAudio, setPreparedListenAudio] = useState<PreparedArticleAudio | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedListenAudioRef = useRef<HTMLAudioElement | null>(null);
   const listenRequestIdRef = useRef(0);
   const listenPrefetchRequestIdRef = useRef(0);
@@ -122,6 +133,7 @@ export default function ArticleDetailClient({
   );
   const visibleRelatedArticles = relatedArticles.slice(0, visibleRelatedCount);
   const hasMoreRelatedStories = visibleRelatedCount < relatedArticles.length;
+  const fontSizeClass = 'text-[15px] sm:text-base leading-relaxed';
   const canPrepareListen = true;
   const currentListenSourceId = article?.id || '';
   const currentListenVoice = listenVoiceId || '';
@@ -132,6 +144,30 @@ export default function ArticleDetailClient({
       preparedListenAudio.voice === currentListenVoice
   );
   const listenButtonTitle = language === 'hi' ? 'Lekh sunein' : 'Listen to article';
+
+  const articlePlainText = useMemo(() => {
+    if (!article) return '';
+    const parts = [
+      article.title,
+      article.summary,
+      article.content ? toPlainText(article.content) : '',
+    ].filter(Boolean);
+    return parts.join('। ');
+  }, [article]);
+
+  const tts = useArticleTts({
+    audioUrl: preparedListenAudio?.src || null,
+    text: articlePlainText,
+    title: article?.title,
+    lang: listenLanguageCode,
+    onError: (err) => {
+      setListenError(
+        language === 'hi'
+          ? 'ऑडियो चलाने में त्रुटि हुई।'
+          : err || 'Unable to play article audio right now.'
+      );
+    },
+  });
 
   useEffect(() => {
     if (!isAuthorImageModalOpen) return;
@@ -278,23 +314,13 @@ export default function ArticleDetailClient({
     }
   }, [listenVoiceId, listenVoiceOptions]);
 
-  const stopListening = (suppressState = false, cancelPending = true) => {
-    if (cancelPending) {
-      listenRequestIdRef.current += 1;
-    }
-
-    if (audioRef.current) {
-      audioRef.current.onended = null;
-      audioRef.current.onerror = null;
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
+  const stopListening = useCallback((suppressState = false) => {
+    listenRequestIdRef.current += 1;
+    tts.stop();
     if (!suppressState) {
-      setIsPlayingAudio(false);
       setIsPreparingListen(false);
     }
-  };
+  }, [tts]);
 
   const prepareArticleListenAudio = useCallback(
     async (options?: { force?: boolean }) => {
@@ -420,72 +446,51 @@ export default function ArticleDetailClient({
 
   const handleListen = async () => {
     if (!article) return;
+
+    if (tts.isSpeaking) {
+      tts.pause();
+      return;
+    }
+
+    if (tts.isPaused) {
+      tts.resume();
+      return;
+    }
+
     const requestId = listenRequestIdRef.current + 1;
     listenRequestIdRef.current = requestId;
     setListenError('');
     setIsPreparingListen(true);
-    stopListening(false, false);
 
     const articleListenSourceId = article.id;
-    if (!articleListenSourceId) {
-      setListenError(
-        language === 'hi'
-          ? 'सुनने के लिए लेख का टेक्स्ट उपलब्ध नहीं है।'
-          : 'No article text is available for listen mode.'
-      );
-      setIsPreparingListen(false);
-      return;
-    }
 
     try {
-      const preparedAudio = await prepareArticleListenAudio();
-      if (requestId !== listenRequestIdRef.current) return;
-
-      const payload =
-        preparedAudio?.payload ||
-        (await requestArticleTtsAudio(articleListenSourceId));
-      if (requestId !== listenRequestIdRef.current) return;
-
-      const src = preparedAudio?.src || buildTtsAudioSource(payload);
-      if (!src) {
-        throw new Error('Article audio returned no playable audio payload.');
+      let audioSource = preparedListenAudio?.src || null;
+      if (!audioSource && articleListenSourceId) {
+        try {
+          const preparedAudio = await prepareArticleListenAudio();
+          if (requestId === listenRequestIdRef.current && preparedAudio?.src) {
+            audioSource = preparedAudio.src;
+          }
+        } catch {
+          audioSource = null;
+        }
       }
 
-      const preloadedAudio = preloadedListenAudioRef.current;
-      const audio =
-        preloadedAudio && preloadedAudio.src === new URL(src, window.location.href).href
-          ? preloadedAudio
-          : new Audio(src);
-      audioRef.current = audio;
-      audio.onended = () => {
-        if (requestId !== listenRequestIdRef.current) return;
-        audioRef.current = null;
-        setIsPlayingAudio(false);
-      };
-      audio.onerror = () => {
-        if (requestId !== listenRequestIdRef.current) return;
-        audioRef.current = null;
-        setIsPlayingAudio(false);
-        setListenError(
-          language === 'hi'
-            ? 'Article audio play nahi ho paaya.'
-            : 'Unable to play the article audio.'
-        );
-      };
+      if (requestId !== listenRequestIdRef.current) return;
 
-      await audio.play();
-      if (requestId !== listenRequestIdRef.current) {
-        audio.pause();
-        return;
-      }
-      setIsPlayingAudio(true);
+      await tts.play({
+        audioUrl: audioSource,
+        text: articlePlainText,
+        lang: listenLanguageCode,
+      });
     } catch (error) {
       if (requestId !== listenRequestIdRef.current) return;
       setListenError(
         error instanceof Error && error.message.trim()
           ? error.message
           : language === 'hi'
-            ? 'Article audio chalane mein dikkat aayi.'
+            ? 'ऑडियो चलाने में त्रुटि हुई।'
             : 'Unable to play article audio right now.'
       );
     } finally {
@@ -695,6 +700,7 @@ export default function ArticleDetailClient({
                 <Newspaper className="h-3.5 w-3.5 max-[420px]:hidden sm:h-4 sm:w-4" />
                 {language === 'hi' ? '\u0908-\u092a\u0947\u092a\u0930' : 'E-Paper'}
               </Link>
+
             </div>
           </div>
           </div>
@@ -799,24 +805,39 @@ export default function ArticleDetailClient({
                   disabled={isPreparingListen || !canPrepareListen}
                   title={listenButtonTitle}
                   className={`reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1 rounded-full border px-2.5 text-[10px] font-bold leading-none transition disabled:opacity-60 sm:min-h-8 sm:gap-1.5 sm:px-3 sm:text-xs ${
-                    canUsePreparedListenAudio
-                      ? 'border-emerald-300 bg-emerald-100 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-200 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
-                      : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300'
+                    tts.isSpeaking
+                      ? 'border-orange-400 bg-orange-100 text-orange-800 hover:bg-orange-200 dark:border-orange-600 dark:bg-orange-950/60 dark:text-orange-200'
+                      : canUsePreparedListenAudio
+                        ? 'border-emerald-300 bg-emerald-100 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-200 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300'
                   }`}
                 >
-                  {isPreparingListen ? <Loader2 className="h-3 w-3 animate-spin sm:h-3.5 sm:w-3.5" /> : <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
-                  {language === 'hi' ? '\u0938\u0941\u0928\u0947\u0902' : 'Listen'}
+                  {isPreparingListen ? (
+                    <Loader2 className="h-3 w-3 animate-spin sm:h-3.5 sm:w-3.5" />
+                  ) : tts.isSpeaking ? (
+                    <PauseCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  ) : (
+                    <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  )}
+                  {tts.isSpeaking
+                    ? language === 'hi'
+                      ? 'रोकें'
+                      : 'Pause'
+                    : language === 'hi'
+                      ? 'सुनें'
+                      : 'Listen'}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => stopListening()}
-                  disabled={!isPlayingAudio && !isPreparingListen}
-                  className="reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1 rounded-full border border-zinc-300 bg-white px-2.5 text-[10px] font-bold leading-none text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800 sm:min-h-8 sm:gap-1.5 sm:px-3 sm:text-xs"
-                >
-                  <PauseCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  {language === 'hi' ? '\u0930\u094b\u0915\u0947\u0902' : 'Stop'}
-                </button>
+                {tts.isSpeaking || tts.isPaused ? (
+                  <button
+                    type="button"
+                    onClick={() => stopListening()}
+                    className="reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1 rounded-full border border-zinc-300 bg-white px-2.5 text-[10px] font-bold leading-none text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800 sm:min-h-8 sm:gap-1.5 sm:px-3 sm:text-xs"
+                  >
+                    <Square className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    {language === 'hi' ? 'बंद करें' : 'Stop'}
+                  </button>
+                ) : null}
 
                 <button
                   type="button"
@@ -825,7 +846,7 @@ export default function ArticleDetailClient({
                   className="reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1 rounded-full border border-red-200 bg-white px-2.5 text-[10px] font-bold leading-none text-red-700 shadow-sm transition hover:border-red-300 hover:bg-red-50 disabled:opacity-60 dark:border-red-900/70 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30 sm:min-h-8 sm:gap-1.5 sm:px-3 sm:text-xs"
                 >
                   {isGeneratingSummary ? <Loader2 className="h-3 w-3 animate-spin sm:h-3.5 sm:w-3.5" /> : <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
-                  {language === 'hi' ? '\u0938\u093e\u0930\u093e\u0902\u0936' : 'Summary'}
+                  {language === 'hi' ? 'सारांश' : 'Summary'}
                 </button>
               </div>
             </div>
@@ -852,7 +873,7 @@ export default function ArticleDetailClient({
 
           <div
             data-article-body
-            className="article-rich-content text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-200 sm:text-base"
+            className={`article-rich-content text-zinc-800 dark:text-zinc-200 ${fontSizeClass}`}
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
         </div>
@@ -938,6 +959,67 @@ export default function ArticleDetailClient({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {/* Floating Audio Mini-Player */}
+      {tts.isSpeaking || tts.isPaused ? (
+        <aside
+          aria-label={language === 'hi' ? 'ऑडियो प्लेयर' : 'Audio player'}
+          className="fixed bottom-4 left-3 right-3 z-50 mx-auto max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+        >
+          <div className="flex items-center gap-3 rounded-2xl border border-zinc-200/90 bg-white/95 p-3 shadow-2xl backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-900/95 sm:px-4">
+            {/* Status Icon */}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400">
+              {tts.isSpeaking ? (
+                <Volume2 className="h-5 w-5 animate-pulse" />
+              ) : (
+                <Volume2 className="h-5 w-5 opacity-60" />
+              )}
+            </div>
+
+            {/* Title & Mode */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-hindi text-xs font-bold text-zinc-900 dark:text-zinc-100 sm:text-sm">
+                {article?.title}
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                  <div
+                    className="h-full bg-orange-500 transition-all duration-300"
+                    style={{ width: `${Math.max(0, Math.min(100, tts.playbackProgress))}%` }}
+                  />
+                </div>
+                <span className="shrink-0 text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  {tts.currentMode === 'audio' ? 'HQ Audio' : 'AI Speech'}
+                </span>
+              </div>
+            </div>
+
+            {/* Controls: Play/Pause and Stop */}
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => (tts.isPaused ? tts.resume() : tts.pause())}
+                aria-label={tts.isPaused ? 'Resume audio' : 'Pause audio'}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+              >
+                {tts.isPaused ? (
+                  <Play className="ml-0.5 h-4 w-4 fill-current" />
+                ) : (
+                  <Pause className="h-4 w-4 fill-current" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => stopListening()}
+                aria-label="Stop audio"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-red-50 hover:text-red-600 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+              </button>
+            </div>
+          </div>
+        </aside>
       ) : null}
     </div>
   );

@@ -28,13 +28,13 @@ export default function NewsCard({ article, variant = 'default', size = 'default
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isSavingBookmark, setIsSavingBookmark] = useState(false);
   const isSignedIn = Boolean(currentUser);
-  const isSavedInProfile = Array.isArray(savedArticleIds) && savedArticleIds.includes(article.id);
+  const isSavedInProfile = Boolean(article?.id && Array.isArray(savedArticleIds) && savedArticleIds.includes(article.id));
   const isSmall = size === 'sm';
-  const articleHref = buildArticlePublicPath({ id: article.id, slug: article.slug });
-  const canSaveArticle = /^[a-fA-F0-9]{24}$/.test(article.id);
-  const horizontalImage = buildArticleImageVariantUrl(article.image, 'thumb');
-  const featuredImage = buildArticleImageVariantUrl(article.image, 'featured');
-  const defaultCardImage = buildArticleImageVariantUrl(article.image, 'card');
+  const articleHref = article?.id ? buildArticlePublicPath({ id: article.id, slug: article.slug }) : '#';
+  const canSaveArticle = Boolean(article?.id && /^[a-fA-F0-9]{24}$/.test(article.id));
+  const horizontalImage = buildArticleImageVariantUrl(article?.image, 'thumb');
+  const featuredImage = buildArticleImageVariantUrl(article?.image, 'featured');
+  const defaultCardImage = buildArticleImageVariantUrl(article?.image, 'card');
   const articleImageClassName =
     'object-cover object-center transition-transform duration-500 group-hover:scale-105';
 
@@ -57,7 +57,7 @@ export default function NewsCard({ article, variant = 'default', size = 'default
         saved?: boolean;
       }>).detail;
 
-      if (!payload || payload.articleId !== article.id || typeof payload.saved !== 'boolean') {
+      if (!payload || !article?.id || payload.articleId !== article.id || typeof payload.saved !== 'boolean') {
         return;
       }
 
@@ -75,7 +75,7 @@ export default function NewsCard({ article, variant = 'default', size = 'default
         handleSavedArticleEvent as EventListener
       );
     };
-  }, [article.id]);
+  }, [article?.id]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);

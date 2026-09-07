@@ -465,6 +465,35 @@ function escapeRegExp(value: string) {
 
 function buildMongoFilter(options: PublicArticleListOptions) {
   const and: Record<string, unknown>[] = [];
+
+  // Apply the cursor before the candidate limit; otherwise every page reloads
+  // the newest window and readers can never reach older published stories.
+  const cursor = parseCursor(options);
+  if (cursor && Types.ObjectId.isValid(cursor.id)) {
+    const publishedAt = new Date(cursor.publishedAt);
+    and.push({
+      $or: [
+        { publishedAt: { $lt: publishedAt } },
+        { publishedAt, _id: { $lt: new Types.ObjectId(cursor.id) } },
+      ],
+    });
+  }
+
+  const now = new Date();
+  and.push({
+    $or: [
+      { 'workflow.status': 'published' },
+      {
+        'workflow.status': 'scheduled',
+        'workflow.scheduledFor': { $lte: now },
+      },
+      {
+        'workflow.status': { $in: [null, undefined] },
+        publishedAt: { $exists: true, $ne: null },
+      },
+    ],
+  });
+
   const categoryCandidates = getCategoryCandidates(normalizeFilterValue(options.category));
   if (categoryCandidates.length) {
     and.push({

@@ -5,6 +5,8 @@ const mockedFs = vi.hoisted(() => ({
   mkdir: vi.fn(),
   readFile: vi.fn(),
   writeFile: vi.fn(),
+  rename: vi.fn(),
+  unlink: vi.fn(),
 }));
 
 vi.mock('fs/promises', () => ({
@@ -12,6 +14,8 @@ vi.mock('fs/promises', () => ({
     mkdir: mockedFs.mkdir,
     readFile: mockedFs.readFile,
     writeFile: mockedFs.writeFile,
+    rename: mockedFs.rename,
+    unlink: mockedFs.unlink,
   },
 }));
 
@@ -84,6 +88,8 @@ describe('articles file mutation serialization', () => {
       await Promise.resolve();
       mockedFs.state.contents = String(contents);
     });
+    mockedFs.rename.mockResolvedValue(undefined);
+    mockedFs.unlink.mockResolvedValue(undefined);
   });
 
   it('allows only one concurrent update to claim the same expected version', async () => {

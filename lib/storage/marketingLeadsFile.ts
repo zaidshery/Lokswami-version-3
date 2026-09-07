@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 
 export interface StoredMarketingLead {
   _id: string;
@@ -53,8 +54,7 @@ async function readAllLeads(): Promise<StoredMarketingLead[]> {
 }
 
 async function writeAllLeads(leads: StoredMarketingLead[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(leads, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, leads);
 }
 
 export async function upsertStoredMarketingLead(input: CreateMarketingLeadInput) {

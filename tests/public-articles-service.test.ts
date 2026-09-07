@@ -50,6 +50,43 @@ describe('public articles service', () => {
     isMongoAvailableMock.mockResolvedValue(false);
   });
 
+  it('pages beyond the first Mongo candidate window with stable timestamp ties', async () => {
+    const rows = Array.from({ length: 85 }, (_, index) => ({
+      ...publishedBase,
+      _id: (1000 - index).toString(16).padStart(24, '0'),
+      title: `Story ${index}`, slug: `story-${index}`, category: 'National',
+      publishedAt: new Date(Date.UTC(2026, 0, 10) - Math.floor(index / 2) * 1000).toISOString(),
+    }));
+    isMongoAvailableMock.mockResolvedValue(true);
+    articleFindMock.mockImplementation((filter) => {
+      const clauses = filter.$and as Array<{ $or?: Array<{ _id?: { $lt: unknown }; publishedAt?: unknown }> }>;
+      const tie = clauses.flatMap((clause) => clause.$or || []).find((clause) => clause._id?.$lt);
+      const cutoff = tie ? new Date(tie.publishedAt as Date).toISOString() : null;
+      let limit = rows.length;
+      const query = {
+        select: () => query,
+        sort: () => query,
+        maxTimeMS: () => query,
+        limit: (value: number) => { limit = value; return query; },
+        lean: async () => rows.filter((row) => !cutoff || row.publishedAt < cutoff ||
+          (row.publishedAt === cutoff && row._id < String(tie?._id?.$lt))).slice(0, limit),
+      };
+      return query;
+    });
+    const { listPublicArticles } = await import('@/lib/server/publicArticles');
+    const ids: string[] = [];
+    let cursor: { publishedAt: string; id: string } | null = null;
+    for (let page = 0; page < 6; page += 1) {
+      const result = await listPublicArticles({ limit: 19, cursorPublishedAt: cursor?.publishedAt, cursorId: cursor?.id });
+      ids.push(...result.items.map((item) => item.id));
+      cursor = result.nextCursor;
+      if (!result.hasMore) break;
+    }
+    expect(ids).toEqual(rows.map((row) => row._id));
+    expect(new Set(ids).size).toBe(85);
+    expect(listAllStoredArticlesMock).not.toHaveBeenCalled();
+  });
+
   it('lists published articles with category, city, and cursor filters from the file store', async () => {
     listAllStoredArticlesMock.mockResolvedValue([
       {

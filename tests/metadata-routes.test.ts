@@ -6,7 +6,9 @@ const listEPapersForSitemapMock = vi.fn();
 const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 vi.mock('@/lib/content/serverArticles', () => ({
+  countPublicArticlesForSitemap: vi.fn().mockResolvedValue(1),
   listArticlesForSitemap: listArticlesForSitemapMock,
+  listArticlesForSitemapSlice: listArticlesForSitemapMock,
   listNewsArticlesForSitemap: listNewsArticlesForSitemapMock,
   getServerArticlePath: (article: { id: string; slug?: string }) =>
     `/main/article/${encodeURIComponent(article.slug || article.id)}`,
@@ -45,7 +47,11 @@ describe('metadata routes', () => {
           disallow: ['/admin', '/api', '/main/account', '/main/preferences', '/main/saved'],
         },
       ],
-      sitemap: ['https://lokswami.com/sitemap.xml', 'https://lokswami.com/news-sitemap.xml'],
+      sitemap: [
+        'https://lokswami.com/sitemap.xml',
+        'https://lokswami.com/news-sitemap.xml',
+        'https://lokswami.com/video-sitemap.xml',
+      ],
       host: 'https://lokswami.com',
     });
   });

@@ -83,14 +83,21 @@ describe('public e-paper story TTS route', () => {
       }),
     });
     epaperArticleFindOneMock.mockReturnValue({
-      select: vi.fn().mockResolvedValue({
+      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({
         _id: articleId,
         epaperId,
+        title: 'Unreviewed correction',
+        releasedSnapshot: {
         pageNumber: 1,
         title: 'Lead Story',
+        slug: 'lead-story',
+        version: 1,
+        hotspot: { x: 0, y: 0, w: 0.5, h: 0.5 },
         excerpt: 'Short intro',
         contentHtml: '<p>Full story</p>',
-      }),
+        audio: { model: 'manual-upload', voice: 'manual-upload', mimeType: 'audio/mpeg', chunkCount: 1, audioUrl: 'https://cdn.example.com/lokswami/tts/epaperArticle/665/manual/listen.mp3' },
+        },
+      }) }),
     });
     findReadyManualTtsAssetMock.mockResolvedValue({
       model: 'manual-upload',
@@ -118,13 +125,17 @@ describe('public e-paper story TTS route', () => {
         audioUrl: 'https://cdn.example.com/lokswami/tts/epaperArticle/665/manual/listen.mp3',
       },
     });
-    expect(findReadyManualTtsAssetMock).toHaveBeenCalledWith({
-      sourceType: 'epaperArticle',
-      sourceId: articleId,
-      variant: 'epaper_story',
-    });
+    expect(findReadyManualTtsAssetMock).not.toHaveBeenCalled();
     expect(isGeminiTtsConfiguredMock).not.toHaveBeenCalled();
     expect(ensureTtsAssetMock).not.toHaveBeenCalled();
     // expect(synthesizeGeminiSpeechMock).not.toHaveBeenCalled();
+  });
+  it('does not serve audio for an unreleased story', async () => {
+    epaperFindByIdMock.mockReturnValue({ select: vi.fn().mockResolvedValue({ status: 'published' }) });
+    epaperArticleFindOneMock.mockReturnValue({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ title: 'Private story' }) }) });
+    const { POST } = await import('@/app/api/epapers/[id]/articles/[articleId]/tts/route');
+    const response = await POST(createJsonRequest(), { params: Promise.resolve({ id: '665000000000000000000001', articleId: '665000000000000000000002' }) });
+    expect(response.status).toBe(404);
+    expect(findReadyManualTtsAssetMock).not.toHaveBeenCalled();
   });
 });

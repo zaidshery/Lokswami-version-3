@@ -27,12 +27,14 @@ import {
   CmsEditorSidebar,
 } from '@/components/admin/CmsEditorLayout';
 import { AdminMediaImage } from '@/components/admin/AdminMediaImage';
+import SwipeReadinessChecklist from '@/components/admin/SwipeReadinessChecklist';
 import {
   buildYouTubeEmbedUrl,
   extractYouTubeVideoId,
   getYouTubeThumbnail,
   isYouTubeLiveUrl,
 } from '@/lib/utils/youtube';
+import { uploadFileToSignedUrl, validateStoryVideoFile } from '@/lib/utils/storyVideoUploadClient';
 
 const categories = NEWS_CATEGORIES.map((category) => category.nameEn);
 const THUMBNAIL_MAX_SIZE = 10 * 1024 * 1024;
@@ -47,6 +49,13 @@ interface VideoFormData {
   category: string;
   isShort: boolean;
   shortsRank: string;
+  slug: string;
+  articleId: string;
+  aspectRatio: '9:16' | '16:9' | '1:1' | 'unknown';
+  captionUrl: string;
+  transcript: string;
+  instagramUrl: string;
+  youtubeUrl: string;
 }
 
 type VideoCreateIntent = 'draft' | 'submit' | 'publish';
@@ -60,6 +69,13 @@ const initialFormData: VideoFormData = {
   category: 'National',
   isShort: false,
   shortsRank: '0',
+  slug: '',
+  articleId: '',
+  aspectRatio: '9:16',
+  captionUrl: '',
+  transcript: '',
+  instagramUrl: '',
+  youtubeUrl: '',
 };
 
 function isPdfUrl(value: string) {
@@ -88,6 +104,8 @@ export default function CreateVideoPage() {
   const [formData, setFormData] = useState<VideoFormData>(initialFormData);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [runningIntent, setRunningIntent] = useState<VideoCreateIntent | ''>('');
@@ -208,6 +226,50 @@ export default function CreateVideoPage() {
     }
   };
 
+  const uploadDirectVideo = async (): Promise<string> => {
+    if (!videoFile) return formData.videoUrl.trim();
+    const validationError = validateStoryVideoFile(videoFile);
+    if (validationError) throw new Error(validationError);
+
+    const initResponse = await fetch('/api/admin/uploads/story-video/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        fileName: videoFile.name,
+        fileType: videoFile.type || 'video/mp4',
+        fileSize: videoFile.size,
+        storyId: formData.slug.trim() || 'swipe-news',
+      }),
+    });
+    const initPayload = await initResponse.json();
+    if (!initResponse.ok || !initPayload.success) {
+      throw new Error(initPayload.error || 'Failed to initialize direct video upload');
+    }
+
+    await uploadFileToSignedUrl({
+      file: videoFile,
+      uploadUrl: String(initPayload.data.uploadUrl),
+      uploadHeaders: initPayload.data.uploadHeaders || { 'Content-Type': 'video/mp4' },
+      onProgress: setVideoUploadProgress,
+    });
+
+    const completeResponse = await fetch('/api/admin/uploads/story-video/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        mediaKey: initPayload.data.mediaKey,
+        expectedSize: videoFile.size,
+        expectedFileType: videoFile.type || 'video/mp4',
+        expectedFileName: videoFile.name,
+      }),
+    });
+    const completePayload = await completeResponse.json();
+    if (!completeResponse.ok || !completePayload.success) {
+      throw new Error(completePayload.error || 'Failed to verify direct video upload');
+    }
+    return String(completePayload.data.mediaUrl || initPayload.data.mediaUrl || '').trim();
+  };
+
   const handleSubmit = async (intent: VideoCreateIntent) => {
     setError('');
     setSuccess('');
@@ -218,21 +280,32 @@ export default function CreateVideoPage() {
       if (
         !formData.title.trim() ||
         !formData.description.trim() ||
-        !formData.videoUrl.trim() ||
+        (!formData.videoUrl.trim() && !videoFile) ||
         !formData.category
       ) {
         setError('Please fill in all required fields');
         return;
       }
 
-      const youtubeId = extractYouTubeVideoId(formData.videoUrl);
-      if (!youtubeId) {
-        setError('Please enter a valid YouTube or YouTube Live stream URL');
+      const resolvedVideoUrl = await uploadDirectVideo();
+      const youtubeId = extractYouTubeVideoId(resolvedVideoUrl);
+      const isDirectMp4 = /^https:\/\/[^\s]+\.mp4(?:[?#].*)?$/i.test(resolvedVideoUrl);
+      if (!youtubeId && !isDirectMp4) {
+        setError('Please enter a valid YouTube URL or HTTPS MP4 playback URL');
+        return;
+      }
+
+      if (
+        intent === 'publish' &&
+        formData.isShort &&
+        (!formData.articleId.trim() || formData.aspectRatio !== '9:16')
+      ) {
+        setError('Publishing Swipe News requires a related article and 9:16 vertical media.');
         return;
       }
 
       const parsedDuration = Number.parseInt(formData.duration || '0', 10);
-      const isLive = isYouTubeLiveUrl(formData.videoUrl);
+      const isLive = isYouTubeLiveUrl(resolvedVideoUrl);
       const duration = Number.isFinite(parsedDuration) && parsedDuration >= 0
         ? parsedDuration
         : isLive ? 0 : 60;
@@ -245,7 +318,7 @@ export default function CreateVideoPage() {
 
       let thumbnail = await uploadThumbnail();
       if (!thumbnail.trim()) {
-        thumbnail = getYouTubeThumbnail(formData.videoUrl);
+        thumbnail = getYouTubeThumbnail(resolvedVideoUrl);
       }
 
       if (!thumbnail.trim()) {
@@ -263,11 +336,21 @@ export default function CreateVideoPage() {
           title: formData.title.trim(),
           description: formData.description.trim(),
           thumbnail: thumbnail.trim(),
-          videoUrl: formData.videoUrl.trim(),
+          videoUrl: resolvedVideoUrl,
           duration,
           category: formData.category,
           isShort: formData.isShort,
           shortsRank: formData.isShort ? shortsRank : 0,
+          slug: formData.slug.trim(),
+          articleId: formData.articleId.trim(),
+          posterUrl: thumbnail.trim(),
+          playbackUrl: resolvedVideoUrl,
+          aspectRatio: formData.aspectRatio,
+          captionUrl: formData.captionUrl.trim(),
+          transcript: formData.transcript.trim(),
+          processingStatus: 'ready',
+          instagramUrl: formData.instagramUrl.trim(),
+          youtubeUrl: formData.youtubeUrl.trim(),
           intent,
         }),
       });
@@ -376,17 +459,43 @@ export default function CreateVideoPage() {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-900">
-                        Video / Live Stream URL (YouTube) <span className="text-red-500">*</span>
+                        Video URL (YouTube or HTTPS MP4)
                       </label>
                       <input
                         type="url"
                         name="videoUrl"
                         value={formData.videoUrl}
                         onChange={handleInputChange}
-                        placeholder="https://www.youtube.com/live/... or watch?v=..."
+                        placeholder="https://youtube.com/shorts/... or https://cdn.example.com/video.mp4"
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 transition-colors focus:border-primary-600 focus:outline-none"
-                        required
                       />
+                      <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 text-sm font-medium text-gray-700">
+                        {videoFile ? videoFile.name : 'Or upload an MP4 directly to DigitalOcean Spaces'}
+                        <input
+                          type="file"
+                          accept="video/mp4,.mp4"
+                          className="sr-only"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] || null;
+                            if (file) {
+                              const validationError = validateStoryVideoFile(file);
+                              if (validationError) {
+                                setError(validationError);
+                                return;
+                              }
+                            }
+                            setError('');
+                            setVideoFile(file);
+                            setVideoUploadProgress(0);
+                          }}
+                        />
+                      </label>
+                      {videoUploadProgress > 0 ? (
+                        <div className="mt-2" aria-live="polite">
+                          <div className="h-2 overflow-hidden rounded-full bg-gray-200"><div className="h-full bg-red-600" style={{ width: `${videoUploadProgress}%` }} /></div>
+                          <p className="mt-1 text-xs text-gray-600">Video upload {videoUploadProgress}%</p>
+                        </div>
+                      ) : null}
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         {detectedYouTubeId ? (
                           isLiveStream ? (
@@ -571,6 +680,54 @@ export default function CreateVideoPage() {
                       />
                     </label>
                   </div>
+
+                  {formData.isShort ? (
+                    <div className="space-y-4 rounded-lg border border-red-200 bg-red-50/50 p-4">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">Swipe News publishing</h3>
+                        <p className="mt-1 text-xs leading-5 text-gray-600">
+                          These fields power the public Swipe URL, quick-article button, captions, and social attribution. A related article and 9:16 media are required to publish.
+                        </p>
+                      </div>
+                      <SwipeReadinessChecklist
+                        slug={formData.slug}
+                        articleId={formData.articleId}
+                        posterReady={Boolean(thumbnailFile || formData.thumbnail.trim())}
+                        mediaReady={Boolean(videoFile || formData.videoUrl.trim())}
+                        aspectRatio={formData.aspectRatio}
+                      />
+                      <label className="block text-sm font-medium text-gray-900">
+                        Swipe slug
+                        <input name="slug" value={formData.slug} onChange={handleInputChange} placeholder="indore-breaking-news" className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" />
+                      </label>
+                      <label className="block text-sm font-medium text-gray-900">
+                        Related published article ID or slug
+                        <input name="articleId" value={formData.articleId} onChange={handleInputChange} placeholder="article-id-or-slug" className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" />
+                        <span className="mt-1 block text-xs text-gray-600">This opens “पूरी खबर पढ़ें” on the public Swipe screen.</span>
+                      </label>
+                      <label className="block text-sm font-medium text-gray-900">
+                        Media aspect ratio
+                        <select name="aspectRatio" value={formData.aspectRatio} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2">
+                          <option value="9:16">9:16 vertical — Swipe ready</option>
+                          <option value="16:9">16:9 landscape — Videos library only</option>
+                          <option value="1:1">1:1 square — Videos library only</option>
+                          <option value="unknown">Unknown</option>
+                        </select>
+                      </label>
+                      <label className="block text-sm font-medium text-gray-900">
+                        Caption file URL
+                        <input name="captionUrl" value={formData.captionUrl} onChange={handleInputChange} placeholder="https://cdn.example.com/captions.vtt" className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" />
+                      </label>
+                      <label className="block text-sm font-medium text-gray-900">
+                        Transcript
+                        <textarea name="transcript" value={formData.transcript} onChange={handleInputChange} rows={4} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" />
+                      </label>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block text-sm font-medium text-gray-900">Instagram URL<input name="instagramUrl" value={formData.instagramUrl} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                        <label className="block text-sm font-medium text-gray-900">YouTube URL<input name="youtubeUrl" value={formData.youtubeUrl} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
                     Draft keeps the video private, submit sends it into review, and publish is only shown for desk roles with release authority.

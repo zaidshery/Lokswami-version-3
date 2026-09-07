@@ -17,7 +17,7 @@ const CITY_LABELS_HI = {
   indore: 'इंदौर संस्करण',
   ujjain: 'उज्जैन संस्करण',
   mumbai: 'मुंबई संस्करण',
-  delhi: 'दिल्ली संस्करण',
+  delhi: 'डिजिटल संस्करण',
 } as const;
 
 const CITY_LABELS_EN = {
@@ -25,7 +25,7 @@ const CITY_LABELS_EN = {
   indore: 'Indore Edition',
   ujjain: 'Ujjain Edition',
   mumbai: 'Mumbai Edition',
-  delhi: 'Delhi Edition',
+  delhi: 'Digital Edition',
 } as const;
 
 export default function EPaperCityPicker({

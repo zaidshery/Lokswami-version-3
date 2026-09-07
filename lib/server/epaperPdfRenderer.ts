@@ -1,11 +1,18 @@
 import 'server-only';
 
-import sharp from 'sharp';
 import { EPAPER_PDF_MAX_BYTES } from '@/lib/utils/epaperStorage';
 
 const PDF_SIGNATURE = Buffer.from('%PDF-');
-const TARGET_WIDTH = 3000;
-const JPEG_QUALITY = 90;
+export const TARGET_WIDTH = 3000;
+export const JPEG_QUALITY = 90;
+
+import {
+  renderPdfPageWithWorkerIsolation,
+  PdfWorkerTimeoutError,
+  PdfWorkerMemoryExceededError,
+} from '@/lib/server/pdf/pdfWorker';
+
+export { PdfWorkerTimeoutError, PdfWorkerMemoryExceededError };
 
 function copyPdfBytes(buffer: Buffer) {
   return Uint8Array.from(buffer);
@@ -87,39 +94,10 @@ export async function renderPdfPageToJpeg(input: {
   pdfBuffer: Buffer;
   pageNumber: number;
 }) {
-  const canvasModule = await installPdfCanvasGlobals();
-  const pdfjs = await loadPdfJs();
-  const document = await pdfjs.getDocument({
-    data: copyPdfBytes(input.pdfBuffer),
-    useSystemFonts: true,
-  }).promise;
-
-  try {
-    if (input.pageNumber < 1 || input.pageNumber > document.numPages) {
-      throw new Error(`PDF page ${input.pageNumber} does not exist.`);
-    }
-
-    const page = await document.getPage(input.pageNumber);
-    const baseViewport = page.getViewport({ scale: 1 });
-    const scale = TARGET_WIDTH / baseViewport.width;
-    const viewport = page.getViewport({ scale });
-    const width = Math.round(viewport.width);
-    const height = Math.round(viewport.height);
-    const canvas = canvasModule.createCanvas(width, height);
-    const context = canvas.getContext('2d');
-
-    await page.render({
-      canvasContext: context as never,
-      viewport,
-      background: '#ffffff',
-    }).promise;
-
-    const normalized = await sharp(canvas.toBuffer('image/jpeg', JPEG_QUALITY))
-      .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
-      .toBuffer();
-
-    return { buffer: normalized, width, height };
-  } finally {
-    await document.destroy();
-  }
+  return renderPdfPageWithWorkerIsolation({
+    pdfBuffer: input.pdfBuffer,
+    pageNumber: input.pageNumber,
+    targetWidth: TARGET_WIDTH,
+    jpegQuality: JPEG_QUALITY,
+  });
 }

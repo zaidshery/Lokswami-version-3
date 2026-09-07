@@ -860,8 +860,8 @@ export default function AdminEPaperDetailPage() {
       }
 
       setNotice(
-        `${pageNumbersToProcess.length ? 'Selected page OCR finished. ' : ''}${
-          payload.message || 'OCR suggestions are ready for review.'
+        `${
+          payload.message || 'OCR queued. Suggestions will appear after processing.'
         }${
           payload.data?.pagesFailed
             ? ` ${payload.data.pagesFailed} page(s) need manual OCR review.`

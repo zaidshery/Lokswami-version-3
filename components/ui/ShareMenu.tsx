@@ -54,21 +54,44 @@ type MenuPosition = {
 const MENU_WIDTH = 244;
 const VIEWPORT_MARGIN = 8;
 
-function buildWhatsAppText(title: string, text: string, url: string) {
-  return [title.trim(), text.trim(), url.trim()].filter(Boolean).join('\n');
+function buildWhatsAppText(
+  title: string,
+  text: string,
+  customText: string,
+  url: string,
+  contentType: ShareContentType
+) {
+  const cta = contentType === 'article'
+    ? 'Read full story'
+    : contentType === 'video'
+      ? 'Watch video'
+      : contentType === 'emagazine'
+        ? 'Open e-magazine'
+        : 'Open e-paper';
+  const body = customText.trim() || [title.trim(), text.trim()].filter(Boolean).join('\n');
+  const linkLine = url.trim() && !body.includes(url.trim()) ? `${cta}: ${url.trim()}` : '';
+  return [body, linkLine].filter(Boolean).join('\n');
 }
 
 function buildExternalShareUrl(
   platform: Exclude<SharePlatform, 'native' | 'copy'>,
-  input: { title: string; text: string; whatsappText: string; url: string }
+  input: {
+    title: string;
+    text: string;
+    whatsappText: string;
+    url: string;
+    contentType: ShareContentType;
+  }
 ) {
   const encodedUrl = encodeURIComponent(input.url);
 
   if (platform === 'whatsapp') {
     const message = buildWhatsAppText(
-      input.whatsappText || input.title,
-      input.whatsappText ? '' : input.text,
-      input.url
+      input.title,
+      input.text,
+      input.whatsappText,
+      input.url,
+      input.contentType
     );
     return `https://wa.me/?text=${encodeURIComponent(message)}`;
   }
@@ -275,6 +298,7 @@ export default function ShareMenu({
       text,
       whatsappText,
       url: resolvedUrl,
+      contentType,
     });
     window.open(shareUrl, '_blank', 'noopener,noreferrer');
     trackShare('share_complete', platform);

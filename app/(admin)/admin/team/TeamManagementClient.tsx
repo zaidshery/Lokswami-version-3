@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { formatUserRoleLabel, type AdminRole } from '@/lib/auth/roles';
 import { formatUiDateTime } from '@/lib/utils/dateFormat';
 import { uploadAuthorProfileImage } from '@/lib/utils/authorProfileImageUpload';
+import AccountDirectoryTabs from '@/components/admin/AccountDirectoryTabs';
 
 type TeamMember = {
   id: string;
@@ -342,6 +343,8 @@ export default function TeamManagementClient({
 
   return (
     <div className="mx-auto w-full max-w-[1560px] space-y-4 sm:space-y-5">
+      <AccountDirectoryTabs active="newsroom" />
+
       <div className="admin-shell-surface-strong rounded-[20px] p-4 sm:rounded-[24px] sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

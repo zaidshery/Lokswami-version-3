@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 import {
   normalizeCopyEditorMeta,
   normalizeReporterMeta,
@@ -269,8 +270,7 @@ async function readAllStories(): Promise<StoredStory[]> {
 }
 
 async function writeAllStories(stories: StoredStory[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(stories, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, stories);
 }
 
 export async function listStoredStories(params: {

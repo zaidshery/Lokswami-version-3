@@ -15,11 +15,20 @@ import {
   buildVideoActivityMessage,
   recordVideoActivity,
 } from '@/lib/server/videoActivity';
+import { getPublicArticleBySlug } from '@/lib/server/publicArticles';
 import {
   resolveVideoWorkflow,
   toWorkflowActorRef,
 } from '@/lib/workflow/video';
 import { isWorkflowStatus } from '@/lib/workflow/types';
+import {
+  buildVideoSlug,
+  inferVideoMediaProvider,
+  normalizeVideoAspectRatio,
+  normalizeVideoProcessingStatus,
+  normalizeVideoSlug,
+  validateSwipePublishFields,
+} from '@/lib/content/videoPublication';
 
 import {
   extractYouTubeVideoId,
@@ -97,6 +106,10 @@ function normalizeVideoInput(body: unknown) {
   const title = typeof source.title === 'string' ? source.title.trim() : '';
   const description = typeof source.description === 'string' ? source.description.trim() : '';
   const videoUrl = typeof source.videoUrl === 'string' ? source.videoUrl.trim() : '';
+  const playbackUrl =
+    typeof source.playbackUrl === 'string' && source.playbackUrl.trim()
+      ? source.playbackUrl.trim()
+      : videoUrl;
   let thumbnail = typeof source.thumbnail === 'string' ? source.thumbnail.trim() : '';
   if (!thumbnail && videoUrl) {
     thumbnail = getYouTubeThumbnail(videoUrl) || '';
@@ -132,6 +145,21 @@ function normalizeVideoInput(body: unknown) {
     isShort,
     isPublished,
     publishedAt: Number.isNaN(publishedAt.getTime()) ? new Date() : publishedAt,
+    slug: normalizeVideoSlug(source.slug) || buildVideoSlug(title, Date.now().toString(36)),
+    articleId: typeof source.articleId === 'string' ? source.articleId.trim() : '',
+    posterUrl:
+      typeof source.posterUrl === 'string' && source.posterUrl.trim()
+        ? source.posterUrl.trim()
+        : thumbnail,
+    mediaProvider: inferVideoMediaProvider(source.mediaProvider || playbackUrl),
+    playbackUrl,
+    hlsUrl: typeof source.hlsUrl === 'string' ? source.hlsUrl.trim() : '',
+    aspectRatio: normalizeVideoAspectRatio(source.aspectRatio),
+    captionUrl: typeof source.captionUrl === 'string' ? source.captionUrl.trim() : '',
+    transcript: typeof source.transcript === 'string' ? source.transcript.trim() : '',
+    processingStatus: normalizeVideoProcessingStatus(source.processingStatus),
+    instagramUrl: typeof source.instagramUrl === 'string' ? source.instagramUrl.trim() : '',
+    youtubeUrl: typeof source.youtubeUrl === 'string' ? source.youtubeUrl.trim() : '',
   };
 }
 
@@ -148,12 +176,21 @@ function validateVideoInput(input: ReturnType<typeof normalizeVideoInput>) {
     return 'Invalid duration';
   }
 
-  const youtubeId = extractYouTubeVideoId(input.videoUrl);
-  if (!youtubeId) {
-    return 'Video URL must be a valid YouTube or YouTube Live URL';
+  const youtubeId = extractYouTubeVideoId(input.playbackUrl);
+  const isDirectHttpsVideo = /^https:\/\/[^\s]+(?:\.mp4)(?:[?#].*)?$/i.test(input.playbackUrl);
+  if (input.mediaProvider === 'youtube' ? !youtubeId : !isDirectHttpsVideo) {
+    return 'Video must use a valid YouTube URL or an HTTPS MP4 playback URL';
   }
 
   return null;
+}
+
+function validateSwipePublishReadiness(
+  input: ReturnType<typeof normalizeVideoInput>,
+  intent: CreateIntent
+) {
+  if (intent !== 'publish' || !input.isShort) return null;
+  return validateSwipePublishFields(input);
 }
 
 async function shouldUseFileStore() {
@@ -433,6 +470,7 @@ export async function POST(req: NextRequest) {
     const input = normalizeVideoInput(body);
     const validationError = validateVideoInput(input);
     const intent = normalizeCreateIntent((body as Record<string, unknown>)?.intent, input.isPublished);
+    const readinessError = validateSwipePublishReadiness(input, intent);
     const workflow = buildInitialWorkflow(intent, user);
 
     if (
@@ -446,14 +484,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (validationError) {
+    if (validationError || readinessError) {
       return NextResponse.json(
-        { success: false, error: validationError },
+        { success: false, error: validationError || readinessError },
         { status: 400 }
       );
     }
 
-    const youtubeId = extractYouTubeVideoId(input.videoUrl);
+    if (intent === 'publish' && input.isShort && !(await getPublicArticleBySlug(input.articleId))) {
+      return NextResponse.json(
+        { success: false, error: 'Swipe News requires a related article that is already published.' },
+        { status: 400 }
+      );
+    }
+
     const resolvedThumbnail =
       input.thumbnail || getYouTubeThumbnail(input.videoUrl);
 
@@ -475,6 +519,18 @@ export async function POST(req: NextRequest) {
           submittedAt: workflow.submittedAt?.toISOString() || null,
           publishedAt: workflow.publishedAt?.toISOString() || null,
         },
+        slug: input.slug,
+        articleId: input.articleId,
+        posterUrl: input.posterUrl || resolvedThumbnail,
+        mediaProvider: input.mediaProvider,
+        playbackUrl: input.playbackUrl,
+        hlsUrl: input.hlsUrl,
+        aspectRatio: input.aspectRatio,
+        captionUrl: input.captionUrl,
+        transcript: input.transcript,
+        processingStatus: input.processingStatus,
+        instagramUrl: input.instagramUrl,
+        youtubeUrl: input.youtubeUrl,
       });
 
       await recordVideoActivity({
@@ -518,6 +574,18 @@ export async function POST(req: NextRequest) {
       publishedAt: input.publishedAt,
       updatedAt: new Date(),
       workflow,
+      slug: input.slug,
+      articleId: input.articleId,
+      posterUrl: input.posterUrl || resolvedThumbnail,
+      mediaProvider: input.mediaProvider,
+      playbackUrl: input.playbackUrl,
+      hlsUrl: input.hlsUrl,
+      aspectRatio: input.aspectRatio,
+      captionUrl: input.captionUrl,
+      transcript: input.transcript,
+      processingStatus: input.processingStatus,
+      instagramUrl: input.instagramUrl,
+      youtubeUrl: input.youtubeUrl,
     });
 
     const savedVideo = await video.save();
@@ -549,6 +617,12 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error creating video:', error);
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) {
+      return NextResponse.json(
+        { success: false, error: 'That Swipe slug is already in use. Choose a unique slug.' },
+        { status: 409 }
+      );
+    }
     const message =
       process.env.NODE_ENV !== 'production'
         ? getErrorMessage(error) || 'Failed to create video'

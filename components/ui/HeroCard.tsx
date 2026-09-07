@@ -20,8 +20,8 @@ interface HeroCardProps {
 export default function HeroCard({ article, parallax = { x: 0, y: 0 }, variant = 'editorial' }: HeroCardProps) {
   const language = useAppStore((state) => state.language);
   const [isHydrated, setIsHydrated] = useState(false);
-  const articleHref = buildArticlePublicPath({ id: article.id, slug: article.slug });
-  const heroImage = buildArticleImageVariantUrl(article.image, 'hero');
+  const articleHref = article?.id ? buildArticlePublicPath({ id: article.id, slug: article.slug }) : '#';
+  const heroImage = buildArticleImageVariantUrl(article?.image, 'hero');
   const imageTransform =
     variant === 'modern'
       ? 'translate3d(0, 0, 0)'

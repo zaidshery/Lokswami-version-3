@@ -102,7 +102,9 @@ export async function generateEPaperMetadata(
         })
       : null;
   const resolvedPage = requestedPage || story?.pageNumber || 0;
-  const shareImage = story?.coverImagePath || issue?.thumbnailPath || '';
+  const previewQuery = new URLSearchParams({ paper: issue?.id || paperId, publicationType, brand: '1' });
+  if (story) { previewQuery.set('story', story.id); previewQuery.set('v', String(story.releaseVersion || 1)); }
+  const shareImage = issue ? `/api/og/epaper?${previewQuery}` : '';
 
   return buildEpaperPageMetadata({
     publicationType,

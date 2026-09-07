@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 import connectDB from '@/lib/db/mongoose';
 import WorkflowNotification from '@/lib/models/WorkflowNotification';
 import type { WorkflowContentType } from '@/lib/workflow/types';
@@ -82,8 +83,7 @@ async function readFileRecords() {
 }
 
 async function writeFileRecords(records: WorkflowNotificationRecord[]) {
-  await fs.mkdir(path.dirname(dataPath), { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(records.slice(0, 2000), null, 2), 'utf8');
+  await writeJsonFileAtomically(dataPath, records.slice(0, 2000));
 }
 
 export async function createWorkflowNotification(input: CreateWorkflowNotificationInput) {

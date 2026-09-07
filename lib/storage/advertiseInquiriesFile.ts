@@ -1,6 +1,7 @@
-﻿import crypto from 'crypto';
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 
 export interface StoredAdvertiseInquiry {
   _id: string;
@@ -47,8 +48,7 @@ async function readAllItems(): Promise<StoredAdvertiseInquiry[]> {
 }
 
 async function writeAllItems(items: StoredAdvertiseInquiry[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(items, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, items);
 }
 
 export async function createStoredAdvertiseInquiry(

@@ -12,6 +12,11 @@ const primaryLinks = [
   READER_NAVIGATION.elections,
   READER_NAVIGATION.epaper,
   READER_NAVIGATION.emagazine,
+  {
+    name: 'वीडियो',
+    nameEn: 'Video',
+    href: '/main/videos',
+  },
 ];
 
 const categoryLinks = NEWS_CATEGORIES.map((category) => ({
@@ -36,16 +41,22 @@ export default function DesktopNav({ className = '' }: DesktopNavProps) {
   const { language } = useAppStore();
 
   return (
-    <nav className={`flex items-center gap-0 whitespace-nowrap sm:gap-1 md:gap-1.5 ${className}`}>
+    <nav className={`flex items-center gap-0.5 whitespace-nowrap sm:gap-1 xl:gap-1.5 ${className}`}>
       {mainLinks.map((link) => {
         const isActive = isReaderNavigationActive(pathname, link.href);
+        const isDesktopOnly =
+          link.href === READER_NAVIGATION.epaper.href ||
+          link.href === READER_NAVIGATION.emagazine.href ||
+          link.href === '/main/videos';
 
         return (
           <Link
             key={link.href}
             href={link.href}
             aria-current={isActive ? 'page' : undefined}
-            className={`cnp-motion reader-touch-link reader-focus-ring group relative inline-flex min-h-10 items-center rounded-md px-2.5 py-2 text-[12px] font-semibold sm:px-3 sm:text-sm md:min-h-11 md:px-3.5 md:py-2.5 md:text-[15px] ${
+            className={`cnp-motion reader-touch-link reader-focus-ring group relative min-h-9 items-center rounded-md px-2.5 py-1.5 text-[12px] font-semibold transition-colors sm:min-h-10 sm:px-2.5 sm:text-[13px] md:px-3 md:text-sm xl:min-h-11 xl:px-3.5 xl:py-2.5 xl:text-[14.5px] ${
+              isDesktopOnly ? 'hidden lg:inline-flex' : 'inline-flex'
+            } ${
               isActive
                 ? 'text-red-600 dark:text-red-400'
                 : 'text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100'

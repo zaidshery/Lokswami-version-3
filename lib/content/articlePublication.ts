@@ -7,12 +7,26 @@ type ArticlePublicationSource = {
 };
 
 export function isPubliclyPublishedArticle(
-  article: unknown
+  article: unknown,
+  referenceDate: Date = new Date()
 ) {
   if (!article || typeof article !== 'object') {
     return false;
   }
 
   const source = article as ArticlePublicationSource;
-  return resolveArticleWorkflow(source).status === 'published';
+  const workflow = resolveArticleWorkflow(source);
+  if (workflow.status === 'published') {
+    return true;
+  }
+
+  if (
+    workflow.status === 'scheduled' &&
+    workflow.scheduledFor &&
+    new Date(workflow.scheduledFor).getTime() <= referenceDate.getTime()
+  ) {
+    return true;
+  }
+
+  return false;
 }

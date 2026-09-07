@@ -61,10 +61,13 @@ const unsafeRules = {
     const parsed = parseVersion(version);
     return Boolean(parsed && parsed[0] === 8 && isBelow(version, '8.0.16'));
   },
-  flatted: (version) => !isBelow('3.4.1', version),
+  flatted: (version) => isBelow(version, '3.4.1'),
   'js-yaml': (version) => {
     const parsed = parseVersion(version);
-    return Boolean(parsed && parsed[0] === 4 && !isBelow('4.1.1', version));
+    if (!parsed) return true;
+    if (parsed[0] === 3) return true;
+    if (parsed[0] === 4) return isBelow(version, '4.3.1');
+    return false;
   },
   'brace-expansion': (version) => {
     const parsed = parseVersion(version);
@@ -75,6 +78,13 @@ const unsafeRules = {
     if (parsed[0] === 4) return true;
     if (parsed[0] === 5) return isBelow(version, '5.0.8');
     return true;
+  },
+  nanoid: (version) => {
+    const parsed = parseVersion(version);
+    if (!parsed) return true;
+    if (parsed[0] <= 2) return true;
+    if (parsed[0] === 3) return isBelow(version, '3.3.18');
+    return false;
   },
 };
 

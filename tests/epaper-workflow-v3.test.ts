@@ -97,6 +97,7 @@ describe('e-paper workflow v3 safeguards', () => {
 
     expect(getAllowedEpaperProductionTransitions('hotspot_mapping')).toEqual([
       'ready_to_publish',
+      'published',
     ]);
     expect(detailPage).not.toContain('Move To QA Review');
     expect(detailPage).not.toContain('Pending QA');

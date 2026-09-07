@@ -20,9 +20,9 @@ const MOBILE_BOTTOM_TAB_ROUTES: MobileSwipeTabRoute[] = [
   { path: '/main', name: 'Home' },
   { path: '/main/epaper', name: 'E-Paper' },
   { path: '/main/e-magazine', name: 'E-Magazine' },
-  { path: '/main/videos', name: 'Videos' },
+  { path: '/main/videos', name: 'Swipe' },
   { path: '/main/ftaftaf', name: 'Quick' },
-  { path: '/main/menu', name: 'Menu', type: 'menu' },
+  { path: '/main/account', name: 'Profile' },
 ];
 
 export default function MainLayout({
@@ -71,10 +71,15 @@ function MainLayoutContent({
     isEpaperReaderOpen,
   } = useAppStore();
   const isVideosRoute = pathname?.startsWith('/main/videos') ?? false;
+  const isSwipeRoute = pathname?.startsWith('/main/shorts/') ?? false;
   const isEpaperRoute =
     pathname?.startsWith('/main/epaper') || pathname?.startsWith('/main/e-magazine') || false;
   const isReaderImmersiveMode = isEpaperRoute && isEpaperReaderOpen;
-  const showBottomNav = (!isImmersiveVideoMode || isVideosRoute) && !isReaderImmersiveMode && !isElectionObsMode;
+  const isFullscreenReader = isSwipeRoute || isImmersiveVideoMode || isReaderImmersiveMode || isElectionObsMode;
+  const showBottomNav =
+    (!isImmersiveVideoMode || isVideosRoute || isSwipeRoute) &&
+    !isReaderImmersiveMode &&
+    !isElectionObsMode;
 
 
   useEffect(() => {
@@ -92,13 +97,13 @@ function MainLayoutContent({
   return (
     <div className="min-h-screen overflow-x-clip bg-white transition-colors duration-500 dark:bg-slate-950">
       {/* Breaking News Bar (Top) */}
-      {!isImmersiveVideoMode && !isReaderImmersiveMode && !isElectionObsMode ? <BreakingNews /> : null}
+      {!isFullscreenReader ? <BreakingNews /> : null}
 
       {/* Header (below breaking bar) */}
-      {!isImmersiveVideoMode && !isReaderImmersiveMode && !isElectionObsMode ? <Header /> : null}
+      {!isFullscreenReader ? <Header /> : null}
 
       {/* Mobile Menu Drawer */}
-      {!isElectionObsMode ? <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setMobileMenuOpen(false)} /> : null}
+      {!isElectionObsMode && !isSwipeRoute ? <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setMobileMenuOpen(false)} /> : null}
 
       <MobileSwipeTabs
         routes={MOBILE_BOTTOM_TAB_ROUTES}
@@ -106,7 +111,7 @@ function MainLayoutContent({
       >
         <main
           className={
-            isElectionObsMode
+            isElectionObsMode || isSwipeRoute
               ? 'pb-0 pt-0'
               : isImmersiveVideoMode
                 ? 'pb-0 pt-0'
@@ -117,10 +122,10 @@ function MainLayoutContent({
                     : 'reader-bottom-safe-pad pt-[8rem] sm:pt-[8.5rem] md:pt-[9rem] xl:pb-4'
           }
         >
-          {!isImmersiveVideoMode && !isReaderImmersiveMode && !isElectionObsMode ? <SigninRoleBanner /> : null}
+          {!isFullscreenReader ? <SigninRoleBanner /> : null}
           <Container
             className={
-              isElectionObsMode
+              isElectionObsMode || isSwipeRoute
                 ? 'py-0 !max-w-none !px-0'
                 : isImmersiveVideoMode
                 ? 'py-0 !max-w-none !px-0'
@@ -135,21 +140,21 @@ function MainLayoutContent({
       </MobileSwipeTabs>
 
       {/* Footer */}
-      {!isImmersiveVideoMode && !isReaderImmersiveMode && !isElectionObsMode ? (
+      {!isFullscreenReader ? (
         <div className="block">
           <Footer />
         </div>
       ) : null}
 
-      {!isImmersiveVideoMode && !isReaderImmersiveMode && !isElectionObsMode ? <DailyEpaperAlert /> : null}
-      {!isImmersiveVideoMode && !isReaderImmersiveMode && !isElectionObsMode ? <PopupOrchestrator /> : null}
+      {!isFullscreenReader ? <DailyEpaperAlert /> : null}
+      {!isFullscreenReader ? <PopupOrchestrator /> : null}
 
       {/* Bottom Navigation - Mobile + Tablet (below 1280px) */}
       {showBottomNav ? (
         <BottomNav
           onMenuClick={toggleMobileMenu}
           isMenuOpen={isMobileMenuOpen}
-          isOverlayDark={isImmersiveVideoMode && isVideosRoute}
+          isOverlayDark={(isImmersiveVideoMode && isVideosRoute) || isSwipeRoute}
         />
       ) : null}
     </div>

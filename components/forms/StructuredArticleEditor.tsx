@@ -27,6 +27,9 @@ import {
   X,
 } from 'lucide-react';
 import { getAuthHeader } from '@/lib/auth/clientToken';
+import { useArticleLock } from '@/lib/hooks/useArticleLock';
+import { canTakeOverArticleLock } from '@/lib/auth/permissions';
+import type { AdminRole } from '@/lib/auth/roles';
 import { ArticleImage, ArticleResourceCard } from '@/lib/editor/articleTiptapExtensions';
 import {
   buildPolishedPlainTextHtml,
@@ -41,6 +44,9 @@ type StructuredArticleEditorProps = {
   onDocumentChange?: (value: Record<string, unknown>) => void;
   placeholder?: string;
   editorClassName?: string;
+  articleId?: string;
+  currentUserRole?: string;
+  onLockChange?: (hasLock: boolean) => void;
 };
 
 type EditorTool = 'link' | 'youtube' | 'social' | 'resource' | 'table' | 'quote' | 'image';
@@ -66,7 +72,25 @@ export default function StructuredArticleEditor({
   onDocumentChange,
   placeholder = 'Write your article content here…',
   editorClassName = 'min-h-64',
+  articleId,
+  currentUserRole,
+  onLockChange,
 }: StructuredArticleEditorProps) {
+  const { hasLock, lockedBy, isTakingOver, takeOver } = useArticleLock({
+    articleId,
+    enabled: Boolean(articleId),
+    onLockStatusChange: onLockChange,
+  });
+
+  const isLockedByOther = Boolean(articleId && !hasLock && lockedBy);
+  const canTakeOver = Boolean(
+    isLockedByOther &&
+      currentUserRole &&
+      canTakeOverArticleLock(currentUserRole as AdminRole)
+  );
+
+  const [showTakeOverModal, setShowTakeOverModal] = useState(false);
+  const [takeOverToast, setTakeOverToast] = useState('');
   const toolbarRef = useRef<HTMLDivElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const toolDialogRef = useRef<HTMLDivElement>(null);
@@ -84,6 +108,7 @@ export default function StructuredArticleEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !isLockedByOther,
     extensions: [
       StarterKit.configure({
         link: {
@@ -187,7 +212,15 @@ export default function StructuredArticleEditor({
     onSelectionUpdate: () => setEditorRevision((revision) => revision + 1),
   });
 
-  editorRef.current = editor;
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
+
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!isLockedByOther);
+    }
+  }, [editor, isLockedByOther]);
 
   useEffect(() => {
     if (!editor) return;
@@ -511,7 +544,7 @@ export default function StructuredArticleEditor({
 
   const toolButtonClass = (active = false) =>
     cx(
-      'inline-flex min-h-9 min-w-9 items-center justify-center rounded-md p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spanish-red focus-visible:ring-offset-2',
+      'inline-flex min-h-9 min-w-9 items-center justify-center rounded-md p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spanish-red focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-40',
       active
         ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-950'
         : 'text-gray-700 hover:bg-gray-200 dark:text-gray-100 dark:hover:bg-white/10'
@@ -519,6 +552,86 @@ export default function StructuredArticleEditor({
 
   return (
     <div className="w-full overflow-hidden rounded-lg border border-gray-300 bg-white shadow-sm focus-within:border-spanish-red dark:border-white/20 dark:bg-zinc-950">
+      {/* Locked by another user notice banner */}
+      {isLockedByOther && lockedBy ? (
+        <div
+          role="alert"
+          className="border-b border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl" aria-hidden="true">⚠️</span>
+              <div>
+                <p className="font-bold">
+                  संपादन अवरुद्ध (Editing Locked)
+                </p>
+                <p className="mt-0.5 text-sm">
+                  यह लेख वर्तमान में <strong>{lockedBy.userName}</strong> ({lockedBy.userRole}) द्वारा संपादित किया जा रहा है। डेटा टकराव से बचने के लिए संपादन अक्षम किया गया है।
+                </p>
+              </div>
+            </div>
+
+            {canTakeOver ? (
+              <button
+                type="button"
+                onClick={() => setShowTakeOverModal(true)}
+                disabled={isTakingOver}
+                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-50"
+              >
+                {isTakingOver ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                <span>Take Over Editing (संपादन नियंत्रण लें)</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Confirmation modal for Take-Over */}
+      {showTakeOverModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl dark:bg-zinc-900">
+            <h3 className="text-base font-bold text-zinc-950 dark:text-white">
+              Confirm Take Over
+            </h3>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              Are you sure you want to take over? {lockedBy?.userName}&apos;s unsaved changes may be lost.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTakeOverModal(false)}
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const success = await takeOver();
+                  if (success) {
+                    setShowTakeOverModal(false);
+                    setTakeOverToast('Editing control acquired successfully.');
+                    setTimeout(() => setTakeOverToast(''), 4000);
+                  }
+                }}
+                disabled={isTakingOver}
+                className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {isTakingOver ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Confirm Take Over
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Success Toast */}
+      {takeOverToast ? (
+        <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+          {takeOverToast}
+        </div>
+      ) : null}
+
       <input
         ref={inlineImageInputRef}
         type="file"
@@ -534,25 +647,32 @@ export default function StructuredArticleEditor({
         onKeyDown={handleToolbarKeyDown}
         className="flex flex-wrap gap-1 border-b border-gray-200 bg-gray-50 p-2 dark:border-white/15 dark:bg-white/[0.04]"
       >
-        <button type="button" onClick={() => editor?.chain().focus().toggleBold().run()} className={toolButtonClass(editor?.isActive('bold'))} aria-label="Bold" title="Bold (Ctrl+B)"><Bold className="h-4 w-4" /></button>
-        <button type="button" onClick={() => editor?.chain().focus().toggleItalic().run()} className={toolButtonClass(editor?.isActive('italic'))} aria-label="Italic" title="Italic (Ctrl+I)"><Italic className="h-4 w-4" /></button>
-        <button type="button" onClick={() => editor?.chain().focus().toggleUnderline().run()} className={toolButtonClass(editor?.isActive('underline'))} aria-label="Underline" title="Underline (Ctrl+U)"><Underline className="h-4 w-4" /></button>
-        <button type="button" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} className={toolButtonClass(editor?.isActive('heading', { level: 2 }))} aria-label="Heading 2" title="Heading 2 (Ctrl+Alt+2)">H2</button>
-        <button type="button" onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} className={toolButtonClass(editor?.isActive('heading', { level: 3 }))} aria-label="Heading 3" title="Heading 3 (Ctrl+Alt+3)">H3</button>
-        <button type="button" onClick={() => editor?.chain().focus().toggleBulletList().run()} className={toolButtonClass(editor?.isActive('bulletList'))} aria-label="Bullet list"><List className="h-4 w-4" /></button>
-        <button type="button" onClick={() => editor?.chain().focus().toggleOrderedList().run()} className={toolButtonClass(editor?.isActive('orderedList'))} aria-label="Numbered list"><ListOrdered className="h-4 w-4" /></button>
-        <button type="button" onClick={() => openTool('link', { url: editor?.getAttributes('link').href || '', text: '' })} className={toolButtonClass(editor?.isActive('link'))} aria-label="Insert link" title="Link (Ctrl+K)"><Link2 className="h-4 w-4" /></button>
-        <button type="button" onClick={() => openTool('quote', { quote: '', attribution: '' })} className={toolButtonClass(editor?.isActive('blockquote'))} aria-label="Insert quote"><MessageSquareQuote className="h-4 w-4" /></button>
-        <button type="button" onClick={() => openTool('table', { columns: '3', rows: '3' })} className={toolButtonClass(editor?.isActive('table'))} aria-label="Insert table"><Table2 className="h-4 w-4" /></button>
-        <button type="button" onClick={() => inlineImageInputRef.current?.click()} disabled={isUploadingInlineImage} className={toolButtonClass()} aria-label="Upload inline image">{isUploadingInlineImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}</button>
-        <button type="button" onClick={() => moveCurrentBlock(-1)} className={toolButtonClass()} aria-label="Move current block up"><ArrowUp className="h-4 w-4" /></button>
-        <button type="button" onClick={() => moveCurrentBlock(1)} className={toolButtonClass()} aria-label="Move current block down"><ArrowDown className="h-4 w-4" /></button>
-        <button type="button" onClick={() => editor?.chain().focus().unsetAllMarks().clearNodes().run()} className={toolButtonClass()} aria-label="Clear formatting">Clear</button>
-        <button type="button" onClick={() => editor?.commands.setContent(polishArticleEditorHtml(editor.getHTML()))} className={toolButtonClass()} aria-label="Polish pasted formatting"><Wand2 className="h-4 w-4" /></button>
-        <button type="button" onClick={() => editor?.chain().focus().undo().run()} disabled={!editor?.can().undo()} className={toolButtonClass()} aria-label="Undo"><Undo2 className="h-4 w-4" /></button>
-        <button type="button" onClick={() => editor?.chain().focus().redo().run()} disabled={!editor?.can().redo()} className={toolButtonClass()} aria-label="Redo"><Redo2 className="h-4 w-4" /></button>
-        <button type="button" onClick={() => openTool('youtube', { url: '' })} className={toolButtonClass()} aria-label="Insert YouTube embed">YouTube</button>
-        <button type="button" onClick={() => openTool('resource', { title: 'Source / Reference', url: '', description: '' })} className={toolButtonClass()} aria-label="Insert resource card">Resource</button>
+        <button type="button" onClick={() => editor?.chain().focus().toggleBold().run()} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('bold'))} aria-label="Bold" title="Bold (Ctrl+B)"><Bold className="h-4 w-4" /></button>
+        <button type="button" onClick={() => editor?.chain().focus().toggleItalic().run()} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('italic'))} aria-label="Italic" title="Italic (Ctrl+I)"><Italic className="h-4 w-4" /></button>
+        <button type="button" onClick={() => editor?.chain().focus().toggleUnderline().run()} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('underline'))} aria-label="Underline" title="Underline (Ctrl+U)"><Underline className="h-4 w-4" /></button>
+        <button type="button" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('heading', { level: 2 }))} aria-label="Heading 2" title="Heading 2 (Ctrl+Alt+2)">H2</button>
+        <button type="button" onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('heading', { level: 3 }))} aria-label="Heading 3" title="Heading 3 (Ctrl+Alt+3)">H3</button>
+        <button type="button" onClick={() => editor?.chain().focus().toggleBulletList().run()} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('bulletList'))} aria-label="Bullet list"><List className="h-4 w-4" /></button>
+        <button type="button" onClick={() => editor?.chain().focus().toggleOrderedList().run()} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('orderedList'))} aria-label="Numbered list"><ListOrdered className="h-4 w-4" /></button>
+        <button type="button" onClick={() => openTool('link', { url: editor?.getAttributes('link').href || '', text: '' })} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('link'))} aria-label="Insert link" title="Link (Ctrl+K)"><Link2 className="h-4 w-4" /></button>
+        <button type="button" onClick={() => openTool('quote', { quote: '', attribution: '' })} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('blockquote'))} aria-label="Insert quote"><MessageSquareQuote className="h-4 w-4" /></button>
+        <button type="button" onClick={() => openTool('table', { columns: '3', rows: '3' })} disabled={isLockedByOther} className={toolButtonClass(editor?.isActive('table'))} aria-label="Insert table"><Table2 className="h-4 w-4" /></button>
+        <button type="button" onClick={() => inlineImageInputRef.current?.click()} disabled={isUploadingInlineImage || isLockedByOther} className={toolButtonClass()} aria-label="Upload inline image">{isUploadingInlineImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}</button>
+        <button type="button" onClick={() => moveCurrentBlock(-1)} disabled={isLockedByOther} className={toolButtonClass()} aria-label="Move current block up"><ArrowUp className="h-4 w-4" /></button>
+        <button type="button" onClick={() => moveCurrentBlock(1)} disabled={isLockedByOther} className={toolButtonClass()} aria-label="Move current block down"><ArrowDown className="h-4 w-4" /></button>
+        <button type="button" onClick={() => editor?.chain().focus().unsetAllMarks().clearNodes().run()} disabled={isLockedByOther} className={toolButtonClass()} aria-label="Clear formatting">Clear</button>
+        <button type="button" onClick={() => editor?.commands.setContent(polishArticleEditorHtml(editor.getHTML()))} disabled={isLockedByOther} className={toolButtonClass()} aria-label="Polish pasted formatting"><Wand2 className="h-4 w-4" /></button>
+        <button type="button" onClick={() => editor?.chain().focus().undo().run()} disabled={!editor?.can().undo() || isLockedByOther} className={toolButtonClass()} aria-label="Undo"><Undo2 className="h-4 w-4" /></button>
+        <button type="button" onClick={() => editor?.chain().focus().redo().run()} disabled={!editor?.can().redo() || isLockedByOther} className={toolButtonClass()} aria-label="Redo"><Redo2 className="h-4 w-4" /></button>
+        <button type="button" onClick={() => openTool('youtube', { url: '' })} disabled={isLockedByOther} className={toolButtonClass()} aria-label="Insert YouTube embed">YouTube</button>
+        <button type="button" onClick={() => openTool('resource', { title: 'Source / Reference', url: '', description: '' })} disabled={isLockedByOther} className={toolButtonClass()} aria-label="Insert resource card">Resource</button>
+
+        {hasLock && articleId ? (
+          <div className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>🔒 You have editing lock (Auto-renews)</span>
+          </div>
+        ) : null}
       </div>
 
       {slashMenuOpen ? (

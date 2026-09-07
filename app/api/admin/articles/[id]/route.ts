@@ -898,6 +898,29 @@ async function updateEpaperArticleById(
     }
   }
 
+  const currentSnapshot = (current as Record<string, unknown>).releasedSnapshot as Record<string, unknown> | undefined;
+  const nextVersion = Number(currentSnapshot?.version || 0) + 1;
+  const targetPageNumber = Number(updates.pageNumber || current.pageNumber || 1);
+  const targetPage = (parentEpaper.pages || []).find((p) => Number(p.pageNumber || 0) === targetPageNumber);
+  const pageImagePath = targetPage?.imagePath || '';
+  const nextHotspot = updates.hotspot || current.hotspot;
+  const nextSlug = (updates.slug as string) || (current.slug as string);
+
+  updates.releasedSnapshot = {
+    title: nextTitle,
+    slug: nextSlug,
+    pageNumber: targetPageNumber,
+    excerpt: updates.excerpt !== undefined ? (updates.excerpt as string) : (current.excerpt as string) || '',
+    contentHtml: updates.contentHtml !== undefined ? (updates.contentHtml as string) : (current.contentHtml as string) || '',
+    coverImagePath: updates.coverImagePath !== undefined ? (updates.coverImagePath as string) : (current.coverImagePath as string) || '',
+    pageImagePath,
+    hotspot: nextHotspot,
+    version: Math.max(nextVersion, 1),
+    releasedAt: new Date().toISOString(),
+    releasedById: actor?.id || 'admin',
+    sourceUpdatedAt: new Date().toISOString(),
+  };
+
   const updated = await EPaperArticle.findByIdAndUpdate(id, updates, {
     new: true,
     runValidators: true,
@@ -919,9 +942,9 @@ async function updateEpaperArticleById(
       changedPages.includes(Number(page.pageNumber || 0))
         ? {
             ...page,
-            reviewStatus: 'pending',
-            reviewedAt: null,
-            reviewedBy: null,
+            reviewStatus: 'ready',
+            reviewedAt: new Date(),
+            reviewedBy: actor.id,
           }
         : page
     );

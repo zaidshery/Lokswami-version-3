@@ -114,7 +114,19 @@ function toSitemapItem(input: unknown): ServerArticleSitemapItem | null {
 export async function listArticlesForSitemap(limit = 500) {
   if (await isMongoAvailable({ label: 'sitemap articles lookup' })) {
     try {
-      const records = await Article.find({})
+      const records = await Article.find({
+        $or: [
+          { 'workflow.status': 'published' },
+          {
+            'workflow.status': 'scheduled',
+            'workflow.scheduledFor': { $lte: new Date() },
+          },
+          {
+            'workflow.status': { $in: [null, undefined] },
+            publishedAt: { $exists: true, $ne: null },
+          },
+        ],
+      })
         .select('_id slug updatedAt publishedAt workflow')
         .sort({ updatedAt: -1 })
         .lean();
@@ -136,6 +148,58 @@ export async function listArticlesForSitemap(limit = 500) {
     .map((item) => toSitemapItem(item))
     .filter((item): item is ServerArticleSitemapItem => Boolean(item))
     .slice(0, limit);
+}
+
+export async function countPublicArticlesForSitemap(): Promise<number> {
+  if (await isMongoAvailable({ label: 'sitemap articles count' })) {
+    try {
+      const count = await Article.countDocuments({
+        'workflow.status': 'published',
+      });
+      return count;
+    } catch (error) {
+      console.error('Failed to count sitemap articles from MongoDB, falling back.', error);
+    }
+  }
+
+  const fallback = await listAllStoredArticles();
+  return fallback.filter((item) => isPubliclyPublishedArticle(item)).length;
+}
+
+export async function listArticlesForSitemapSlice(options: {
+  skip?: number;
+  limit?: number;
+} = {}): Promise<ServerArticleSitemapItem[]> {
+  const skip = Math.max(0, options.skip || 0);
+  const limit = Math.max(1, options.limit || 2500);
+
+  if (await isMongoAvailable({ label: 'sitemap articles slice lookup' })) {
+    try {
+      const records = await Article.find({
+        'workflow.status': 'published',
+      })
+        .select('_id slug updatedAt publishedAt workflow')
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      const normalized = records
+        .filter((item) => isPubliclyPublishedArticle(item))
+        .map((item) => toSitemapItem(item))
+        .filter((item): item is ServerArticleSitemapItem => Boolean(item));
+      return normalized;
+    } catch (error) {
+      console.error('Failed to load sitemap articles slice from MongoDB, falling back.', error);
+    }
+  }
+
+  const fallback = await listAllStoredArticles();
+  return fallback
+    .filter((item) => isPubliclyPublishedArticle(item))
+    .slice(skip, skip + limit)
+    .map((item) => toSitemapItem(item))
+    .filter((item): item is ServerArticleSitemapItem => Boolean(item));
 }
 
 function toNewsSitemapItem(input: unknown): ServerNewsArticleSitemapItem | null {

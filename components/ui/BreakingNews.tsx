@@ -138,7 +138,7 @@ export default function BreakingNews({
             </span>
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1" suppressHydrationWarning>
             {marqueeItems.length > 0 ? (
               <div className={styles.inlineShell}>
                 <span className="sr-only" aria-live="polite" aria-atomic="true">

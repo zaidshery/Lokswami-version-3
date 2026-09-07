@@ -41,6 +41,9 @@ type ArticleEditorStudioProps = {
   imageCredit?: string;
   category?: string;
   editorClassName?: string;
+  articleId?: string;
+  currentUserRole?: string;
+  onLockChange?: (hasLock: boolean) => void;
   onModeChange: (mode: ArticleEditorStudioMode) => void;
   onFocusModeChange?: (focusMode: boolean) => void;
   onContentChange: (content: string) => void;
@@ -448,6 +451,9 @@ export default function ArticleEditorStudio({
   imageCredit,
   category,
   editorClassName,
+  articleId,
+  currentUserRole,
+  onLockChange,
   onModeChange,
   onFocusModeChange,
   onContentChange,
@@ -556,6 +562,9 @@ export default function ArticleEditorStudio({
             onChange={onContentChange}
             placeholder={placeholder}
             editorClassName={editorClassName}
+            articleId={articleId}
+            currentUserRole={currentUserRole}
+            onLockChange={onLockChange}
           />
         ) : null}
 
@@ -593,6 +602,9 @@ export default function ArticleEditorStudio({
               onChange={onContentChange}
               placeholder={placeholder}
               editorClassName={editorClassName}
+              articleId={articleId}
+              currentUserRole={currentUserRole}
+              onLockChange={onLockChange}
             />
             <div className="hidden xl:block">
               <PreviewPanel

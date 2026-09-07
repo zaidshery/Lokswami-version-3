@@ -1738,4 +1738,84 @@ iframe:-webkit-full-screen {
   background-color: #000 !important;
 }
 
+/* ==========================================================================
+   Print Stylesheet for Clean Newspaper / Article Printing
+   ========================================================================== */
+@media print {
+  /* Hide site chrome, navigation, headers, footers, and floating controls */
+  header,
+  footer,
+  nav,
+  .reader-top-nav,
+  .reader-bottom-nav,
+  .reader-stage-controls,
+  .reader-floating-dock,
+  .floating-tts-bar,
+  [data-print-hide="true"],
+  button,
+  .newsroom-panel-actions,
+  .modal-overlay,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Reset layout for paper printing */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Ensure containers take full printable width */
+  main,
+  article,
+  .cnp-surface {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Optimize article rich content for print */
+  .article-rich-content {
+    color: #111111 !important;
+    font-size: 12pt !important;
+    line-height: 1.6 !important;
+  }
+
+  .article-rich-content p {
+    orphans: 3;
+    widows: 3;
+    margin-bottom: 0.8em !important;
+  }
+
+  .article-rich-content img {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+    color: #000000 !important;
+  }
+
+  /* Avoid page breaks inside quote blocks or figures */
+  blockquote,
+  figure {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
+
 

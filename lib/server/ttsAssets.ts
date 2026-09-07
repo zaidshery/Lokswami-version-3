@@ -217,6 +217,7 @@ export async function findReadyManualTtsAsset(input: {
   sourceType: TtsSourceType;
   sourceId: string;
   variant: TtsVariant;
+  expectedText?: string;
   actor?: TtsActorContext;
 }) {
   await connectDB();
@@ -230,6 +231,7 @@ export async function findReadyManualTtsAsset(input: {
     provider: 'manual',
     status: 'ready',
     audioUrl: { $ne: '' },
+    ...(input.expectedText !== undefined ? { textHash: hashValue(sanitizeText(input.expectedText)) } : {}),
   }).sort({ updatedAt: -1, _id: -1 });
 
   if (!asset?.audioUrl) return null;

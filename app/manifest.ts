@@ -57,9 +57,9 @@ export default function manifest(): MetadataRoute.Manifest {
         icons: [{ src: '/logo-app-192.png', sizes: '192x192', type: 'image/png' }],
       },
       {
-        name: 'Videos',
-        short_name: 'Videos',
-        description: 'Open the video feed',
+        name: 'Lokswami Swipe',
+        short_name: 'Swipe',
+        description: 'Open Lokswami Swipe news',
         url: '/main/videos',
         icons: [{ src: '/logo-app-192.png', sizes: '192x192', type: 'image/png' }],
       },

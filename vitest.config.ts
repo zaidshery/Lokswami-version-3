@@ -11,6 +11,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Bound jsdom processes so local and CI runs do not exhaust memory on high-core hosts.
+    maxWorkers: 4,
     environment: 'jsdom',
     globals: true,
     setupFiles: './setupTests.ts',

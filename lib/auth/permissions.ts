@@ -42,6 +42,7 @@ export const ADMIN_PAGE_KEYS = [
   'newsroom_settings',
   'revenue',
   'team',
+  'users',
   'analytics',
   'business_value',
   'audit_log',
@@ -115,6 +116,7 @@ export const PAGE_ACCESS: Record<AdminPageKey, readonly AdminRole[]> = {
   newsroom_settings: ['super_admin', 'admin'],
   revenue: ['super_admin'],
   team: ['super_admin', 'admin'],
+  users: ['super_admin', 'admin'],
   analytics: ['super_admin', 'admin'],
   business_value: ['super_admin'],
   audit_log: ['super_admin'],
@@ -156,6 +158,7 @@ export const PAGE_LABELS: Record<AdminPageKey, string> = {
   newsroom_settings: 'Newsroom Settings',
   revenue: 'Revenue & Ads Control',
   team: 'Team',
+  users: 'Users & Subscribers',
   analytics: 'Analytics',
   business_value: 'Business Value',
   audit_log: 'Audit Log',
@@ -494,4 +497,9 @@ export function canTransitionContent(
   }
 
   return false;
+}
+
+export function canTakeOverArticleLock(role: AdminRole | null | undefined): boolean {
+  const normalizedRole = normalizeAdminRole(role);
+  return normalizedRole === 'admin' || isSuperAdminRole(normalizedRole);
 }

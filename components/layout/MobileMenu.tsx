@@ -4,7 +4,7 @@ import { useEffect, useRef, type ComponentType, type CSSProperties } from 'react
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { X, ChevronRight, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import { X, ChevronRight, Facebook, Twitter, Instagram, Youtube, Languages } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import Logo from '@/components/layout/Logo';
 import { COMPANY_INFO } from '@/lib/constants/company';
@@ -64,7 +64,7 @@ const SOCIAL_BRAND_STYLES: Record<SocialLink['brand'], { glow: string; rgb: stri
 };
 
 export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
-  const { language } = useAppStore();
+  const { language, setLanguage } = useAppStore();
   const { status } = useSession();
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const accountHref =
@@ -164,6 +164,44 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 >
                   <X size={20} />
                 </button>
+              </div>
+
+              {/* Language Switcher Preference in Drawer */}
+              <div className="border-b border-zinc-200/80 px-4 py-3 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Languages size={18} className="text-zinc-500 dark:text-zinc-400" />
+                    <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                      {language === 'hi' ? 'भाषा / Language' : 'Language / भाषा'}
+                    </span>
+                  </div>
+                  <div className="inline-flex rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-800 dark:bg-zinc-900">
+                    <button
+                      type="button"
+                      onClick={() => setLanguage('hi')}
+                      className={`reader-touch-button rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                        language === 'hi'
+                          ? 'bg-white text-orange-600 shadow-sm dark:bg-zinc-800 dark:text-orange-400'
+                          : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                      }`}
+                      aria-pressed={language === 'hi'}
+                    >
+                      हिन्दी
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLanguage('en')}
+                      className={`reader-touch-button rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                        language === 'en'
+                          ? 'bg-white text-orange-600 shadow-sm dark:bg-zinc-800 dark:text-orange-400'
+                          : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                      }`}
+                      aria-pressed={language === 'en'}
+                    >
+                      English
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="px-3.5 pt-3.5">

@@ -51,14 +51,14 @@ async function main() {
   }
 
   const smokeScript = path.join(__dirname, 'smoke-check-deploy.js');
-  const ttsSmokeScript = path.join(__dirname, 'test-tts-deploy.js');
+  const seoSmokeScript = path.join(__dirname, 'seo-smoke-check.js');
   const adminRuntimeScript = path.join(__dirname, 'test-admin-runtime.js');
 
   console.log('Running deploy smoke checks...');
   await runScript(smokeScript, passthroughArgs);
 
-  console.log('\nRunning TTS smoke checks...');
-  await runScript(ttsSmokeScript, passthroughArgs);
+  console.log('\nRunning SEO smoke checks...');
+  await runScript(seoSmokeScript, passthroughArgs);
 
   console.log('\nRunning admin runtime guest-boundary checks...');
   await runScript(adminRuntimeScript, passthroughArgs);

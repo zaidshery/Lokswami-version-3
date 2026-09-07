@@ -8,14 +8,16 @@ import { signOut, useSession } from 'next-auth/react';
 import {
   Bookmark,
   LogOut,
+  Menu,
   Moon,
+  Newspaper,
   Settings,
   Sun,
   User,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import DesktopNav from './DesktopNav';
-import Logo, { LogoIcon, LogoWordmark } from '@/components/layout/Logo';
+import Logo, { LogoWordmark } from '@/components/layout/Logo';
 
 /** Renders the main site header with reader auth actions. */
 export default function Header() {
@@ -27,6 +29,8 @@ export default function Header() {
     toggleTheme,
     language,
     toggleLanguage,
+    toggleMobileMenu,
+    isMobileMenuOpen,
   } = useAppStore();
   const { data: session, status } = useSession();
 
@@ -81,19 +85,31 @@ export default function Header() {
         aria-busy="true"
         className="fixed left-0 right-0 top-11 z-50 border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12"
       >
-        <div className="flex h-12 items-center justify-between px-1.5 sm:h-[3.45rem] sm:px-5 md:px-8">
-          <div className="sm:hidden"><LogoIcon size="headerCompact" /></div>
-          <div className="hidden sm:block lg:hidden"><Logo size="headerMobile" href="/main" /></div>
-          <div className="hidden lg:block"><Logo size="headerDesktop" href="/main" /></div>
-          <div className="flex flex-1 items-center justify-center sm:hidden"><LogoWordmark size="headerCompact" /></div>
-          <div aria-hidden="true" className="flex items-center gap-2">
-            <span className="h-10 w-16 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-            <span className="h-10 w-10 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+        <div className="relative flex h-12 items-center justify-between px-2 min-[380px]:px-3 sm:h-[3.45rem] sm:px-5 md:px-8">
+          <div className="flex shrink-0 items-center">
+            <div className="flex h-12 items-center sm:hidden">
+              <span className="h-9.5 w-9.5 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+            </div>
+            <div className="hidden sm:block lg:hidden">
+              <Logo size="headerMobile" href="/main" />
+            </div>
+            <div className="hidden lg:block">
+              <Logo size="headerDesktop" href="/main" />
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-1 items-center justify-center px-1 translate-x-4 min-[375px]:translate-x-5 sm:translate-x-0 sm:hidden">
+            <span className="h-7.5 w-28 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+          </div>
+          <div aria-hidden="true" className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+            <span className="h-8 w-14 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800 min-[380px]:h-8.5 min-[380px]:w-15 sm:h-9 sm:w-16 sm:rounded-xl" />
+            <span className="hidden lg:inline-block h-9 w-20 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+            <span className="h-8 w-8 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800 min-[380px]:h-8.5 min-[380px]:w-8.5 sm:h-9 sm:w-9 sm:rounded-xl" />
+            <span className="hidden lg:inline-block h-8 w-14 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800 sm:h-9 sm:rounded-xl" />
           </div>
         </div>
-        <div aria-hidden="true" className="flex min-h-11 items-center gap-3 overflow-hidden border-t border-zinc-200/80 px-3 dark:border-zinc-800">
-          {[64, 88, 76, 96, 72].map((width) => (
-            <span key={width} className="h-3 shrink-0 animate-pulse rounded-full bg-zinc-100 dark:bg-zinc-800" style={{ width }} />
+        <div aria-hidden="true" className="flex min-h-10 items-center gap-3 overflow-hidden border-t border-zinc-200/80 px-2 sm:px-4 md:min-h-11 md:px-6 2xl:justify-center dark:border-zinc-800">
+          {[64, 88, 76, 96, 72, 84, 90, 78].map((width, i) => (
+            <span key={i} className="h-3 shrink-0 animate-pulse rounded-full bg-zinc-100 dark:bg-zinc-800" style={{ width }} />
           ))}
         </div>
       </header>
@@ -102,52 +118,57 @@ export default function Header() {
 
   return (
     <header className="fixed left-0 right-0 top-11 z-50 border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md transition-all duration-500 dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12">
-      <div className="relative w-full px-1.5 sm:px-5 md:px-8">
-        <div className="flex h-12 items-center justify-between gap-2 sm:h-[3.45rem] sm:gap-3">
-          {/* Left: Logo */}
-          <div className="relative z-10 flex min-w-0 shrink-0 items-center">
-            <div className="min-w-0 sm:hidden">
-              <Logo size="headerCompact" href="/main" />
+      <div className="relative w-full px-2 min-[380px]:px-3 sm:px-5 md:px-8">
+        <div className="relative flex h-12 items-center justify-between gap-1 sm:h-[3.45rem] sm:gap-3">
+          {/* Left: Mobile Hamburger Menu / Tablet & Desktop Logo */}
+          <div className="flex shrink-0 items-center">
+            {/* Mobile: 3-line hamburger menu button */}
+            <div className="flex h-12 items-center sm:hidden">
+              <button
+                type="button"
+                onClick={toggleMobileMenu}
+                className="reader-touch-button reader-focus-ring -ml-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl text-zinc-800 transition-colors hover:bg-zinc-100 hover:text-zinc-950 active:scale-95 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-white"
+                aria-label={language === 'hi' ? 'मेनू खोलें' : 'Open menu'}
+                aria-controls="mobile-drawer"
+                aria-expanded={isMobileMenuOpen}
+              >
+                <Menu className="h-5.5 w-5.5" strokeWidth={2.2} />
+              </button>
             </div>
+            {/* Tablet: Full Logo */}
             <div className="hidden min-w-0 sm:block lg:hidden">
               <Logo size="headerMobile" href="/main" />
             </div>
+            {/* Desktop: Full Logo */}
             <div className="hidden min-w-0 lg:block">
               <Logo size="headerDesktop" href="/main" />
             </div>
           </div>
 
-          <div className="relative z-10 ml-auto flex min-w-0 flex-shrink-0 items-center justify-end sm:ml-2">
-            <div className="inline-flex max-w-full items-center gap-0.5 rounded-2xl border border-zinc-200/90 bg-gradient-to-b from-white to-zinc-100/80 p-0.5 shadow-[0_8px_18px_rgba(15,23,42,0.08)] dark:border-zinc-700/80 dark:from-zinc-900 dark:to-zinc-900/75 sm:gap-2 sm:p-1.5">
-              <motion.button
-                onClick={toggleLanguage}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                className="cnp-motion reader-touch-button reader-focus-ring inline-flex h-10 shrink-0 items-center rounded-xl border border-zinc-200/80 bg-white px-1 py-1 text-[9px] font-semibold text-zinc-900 shadow-sm hover:border-orange-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-500 sm:px-1.5 sm:text-xs"
-                aria-label={language === 'hi' ? 'Switch to English' : 'Switch to Hindi'}
+          {/* Center: Hindi Written Logo "लोकस्वामी" on mobile */}
+          <div className="flex min-w-0 flex-1 items-center justify-center px-1 translate-x-4 min-[375px]:translate-x-5 sm:translate-x-0 sm:hidden">
+            <Link
+              href="/main"
+              className="cnp-motion inline-flex h-12 max-w-full items-center justify-center transition-transform duration-200 active:scale-95"
+              aria-label="Lokswami Home"
+            >
+              <LogoWordmark
+                size="headerCompact"
+                className="max-w-[120px] min-[360px]:max-w-[130px] min-[390px]:max-w-[145px]"
+              />
+            </Link>
+          </div>
+
+          <div className="flex shrink-0 items-center justify-end sm:ml-2">
+            <div className="inline-flex max-w-full items-center gap-1 rounded-xl border border-zinc-200/90 bg-gradient-to-b from-white to-zinc-100/80 p-0.5 shadow-[0_8px_18px_rgba(15,23,42,0.08)] dark:border-zinc-700/80 dark:from-zinc-900 dark:to-zinc-900/75 sm:gap-1.5 sm:rounded-2xl sm:p-1">
+              <Link
+                href="/main/epaper"
+                className="cnp-motion reader-touch-button reader-focus-ring inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-red-200/80 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2 text-[10.5px] font-semibold text-white shadow-sm transition-all hover:brightness-105 active:scale-95 dark:border-red-500/30 min-[380px]:h-8.5 min-[380px]:px-2.5 min-[380px]:text-[11px] sm:h-9 sm:rounded-xl sm:px-2.5 sm:text-xs"
+                aria-label={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
               >
-                <span className="attention-pulsate-bck-slow inline-flex items-center">
-                  <span
-                    className={`rounded-md px-1 py-1 leading-none transition-colors sm:px-2 ${
-                      language === 'hi'
-                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300'
-                        : 'text-zinc-500 dark:text-zinc-400'
-                    }`}
-                  >
-                    हि
-                  </span>
-                  <span className="mx-0.5 h-3 w-px bg-zinc-200 dark:bg-zinc-700 sm:mx-1 sm:h-3.5" aria-hidden="true" />
-                  <span
-                    className={`rounded-md px-1 py-1 leading-none transition-colors sm:px-2 ${
-                      language === 'en'
-                        ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300'
-                        : 'text-zinc-500 dark:text-zinc-400'
-                    }`}
-                  >
-                    EN
-                  </span>
-                </span>
-              </motion.button>
+                <Newspaper className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                <span className="leading-none tracking-normal">{language === 'hi' ? 'ई-पेपर' : 'e-Paper'}</span>
+              </Link>
 
               <div className="relative hidden lg:block" ref={userMenuRef}>
                 {status === 'loading' ? (
@@ -253,11 +274,29 @@ export default function Header() {
                 onClick={toggleTheme}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="cnp-motion reader-touch-button reader-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-zinc-800 shadow-sm hover:border-amber-300 hover:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
+                className="cnp-motion reader-touch-button reader-focus-ring inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-800 shadow-sm hover:border-amber-300 hover:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800 min-[380px]:h-8.5 min-[380px]:w-8.5 sm:h-9 sm:w-9 sm:rounded-xl"
                 aria-label="Toggle theme"
               >
                 <span className="attention-pulsate-bck-slow inline-flex">
-                  {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                  {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+                </span>
+              </motion.button>
+
+              {/* Desktop Only: HI / EN Language Toggle after Theme Toggle */}
+              <motion.button
+                onClick={toggleLanguage}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="cnp-motion reader-touch-button reader-focus-ring hidden lg:inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-zinc-200/80 bg-white px-2.5 text-xs font-bold text-zinc-800 shadow-sm hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 sm:h-9 sm:rounded-xl"
+                aria-label={language === 'hi' ? 'भाषा: हिंदी / English' : 'Language: English / Hindi'}
+                title={language === 'hi' ? 'Switch to English' : 'हिंदी में बदलें'}
+              >
+                <span className={language === 'hi' ? 'text-red-600 dark:text-red-400 font-black' : 'text-zinc-400 dark:text-zinc-500 font-semibold'}>
+                  हि
+                </span>
+                <span className="text-zinc-300 dark:text-zinc-600 font-normal">/</span>
+                <span className={language === 'en' ? 'text-red-600 dark:text-red-400 font-black' : 'text-zinc-400 dark:text-zinc-500 font-semibold'}>
+                  EN
                 </span>
               </motion.button>
             </div>
@@ -266,7 +305,7 @@ export default function Header() {
       </div>
 
       <div className="border-t border-zinc-200/80 dark:border-zinc-800">
-        <div className="scrollbar-hide reader-scroll-x flex min-h-11 items-center overflow-x-auto touch-pan-x px-1.5 sm:px-4 md:min-h-12 md:px-8 lg:justify-center" data-swipe-ignore="true">
+        <div className="scrollbar-hide reader-scroll-x flex min-h-10 items-center overflow-x-auto touch-pan-x px-2 sm:px-4 md:min-h-11 md:px-6 2xl:justify-center" data-swipe-ignore="true">
           <DesktopNav className="min-w-max py-0" />
         </div>
       </div>

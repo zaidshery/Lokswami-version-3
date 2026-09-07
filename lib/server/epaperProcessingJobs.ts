@@ -10,6 +10,8 @@ import {
 import {
   downloadVerifiedEpaperPdf,
   renderPdfPageToJpeg,
+  PdfWorkerTimeoutError,
+  PdfWorkerMemoryExceededError,
 } from '@/lib/server/epaperPdfRenderer';
 import { buildEpaperImageAutomationUpdates } from '@/lib/server/epaperImageAutomation';
 import { logEpaperMetric } from '@/lib/server/epaperObservability';
@@ -17,6 +19,8 @@ import { uploadBufferToDigitalOceanSpaces } from '@/lib/utils/digitalOceanSpaces
 import { deleteDigitalOceanSpacesAssetByPublicId } from '@/lib/utils/digitalOceanSpaces';
 import { normalizeEPaperPublicationType } from '@/lib/types/epaper';
 import { shouldUseGlobalPublicationScope } from '@/lib/utils/epaperPublication';
+import { withDistributedLock } from '@/lib/security/distributedLock';
+import { queueEpaperOcr } from '@/lib/server/epaperOcrJobs';
 
 const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000];
 const LEASE_MS = 10 * 60_000;
@@ -84,6 +88,7 @@ export async function queueEpaperPageProcessing(input: {
   await EPaperProcessingJob.updateMany(
     {
       epaperId: input.epaperId,
+      kind: 'pdf_pages',
       status: { $in: ['queued', 'processing'] },
     },
     { status: 'cancelled', completedAt: new Date() }
@@ -111,6 +116,7 @@ async function claimJob() {
     {
       status: { $in: ['queued', 'processing'] },
       nextAttemptAt: { $lte: now },
+      kind: 'pdf_pages',
       $or: [
         { status: 'queued' },
         { leaseExpiresAt: null },
@@ -280,6 +286,9 @@ async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof clai
         pages,
         ...automationUpdates,
       });
+      await queueEpaperOcr(String(job.epaperId), [pageNumber]).catch(() => {
+        logEpaperMetric('ocr_queue_reconciliation_needed', { epaperId: String(job.epaperId), pageNumber });
+      });
       await EPaperProcessingJob.findByIdAndUpdate(job._id, {
         processedItems: processed,
         failedItems: failedPageNumbers.length,
@@ -288,6 +297,23 @@ async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof clai
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Page render failed.';
+      const isTimeout =
+        error instanceof PdfWorkerTimeoutError ||
+        (typeof error === 'object' && error !== null && 'code' in error && (error as { code: unknown }).code === 'PDF_WORKER_TIMEOUT');
+      const isMemory =
+        error instanceof PdfWorkerMemoryExceededError ||
+        (typeof error === 'object' && error !== null && 'code' in error && (error as { code: unknown }).code === 'PDF_WORKER_MEMORY_EXCEEDED');
+
+      if (isTimeout || isMemory) {
+        logEpaperMetric('conversion_failed', {
+          jobId: String(job._id),
+          epaperId: String(job.epaperId),
+          pageNumber,
+          reason: isTimeout ? 'timeout' : 'memory_exceeded',
+          message,
+        });
+      }
+
       failedPageNumbers.push(pageNumber);
       failures.push(`Page ${pageNumber}: ${message}`);
       pages[pageIndex] = {
@@ -368,54 +394,71 @@ export async function processQueuedEpaperJobs(options: { limit?: number } = {}) 
   if (!isEpaperBackgroundProcessingEnabled()) {
     return { claimed: 0, results: [], paused: true };
   }
-  const limit = Math.min(Math.max(Number(options.limit || 1), 1), 5);
-  const results = [];
 
-  for (let index = 0; index < limit; index += 1) {
-    const job = await claimJob();
-    if (!job) break;
-    try {
-      results.push(await processClaimedJob(job));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Processing failed.';
-      const currentAttempt = Number(job.attemptCount || 1);
-      const shouldRetry = currentAttempt < Number(job.maxAttempts || 4);
-      const delay =
-        RETRY_DELAYS_MS[
-          Math.min(Math.max(currentAttempt - 1, 0), RETRY_DELAYS_MS.length - 1)
-        ];
-      await EPaperProcessingJob.findByIdAndUpdate(job._id, {
-        status: shouldRetry ? 'queued' : 'failed',
-        nextAttemptAt: shouldRetry ? new Date(Date.now() + delay) : new Date(),
-        lastError: message,
-        leaseOwner: '',
-        leaseExpiresAt: null,
-        completedAt: shouldRetry ? null : new Date(),
-      });
-      results.push({
-        jobId: String(job._id),
-        status: shouldRetry ? 'queued' : 'failed',
-        processed: 0,
-        failed: job.pageNumbers.length,
-      });
-      logEpaperMetric(
-        shouldRetry ? 'conversion_retry_scheduled' : 'conversion_failed',
-        {
-          jobId: String(job._id),
-          epaperId: String(job.epaperId),
-          attempt: currentAttempt,
-          failedPages: job.pageNumbers.length,
-          reason: message,
+  try {
+    return await withDistributedLock(
+      'lock:epaper-job-worker',
+      async () => {
+        const limit = Math.min(Math.max(Number(options.limit || 1), 1), 5);
+        const results = [];
+
+        for (let index = 0; index < limit; index += 1) {
+          const job = await claimJob();
+          if (!job) break;
+          try {
+            results.push(await processClaimedJob(job));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Processing failed.';
+            const currentAttempt = Number(job.attemptCount || 1);
+            const shouldRetry = currentAttempt < Number(job.maxAttempts || 4);
+            const delay =
+              RETRY_DELAYS_MS[
+                Math.min(Math.max(currentAttempt - 1, 0), RETRY_DELAYS_MS.length - 1)
+              ];
+            await EPaperProcessingJob.findByIdAndUpdate(job._id, {
+              status: shouldRetry ? 'queued' : 'failed',
+              nextAttemptAt: shouldRetry ? new Date(Date.now() + delay) : new Date(),
+              lastError: message,
+              leaseOwner: '',
+              leaseExpiresAt: null,
+              completedAt: shouldRetry ? null : new Date(),
+            });
+            results.push({
+              jobId: String(job._id),
+              status: shouldRetry ? 'queued' : 'failed',
+              processed: 0,
+              failed: job.pageNumbers.length,
+            });
+            logEpaperMetric(
+              shouldRetry ? 'conversion_retry_scheduled' : 'conversion_failed',
+              {
+                jobId: String(job._id),
+                epaperId: String(job.epaperId),
+                attempt: currentAttempt,
+                failedPages: job.pageNumbers.length,
+                reason: message,
+              }
+            );
+          }
         }
-      );
-    }
-  }
 
-  return {
-    claimed: results.length,
-    results,
-    paused: false,
-  };
+        return {
+          claimed: results.length,
+          results,
+          paused: false,
+        };
+      },
+      120
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('Could not acquire distributed lock')
+    ) {
+      return { claimed: 0, results: [], paused: false, locked: true };
+    }
+    throw error;
+  }
 }
 
 export async function cleanupAbandonedEpaperUploads() {

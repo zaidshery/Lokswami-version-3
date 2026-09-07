@@ -17,6 +17,9 @@ export const READER_NAVIGATION = {
 } as const satisfies Record<string, ReaderNavigationLink>;
 
 export function isReaderNavigationActive(pathname: string, href: string) {
+  if (href === READER_NAVIGATION.videos.href && pathname.startsWith('/main/shorts/')) {
+    return true;
+  }
   return href === '/main'
     ? pathname === href
     : pathname === href || pathname.startsWith(`${href}/`);

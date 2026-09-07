@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 
 export type ContactWorkflowStatus = 'new' | 'in_progress' | 'resolved';
 
@@ -169,8 +170,7 @@ async function readAllMessages(): Promise<StoredContactMessage[]> {
 }
 
 async function writeAllMessages(messages: StoredContactMessage[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(messages, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, messages);
 }
 
 export async function createStoredContactMessage(input: CreateContactMessageInput) {

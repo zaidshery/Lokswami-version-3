@@ -2,12 +2,9 @@ import {
   getPublicEpaperForMetadata,
   getPublicEpaperStoryForMetadata,
 } from '@/lib/server/publicEpaperMetadata';
-import {
-  buildArticleSocialPreview,
-  buildEpaperSocialPreview,
-  socialPreviewHeaders,
-} from '@/lib/server/socialPreviewImage';
-import { getSiteUrl, toAbsoluteArticleUrl } from '@/lib/seo/articleSeo';
+import { socialPreviewHeaders } from '@/lib/server/socialPreviewImage';
+import { loadTrustedEpaperImage, renderBrandedEpaperImage } from '@/lib/server/epaperShareImage';
+import { normalizeEPaperPublicationType } from '@/lib/types/epaper';
 import { formatUiDate } from '@/lib/utils/dateFormat';
 
 export async function GET(request: Request) {
@@ -16,54 +13,35 @@ export async function GET(request: Request) {
   const city = url.searchParams.get('city') || '';
   const date = url.searchParams.get('date') || '';
   const storyToken = url.searchParams.get('story') || '';
-  const siteUrl = getSiteUrl();
+  const publicationType = normalizeEPaperPublicationType(url.searchParams.get('publicationType'));
   const issue = await getPublicEpaperForMetadata({
     id: paper,
     citySlug: city,
     publishDate: date,
+    publicationType,
   });
   const story =
     storyToken && (issue?.id || paper)
       ? await getPublicEpaperStoryForMetadata({
           epaperId: issue?.id || paper,
           storyToken,
+          publicationType,
         })
       : null;
-  const cityLabel = issue?.cityName || city || 'Digital Edition';
+  if (!issue || (storyToken && !story)) return new Response('Released publication not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  const cityLabel = publicationType === 'emagazine' ? 'E-Magazine' : `${issue.cityName} E-Paper`;
   const dateLabel = issue?.publishDate
     ? formatUiDate(issue.publishDate, issue.publishDate)
     : date
       ? formatUiDate(date, date)
       : 'Latest edition';
-  const title =
-    cityLabel && cityLabel !== 'Digital Edition'
-      ? `Lokswami ${cityLabel} E-Paper`
-      : 'Lokswami Digital E-Paper';
-  const imageUrl = issue?.thumbnailPath
-    ? toAbsoluteArticleUrl(issue.thumbnailPath, siteUrl)
-    : toAbsoluteArticleUrl('/placeholders/epaper-3x4.svg', siteUrl);
-  const image = story
-    ? await buildArticleSocialPreview({
-        title: story.title || title,
-        description:
-          story.excerpt ||
-          `Read this story from the ${cityLabel} Lokswami e-paper${
-            story.pageNumber > 0 ? ` on page ${story.pageNumber}` : ''
-          }.`,
-        imageUrl: story.coverImagePath
-          ? toAbsoluteArticleUrl(story.coverImagePath, siteUrl)
-          : imageUrl,
-        label:
-          story.pageNumber > 0
-            ? `E-Paper | Page ${story.pageNumber}`
-            : 'E-Paper Story',
-      })
-    : await buildEpaperSocialPreview({
-        title,
-        cityLabel,
-        dateLabel,
-        imageUrl,
-      });
-
-  return new Response(Uint8Array.from(image), { headers: socialPreviewHeaders() });
+  const requestedVersion = url.searchParams.get('v');
+  if (story && requestedVersion && requestedVersion !== String(story.releaseVersion)) return new Response('Story version changed', { status: 409, headers: { 'Cache-Control': 'no-store' } });
+  try {
+    const image = await loadTrustedEpaperImage(story?.pageImagePath || issue.thumbnailPath);
+    const output = await renderBrandedEpaperImage({ image, hotspot: story?.hotspot, preview: true, label: `${cityLabel} | ${publicationType === 'emagazine' ? issue.publishDate.slice(0, 7) : dateLabel}${story ? ` | Page ${story.pageNumber}` : ''}` });
+    return new Response(Uint8Array.from(output), { headers: socialPreviewHeaders() });
+  } catch {
+    return new Response('Preview temporarily unavailable', { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
 }

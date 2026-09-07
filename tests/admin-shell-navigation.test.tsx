@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from 'react';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -63,6 +63,28 @@ afterEach(() => {
 });
 
 describe('AdminShell role-aware navigation', () => {
+  it('finds permitted tools in either language and recovers from an empty search', () => {
+    renderShell('admin');
+    const search = screen.getByRole('searchbox', { name: 'Find newsroom tools' });
+    const tools = within(screen.getByRole('navigation', { name: 'Newsroom tools' }));
+    fireEvent.change(search, { target: { value: 'ई-मैग' } });
+    expect(tools.getByRole('link', { name: 'E-Magazines' })).toBeInTheDocument();
+    expect(tools.queryByRole('link', { name: 'Articles' })).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'missing tool' } });
+    expect(tools.getByRole('status')).toHaveTextContent('No matching tools.');
+    fireEvent.click(tools.getByRole('button', { name: 'Clear search' }));
+    expect(tools.getByRole('link', { name: 'Articles' })).toBeInTheDocument();
+  });
+
+  it('never reveals tools outside a reporter role through search', () => {
+    renderShell('reporter');
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Find newsroom tools' }), {
+      target: { value: 'Team' },
+    });
+    const tools = within(screen.getByRole('navigation', { name: 'Newsroom tools' }));
+    expect(tools.queryByRole('link')).not.toBeInTheDocument();
+    expect(tools.getByRole('status')).toHaveTextContent('No matching tools.');
+  });
   it('exposes authorized tools to admins and keeps them hidden from reporters', () => {
     renderShell('admin');
 

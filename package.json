@@ -45,7 +45,8 @@
     "test:seo-smoke": "node scripts/seo-smoke-check.js",
     "audit:seo-indexing": "ts-node --files --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/audit-seo-indexing.ts",
     "audit:seo-health": "node scripts/seo-health-audit.js",
-    "test:tts-smoke": "node scripts/test-tts-deploy.js",
+    "audit:structure": "node scripts/audit-project-structure.js",
+    "capture:baseline": "node scripts/capture-improvement-baseline.js",
     "load:test:public": "node scripts/load-test-public.js",
     "verify:prod-env": "node scripts/validate-production-env.js",
     "verify:dependency-security": "node scripts/validate-dependency-security.js",
@@ -56,12 +57,19 @@
     "migrate:epaper-workflow-v3": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts",
     "migrate:epaper-workflow-v3:write": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts --write",
     "migrate:epaper-workflow-v3:indexes": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts --indexes-only",
+    "migrate:swipe-videos": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/migrate-swipe-videos.ts",
+    "migrate:swipe-videos:write": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/migrate-swipe-videos.ts --write",
     "migrate:four-role-admin": "node scripts/migrate-four-role-admin.js",
     "migrate:four-role-admin:write": "node scripts/migrate-four-role-admin.js --write"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.3",
+    "@emnapi/core": "^1.11.3",
+    "@emnapi/runtime": "^1.11.3",
+    "@floating-ui/dom": "^1.8.0",
     "@napi-rs/canvas": "^1.0.0",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/hin": "1.0.0",
     "@tiptap/extension-character-count": "^3.29.2",
     "@tiptap/extension-image": "^3.29.2",
     "@tiptap/extension-placeholder": "^3.29.2",
@@ -72,6 +80,8 @@
     "@types/node": "^20.19.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.5",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.3",
     "autoprefixer": "^10.4.0",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
@@ -93,6 +103,7 @@
     "sharp": "^0.35.3",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.4.0",
+    "tesseract.js": "7.0.0",
     "typescript": "^5.0.0",
     "zustand": "^4.5.0"
   },
@@ -115,6 +126,8 @@
       "postcss": "8.5.25",
       "sharp": "0.35.3"
     },
-    "picomatch@2.3.1": "2.3.2"
+    "picomatch@2.3.1": "2.3.2",
+    "js-yaml": "4.3.1",
+    "nanoid": "3.3.18"
   }
 }

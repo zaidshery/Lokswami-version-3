@@ -40,6 +40,7 @@ import {
   CmsEditorSidebar,
 } from '@/components/admin/CmsEditorLayout';
 import { AdminMediaImage } from '@/components/admin/AdminMediaImage';
+import SwipeReadinessChecklist from '@/components/admin/SwipeReadinessChecklist';
 import { CmsWorkflowActivityTimeline } from '@/components/admin/CmsWorkflowActivityTimeline';
 import WorkflowRail from '@/components/admin/WorkflowRail';
 import { CmsWorkflowPriorityBadge, CmsWorkflowStatusBadge } from '@/components/admin/CmsWorkflowStatusBadge';
@@ -101,6 +102,14 @@ type VideoFormData = {
   isShort: boolean;
   shortsRank: string;
   views: string;
+  slug: string;
+  articleId: string;
+  aspectRatio: '9:16' | '16:9' | '1:1' | 'unknown';
+  captionUrl: string;
+  transcript: string;
+  instagramUrl: string;
+  youtubeUrl: string;
+  processingStatus: 'ready' | 'processing' | 'failed';
 };
 
 const categories = NEWS_CATEGORIES.map((category) => category.nameEn);
@@ -163,6 +172,14 @@ const initialFormData: VideoFormData = {
   isShort: false,
   shortsRank: '0',
   views: '0',
+  slug: '',
+  articleId: '',
+  aspectRatio: 'unknown',
+  captionUrl: '',
+  transcript: '',
+  instagramUrl: '',
+  youtubeUrl: '',
+  processingStatus: 'ready',
 };
 
 function normalizeWorkflowState(input: unknown): WorkflowState {
@@ -346,6 +363,14 @@ export default function EditVideoPage() {
         isShort: Boolean(video.isShort),
         shortsRank: String(video.shortsRank ?? 0),
         views: String(video.views ?? 0),
+        slug: String(video.slug || ''),
+        articleId: String(video.articleId || ''),
+        aspectRatio: (['9:16', '16:9', '1:1', 'unknown'].includes(String(video.aspectRatio)) ? String(video.aspectRatio) : 'unknown') as VideoFormData['aspectRatio'],
+        captionUrl: String(video.captionUrl || ''),
+        transcript: String(video.transcript || ''),
+        instagramUrl: String(video.instagramUrl || ''),
+        youtubeUrl: String(video.youtubeUrl || ''),
+        processingStatus: (['ready', 'processing', 'failed'].includes(String(video.processingStatus)) ? String(video.processingStatus) : 'ready') as VideoFormData['processingStatus'],
       };
       const nextWorkflow = normalizeWorkflowState(video.workflow);
 
@@ -503,7 +528,8 @@ export default function EditVideoPage() {
       if (!Number.isFinite(views) || views < 0) throw new Error('Views must be valid');
 
       const youtubeId = extractYouTubeVideoId(formData.videoUrl);
-      if (!youtubeId) throw new Error('Please enter a valid YouTube or YouTube Live stream URL');
+      const isDirectMp4 = /^https:\/\/[^\s]+\.mp4(?:[?#].*)?$/i.test(formData.videoUrl);
+      if (!youtubeId && !isDirectMp4) throw new Error('Please enter a valid YouTube URL or HTTPS MP4 playback URL');
 
       let thumbnail = await uploadThumbnail();
       if (!thumbnail.trim()) thumbnail = getYouTubeThumbnail(formData.videoUrl);
@@ -525,6 +551,16 @@ export default function EditVideoPage() {
           isShort: formData.isShort,
           shortsRank: formData.isShort ? shortsRank : 0,
           views,
+          slug: formData.slug.trim(),
+          articleId: formData.articleId.trim(),
+          posterUrl: thumbnail.trim(),
+          playbackUrl: formData.videoUrl.trim(),
+          aspectRatio: formData.aspectRatio,
+          captionUrl: formData.captionUrl.trim(),
+          transcript: formData.transcript.trim(),
+          processingStatus: formData.processingStatus,
+          instagramUrl: formData.instagramUrl.trim(),
+          youtubeUrl: formData.youtubeUrl.trim(),
         }),
       });
 
@@ -545,6 +581,14 @@ export default function EditVideoPage() {
         isShort: Boolean(data.data?.isShort ?? formData.isShort),
         shortsRank: String(data.data?.shortsRank ?? (formData.isShort ? shortsRank : 0)),
         views: String(data.data?.views ?? views),
+        slug: String(data.data?.slug ?? formData.slug),
+        articleId: String(data.data?.articleId ?? formData.articleId),
+        aspectRatio: String(data.data?.aspectRatio ?? formData.aspectRatio) as VideoFormData['aspectRatio'],
+        captionUrl: String(data.data?.captionUrl ?? formData.captionUrl),
+        transcript: String(data.data?.transcript ?? formData.transcript),
+        instagramUrl: String(data.data?.instagramUrl ?? formData.instagramUrl),
+        youtubeUrl: String(data.data?.youtubeUrl ?? formData.youtubeUrl),
+        processingStatus: String(data.data?.processingStatus ?? formData.processingStatus) as VideoFormData['processingStatus'],
       };
 
       setFormData(nextForm);
@@ -1037,6 +1081,35 @@ export default function EditVideoPage() {
                 />
               </label>
             </div>
+
+            {formData.isShort ? (
+              <div className="space-y-4 rounded-lg border border-red-200 bg-red-50/50 p-4">
+                <div>
+                  <h3 className="font-semibold text-gray-900">Swipe News publishing</h3>
+                  <p className="mt-1 text-xs leading-5 text-gray-600">Editors see these values on the public Swipe URL and quick-article sheet. Publish remains blocked until the article, poster, ready media, and 9:16 format are present.</p>
+                </div>
+                <SwipeReadinessChecklist
+                  slug={formData.slug}
+                  articleId={formData.articleId}
+                  posterReady={Boolean(thumbnailFile || formData.thumbnail.trim())}
+                  mediaReady={Boolean(formData.videoUrl.trim())}
+                  aspectRatio={formData.aspectRatio}
+                  processingStatus={formData.processingStatus}
+                />
+                <label className="block text-sm font-medium text-gray-900">Swipe slug<input name="slug" value={formData.slug} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                <label className="block text-sm font-medium text-gray-900">Related published article ID or slug<input name="articleId" value={formData.articleId} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /><span className="mt-1 block text-xs text-gray-600">Controls the public “पूरी खबर पढ़ें” action.</span></label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm font-medium text-gray-900">Aspect ratio<select name="aspectRatio" value={formData.aspectRatio} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2"><option value="9:16">9:16 vertical</option><option value="16:9">16:9 landscape</option><option value="1:1">1:1 square</option><option value="unknown">Unknown</option></select></label>
+                  <label className="block text-sm font-medium text-gray-900">Media status<select name="processingStatus" value={formData.processingStatus} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2"><option value="ready">Ready</option><option value="processing">Processing</option><option value="failed">Failed</option></select></label>
+                </div>
+                <label className="block text-sm font-medium text-gray-900">Caption file URL<input name="captionUrl" value={formData.captionUrl} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                <label className="block text-sm font-medium text-gray-900">Transcript<textarea name="transcript" value={formData.transcript} onChange={handleInputChange} rows={4} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm font-medium text-gray-900">Instagram URL<input name="instagramUrl" value={formData.instagramUrl} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                  <label className="block text-sm font-medium text-gray-900">YouTube URL<input name="youtubeUrl" value={formData.youtubeUrl} onChange={handleInputChange} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                </div>
+              </div>
+            ) : null}
 
             <CmsWorkflowActivityTimeline
               items={videoActivity}

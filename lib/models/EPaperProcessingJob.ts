@@ -4,11 +4,14 @@ import {
   type EPaperProcessingJobStatus,
 } from '@/lib/types/epaper';
 
-export type EPaperProcessingJobKind = 'pdf_pages';
+export type EPaperProcessingJobKind = 'pdf_pages' | 'ocr';
 
 export interface IEPaperProcessingJob {
   epaperId: mongoose.Types.ObjectId;
   kind: EPaperProcessingJobKind;
+  sourceKey: string;
+  sourceImagePath: string;
+  checkpoint: unknown[];
   status: EPaperProcessingJobStatus;
   pageNumbers: number[];
   totalItems: number;
@@ -35,7 +38,10 @@ const EPaperProcessingJobSchema = new mongoose.Schema<IEPaperProcessingJob>(
       required: true,
       index: true,
     },
-    kind: { type: String, enum: ['pdf_pages'], default: 'pdf_pages' },
+    kind: { type: String, enum: ['pdf_pages', 'ocr'], default: 'pdf_pages' },
+    sourceKey: { type: String },
+    sourceImagePath: { type: String, default: '' },
+    checkpoint: { type: [mongoose.Schema.Types.Mixed], default: [] },
     status: {
       type: String,
       enum: EPAPER_PROCESSING_JOB_STATUSES,
@@ -61,6 +67,7 @@ const EPaperProcessingJobSchema = new mongoose.Schema<IEPaperProcessingJob>(
 
 EPaperProcessingJobSchema.index({ status: 1, nextAttemptAt: 1, createdAt: 1 });
 EPaperProcessingJobSchema.index({ epaperId: 1, createdAt: -1 });
+EPaperProcessingJobSchema.index({ sourceKey: 1 }, { unique: true, partialFilterExpression: { kind: 'ocr' } });
 
 const EPaperProcessingJob: Model<IEPaperProcessingJob> =
   (mongoose.models.EPaperProcessingJob as Model<IEPaperProcessingJob>) ||

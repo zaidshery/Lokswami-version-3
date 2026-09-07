@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { writeJsonFileAtomically } from '@/lib/storage/atomicStorage';
 import {
   normalizeSocialAutomationProvider,
   normalizeSocialPlatform,
@@ -119,8 +120,7 @@ async function readAllSocialPosts(): Promise<SocialPostRecord[]> {
 }
 
 async function writeAllSocialPosts(posts: SocialPostRecord[]) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dataPath, JSON.stringify(posts, null, 2), 'utf-8');
+  await writeJsonFileAtomically(dataPath, posts);
 }
 
 export async function listStoredSocialPosts(filters?: {
