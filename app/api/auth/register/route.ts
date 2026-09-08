@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongoose';
 import User from '@/lib/models/User';
 import { hashPassword } from '@/lib/auth/jwt';
-import { isValidWhatsAppNumber, normalizeWhatsAppNumber } from '@/lib/utils/phone';
-import { findStoredUserByEmail, findStoredUserByWhatsApp, upsertStoredUser } from '@/lib/storage/usersFile';
+import { normalizeWhatsAppNumber } from '@/lib/utils/phone';
+import { upsertStoredUser } from '@/lib/storage/usersFile';
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     try {
       await connectDB();
 
-      // Check duplicate
+      // Check duplicate in authoritative MongoDB
       const duplicateQuery: Record<string, unknown>[] = [{ email: safeEmail }];
       if (normalizedPhone) {
         duplicateQuery.push({ whatsappNumber: normalizedPhone });
@@ -97,19 +97,23 @@ export async function POST(req: NextRequest) {
         lastLoginAt: new Date(),
       });
 
-      // Also sync to file store for resilience
-      void upsertStoredUser({
-        _id: newUser._id.toString(),
-        name: trimmedName,
-        email: safeEmail,
-        whatsappNumber: normalizedPhone || undefined,
-        passwordHash,
-        passwordSetAt: new Date().toISOString(),
-        role: 'reader',
-        optInDailyEpaper: Boolean(optInDailyEpaper),
-        preferredLanguage: languagePreference === 'en' ? 'en' : 'hi',
-        isActive: true,
-      });
+      // Best-effort secondary sync to file store for profile resilience
+      try {
+        await upsertStoredUser({
+          _id: newUser._id.toString(),
+          name: trimmedName,
+          email: safeEmail,
+          whatsappNumber: normalizedPhone || undefined,
+          passwordHash,
+          passwordSetAt: new Date().toISOString(),
+          role: 'reader',
+          optInDailyEpaper: Boolean(optInDailyEpaper),
+          preferredLanguage: languagePreference === 'en' ? 'en' : 'hi',
+          isActive: true,
+        });
+      } catch (fileError) {
+        console.warn('[Register] Secondary file store sync failed (Mongo remains authoritative):', fileError);
+      }
 
       return NextResponse.json(
         {
@@ -125,44 +129,15 @@ export async function POST(req: NextRequest) {
         { status: 201 }
       );
     } catch (dbError) {
-      console.warn('[Register] MongoDB fallback to file store:', dbError);
-
-      // File store fallback
-      const existingFileUser =
-        (await findStoredUserByEmail(safeEmail)) ||
-        (normalizedPhone ? await findStoredUserByWhatsApp(normalizedPhone) : null);
-
-      if (existingFileUser) {
-        return NextResponse.json(
-          { success: false, error: 'An account with this email or WhatsApp number already exists.' },
-          { status: 409 }
-        );
-      }
-
-      const fileUser = await upsertStoredUser({
-        name: trimmedName,
-        email: safeEmail,
-        whatsappNumber: normalizedPhone || undefined,
-        passwordHash,
-        passwordSetAt: new Date().toISOString(),
-        role: 'reader',
-        optInDailyEpaper: Boolean(optInDailyEpaper),
-        preferredLanguage: languagePreference === 'en' ? 'en' : 'hi',
-        isActive: true,
-      });
-
+      // Security Invariant: MongoDB is the authoritative credential store.
+      // Do NOT create file-only reader credentials on Mongo outage.
+      console.error('[Register] MongoDB account creation failed, failing closed:', dbError);
       return NextResponse.json(
         {
-          success: true,
-          user: {
-            id: fileUser._id,
-            name: fileUser.name,
-            email: fileUser.email,
-            whatsappNumber: fileUser.whatsappNumber,
-            role: fileUser.role,
-          },
+          success: false,
+          error: 'Registration is temporarily unavailable. Please try again shortly.',
         },
-        { status: 201 }
+        { status: 503 }
       );
     }
   } catch (error) {
