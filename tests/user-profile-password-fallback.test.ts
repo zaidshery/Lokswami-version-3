@@ -187,4 +187,90 @@ describe('GAP-010: Reader Password Fallback Resilience', () => {
     expect(capturedFileUpsert.whatsappNumber).toBe('9876543210');
     expect(capturedFileUpsert.preferredLanguage).toBe('en');
   });
+
+  it('P1-B: prevents fallback-verified credentials from authorizing overwrite of MongoDB password', async () => {
+    const olderPassword = 'OlderFallbackPassword123!';
+    const olderHash = await hashPassword(olderPassword);
+
+    const newerPassword = 'NewerMongoPassword456!';
+    const newerHash = await hashPassword(newerPassword);
+
+    // 1. Mongo user exists with NEWER_PASSWORD
+    const mongoUserDoc = {
+      _id: 'user-123',
+      email: testEmail,
+      name: 'Mongo Reader',
+      passwordHash: newerHash,
+    };
+
+    // 2. File-store user exists with OLDER_PASSWORD
+    const fileStoreUser = {
+      _id: 'user-file-123',
+      name: 'Fallback Reader',
+      email: testEmail,
+      image: '',
+      role: 'reader' as const,
+      whatsappNumber: '9876543210',
+      passwordHash: olderHash,
+      passwordSetAt: '2026-08-01T00:00:00.000Z',
+      isActive: true,
+      readCount: 5,
+      savedArticles: [],
+      preferredLanguage: 'hi' as const,
+      preferredCategories: [],
+      optInDailyEpaper: true,
+      pushEnabled: false,
+      notificationsEnabled: true,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    };
+    findStoredUserByEmailMock.mockResolvedValue(fileStoreUser);
+
+    let capturedFileUpsert: any = null;
+    upsertStoredUserMock.mockImplementation((data) => {
+      capturedFileUpsert = data;
+      return Promise.resolve({
+        ...fileStoreUser,
+        ...data,
+      });
+    });
+
+    // 3. Initial Mongo credential read fails (simulating transient outage during lookup)
+    userFindOneMock.mockImplementation(() => {
+      throw new Error('MongoNetworkError: transient failure on read');
+    });
+
+    // 5. Mongo write becomes available again (recovering before write path)
+    let mongoFindOneAndUpdateCalled = false;
+    userFindOneAndUpdateMock.mockImplementation(() => {
+      mongoFindOneAndUpdateCalled = true;
+      return {
+        lean: () => Promise.resolve(mongoUserDoc),
+      };
+    });
+
+    const { PATCH } = await import('@/app/api/user/profile/route');
+
+    // 4. Request passes OLDER_PASSWORD, which matches only the fallback file store
+    const req = new NextRequest('http://localhost/api/user/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        currentPassword: olderPassword,
+        newPassword: 'BrandNewPassword789!',
+      }),
+    });
+
+    const res = await PATCH(req);
+    expect(res.status).toBe(200);
+
+    // 6. Request must NOT overwrite Mongo based only on fallback authorization!
+    expect(mongoFindOneAndUpdateCalled).toBe(false);
+    expect(mongoUserDoc.passwordHash).toBe(newerHash); // Mongo password remains NEWER_PASSWORD
+
+    // File store update succeeded
+    expect(capturedFileUpsert).toBeDefined();
+    expect(capturedFileUpsert.passwordHash).not.toBe(olderHash);
+    expect(capturedFileUpsert.passwordHash).toMatch(/^\$2[aby]\$\d+\$/);
+  });
 });

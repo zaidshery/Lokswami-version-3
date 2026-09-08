@@ -151,6 +151,8 @@ export async function PATCH(req: NextRequest) {
       updates.preferredCategories = preferredCategories.map(String);
     }
 
+    let authSource: 'mongo' | 'file' | 'none' = 'none';
+
     // Password change handling
     if (newPassword) {
       if (String(newPassword).length < 6) {
@@ -168,6 +170,7 @@ export async function PATCH(req: NextRequest) {
         const existingUser = await User.findOne({ email }).lean();
         if (existingUser) {
           userFound = true;
+          authSource = 'mongo';
           existingPasswordHash = existingUser.passwordHash;
         }
       } catch (mongoError) {
@@ -178,6 +181,7 @@ export async function PATCH(req: NextRequest) {
         const fileUser = await findStoredUserByEmail(email);
         if (fileUser) {
           userFound = true;
+          authSource = 'file';
           existingPasswordHash = fileUser.passwordHash;
         }
       }
@@ -211,42 +215,48 @@ export async function PATCH(req: NextRequest) {
       updates.passwordSetAt = new Date();
     }
 
-    try {
-      await connectDB();
-      const updatedUser = await User.findOneAndUpdate(
-        { email },
-        { $set: updates },
-        { new: true }
-      ).lean();
+    // P1-B Invariant: The credential store used to VERIFY authorization must remain
+    // authoritative for that password-change operation. If password was verified from
+    // file store because Mongo was unavailable, keep that password update on the
+    // file-store path only for this request, and do not overwrite Mongo based on fallback auth.
+    if (authSource !== 'file') {
+      try {
+        await connectDB();
+        const updatedUser = await User.findOneAndUpdate(
+          { email },
+          { $set: updates },
+          { new: true }
+        ).lean();
 
-      if (updatedUser) {
-        // Sync to file store
-        void upsertStoredUser({
-          _id: updatedUser._id.toString(),
-          name: updatedUser.name,
-          email: updatedUser.email,
-          whatsappNumber: updatedUser.whatsappNumber,
-          optInDailyEpaper: updatedUser.optInDailyEpaper !== false,
-          preferredLanguage: updatedUser.preferredLanguage,
-          preferredCategories: updatedUser.preferredCategories,
-          passwordHash: updatedUser.passwordHash,
-          passwordSetAt: updatedUser.passwordSetAt ? new Date(updatedUser.passwordSetAt).toISOString() : undefined,
-        });
-
-        return NextResponse.json({
-          success: true,
-          message: 'Profile updated successfully.',
-          data: {
+        if (updatedUser) {
+          // Sync to file store
+          void upsertStoredUser({
+            _id: updatedUser._id.toString(),
             name: updatedUser.name,
             email: updatedUser.email,
             whatsappNumber: updatedUser.whatsappNumber,
-            optInDailyEpaper: updatedUser.optInDailyEpaper,
+            optInDailyEpaper: updatedUser.optInDailyEpaper !== false,
             preferredLanguage: updatedUser.preferredLanguage,
-          },
-        });
+            preferredCategories: updatedUser.preferredCategories,
+            passwordHash: updatedUser.passwordHash,
+            passwordSetAt: updatedUser.passwordSetAt ? new Date(updatedUser.passwordSetAt).toISOString() : undefined,
+          });
+
+          return NextResponse.json({
+            success: true,
+            message: 'Profile updated successfully.',
+            data: {
+              name: updatedUser.name,
+              email: updatedUser.email,
+              whatsappNumber: updatedUser.whatsappNumber,
+              optInDailyEpaper: updatedUser.optInDailyEpaper,
+              preferredLanguage: updatedUser.preferredLanguage,
+            },
+          });
+        }
+      } catch (mongoError) {
+        console.warn('[Profile API PATCH] MongoDB write fallback:', mongoError);
       }
-    } catch (mongoError) {
-      console.warn('[Profile API PATCH] MongoDB write fallback:', mongoError);
     }
 
     // File store fallback

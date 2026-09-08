@@ -162,34 +162,45 @@ Historical context: To preserve continuity with prior project reviews while enfo
 
 ---
 
-### GAP-009: PDF Render Mutex Released on `Promise.race` Timeout While Render Continues
+### GAP-009: PDF Render Mutex Released on `Promise.race` Timeout While Render Continues & Permanent Wedge Vulnerability (P1-A)
 - **Nature**: **VERIFIED**
 - **Original Review Severity**: `P1`
 - **B3 Hardening Priority**: `P1`
-- **Status**: **CLOSED** (Resolved in B3 Phase 1)
+- **Status**: **CLOSED** (Resolved & Hardened against P1-A in B3 Phase 1)
 - **Area**: PDF Rendering & Server Stability
-- **Implementation Files**: [lib/server/pdf/pdfWorker.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/server/pdf/pdfWorker.ts#L209-L245)
+- **Implementation Files**: [lib/server/pdf/pdfWorker.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/server/pdf/pdfWorker.ts#L30-L280)
 - **Regression Tests**: [tests/pdf-render-mutex-safety.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/pdf-render-mutex-safety.test.ts) and [tests/pdf-worker-isolation.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/pdf-worker-isolation.test.ts)
 - **Verification Evidence**:
   - Proved that when timeout fires, mutex is retained until underlying render settles, preventing concurrent canvas executions and unhandled promise rejections.
-  - All 6 tests in `pdf-render-mutex-safety` and `pdf-worker-isolation` pass.
-- **Correction Applied**: Mutex release is deferred via `.finally(() => markSettledAndRelease())` on the underlying render promise, with `.catch(() => undefined)` to swallow late rejections after timeout.
+  - Proved anti-wedge behavior (P1-A): if an underlying render hangs indefinitely, queued callers have bounded timeouts (rejecting with `PdfWorkerTimeoutError` after their configured wait limit rather than hanging forever), callers never overlap, `recoverPdfWorkerLock()` safely clears the hung lock state, subsequent renders succeed normally, and no unhandled rejections occur.
+  - Underlying native PDF.js render tasks are actively cancelled via `renderTask.cancel()` on timeout.
+  - All 7 tests in `pdf-render-mutex-safety` and `pdf-worker-isolation` pass.
+- **Correction Applied**:
+  - Replaced promise-chaining mutex with an anti-wedge request queue with per-caller wait timeouts.
+  - Added cancellation hook for PDF.js native render tasks via `renderTask.cancel()`.
+  - Added safe recovery API (`recoverPdfWorkerLock()`) and diagnostic state helper (`isPdfWorkerLocked()`).
+  - Mutex release is safely deferred via `.finally()` with `.catch(() => undefined)` to prevent unhandled late rejections.
 - **Blocks Production Hardening?**: **RESOLVED**.
 
 ---
 
-### GAP-010: Reader Password Change Bypasses File-Store Fallback During DB Outage
+### GAP-010: Reader Password Change Bypasses File-Store Fallback During DB Outage & Authorization Source Integrity (P1-B)
 - **Nature**: **VERIFIED**
 - **Original Review Severity**: `P2`
-- **B3 Hardening Priority**: `P2`
-- **Status**: **CLOSED** (Resolved in B3 Phase 1)
+- **B3 Hardening Priority**: `P1` *(Elevated to P1 blocker due to dual-store authorization split-brain risk)*
+- **Status**: **CLOSED** (Resolved & Hardened against P1-B in B3 Phase 1)
 - **Area**: Authentication & Dual Persistence
-- **Implementation Files**: [app/api/user/profile/route.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/app/api/user/profile/route.ts#L160-L245)
+- **Implementation Files**: [app/api/user/profile/route.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/app/api/user/profile/route.ts#L160-L250)
 - **Regression Tests**: [tests/user-profile-password-fallback.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/user-profile-password-fallback.test.ts)
 - **Verification Evidence**:
   - Proved HTTP 500 failure on unhandled MongoDB disconnection in inherited code. Passes cleanly in both MongoDB-connected and file-store fallback modes.
   - Wrong old password rejected (400), valid password updated, bcrypt hash preserved, unaffected profile fields preserved.
-- **Correction Applied**: Wrapped MongoDB lookup in try-catch with fallback to `findStoredUserByEmail`, synced `passwordHash` and `passwordSetAt` to file-store in `upsertStoredUser`, and handled fallback updates with preserved bcrypt hashing.
+  - Proved P1-B invariant: when MongoDB has a newer password and file-store has an older password, if MongoDB is unavailable during initial read, the request authenticates against the file store. If MongoDB becomes reachable on the write path, the request strictly bypasses MongoDB write (`authSource === 'file'`), preventing a stale fallback password from authorizing a change to the newer MongoDB password.
+  - All 3 tests in `tests/user-profile-password-fallback.test.ts` pass.
+- **Correction Applied**:
+  - Wrapped MongoDB lookup in try-catch with fallback to `findStoredUserByEmail`.
+  - Added strict `authSource: 'mongo' | 'file' | 'none'` tracking. If password was verified from fallback file store (`authSource === 'file'`), the MongoDB write path is bypassed, keeping the update confined to the file store.
+  - Synced `passwordHash` and `passwordSetAt` to file-store in `upsertStoredUser` when MongoDB is authoritative.
 - **Blocks Production Hardening?**: **RESOLVED**.
 
 ---
