@@ -30,6 +30,9 @@ export interface PdfWorkerRenderOptions {
     options: PdfWorkerRenderOptions,
     cancelRef?: { cancel?: () => void }
   ) => Promise<PdfWorkerRenderResult>;
+  _onCanvasDisposed?: (info: { width: number; height: number }) => void;
+  _simulateRenderError?: Error;
+  _simulateNeverSettle?: boolean;
 }
 
 export interface PdfWorkerRenderResult {
@@ -224,7 +227,7 @@ export function checkMemoryPressure(maxHeapMb?: number): {
 /**
  * Explicitly releases canvas memory and dereferences native context.
  */
-function disposeCanvas(canvas: unknown, context: unknown, width: number, height: number) {
+export function disposeCanvas(canvas: unknown, context: unknown, width: number, height: number) {
   try {
     if (context && typeof (context as { clearRect?: (x: number, y: number, w: number, h: number) => void }).clearRect === 'function') {
       (context as { clearRect: (x: number, y: number, w: number, h: number) => void }).clearRect(0, 0, width, height);
@@ -276,6 +279,21 @@ async function executeRenderPage(
 
   let width = 0;
   let height = 0;
+  let canvas: unknown = null;
+  let context: unknown = null;
+  let canvasDisposed = false;
+
+  const performCanvasDisposal = () => {
+    if (!canvasDisposed && canvas) {
+      canvasDisposed = true;
+      try {
+        disposeCanvas(canvas, context, width, height);
+        options._onCanvasDisposed?.({ width, height });
+      } catch (disposalErr) {
+        console.warn('[pdfWorker] Warning: disposeCanvas error during cleanup:', disposalErr);
+      }
+    }
+  };
 
   try {
     if (options.pageNumber < 1 || options.pageNumber > document.numPages) {
@@ -289,8 +307,8 @@ async function executeRenderPage(
     width = Math.round(viewport.width);
     height = Math.round(viewport.height);
 
-    const canvas = canvasModule.createCanvas(width, height);
-    const context = canvas.getContext('2d');
+    canvas = canvasModule.createCanvas(width, height);
+    context = (canvas as { getContext: (type: string) => unknown }).getContext('2d');
 
     const renderTask = page.render({
       canvasContext: context as never,
@@ -309,6 +327,13 @@ async function executeRenderPage(
     }
 
     try {
+      if (options._simulateNeverSettle) {
+        // Simulates an underlying render that ignores cancellation and never resolves or rejects
+        await new Promise(() => {});
+      }
+      if (options._simulateRenderError) {
+        throw options._simulateRenderError;
+      }
       await renderTask.promise;
     } catch (renderError: unknown) {
       if (
@@ -322,9 +347,10 @@ async function executeRenderPage(
       throw renderError;
     }
 
-    const rawJpeg = canvas.toBuffer('image/jpeg', jpegQuality);
-    // Explicit disposal of native canvas and context resources immediately
-    disposeCanvas(canvas, context, width, height);
+    const rawJpeg = (canvas as { toBuffer: (mime: string, quality?: number) => Buffer }).toBuffer('image/jpeg', jpegQuality);
+
+    // Explicit disposal of native canvas and context resources immediately once buffer is captured
+    performCanvasDisposal();
 
     const normalized = await sharp(rawJpeg)
       .jpeg({ quality: jpegQuality, mozjpeg: true })
@@ -332,6 +358,7 @@ async function executeRenderPage(
 
     return { buffer: normalized, width, height };
   } finally {
+    performCanvasDisposal();
     try {
       await document.destroy();
     } catch {

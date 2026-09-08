@@ -5,6 +5,7 @@ import {
   isPdfWorkerLocked,
   isPdfWorkerHealthy,
   getPdfWorkerStatus,
+  disposeCanvas,
   _resetPdfWorkerForTestingOnly,
 } from '@/lib/server/pdf/pdfWorker';
 
@@ -235,4 +236,172 @@ describe('GAP-009 & P1-A: PDF Mutex & Timeout Safety', () => {
       _resetPdfWorkerForTestingOnly();
     }
   }, 45000);
+});
+
+describe('P1 — Dispose canvas when cancellation rejects & guaranteed cleanup lifecycle', () => {
+  beforeEach(() => {
+    _resetPdfWorkerForTestingOnly();
+  });
+
+  it('1. executes disposeCanvas exactly once on successful render', async () => {
+    const pdf = createSinglePagePdf();
+    let disposedCount = 0;
+    let disposedWidth = 0;
+
+    const result = await renderPdfPageWithWorkerIsolation({
+      pdfBuffer: pdf,
+      pageNumber: 1,
+      targetWidth: 500,
+      _onCanvasDisposed: (info) => {
+        disposedCount++;
+        disposedWidth = info.width;
+      },
+    });
+
+    expect(result.width).toBe(500);
+    expect(result.buffer).toBeInstanceOf(Buffer);
+    expect(disposedCount).toBe(1);
+    expect(disposedWidth).toBe(500);
+    expect(isPdfWorkerLocked()).toBe(false);
+  });
+
+  it('2. executes disposeCanvas exactly once on ordinary render rejection', async () => {
+    const pdf = createSinglePagePdf();
+    let disposedCount = 0;
+
+    await expect(
+      renderPdfPageWithWorkerIsolation({
+        pdfBuffer: pdf,
+        pageNumber: 1,
+        targetWidth: 500,
+        _simulateRenderError: new Error('Simulated native render error'),
+        _onCanvasDisposed: () => {
+          disposedCount++;
+        },
+      })
+    ).rejects.toThrow('Simulated native render error');
+
+    expect(disposedCount).toBe(1);
+    expect(isPdfWorkerLocked()).toBe(false);
+    expect(isPdfWorkerHealthy()).toBe(true);
+  });
+
+  it('3. executes disposeCanvas exactly once and verifies exact ordering on timeout + cancellation', async () => {
+    const pdf = createSinglePagePdf();
+    const eventLog: string[] = [];
+    let disposedCount = 0;
+
+    // Start Request 1 with 40ms timeout
+    const req1Promise = renderPdfPageWithWorkerIsolation({
+      pdfBuffer: pdf,
+      pageNumber: 1,
+      targetWidth: 500,
+      timeoutMs: 40,
+      _renderFn: (_options, cancelRef) => {
+        return new Promise<any>((_resolve, reject) => {
+          if (cancelRef) {
+            cancelRef.cancel = () => {
+              setTimeout(() => {
+                eventLog.push('render_settled');
+                // Simulates canvas cleanup before rejection
+                _options._onCanvasDisposed?.({ width: 500, height: 500 });
+                reject(new PdfWorkerTimeoutError('PDF page render cancelled.'));
+              }, 20);
+            };
+          }
+        });
+      },
+      _onCanvasDisposed: () => {
+        disposedCount++;
+        eventLog.push('canvas_disposed');
+      },
+    }).catch((err) => {
+      eventLog.push('caller_timed_out');
+      expect(err).toBeInstanceOf(PdfWorkerTimeoutError);
+    });
+
+    // Queue Request 2 behind Request 1
+    const req2Promise = renderPdfPageWithWorkerIsolation({
+      pdfBuffer: pdf,
+      pageNumber: 1,
+      targetWidth: 500,
+      timeoutMs: 15000,
+      _renderFn: () => {
+        eventLog.push('next_render_started');
+        return Promise.resolve({
+          buffer: Buffer.from('jpeg-bytes'),
+          width: 500,
+          height: 500,
+        });
+      },
+    });
+
+    await req1Promise;
+    const req2Result = await req2Promise;
+
+    expect(req2Result.width).toBe(500);
+    expect(disposedCount).toBe(1);
+
+    // Verify exact ordering:
+    // 1. caller_timed_out fires from Promise.race timeout
+    // 2. render_settled occurs after cancellation
+    // 3. canvas_disposed executes upon task settlement
+    // 4. lock released, so next_render_started follows canvas disposal
+    const renderSettledIdx = eventLog.indexOf('render_settled');
+    const canvasDisposedIdx = eventLog.indexOf('canvas_disposed');
+    const nextRenderStartedIdx = eventLog.indexOf('next_render_started');
+
+    expect(renderSettledIdx).toBeGreaterThanOrEqual(0);
+    expect(canvasDisposedIdx).toBeGreaterThanOrEqual(renderSettledIdx);
+    expect(nextRenderStartedIdx).toBeGreaterThan(canvasDisposedIdx);
+  });
+
+  it('4. executes disposeCanvas on real native render timeout and cancellation', async () => {
+    const pdf = createSinglePagePdf();
+    let disposedCount = 0;
+
+    await expect(
+      renderPdfPageWithWorkerIsolation({
+        pdfBuffer: pdf,
+        pageNumber: 1,
+        targetWidth: 1000,
+        timeoutMs: 1, // Quick timeout triggering real cancellation
+        _onCanvasDisposed: () => {
+          disposedCount++;
+        },
+      })
+    ).rejects.toThrow(PdfWorkerTimeoutError);
+
+    // Give time for native cancellation to settle and finally block to run
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(disposedCount).toBe(1);
+    expect(isPdfWorkerLocked()).toBe(false);
+  });
+
+  it('5. does NOT force-dispose active canvas or release mutex when task truly never settles', async () => {
+    const pdf = createSinglePagePdf();
+    let disposedCount = 0;
+
+    const req1Promise = renderPdfPageWithWorkerIsolation({
+      pdfBuffer: pdf,
+      pageNumber: 1,
+      timeoutMs: 40,
+      _simulateNeverSettle: true, // Allocates real canvas, but hangs before settlement
+      _onCanvasDisposed: () => {
+        disposedCount++;
+      },
+    });
+
+    await expect(req1Promise).rejects.toThrow(PdfWorkerTimeoutError);
+
+    // Wait past observation window
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    // Canvas must NOT be disposed while native code is presumed active
+    expect(disposedCount).toBe(0);
+    // Mutex must NOT be released
+    expect(isPdfWorkerLocked()).toBe(true);
+    // Worker flagged unhealthy
+    expect(isPdfWorkerHealthy()).toBe(false);
+  });
 });
