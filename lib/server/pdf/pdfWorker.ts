@@ -213,6 +213,15 @@ export async function renderPdfPageWithWorkerIsolation(
     releaseLock = resolve;
   });
 
+  let renderPromise: Promise<PdfWorkerRenderResult> | null = null;
+  let isSettled = false;
+  const markSettledAndRelease = () => {
+    if (!isSettled) {
+      isSettled = true;
+      releaseLock();
+    }
+  };
+
   try {
     // Wait for any previously active canvas render to complete and release
     await previousLock;
@@ -229,12 +238,27 @@ export async function renderPdfPageWithWorkerIsolation(
       }, timeoutMs);
     });
 
-    const renderPromise = executeRenderPage(options);
+    renderPromise = executeRenderPage(options);
+
+    // GAP-009: Mutex & Timeout Safety
+    // 1. Attach a catch handler to swallow any late rejection when timeoutPromise wins,
+    //    preventing unhandledRejection events in Node.js.
+    // 2. Retain the lock until renderPromise completely settles (finally), ensuring
+    //    subsequent memory-heavy renders never overlap a timed-out native canvas job.
+    renderPromise
+      .catch(() => undefined)
+      .finally(() => {
+        markSettledAndRelease();
+      });
 
     return await Promise.race([renderPromise, timeoutPromise]).finally(() => {
       if (timerId) clearTimeout(timerId);
     });
   } finally {
-    releaseLock();
+    // If renderPromise never started (e.g. error thrown before executeRenderPage), release immediately.
+    // Otherwise, the lock will be released when the underlying render settles.
+    if (!renderPromise) {
+      markSettledAndRelease();
+    }
   }
 }

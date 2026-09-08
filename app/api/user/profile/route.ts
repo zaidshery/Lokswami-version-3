@@ -160,11 +160,37 @@ export async function PATCH(req: NextRequest) {
         );
       }
 
-      await connectDB();
-      const existingUser = await User.findOne({ email });
+      let existingPasswordHash: string | undefined;
+      let userFound = false;
+
+      try {
+        await connectDB();
+        const existingUser = await User.findOne({ email }).lean();
+        if (existingUser) {
+          userFound = true;
+          existingPasswordHash = existingUser.passwordHash;
+        }
+      } catch (mongoError) {
+        console.warn('[Profile API PATCH] MongoDB password check fallback:', mongoError);
+      }
+
+      if (!userFound) {
+        const fileUser = await findStoredUserByEmail(email);
+        if (fileUser) {
+          userFound = true;
+          existingPasswordHash = fileUser.passwordHash;
+        }
+      }
+
+      if (!userFound) {
+        return NextResponse.json(
+          { success: false, error: 'User profile not found.' },
+          { status: 404 }
+        );
+      }
 
       // If user already has a password, verify currentPassword
-      if (existingUser?.passwordHash) {
+      if (existingPasswordHash) {
         if (!currentPassword) {
           return NextResponse.json(
             { success: false, error: 'Current password is required to set a new password.' },
@@ -172,7 +198,7 @@ export async function PATCH(req: NextRequest) {
           );
         }
 
-        const isCurrentValid = await verifyPassword(currentPassword, existingUser.passwordHash);
+        const isCurrentValid = await verifyPassword(currentPassword, existingPasswordHash);
         if (!isCurrentValid) {
           return NextResponse.json(
             { success: false, error: 'Current password does not match.' },
@@ -203,6 +229,8 @@ export async function PATCH(req: NextRequest) {
           optInDailyEpaper: updatedUser.optInDailyEpaper !== false,
           preferredLanguage: updatedUser.preferredLanguage,
           preferredCategories: updatedUser.preferredCategories,
+          passwordHash: updatedUser.passwordHash,
+          passwordSetAt: updatedUser.passwordSetAt ? new Date(updatedUser.passwordSetAt).toISOString() : undefined,
         });
 
         return NextResponse.json({
@@ -227,6 +255,13 @@ export async function PATCH(req: NextRequest) {
       const updated = await upsertStoredUser({
         ...fileUser,
         ...updates,
+        passwordHash: typeof updates.passwordHash === 'string' ? updates.passwordHash : fileUser.passwordHash,
+        passwordSetAt:
+          updates.passwordSetAt instanceof Date
+            ? updates.passwordSetAt.toISOString()
+            : typeof updates.passwordSetAt === 'string'
+            ? updates.passwordSetAt
+            : fileUser.passwordSetAt,
       });
 
       return NextResponse.json({
