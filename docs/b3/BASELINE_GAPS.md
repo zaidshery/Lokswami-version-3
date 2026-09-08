@@ -184,24 +184,31 @@ Historical context: To preserve continuity with prior project reviews while enfo
 
 ---
 
-### GAP-010: Reader Password Change Bypasses File-Store Fallback During DB Outage & Authorization Source Integrity (P1-B)
+### GAP-010: Reader Credential Consistency & Fail-Closed Password Mutation Policy
 - **Nature**: **VERIFIED**
 - **Original Review Severity**: `P2`
-- **B3 Hardening Priority**: `P1` *(Elevated to P1 blocker due to dual-store authorization split-brain risk)*
-- **Status**: **CLOSED** (Resolved & Hardened against P1-B in B3 Phase 1)
+- **B3 Hardening Priority**: `P1` *(Elevated to P1 blocker due to dual-store credential split-brain risk)*
+- **Status**: **CLOSED** (Hardened with Fail-Closed Mutation & Mongo-Only Credential Authority in B3 Phase 1.3)
 - **Area**: Authentication & Dual Persistence
-- **Implementation Files**: [app/api/user/profile/route.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/app/api/user/profile/route.ts#L160-L250)
-- **Regression Tests**: [tests/user-profile-password-fallback.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/user-profile-password-fallback.test.ts)
+- **Implementation Files**: [app/api/user/profile/route.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/app/api/user/profile/route.ts#L155-L310) and [lib/auth/readerCredentials.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/auth/readerCredentials.ts#L1-L85)
+- **Regression Tests**: [tests/user-profile-password-fallback.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/user-profile-password-fallback.test.ts) and [tests/reader-credentials-auth.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/reader-credentials-auth.test.ts)
 - **Verification Evidence**:
-  - Proved HTTP 500 failure on unhandled MongoDB disconnection in inherited code. Passes cleanly in both MongoDB-connected and file-store fallback modes.
-  - Wrong old password rejected (400), valid password updated, bcrypt hash preserved, unaffected profile fields preserved.
-  - Proved P1-B invariant: when MongoDB has a newer password and file-store has an older password, if MongoDB is unavailable during initial read, the request authenticates against the file store. If MongoDB becomes reachable on the write path, the request strictly bypasses MongoDB write (`authSource === 'file'`), preventing a stale fallback password from authorizing a change to the newer MongoDB password.
-  - All 3 tests in `tests/user-profile-password-fallback.test.ts` pass.
+  - Proved forward split-brain hazard: if password mutations were allowed during a MongoDB outage via file-store fallback, upon Mongo recovery both the old Mongo password and the new file-store password remained valid.
+  - Proved reverse split-brain hazard: if MongoDB user password was updated, but file-store sync was delayed, failed, or diverged, previous authentication logic fell through to file storage upon MongoDB password mismatch or Mongo outage, allowing an old/stale password to authenticate.
+  - Enforced strict Phase 1 fail-closed security policy:
+    - **MongoDB is authoritative for reader credentials**: MongoDB is the sole credential authority; file-store passwords are never used to authorize logins.
+    - **Password changes fail closed during Mongo outage**: Password mutations require MongoDB to be reachable and authoritatively verified and updated in the same request flow. If MongoDB is unavailable during verification or update, the endpoint immediately returns HTTP 503 (`Password changes are temporarily unavailable. Please try again shortly.`), writing nothing to either Mongo or file store.
+    - **New password authentication fails closed during Mongo outage**: If MongoDB is unavailable, login attempts fail closed immediately (`return null`), preventing any fallback to stale file-store passwords.
+    - **File-store fallback remains for non-credential profile resilience**: Non-password profile edits (name, WhatsApp number, language, reading preferences) retain complete file-store fallback resilience during MongoDB outages without altering credentials (`passwordHash` and `passwordSetAt` remain immutable).
+    - **Any future offline credential resilience requires a properly designed credential-replication mechanism**: Standalone dual credential authorities are strictly disallowed.
+  - All 12 regression tests across `tests/user-profile-password-fallback.test.ts` (6 tests) and `tests/reader-credentials-auth.test.ts` (6 tests) pass cleanly.
 - **Correction Applied**:
-  - Wrapped MongoDB lookup in try-catch with fallback to `findStoredUserByEmail`.
-  - Added strict `authSource: 'mongo' | 'file' | 'none'` tracking. If password was verified from fallback file store (`authSource === 'file'`), the MongoDB write path is bypassed, keeping the update confined to the file store.
-  - Synced `passwordHash` and `passwordSetAt` to file-store in `upsertStoredUser` when MongoDB is authoritative.
+  - Replaced fallback-authorized password updates with strict fail-closed handling returning HTTP 503 when MongoDB is unavailable.
+  - In `authorizeReaderCredentials`, eliminated file-store password authentication entirely. Replaced fall-through and outage fallback with strict fail-closed behavior returning `null`.
+  - Preserved dual-store resilience exclusively for non-password profile updates.
+  - Policy documented: non-password profile updates retain fallback resilience; credential mutation and authentication fail closed when Mongo is unavailable; future offline credential resilience requires a properly designed credential-replication mechanism.
 - **Blocks Production Hardening?**: **RESOLVED**.
+
 
 ---
 

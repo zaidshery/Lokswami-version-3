@@ -2,7 +2,6 @@ import connectDB from '@/lib/db/mongoose';
 import User from '@/lib/models/User';
 import { verifyPassword } from '@/lib/auth/jwt';
 import { normalizeWhatsAppNumber } from '@/lib/utils/phone';
-import { findStoredUserByIdentifier, upsertStoredUser } from '@/lib/storage/usersFile';
 
 export async function authorizeReaderCredentials(input: {
   loginId?: string;
@@ -32,15 +31,23 @@ export async function authorizeReaderCredentials(input: {
 
     const user = await User.findOne(query);
 
-    if (user && user.passwordHash) {
+    if (user) {
       if (user.isActive === false) {
+        return null;
+      }
+
+      if (!user.passwordHash) {
         return null;
       }
 
       const isValid = await verifyPassword(password, user.passwordHash);
       if (isValid) {
-        user.lastLoginAt = new Date();
-        await user.save();
+        try {
+          user.lastLoginAt = new Date();
+          await user.save();
+        } catch (saveError) {
+          console.warn('[Auth] Failed to update reader lastLoginAt in MongoDB:', saveError);
+        }
 
         return {
           id: user._id.toString(),
@@ -58,44 +65,23 @@ export async function authorizeReaderCredentials(input: {
             : [],
         };
       }
+
+      // Authoritative Mongo user exists, but password was invalid.
+      // Strict Invariant: A password mismatch against an existing authoritative Mongo user
+      // must NEVER fall through to file-store credentials (prevents reverse split-brain).
+      return null;
     }
+
+    // CASE C: Mongo reachable, but no user matched query.
+    // MongoDB is the sole credential authority for Phase 1.
+    // Reject without falling back to file-store credential verification.
+    return null;
   } catch (mongoError) {
-    console.warn('[Auth] MongoDB reader auth fallback to file store:', mongoError);
+    // CASE B: MongoDB is unavailable during reader authentication.
+    // Security Invariant: Fail closed. Do NOT fall back to file-store passwords.
+    // This guarantees that a stale or divergent file password can NEVER authenticate
+    // during a Mongo outage (eliminates credential split-brain).
+    console.warn('[Auth] MongoDB unavailable during reader auth, failing closed:', mongoError);
+    return null;
   }
-
-  // Fallback to JSON file storage
-  try {
-    const fileUser = await findStoredUserByIdentifier(identifier);
-    if (fileUser && fileUser.passwordHash) {
-      if (fileUser.isActive === false) {
-        return null;
-      }
-
-      const isValid = await verifyPassword(password, fileUser.passwordHash);
-      if (isValid) {
-        await upsertStoredUser({
-          ...fileUser,
-          lastLoginAt: new Date().toISOString(),
-        });
-
-        return {
-          id: fileUser._id,
-          userId: fileUser._id,
-          name: fileUser.name,
-          email: fileUser.email,
-          image: fileUser.image || '',
-          role: fileUser.role || 'reader',
-          isActive: Boolean(fileUser.isActive),
-          whatsappNumber: fileUser.whatsappNumber,
-          optInDailyEpaper: fileUser.optInDailyEpaper !== false,
-          createdAt: fileUser.createdAt,
-          savedArticles: fileUser.savedArticles || [],
-        };
-      }
-    }
-  } catch (fileError) {
-    console.error('[Auth] File storage reader auth error:', fileError);
-  }
-
-  return null;
 }

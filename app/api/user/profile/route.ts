@@ -151,9 +151,9 @@ export async function PATCH(req: NextRequest) {
       updates.preferredCategories = preferredCategories.map(String);
     }
 
-    let authSource: 'mongo' | 'file' | 'none' = 'none';
-
-    // Password change handling
+    // Password change handling: strictly fail-closed if MongoDB is unavailable.
+    // Invariant: Password changes must only succeed when the authoritative Mongo credential
+    // can be verified and updated in the same request flow, preventing split-brain.
     if (newPassword) {
       if (String(newPassword).length < 6) {
         return NextResponse.json(
@@ -162,39 +162,27 @@ export async function PATCH(req: NextRequest) {
         );
       }
 
-      let existingPasswordHash: string | undefined;
-      let userFound = false;
-
+      let existingUser: any;
       try {
         await connectDB();
-        const existingUser = await User.findOne({ email }).lean();
-        if (existingUser) {
-          userFound = true;
-          authSource = 'mongo';
-          existingPasswordHash = existingUser.passwordHash;
-        }
-      } catch (mongoError) {
-        console.warn('[Profile API PATCH] MongoDB password check fallback:', mongoError);
+        existingUser = await User.findOne({ email }).lean();
+      } catch (mongoReadError) {
+        console.warn('[Profile API PATCH] MongoDB unavailable for password change verification:', mongoReadError);
+        return NextResponse.json(
+          { success: false, error: 'Password changes are temporarily unavailable. Please try again shortly.' },
+          { status: 503 }
+        );
       }
 
-      if (!userFound) {
-        const fileUser = await findStoredUserByEmail(email);
-        if (fileUser) {
-          userFound = true;
-          authSource = 'file';
-          existingPasswordHash = fileUser.passwordHash;
-        }
-      }
-
-      if (!userFound) {
+      if (!existingUser) {
         return NextResponse.json(
           { success: false, error: 'User profile not found.' },
           { status: 404 }
         );
       }
 
-      // If user already has a password, verify currentPassword
-      if (existingPasswordHash) {
+      // If user already has a password, verify currentPassword against Mongo passwordHash
+      if (existingUser.passwordHash) {
         if (!currentPassword) {
           return NextResponse.json(
             { success: false, error: 'Current password is required to set a new password.' },
@@ -202,7 +190,7 @@ export async function PATCH(req: NextRequest) {
           );
         }
 
-        const isCurrentValid = await verifyPassword(currentPassword, existingPasswordHash);
+        const isCurrentValid = await verifyPassword(currentPassword, existingUser.passwordHash);
         if (!isCurrentValid) {
           return NextResponse.json(
             { success: false, error: 'Current password does not match.' },
@@ -213,65 +201,108 @@ export async function PATCH(req: NextRequest) {
 
       updates.passwordHash = await hashPassword(String(newPassword));
       updates.passwordSetAt = new Date();
-    }
 
-    // P1-B Invariant: The credential store used to VERIFY authorization must remain
-    // authoritative for that password-change operation. If password was verified from
-    // file store because Mongo was unavailable, keep that password update on the
-    // file-store path only for this request, and do not overwrite Mongo based on fallback auth.
-    if (authSource !== 'file') {
+      // Write path for password change: MUST update MongoDB authoritatively
+      let updatedUser: any;
       try {
         await connectDB();
-        const updatedUser = await User.findOneAndUpdate(
+        updatedUser = await User.findOneAndUpdate(
           { email },
           { $set: updates },
           { new: true }
         ).lean();
+      } catch (mongoWriteError) {
+        console.warn('[Profile API PATCH] MongoDB write failed during password change:', mongoWriteError);
+        return NextResponse.json(
+          { success: false, error: 'Password changes are temporarily unavailable. Please try again shortly.' },
+          { status: 503 }
+        );
+      }
 
-        if (updatedUser) {
-          // Sync to file store
-          void upsertStoredUser({
-            _id: updatedUser._id.toString(),
+      if (!updatedUser) {
+        return NextResponse.json(
+          { success: false, error: 'User profile not found.' },
+          { status: 404 }
+        );
+      }
+
+      // Sync updated credentials to file-store fallback
+      try {
+        await upsertStoredUser({
+          _id: updatedUser._id.toString(),
+          name: updatedUser.name,
+          email: updatedUser.email,
+          whatsappNumber: updatedUser.whatsappNumber,
+          optInDailyEpaper: updatedUser.optInDailyEpaper !== false,
+          preferredLanguage: updatedUser.preferredLanguage,
+          preferredCategories: updatedUser.preferredCategories,
+          passwordHash: updatedUser.passwordHash,
+          passwordSetAt: updatedUser.passwordSetAt ? new Date(updatedUser.passwordSetAt).toISOString() : undefined,
+        });
+      } catch (fileError) {
+        console.warn('[Profile API PATCH] File store sync warning:', fileError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Profile updated successfully.',
+        data: {
+          name: updatedUser.name,
+          email: updatedUser.email,
+          whatsappNumber: updatedUser.whatsappNumber,
+          optInDailyEpaper: updatedUser.optInDailyEpaper,
+          preferredLanguage: updatedUser.preferredLanguage,
+        },
+      });
+    }
+
+    // Non-password profile update: retains resilient Mongo/file-store fallback behavior
+    try {
+      await connectDB();
+      const updatedUser = await User.findOneAndUpdate(
+        { email },
+        { $set: updates },
+        { new: true }
+      ).lean();
+
+      if (updatedUser) {
+        // Sync non-password updates to file store
+        void upsertStoredUser({
+          _id: updatedUser._id.toString(),
+          name: updatedUser.name,
+          email: updatedUser.email,
+          whatsappNumber: updatedUser.whatsappNumber,
+          optInDailyEpaper: updatedUser.optInDailyEpaper !== false,
+          preferredLanguage: updatedUser.preferredLanguage,
+          preferredCategories: updatedUser.preferredCategories,
+          passwordHash: updatedUser.passwordHash,
+          passwordSetAt: updatedUser.passwordSetAt ? new Date(updatedUser.passwordSetAt).toISOString() : undefined,
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Profile updated successfully.',
+          data: {
             name: updatedUser.name,
             email: updatedUser.email,
             whatsappNumber: updatedUser.whatsappNumber,
-            optInDailyEpaper: updatedUser.optInDailyEpaper !== false,
+            optInDailyEpaper: updatedUser.optInDailyEpaper,
             preferredLanguage: updatedUser.preferredLanguage,
-            preferredCategories: updatedUser.preferredCategories,
-            passwordHash: updatedUser.passwordHash,
-            passwordSetAt: updatedUser.passwordSetAt ? new Date(updatedUser.passwordSetAt).toISOString() : undefined,
-          });
-
-          return NextResponse.json({
-            success: true,
-            message: 'Profile updated successfully.',
-            data: {
-              name: updatedUser.name,
-              email: updatedUser.email,
-              whatsappNumber: updatedUser.whatsappNumber,
-              optInDailyEpaper: updatedUser.optInDailyEpaper,
-              preferredLanguage: updatedUser.preferredLanguage,
-            },
-          });
-        }
-      } catch (mongoError) {
-        console.warn('[Profile API PATCH] MongoDB write fallback:', mongoError);
+          },
+        });
       }
+    } catch (mongoError) {
+      console.warn('[Profile API PATCH] MongoDB write fallback for non-password updates:', mongoError);
     }
 
-    // File store fallback
+    // File store fallback for non-password profile updates
     const fileUser = await findStoredUserByEmail(email);
     if (fileUser) {
       const updated = await upsertStoredUser({
         ...fileUser,
         ...updates,
-        passwordHash: typeof updates.passwordHash === 'string' ? updates.passwordHash : fileUser.passwordHash,
-        passwordSetAt:
-          updates.passwordSetAt instanceof Date
-            ? updates.passwordSetAt.toISOString()
-            : typeof updates.passwordSetAt === 'string'
-            ? updates.passwordSetAt
-            : fileUser.passwordSetAt,
+        passwordHash: fileUser.passwordHash,
+        passwordSetAt: fileUser.passwordSetAt,
       });
 
       return NextResponse.json({
