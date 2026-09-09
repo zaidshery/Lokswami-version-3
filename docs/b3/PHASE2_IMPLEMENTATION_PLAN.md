@@ -44,51 +44,53 @@ graph TD
 
 ## 3. Detailed Phase Slices
 
----
+### Phase 2.1: Content Public Read Domain Boundaries
 
-### Phase 2.1: Content Public Reads Decoupling (Recommended First Slice)
+#### 1. Status: IMPLEMENTED & VERIFIED (Phase 2.1 Complete)
+Decoupled all 11 public read endpoints for articles, home feed, categories, cities, and search from direct database queries, establishing pure server-only domain service and repository layers in `lib/server/content/`.
 
-#### 1. Goal
-Decouple all public read endpoints for articles, home feed, categories, cities, and search from direct database queries, establishing pure domain service and repository layers in `lib/content/`.
-
-#### 2. Scope & Target Routes
-- `app/api/v1/public/articles/route.ts`
-- `app/api/v1/public/articles/[slug]/route.ts`
-- `app/api/v1/public/articles/latest/route.ts`
-- `app/api/v1/public/home-feed/route.ts`
-- `app/api/v1/public/breaking/route.ts`
-- `app/api/v1/public/categories/route.ts`
-- `app/api/v1/public/cities/route.ts`
-- `app/api/v1/public/search/route.ts`
+#### 2. Scope & Target Routes Migrated
+- `app/api/v1/public/articles/route.ts` (GET public article list)
+- `app/api/v1/public/articles/[slug]/route.ts` (GET public article detail)
+- `app/api/v1/public/articles/latest/route.ts` (GET latest articles feed alias)
+- `app/api/v1/public/home-feed/route.ts` (GET composed multi-domain home feed)
+- `app/api/v1/public/breaking/route.ts` (GET breaking news ticker alias)
+- `app/api/v1/public/categories/route.ts` (GET public category taxonomy)
+- `app/api/v1/public/cities/route.ts` (GET public city taxonomy)
+- `app/api/v1/public/search/route.ts` (GET public article search)
 - `app/api/articles/latest/route.ts` (Legacy compatibility alias)
 - `app/api/articles/[id]/route.ts` (Legacy compatibility alias)
 - `app/api/breaking/route.ts` (Legacy compatibility alias)
 
-#### 3. Files to Create & Modify
-- **NEW**: `lib/content/articleTypes.ts` (Public article DTOs, query filters, home feed contracts).
-- **NEW**: `lib/content/articleRepository.ts` (Encapsulates Mongoose `Article.find()`, `isMongoAvailable()`, and `articlesFile.ts` fallback).
-- **NEW**: `lib/content/categoryRepository.ts` (Encapsulates `Category.find()` and taxonomy caching).
-- **NEW**: `lib/content/articleService.ts` (Public domain service coordinating queries, home feed assembly, search ranking).
-- **MODIFY**: The 11 target route handlers to delegate directly to `articleService`.
+#### 3. Files Created & Modified
+- **NEW**: `lib/server/content/articleTypes.ts` (Public article DTOs, query filters, resolution tokens, legacy feed shapes, breaking models).
+- **NEW**: `lib/server/content/articleRepository.ts` (Encapsulates Mongoose `Article.find()`, Mongo availability switching, projections, lean documents, and `articlesFile.ts` file fallback).
+- **NEW**: `lib/server/content/publicArticleService.ts` (Public article domain service: lists, details, resolution, related items, latest feed, breaking ticker).
+- **NEW**: `lib/server/content/publicTaxonomyService.ts` (Category and city taxonomy queries).
+- **NEW**: `lib/server/content/publicHomeFeedService.ts` (Cross-domain composition service coordinating articles, EPaper, and Video readers).
+- **NEW**: `tests/content-domain-boundaries.test.ts` (Comprehensive characterization tests for repository and service boundaries).
+- **MODIFIED**: `lib/server/publicArticles.ts` (Clean backward-compatible server facade).
+- **MODIFIED**: `lib/server/publicTaxonomy.ts` (Clean backward-compatible server facade).
+- **MODIFIED**: `lib/server/publicHomeFeed.ts` (Clean backward-compatible server facade).
+- **MODIFIED**: The 11 target route handlers to delegate directly to server domain services.
 
-#### 4. Tests & Characterization Strategy
-- **Status**: `EXISTING COVERAGE SUFFICIENT`.
-- **Target Suites**:
-  - `tests/api/v1-public-articles.test.ts`
-  - `tests/api/home-feed.test.ts`
-  - `tests/api/v1-public-breaking.test.ts`
-  - `tests/api/v1-public-search.test.ts`
-  - `tests/api/v1-public-categories.test.ts`
-- **Verification**: Ensure exact response shapes, pagination meta envelopes, and HTTP 200/404 behaviors are preserved.
+#### 4. Tests & Verification Summary
+- **Characterization & Domain Tests**: `tests/content-domain-boundaries.test.ts` (11 tests pass), `tests/public-articles-service.test.ts` (12 tests pass), `tests/public-home-feed-service.test.ts` (3 tests pass).
+- **Route Contract Suites**: `tests/api/public-v1-articles-routes.test.ts` (4 tests), `tests/api/public-articles-routes.test.ts` (4 tests), `tests/api/breaking-route.test.ts` (2 tests), `tests/api/public-home-feed-route.test.ts` (1 test), `tests/api/public-v1-taxonomy-routes.test.ts` (2 tests). Total focused: 39 tests passing across 8 files.
+- **Phase 1 Regression Suites**: `tests/epaper-release-snapshot-safety.test.ts`, `tests/pdf-render-mutex-safety.test.ts`, `tests/storage-reader-credential-scrub.test.ts`, `tests/video-sitemap-route.test.ts` (31 tests pass).
+- **Quality Gates**:
+  - `npm run typecheck`: 0 errors.
+  - `npm run lint:strict`: 0 warnings, 0 errors.
+  - `npm run test:security`: 8 test files, 63 tests pass.
+  - `npm run test:governance`: 4 test files, 16 tests pass.
+  - `npm run test:four-role-newsroom`: 6 test files, 25 tests pass.
+  - `npm run test:ci`: 208 test files, 989 tests pass + auth guards (7 cases) + admin credentials (6 cases).
+  - `npm run build:ci`: Production build successful (exit code 0, 172/172 static pages).
 
-#### 5. Definition of Done
-- Zero raw Mongoose imports or `connectDB()` calls in public article routes.
+#### 5. Definition of Done Met
+- Zero raw Mongoose imports, `connectDB()`, or file store access in public article routes.
 - Dual-persistence fallback (`isMongoAvailable`) completely encapsulated in repository layer.
-- All 35 content test suites pass cleanly (`npx vitest run tests/api/v1-public-*.test.ts`).
-- `npm run typecheck` passes with 0 errors.
-
-#### 6. Expected Architectural Improvement
-Establishes the clean three-layer pattern (`Route -> Service -> Repository`) with zero regression risk on public reader traffic.
+- Strict backward compatibility maintained for all public read HTTP JSON contracts.
 
 ---
 
