@@ -1,161 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { publicJsonCacheHeaders } from '@/lib/api/cache';
-import connectDB from '@/lib/db/mongoose';
-import Article from '@/lib/models/Article';
-import { resolveReusableBreakingTts } from '@/lib/server/breakingTts';
-import { listAllStoredArticles } from '@/lib/storage/articlesFile';
-import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
-import { resolveArticleEditorialFlags } from '@/lib/content/articleEditorial';
-import { isPubliclyPublishedArticle } from '@/lib/content/articlePublication';
+import { publicArticleService } from '@/lib/server/content/publicArticleService';
 
-const DEFAULT_LIMIT = 10;
-const MIN_LIMIT = 1;
-const MAX_LIMIT = 25;
 const BREAKING_CACHE_HEADERS = publicJsonCacheHeaders({
   sMaxAge: 20,
   staleWhileRevalidate: 120,
 });
 
-type BreakingItem = {
-  id: string;
-  title: string;
-  city?: string;
-  category?: string;
-  createdAt?: string;
-  href: string;
-  priority: number;
-  ttsAudioUrl?: string;
-  ttsReady?: boolean;
-};
-
-function parseLimit(value: string | null) {
-  const parsed = Number.parseInt(value || '', 10);
-  if (!Number.isFinite(parsed)) return DEFAULT_LIMIT;
-  return Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, parsed));
-}
-
-function normalizeTimestamp(value: unknown) {
-  const parsed = new Date(
-    typeof value === 'string' || typeof value === 'number' || value instanceof Date
-      ? value
-      : Date.now()
-  );
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date(0).toISOString();
-  }
-  return parsed.toISOString();
-}
-
-function normalizeBreakingItem(source: unknown): BreakingItem | null {
-  const input =
-    typeof source === 'object' && source ? (source as Record<string, unknown>) : null;
-  if (!input) return null;
-  if (!isPubliclyPublishedArticle(input)) return null;
-
-  const id = String(input._id || input.id || '').trim();
-  const title = String(input.title || '').trim();
-
-  if (!id || !title) {
-    return null;
-  }
-
-  const category = String(input.category || '').trim();
-  const reporterMeta =
-    input.reporterMeta && typeof input.reporterMeta === 'object'
-      ? (input.reporterMeta as Record<string, unknown>)
-      : null;
-  const city = String(
-    input.city ||
-      input.cityName ||
-      input.locationTag ||
-      reporterMeta?.locationTag ||
-      ''
-  ).trim();
-  const views =
-    typeof input.views === 'number' ? input.views : Number.parseInt(String(input.views ?? 0), 10);
-  const isBreaking = resolveArticleEditorialFlags(input).isBreaking;
-  const reusableTts = isBreaking
-    ? resolveReusableBreakingTts({
-        _id: id,
-        title,
-        city,
-        reporterMeta: input.reporterMeta,
-        category,
-        isBreaking: true,
-        breakingTts: input.breakingTts,
-      })
-    : null;
-  const publishedAt = normalizeTimestamp(input.publishedAt || input.createdAt);
-
-  return {
-    id,
-    title,
-    city: city || undefined,
-    category: category || undefined,
-    createdAt: publishedAt,
-    href: buildArticlePublicPath({ id, slug: String(input.slug || '') }),
-    // The client sorts by priority first, so use publication time to ensure a
-    // newly published story immediately leads the ticker regardless of views.
-    priority: Math.max(1, new Date(publishedAt).getTime()),
-    ...(reusableTts
-      ? {
-          ttsAudioUrl: reusableTts.audioUrl,
-          ttsReady: true,
-        }
-      : {}),
-  };
-}
-
-function compareBreakingItems(a: BreakingItem, b: BreakingItem) {
-  return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-}
-
-async function shouldUseFileStore() {
-  if (!process.env.MONGODB_URI) {
-    return true;
-  }
-
-  try {
-    await connectDB();
-    return false;
-  } catch (error) {
-    console.error('MongoDB unavailable for breaking route, using file store.', error);
-    return true;
-  }
-}
-
-async function listFromMongo(limit: number) {
-  const docs = await Article.find({})
-    .select('_id slug title category city cityName locationTag publishedAt createdAt updatedAt views isBreaking editorial workflow reporterMeta breakingTts')
-    .sort({ publishedAt: -1, _id: -1 })
-    .limit(Math.min(MAX_LIMIT * 5, Math.max(limit * 5, limit)))
-    .lean();
-
-  return docs
-    .map((item) => normalizeBreakingItem(item))
-    .filter((item): item is BreakingItem => Boolean(item))
-    .sort(compareBreakingItems)
-    .slice(0, limit);
-}
-
-async function listFromFileStore(limit: number) {
-  const stored = await listAllStoredArticles();
-
-  return stored
-    .map((item) => normalizeBreakingItem(item))
-    .filter((item): item is BreakingItem => Boolean(item))
-    .sort(compareBreakingItems)
-    .slice(0, limit);
-}
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const limit = parseLimit(searchParams.get('limit'));
-    const useFileStore = await shouldUseFileStore();
-    const items = useFileStore
-      ? await listFromFileStore(limit)
-      : await listFromMongo(limit);
+    const limit = searchParams.get('limit');
+    const items = await publicArticleService.getBreakingArticles(limit);
 
     return NextResponse.json(
       {

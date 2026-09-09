@@ -1,6 +1,6 @@
 import { longPublicCache } from '@/lib/api/cache';
 import { apiSuccessResponse } from '@/lib/api/response';
-import { listPublicCities } from '@/lib/server/publicTaxonomy';
+import { publicTaxonomyService } from '@/lib/server/content/publicTaxonomyService';
 
 const PUBLIC_CITIES_CACHE_HEADERS = longPublicCache({
   sMaxAge: 3600,
@@ -9,7 +9,7 @@ const PUBLIC_CITIES_CACHE_HEADERS = longPublicCache({
 
 export async function GET() {
   return apiSuccessResponse(
-    { items: listPublicCities() },
+    { items: publicTaxonomyService.listPublicCities() },
     {
       headers: PUBLIC_CITIES_CACHE_HEADERS,
       meta: { source: 'static' },
