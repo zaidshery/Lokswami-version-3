@@ -2,15 +2,14 @@ import 'server-only';
 
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 import { isPubliclyPublishedArticle } from '@/lib/content/articlePublication';
-import { PUBLIC_VIDEO_PROJECTION, toPublicVideoItem } from '@/lib/content/videoPublication';
+import { toPublicVideoItem } from '@/lib/content/videoPublication';
 import { getCitySlugFromName } from '@/lib/constants/epaperCities';
 import Article from '@/lib/models/Article';
 import EPaper from '@/lib/models/EPaper';
-import Video from '@/lib/models/Video';
+import { videoService } from '@/lib/server/video/videoService';
 import { resolveReusableBreakingTts } from '@/lib/server/breakingTts';
 import { listAllStoredArticles } from '@/lib/storage/articlesFile';
 import { listAllStoredEPapers } from '@/lib/storage/epapersFile';
-import { listAllStoredVideos } from '@/lib/storage/videosFile';
 import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 import { resolveEpaperCoverImagePath } from '@/lib/utils/epaperCover';
 import { type EPaperPublicationType } from '@/lib/types/epaper';
@@ -404,7 +403,7 @@ async function loadMongoFeed(
     articleCandidateMinimum
   );
 
-  const [articleDocs, videoDocs, shortDocs, epaperDocs, emagazineDocs] = await Promise.all([
+  const [articleDocs, videoData, epaperDocs, emagazineDocs] = await Promise.all([
     Article.find({
       $or: [
         { 'workflow.status': 'published' },
@@ -424,20 +423,10 @@ async function loadMongoFeed(
       .sort({ publishedAt: -1, _id: -1 })
       .limit(articleLimit)
       .lean(),
-    limits.videos > 0
-      ? Video.find({ isPublished: true, isShort: { $ne: true } })
-          .select(PUBLIC_VIDEO_PROJECTION)
-          .sort({ publishedAt: -1, _id: -1 })
-          .limit(limits.videos)
-          .lean()
-      : Promise.resolve([]),
-    limits.shorts > 0
-      ? Video.find({ isPublished: true, isShort: true })
-          .select(PUBLIC_VIDEO_PROJECTION)
-          .sort({ createdAt: -1, _id: -1 })
-          .limit(limits.shorts)
-          .lean()
-      : Promise.resolve([]),
+    videoService.getHomeFeedVideos(
+      { videos: limits.videos, shorts: limits.shorts },
+      'mongo'
+    ),
     EPaper.find({
       status: 'published',
       isCurrentRevision: { $ne: false },
@@ -478,12 +467,12 @@ async function loadMongoFeed(
   return {
     articles,
     breaking,
-    videos: videoDocs
+    videos: videoData.rawVideos
       .map((item) => mapVideo(item, false))
       .filter((item): item is PublicHomeFeedVideo => Boolean(item))
       .sort(compareByPublishedAtDesc)
       .slice(0, limits.videos),
-    shorts: shortDocs
+    shorts: videoData.rawShorts
       .map((item) => mapVideo(item, true))
       .filter((item): item is PublicHomeFeedVideo => Boolean(item))
       .sort(compareByPublishedAtDesc)
@@ -494,9 +483,12 @@ async function loadMongoFeed(
 }
 
 async function loadFileFeed(limits: Required<PublicHomeFeedLimits>) {
-  const [articleRows, videoRows, epaperRows] = await Promise.all([
+  const [articleRows, videoData, epaperRows] = await Promise.all([
     listAllStoredArticles(),
-    limits.videos > 0 || limits.shorts > 0 ? listAllStoredVideos() : Promise.resolve([]),
+    videoService.getHomeFeedVideos(
+      { videos: limits.videos, shorts: limits.shorts },
+      'file'
+    ),
     listAllStoredEPapers(),
   ]);
 
@@ -525,14 +517,12 @@ async function loadFileFeed(limits: Required<PublicHomeFeedLimits>) {
   return {
     articles,
     breaking,
-    videos: videoRows
-      .filter((item) => item.isPublished !== false && !item.isShort)
+    videos: videoData.rawVideos
       .map((item) => mapVideo(item, false))
       .filter((item): item is PublicHomeFeedVideo => Boolean(item))
       .sort(compareByPublishedAtDesc)
       .slice(0, limits.videos),
-    shorts: videoRows
-      .filter((item) => item.isPublished !== false && Boolean(item.isShort))
+    shorts: videoData.rawShorts
       .map((item) => mapVideo(item, true))
       .filter((item): item is PublicHomeFeedVideo => Boolean(item))
       .sort(compareByPublishedAtDesc)
