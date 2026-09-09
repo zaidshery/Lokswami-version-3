@@ -166,54 +166,49 @@ Historical context: To preserve continuity with prior project reviews while enfo
 - **Nature**: **VERIFIED**
 - **Original Review Severity**: `P1`
 - **B3 Hardening Priority**: `P1`
-- **Status**: **CLOSED** (Resolved & Hardened against P1-A in B3 Phase 1)
+- **Status**: **CLOSED** (Hardened with Terminable Node Worker Boundary, Confirmed Recycle & Anti-Wedge Recovery in B3 Phase 1.6)
 - **Area**: PDF Rendering & Server Stability
-- **Implementation Files**: [lib/server/pdf/pdfWorker.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/server/pdf/pdfWorker.ts#L30-L280)
+- **Implementation Files**: [lib/server/pdf/pdfWorker.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/server/pdf/pdfWorker.ts) and [lib/server/pdf/pdfRenderWorker.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/server/pdf/pdfRenderWorker.ts)
 - **Regression Tests**: [tests/pdf-render-mutex-safety.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/pdf-render-mutex-safety.test.ts) and [tests/pdf-worker-isolation.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/pdf-worker-isolation.test.ts)
 - **Verification Evidence**:
-  - Proved that when timeout fires, mutex is retained until underlying render settles, preventing concurrent canvas executions and unhandled promise rejections.
-  - Proved anti-wedge behavior (P1-A): if an underlying render hangs indefinitely, queued callers have bounded timeouts (rejecting with `PdfWorkerTimeoutError` after their configured wait limit rather than hanging forever), callers never overlap, `recoverPdfWorkerLock()` safely clears the hung lock state, subsequent renders succeed normally, and no unhandled rejections occur.
-  - Underlying native PDF.js render tasks are actively cancelled via `renderTask.cancel()` on timeout.
-  - All 7 tests in `pdf-render-mutex-safety` and `pdf-worker-isolation` pass.
+  - **Caller timeout alone is not treated as recovery**: Merely rejecting the caller promise when a render times out does not free the render slot or pretend the worker is healthy.
+  - **Native render lives in terminable isolation**: Each native PDF render (`pdfjs-dist`, `@napi-rs/canvas`, `sharp`) executes within a dedicated Node.js `worker_threads.Worker` boundary (`IsolatedPdfWorker`), running an isolated V8 thread that can be forcefully terminated.
+  - **Never-settling render causes worker termination**: When an execution timeout triggers, a cooperative cancellation signal (`renderTask.cancel()`) is sent first; if the native render does not settle within an observation grace window, the underlying thread isolate is hard-terminated via `worker.terminate()`.
+  - **Replacement only occurs after termination confirmation**: The hung worker is waited on until `worker.terminate()` completes. Only after termination confirmation is the slot released, a fresh replacement worker initialized, and queued callers admitted.
+  - **Strict no-overlapping live native render invariant**: Proved deterministically that replacement work NEVER begins while an old worker is still running native canvas code.
+  - **PDF service becomes usable again after confirmed recycle**: Proved that subsequent renders succeed immediately after a hung worker is terminated and recycled, with zero permanent queue wedging across repeated hung jobs.
+  - **Bounded queue wait**: Queued callers have bounded waiting timeouts rejecting with `PdfWorkerTimeoutError` if a render or recycle exceeds tolerance.
+  - All 9 tests in `pdf-render-mutex-safety.test.ts` and 5 tests in `pdf-worker-isolation.test.ts` pass cleanly.
 - **Correction Applied**:
-  - Replaced promise-chaining mutex with an anti-wedge request queue with per-caller wait timeouts.
-  - Added cancellation hook for PDF.js native render tasks via `renderTask.cancel()`.
-  - Added safe recovery API (`recoverPdfWorkerLock()`) and diagnostic state helper (`isPdfWorkerLocked()`).
-  - Mutex release is safely deferred via `.finally()` with `.catch(() => undefined)` to prevent unhandled late rejections.
+  - Extracted isolated native renderer into `lib/server/pdf/pdfRenderWorker.ts` using `worker_threads.Worker`.
+  - Rewrote `lib/server/pdf/pdfWorker.ts` controller: orchestrates single-render concurrency, bounded queue timeouts, cooperative cancellation with grace window, hard termination on never-settling jobs, confirmed recycle before slot release, fresh worker replacement, and deterministic `PdfWorkerTerminationError` handling.
 - **Blocks Production Hardening?**: **RESOLVED**.
 
 ---
 
-### GAP-010: Reader Credential Consistency & Fail-Closed Credential Authority Policy
+### GAP-010: Reader Credential Consistency, Fail-Closed Authority & Storage Mutation Serialization (P1-B)
 - **Nature**: **VERIFIED**
 - **Original Review Severity**: `P2`
 - **B3 Hardening Priority**: `P1` *(Elevated to P1 blocker due to dual-store credential split-brain risk)*
-- **Status**: **CLOSED** (Hardened with Fail-Closed Registration, Mutation & Mongo-Only Credential Authority in B3 Phase 1.4; Reader Credentials Completely Removed from File Fallback in B3 Phase 1.5)
+- **Status**: **CLOSED** (Hardened with Fail-Closed Registration, Mutation & Mongo-Only Credential Authority in B3 Phase 1.4; Reader Credentials Completely Removed from File Fallback in B3 Phase 1.5; Storage Mutation Serialization in B3 Phase 1.6)
 - **Area**: Authentication, Registration & Dual Persistence
-- **Implementation Files**: [app/api/auth/register/route.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/app/api/auth/register/route.ts#L1-L150), [app/api/user/profile/route.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/app/api/user/profile/route.ts#L155-L330), [lib/auth/readerCredentials.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/auth/readerCredentials.ts#L1-L88), and [lib/storage/usersFile.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/storage/usersFile.ts#L44-L160)
+- **Implementation Files**: [app/api/auth/register/route.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/app/api/auth/register/route.ts#L1-L150), [app/api/user/profile/route.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/app/api/user/profile/route.ts#L155-L330), [lib/auth/readerCredentials.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/auth/readerCredentials.ts#L1-L88), and [lib/storage/usersFile.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/lib/storage/usersFile.ts#L44-L210)
 - **Regression Tests**: [tests/api/auth-registration.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/api/auth-registration.test.ts), [tests/user-profile-password-fallback.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/user-profile-password-fallback.test.ts), [tests/reader-credentials-auth.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/reader-credentials-auth.test.ts), and [tests/storage-reader-credential-scrub.test.ts](file:///c:/Users/Lenovo/OneDrive/Desktop/Lokswami_V3/Zaid-lokswami/tests/storage-reader-credential-scrub.test.ts)
 - **Verification Evidence**:
-  - Proved forward split-brain hazard: if password mutations were allowed during a MongoDB outage via file-store fallback, upon Mongo recovery both the old Mongo password and the new file-store password remained valid.
-  - Proved reverse split-brain hazard: if MongoDB user password was updated, but file-store sync was delayed, failed, or diverged, previous authentication logic fell through to file storage upon MongoDB password mismatch or Mongo outage, allowing an old/stale password to authenticate.
-  - Proved dead-account registration defect: if reader registration fell back to file storage when MongoDB was unavailable, it returned HTTP 201 success but created an account that could never authenticate against Mongo-authoritative login.
-  - Proved secondary credential repository risk (Codex P1 on PR #1): successful registration and password change synced `passwordHash` and `passwordSetAt` into file storage (`data/users.json` / `StoredUser`), leaving an unnecessary secondary repository of reader password verifiers even though reader auth no longer consulted the file store.
-  - Enforced strict Phase 1.5 reader credential model:
-    - **MongoDB is sole reader credential authority**: Reader registration, login, and password mutations strictly require MongoDB.
-    - **File fallback stores non-secret profile resilience data only**: Reader name, email, WhatsApp number, preferred language, reading categories, and opt-ins retain full file-store fallback resilience during MongoDB outages.
-    - **Reader passwordHash/passwordSetAt are prohibited from file persistence**: Neither registration nor password mutation copies reader `passwordHash` or `passwordSetAt` into the file store.
-    - **Storage-layer defense in depth**: `lib/storage/usersFile.ts` implements role-aware credential sanitization (`role === 'reader'`), automatically stripping `passwordHash` and `passwordSetAt` on create, update, read, and write, preventing accidental credential storage even if a future caller supplies it.
-    - **Existing reader records safely scrubbed**: All legacy reader records in `data/users.json` had credential fields removed, while non-credential profile metadata remained unchanged.
-    - **Staff/admin credential handling preserved**: Neither staff (`authorizeStaffCredentials` via MongoDB `User.findOne`) nor admin (`authorizeAdminCredentials` via environment variables) relies on file storage; role-aware storage sanitization leaves non-reader records unaffected.
-    - **Offline reader authentication/credential replication is outside Phase 1**: Any offline authentication or credential replication requires a purpose-designed secure architecture.
+  - **MongoDB is sole reader credential authority**: Reader registration, login, and password mutations strictly require MongoDB and fail closed on outage.
+  - **File fallback stores non-secret profile resilience data only**: Reader name, email, WhatsApp number, preferred language, reading categories, and opt-ins retain file-store fallback resilience during MongoDB outages.
+  - **Reader passwordHash/passwordSetAt are prohibited from file persistence**: Neither registration nor password mutation copies reader `passwordHash` or `passwordSetAt` into the file store.
+  - **Storage-layer defense in depth**: `lib/storage/usersFile.ts` implements role-aware credential sanitization (`role === 'reader'`), automatically stripping `passwordHash` and `passwordSetAt` on create, update, read, and write.
+  - **Legacy scrub serialized with user-file mutations (P1-B)**: Wrapped all `users.json` read/scrub and write mutations in a per-path asynchronous FIFO mutex (`withUsersFileMutationLock`).
+  - **Re-read latest physical state inside mutation lock**: The durable on-read scrub does not rewrite a stale in-memory snapshot; it re-reads raw disk state inside the lock before rewriting sanitized records.
+  - **Atomic file replacement plus mutation serialization prevents both corruption and lost-update races**: Atomic rename (`writeJsonFileAtomically`) prevents partial writes; the async mutation mutex prevents lost updates when overlapping with concurrent profile/staff edits.
+  - **Proved concurrency invariants**: Verified that overlapping scrub + upsert, scrub + write, and concurrent upserts preserve all latest user updates while ensuring reader credentials are scrubbed.
+  - All 14 tests in `tests/storage-reader-credential-scrub.test.ts` pass cleanly.
 - **Correction Applied**:
-  - In `app/api/auth/register/route.ts`, eliminated `passwordHash` and `passwordSetAt` from the secondary `upsertStoredUser` file sync payload.
-  - In `app/api/user/profile/route.ts`, eliminated `passwordHash` and `passwordSetAt` from all `upsertStoredUser` file sync and fallback payloads.
-  - In `lib/storage/usersFile.ts`, introduced `sanitizeStoredUserCredentials` and scrub functionality, stripping reader credentials on read, write, and upsert.
-  - Scrubbed `data/users.json` to ensure zero reader password hashes exist on disk.
-  - All test suites updated with regression proofs asserting reader credential omission from file storage.
+  - Implemented `withUsersFileMutationLock` FIFO mutex queue in `lib/storage/usersFile.ts`.
+  - Separated unlocked internal helpers (`readUsersFileRaw`, `sanitizeStoredUsers`, `writeUsersFileUnlocked`) to ensure zero deadlock on nested calls.
+  - Serialized `readUsersFile`, `upsertStoredUser`, `writeUsersFile`, and `scrubLegacyReaderCredentialsFromFile` inside the mutation lock.
 - **Blocks Production Hardening?**: **RESOLVED**.
-
-
 
 ---
 

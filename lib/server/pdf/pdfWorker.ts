@@ -1,23 +1,22 @@
 import 'server-only';
 
-import sharp from 'sharp';
-import v8 from 'v8';
+import {
+  IsolatedPdfWorker,
+  PdfWorkerExecutionBoundary,
+  PdfWorkerTerminationError,
+  PdfWorkerTimeoutError,
+  PdfWorkerMemoryExceededError,
+  checkMemoryPressure,
+  disposeCanvas,
+} from '@/lib/server/pdf/pdfRenderWorker';
 
-export class PdfWorkerTimeoutError extends Error {
-  readonly code = 'PDF_WORKER_TIMEOUT';
-  constructor(message = 'PDF rendering exceeded execution timeout limit.') {
-    super(message);
-    this.name = 'PdfWorkerTimeoutError';
-  }
-}
-
-export class PdfWorkerMemoryExceededError extends Error {
-  readonly code = 'PDF_WORKER_MEMORY_EXCEEDED';
-  constructor(message = 'System memory threshold exceeded for PDF canvas allocation.') {
-    super(message);
-    this.name = 'PdfWorkerMemoryExceededError';
-  }
-}
+export {
+  PdfWorkerTerminationError,
+  PdfWorkerTimeoutError,
+  PdfWorkerMemoryExceededError,
+  checkMemoryPressure,
+  disposeCanvas,
+};
 
 export interface PdfWorkerRenderOptions {
   pdfBuffer: Buffer;
@@ -33,6 +32,7 @@ export interface PdfWorkerRenderOptions {
   _onCanvasDisposed?: (info: { width: number; height: number }) => void;
   _simulateRenderError?: Error;
   _simulateNeverSettle?: boolean;
+  _simulateTerminationFailure?: boolean;
 }
 
 export interface PdfWorkerRenderResult {
@@ -52,11 +52,12 @@ interface QueuedCaller {
   timer: NodeJS.Timeout;
 }
 
-// Mutex queue ensuring at most ONE heavy 3000px canvas exists in memory at any instant
+// Mutex queue ensuring at most ONE heavy canvas render exists across threads/processes
+let activeWorker: IsolatedPdfWorker | null = null;
 let isRendering = false;
 let isWorkerUnhealthy = false;
 let unhealthyReason: string | null = null;
-let cancelActiveRender: (() => void) | null = null;
+let recyclesCount = 0;
 const waitQueue: QueuedCaller[] = [];
 let nextRequestId = 1;
 
@@ -73,29 +74,29 @@ export function getPdfWorkerStatus(): {
   isHealthy: boolean;
   unhealthyReason: string | null;
   queueLength: number;
+  recyclesCount: number;
 } {
   return {
     isRendering,
     isHealthy: !isWorkerUnhealthy,
     unhealthyReason,
     queueLength: waitQueue.length,
+    recyclesCount,
   };
 }
 
 /**
- * STRICTLY TEST-ONLY: Clear in-memory state between unit test cases in a single test process.
- * In production, an active native render cannot be safely force-reset in-process;
- * process or worker restart is required if an active render hung.
+ * STRICTLY TEST-ONLY: Clear in-memory state and terminate active worker between tests.
  */
 export function _resetPdfWorkerForTestingOnly(): void {
-  if (cancelActiveRender) {
+  if (activeWorker) {
     try {
-      cancelActiveRender();
+      activeWorker.terminate().catch(() => {});
     } catch {
       // Ignore
     }
+    activeWorker = null;
   }
-  cancelActiveRender = null;
   isRendering = false;
   isWorkerUnhealthy = false;
   unhealthyReason = null;
@@ -107,7 +108,7 @@ export function _resetPdfWorkerForTestingOnly(): void {
   }
 }
 
-// Deprecated alias strictly for backwards-compatible test teardowns
+// Deprecated aliases strictly for backwards-compatible test teardowns
 export const resetPdfWorkerLock = _resetPdfWorkerForTestingOnly;
 export const recoverPdfWorkerLock = _resetPdfWorkerForTestingOnly;
 
@@ -159,211 +160,58 @@ function acquireCanvasLock(timeoutMs: number, pageNumber: number): Promise<numbe
 }
 
 function releaseCanvasLock() {
-  cancelActiveRender = null;
   drainWaitQueue();
 }
 
-function copyPdfBytes(buffer: Buffer) {
-  return Uint8Array.from(buffer);
-}
-
-async function installPdfCanvasGlobals() {
-  const canvasModule = await import('@napi-rs/canvas');
-  const globalScope = globalThis as unknown as Record<string, unknown>;
-  globalScope.DOMMatrix ||= canvasModule.DOMMatrix;
-  globalScope.ImageData ||= canvasModule.ImageData;
-  globalScope.Path2D ||= canvasModule.Path2D;
-  return canvasModule;
-}
-
-async function loadPdfJs() {
-  const globalScope = globalThis as unknown as Record<string, unknown>;
-  globalScope.pdfjsWorker ||=
-    await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
-  return import('pdfjs-dist/legacy/build/pdf.mjs');
-}
-
 /**
- * Checks system heap memory and optionally triggers garbage collection
- * if running with --expose-gc.
+ * Adapter boundary for test mocks when _renderFn is passed in options.
  */
-export function checkMemoryPressure(maxHeapMb?: number): {
-  safe: boolean;
-  heapUsedMb: number;
-  heapLimitMb: number;
-  heapPercent: number;
-} {
-  const heapStats = v8.getHeapStatistics();
-  const heapUsedMb = Math.round(heapStats.used_heap_size / (1024 * 1024));
-  const heapLimitMb = Math.round(heapStats.heap_size_limit / (1024 * 1024));
-  const heapPercent = Math.round((heapStats.used_heap_size / heapStats.heap_size_limit) * 100);
+class MockPdfWorkerBoundary implements PdfWorkerExecutionBoundary {
+  private terminated = false;
+  private cancelFn?: () => void;
 
-  const configuredMaxMb =
-    maxHeapMb ??
-    (Number(process.env.PDF_WORKER_MAX_HEAP_MB) || Math.floor(heapLimitMb * 0.88));
+  constructor(
+    private renderFn: (
+      options: PdfWorkerRenderOptions,
+      cancelRef?: { cancel?: () => void }
+    ) => Promise<PdfWorkerRenderResult>,
+    private options: PdfWorkerRenderOptions
+  ) {}
 
-  // If memory is close to ceiling, attempt garbage collection if exposed
-  if (heapUsedMb > configuredMaxMb * 0.85) {
-    try {
-      const gc = (globalThis as unknown as { gc?: () => void }).gc;
-      if (typeof gc === 'function') {
-        gc();
-      }
-    } catch {
-      // GC may not be exposed
+  render(
+    task?: unknown,
+    onCanvasDisposed?: (info: { width: number; height: number }) => void
+  ): Promise<PdfWorkerRenderResult> {
+    void task;
+    void onCanvasDisposed;
+    if (this.terminated) {
+      return Promise.reject(new Error('Cannot render on terminated mock worker.'));
     }
+    const cancelRef: { cancel?: () => void } = {};
+    const promise = this.renderFn(this.options, cancelRef);
+    this.cancelFn = cancelRef.cancel;
+    return promise;
   }
 
-  const isSafe = heapUsedMb <= configuredMaxMb && heapPercent <= 92;
-
-  return {
-    safe: isSafe,
-    heapUsedMb,
-    heapLimitMb,
-    heapPercent,
-  };
-}
-
-/**
- * Explicitly releases canvas memory and dereferences native context.
- */
-export function disposeCanvas(canvas: unknown, context: unknown, width: number, height: number) {
-  try {
-    if (context && typeof (context as { clearRect?: (x: number, y: number, w: number, h: number) => void }).clearRect === 'function') {
-      (context as { clearRect: (x: number, y: number, w: number, h: number) => void }).clearRect(0, 0, width, height);
-    }
-    if (canvas && typeof canvas === 'object') {
-      const canvasObj = canvas as { width?: number; height?: number };
-      canvasObj.width = 0;
-      canvasObj.height = 0;
-    }
-  } catch {
-    // Best-effort resource disposal
-  }
-
-  // Hint garbage collection
-  try {
-    const gc = (globalThis as unknown as { gc?: () => void }).gc;
-    if (typeof gc === 'function') {
-      gc();
-    }
-  } catch {
-    // Ignore
-  }
-}
-
-/**
- * Internal single-page render worker implementation.
- */
-async function executeRenderPage(
-  options: PdfWorkerRenderOptions,
-  cancelRef?: { cancel?: () => void }
-): Promise<PdfWorkerRenderResult> {
-  const targetWidth = options.targetWidth ?? DEFAULT_TARGET_WIDTH;
-  const jpegQuality = options.jpegQuality ?? DEFAULT_JPEG_QUALITY;
-
-  // Runtime memory pressure verification before allocating native canvas
-  const memoryStatus = checkMemoryPressure(options.maxHeapMb);
-  if (!memoryStatus.safe) {
-    throw new PdfWorkerMemoryExceededError(
-      `Cannot render PDF page ${options.pageNumber}: heap usage is at ${memoryStatus.heapUsedMb}MB (${memoryStatus.heapPercent}% of limit).`
-    );
-  }
-
-  const canvasModule = await installPdfCanvasGlobals();
-  const pdfjs = await loadPdfJs();
-  const document = await pdfjs.getDocument({
-    data: copyPdfBytes(options.pdfBuffer),
-    useSystemFonts: true,
-  }).promise;
-
-  let width = 0;
-  let height = 0;
-  let canvas: unknown = null;
-  let context: unknown = null;
-  let canvasDisposed = false;
-
-  const performCanvasDisposal = () => {
-    if (!canvasDisposed && canvas) {
-      canvasDisposed = true;
+  cancel(): void {
+    if (this.cancelFn && !this.terminated) {
       try {
-        disposeCanvas(canvas, context, width, height);
-        options._onCanvasDisposed?.({ width, height });
-      } catch (disposalErr) {
-        console.warn('[pdfWorker] Warning: disposeCanvas error during cleanup:', disposalErr);
+        this.cancelFn();
+      } catch {
+        // Ignore
       }
     }
-  };
+  }
 
-  try {
-    if (options.pageNumber < 1 || options.pageNumber > document.numPages) {
-      throw new Error(`PDF page ${options.pageNumber} does not exist.`);
+  async terminate(simulateFailure = false): Promise<void> {
+    if (simulateFailure) {
+      throw new PdfWorkerTerminationError('Simulated worker termination failure.');
     }
+    this.terminated = true;
+  }
 
-    const page = await document.getPage(options.pageNumber);
-    const baseViewport = page.getViewport({ scale: 1 });
-    const scale = targetWidth / baseViewport.width;
-    const viewport = page.getViewport({ scale });
-    width = Math.round(viewport.width);
-    height = Math.round(viewport.height);
-
-    canvas = canvasModule.createCanvas(width, height);
-    context = (canvas as { getContext: (type: string) => unknown }).getContext('2d');
-
-    const renderTask = page.render({
-      canvasContext: context as never,
-      viewport,
-      background: '#ffffff',
-    });
-
-    if (cancelRef) {
-      cancelRef.cancel = () => {
-        try {
-          renderTask.cancel();
-        } catch {
-          // Ignore
-        }
-      };
-    }
-
-    try {
-      if (options._simulateNeverSettle) {
-        // Simulates an underlying render that ignores cancellation and never resolves or rejects
-        await new Promise(() => {});
-      }
-      if (options._simulateRenderError) {
-        throw options._simulateRenderError;
-      }
-      await renderTask.promise;
-    } catch (renderError: unknown) {
-      if (
-        renderError &&
-        typeof renderError === 'object' &&
-        'name' in renderError &&
-        (renderError as { name: string }).name === 'RenderingCancelledException'
-      ) {
-        throw new PdfWorkerTimeoutError('PDF page render cancelled.');
-      }
-      throw renderError;
-    }
-
-    const rawJpeg = (canvas as { toBuffer: (mime: string, quality?: number) => Buffer }).toBuffer('image/jpeg', jpegQuality);
-
-    // Explicit disposal of native canvas and context resources immediately once buffer is captured
-    performCanvasDisposal();
-
-    const normalized = await sharp(rawJpeg)
-      .jpeg({ quality: jpegQuality, mozjpeg: true })
-      .toBuffer();
-
-    return { buffer: normalized, width, height };
-  } finally {
-    performCanvasDisposal();
-    try {
-      await document.destroy();
-    } catch {
-      // Best-effort document cleanup
-    }
+  isTerminated(): boolean {
+    return this.terminated;
   }
 }
 
@@ -372,19 +220,29 @@ async function executeRenderPage(
  * - Enforces single-canvas concurrency mutex
  * - Enforces runtime memory checks
  * - Enforces execution timeout
- * - Ensures explicit memory release
- * - Provides bounded queue wait and cancellation recovery
+ * - Dedicated terminable execution boundary (Node.js worker_threads)
+ * - True hang recovery: hard-terminates never-settling workers, confirms termination,
+ *   and creates fresh replacement workers with zero overlapping native renders.
  */
 export async function renderPdfPageWithWorkerIsolation(
   options: PdfWorkerRenderOptions
 ): Promise<PdfWorkerRenderResult> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  // 1. Runtime memory pressure verification before acquiring lock
+  const memoryStatus = checkMemoryPressure(options.maxHeapMb);
+  if (!memoryStatus.safe) {
+    throw new PdfWorkerMemoryExceededError(
+      `Cannot render PDF page ${options.pageNumber}: heap usage is at ${memoryStatus.heapUsedMb}MB (${memoryStatus.heapPercent}% of limit).`
+    );
+  }
+
   const startTime = Date.now();
 
-  // 1. Acquire mutex with bounded queue-wait timeout
-  await acquireCanvasLock(timeoutMs, options.pageNumber);
+  // 2. Acquire mutex with bounded queue-wait timeout
+  const reqId = await acquireCanvasLock(timeoutMs, options.pageNumber);
 
-  // 2. Compute remaining execution timeout after queue wait
+  // 3. Compute remaining execution timeout after queue wait
   const elapsedQueueTime = Date.now() - startTime;
   const remainingTimeoutMs = Math.max(1, timeoutMs - elapsedQueueTime);
 
@@ -394,41 +252,73 @@ export async function renderPdfPageWithWorkerIsolation(
   const markSettledAndRelease = () => {
     if (!settled) {
       settled = true;
-      isWorkerUnhealthy = false;
-      unhealthyReason = null;
-      releaseCanvasLock();
-    }
-  };
-
-  const cancelRef: { cancel?: () => void } = {};
-  cancelActiveRender = () => {
-    if (cancelRef.cancel) {
-      try {
-        cancelRef.cancel();
-      } catch {
-        // Ignore
+      if (!isWorkerUnhealthy) {
+        releaseCanvasLock();
       }
     }
   };
+
+  let boundary: PdfWorkerExecutionBoundary;
+
+  if (options._renderFn) {
+    boundary = new MockPdfWorkerBoundary(options._renderFn, options);
+  } else {
+    if (!activeWorker || activeWorker.isTerminated()) {
+      activeWorker = new IsolatedPdfWorker();
+    }
+    boundary = activeWorker;
+  }
 
   let renderPromise: Promise<PdfWorkerRenderResult> | null = null;
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timerId = setTimeout(() => {
-        // Option A: Trigger cooperative cancellation on the active render
-        if (cancelActiveRender) {
-          cancelActiveRender();
+      timerId = setTimeout(async () => {
+        // Step A: Trigger cooperative cancellation signal
+        try {
+          boundary.cancel(reqId);
+        } catch {
+          // Ignore
         }
 
-        // Observe whether cancellation settles the task within observation window.
-        // If the task truly never settles, mark worker unhealthy while retaining mutex.
-        setTimeout(() => {
-          if (!settled) {
+        // Step B: Wait observation window for cooperative settlement
+        let taskSettledCooperatively = false;
+        if (renderPromise) {
+          taskSettledCooperatively = await Promise.race([
+            renderPromise.then(() => true).catch(() => true),
+            new Promise<false>((resolve) => setTimeout(() => resolve(false), 50)),
+          ]);
+        }
+
+        if (!taskSettledCooperatively) {
+          // Step C: True Hang Recovery
+          // Native render failed to settle after cancellation.
+          // Hard-terminate the isolated worker execution boundary.
+          try {
+            if (options._simulateTerminationFailure) {
+              throw new PdfWorkerTerminationError('Simulated worker termination failure.');
+            }
+            await boundary.terminate();
+            // Confirmed terminated: old worker is dead and native memory is reclaimed.
+            if (boundary === activeWorker) {
+              activeWorker = null;
+            }
+            recyclesCount++;
+            isWorkerUnhealthy = false;
+            unhealthyReason = null;
+            markSettledAndRelease();
+          } catch (termErr) {
+            // Termination failed: unsafe to release slot, worker marked unhealthy
             isWorkerUnhealthy = true;
-            unhealthyReason = `PDF worker is unhealthy: page ${options.pageNumber} timed out after ${timeoutMs}ms and failed to settle following cancellation. Mutex is retained to prevent unsafe canvas overlap; process/worker restart required.`;
+            unhealthyReason = `PDF worker termination failed: ${(termErr as Error).message}`;
+            reject(
+              termErr instanceof PdfWorkerTerminationError
+                ? termErr
+                : new PdfWorkerTerminationError((termErr as Error).message)
+            );
+            return;
           }
-        }, 50);
+        }
 
         reject(
           new PdfWorkerTimeoutError(
@@ -438,14 +328,20 @@ export async function renderPdfPageWithWorkerIsolation(
       }, remainingTimeoutMs);
     });
 
-    const runner = options._renderFn ?? executeRenderPage;
-    renderPromise = runner(options, cancelRef);
+    renderPromise = boundary.render(
+      {
+        id: reqId,
+        pdfBuffer: options.pdfBuffer,
+        pageNumber: options.pageNumber,
+        targetWidth: options.targetWidth ?? DEFAULT_TARGET_WIDTH,
+        jpegQuality: options.jpegQuality ?? DEFAULT_JPEG_QUALITY,
+        simulateNeverSettle: options._simulateNeverSettle,
+        simulateRenderError: options._simulateRenderError?.message,
+      },
+      options._onCanvasDisposed
+    );
 
-    // GAP-009 & P1-A: Mutex & Timeout Safety
-    // 1. Attach a catch handler to swallow any late rejection when timeoutPromise wins,
-    //    preventing unhandledRejection events in Node.js.
-    // 2. Retain the lock until renderPromise completely settles (finally), ensuring
-    //    subsequent memory-heavy renders never overlap a timed-out native canvas job.
+    // Retain mutex until render completes OR hung worker is confirmed terminated
     renderPromise
       .catch(() => undefined)
       .finally(() => {
@@ -456,7 +352,6 @@ export async function renderPdfPageWithWorkerIsolation(
       if (timerId) clearTimeout(timerId);
     });
   } finally {
-    // If renderPromise never started (e.g. error thrown before runner), release immediately.
     if (!renderPromise) {
       markSettledAndRelease();
     }

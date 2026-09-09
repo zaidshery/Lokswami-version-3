@@ -4,7 +4,6 @@ import path from 'path';
 import os from 'os';
 import * as atomicStorage from '@/lib/storage/atomicStorage';
 import {
-  sanitizeStoredUserCredentials,
   readUsersFile,
   writeUsersFile,
   upsertStoredUser,
@@ -232,5 +231,334 @@ describe('Storage Layer Reader Credential Scrub & Physical Disk Verification (Ph
       expect.stringContaining('[Security] Failed to durably scrub legacy reader credentials from disk:'),
       expect.any(Error)
     );
+  });
+});
+
+describe('P1-B: Storage Concurrency & Mutation Serialization (C4)', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lokswami-concurrency-test-'));
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup error
+    }
+  });
+
+  // 1. scrub + upsert overlap: durable scrub does not overwrite concurrent newer profile update
+  it('1. scrub + upsert overlap: durable scrub does not overwrite concurrent newer profile update', async () => {
+    const tempFilePath = path.join(tempDir, 'scrub-upsert-overlap.json');
+    const initialRecords: StoredUser[] = [
+      {
+        _id: 'user-a',
+        name: 'User Alpha',
+        email: 'alpha@example.com',
+        image: '',
+        role: 'reader',
+        passwordHash: '$2a$12$legacySecretAlpha',
+        passwordSetAt: '2026-01-01T00:00:00.000Z',
+        isActive: true,
+        readCount: 1,
+        savedArticles: [],
+        preferredLanguage: 'hi',
+        preferredCategories: [],
+        optInDailyEpaper: false,
+        pushEnabled: false,
+        notificationsEnabled: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        _id: 'user-b',
+        name: 'User Beta Original',
+        email: 'beta@example.com',
+        image: '',
+        role: 'reader',
+        isActive: true,
+        readCount: 0,
+        savedArticles: [],
+        preferredLanguage: 'hi',
+        preferredCategories: [],
+        optInDailyEpaper: false,
+        pushEnabled: false,
+        notificationsEnabled: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+
+    await fs.writeFile(tempFilePath, JSON.stringify(initialRecords, null, 2), 'utf-8');
+
+    // Concurrent execution: A reads/scrubs while B updates profile
+    const [readResult, updatedUser] = await Promise.all([
+      readUsersFile(tempFilePath),
+      upsertStoredUser(
+        {
+          email: 'beta@example.com',
+          name: 'User Beta NEW Profile Update',
+          savedArticles: ['article-999'],
+        },
+        tempFilePath
+      ),
+    ]);
+
+    expect(readResult).toHaveLength(2);
+    expect(updatedUser.name).toBe('User Beta NEW Profile Update');
+
+    // Inspect physical file on disk directly
+    const rawDisk = await fs.readFile(tempFilePath, 'utf-8');
+    const parsedDisk: StoredUser[] = JSON.parse(rawDisk);
+
+    // Invariant: Alpha's legacy credentials must be durably removed from disk
+    const alphaDisk = parsedDisk.find((u) => u.email === 'alpha@example.com');
+    expect(alphaDisk).toBeDefined();
+    expect(alphaDisk?.passwordHash).toBeUndefined();
+    expect(alphaDisk?.passwordSetAt).toBeUndefined();
+    expect(rawDisk).not.toContain('legacySecretAlpha');
+
+    // Invariant: Beta's newer profile update must be PRESERVED (no lost update!)
+    const betaDisk = parsedDisk.find((u) => u.email === 'beta@example.com');
+    expect(betaDisk).toBeDefined();
+    expect(betaDisk?.name).toBe('User Beta NEW Profile Update');
+    expect(betaDisk?.savedArticles).toEqual(['article-999']);
+  });
+
+  // 2. scrub + writeUsersFile overlap: no lost update
+  it('2. scrub + writeUsersFile overlap: no lost update', async () => {
+    const tempFilePath = path.join(tempDir, 'scrub-write-overlap.json');
+    const initialRecords: StoredUser[] = [
+      {
+        _id: 'legacy-1',
+        name: 'Legacy User',
+        email: 'legacy@example.com',
+        image: '',
+        role: 'reader',
+        passwordHash: '$2a$12$legacySecret',
+        isActive: true,
+        readCount: 0,
+        savedArticles: [],
+        preferredLanguage: 'hi',
+        preferredCategories: [],
+        optInDailyEpaper: false,
+        pushEnabled: false,
+        notificationsEnabled: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+
+    await fs.writeFile(tempFilePath, JSON.stringify(initialRecords, null, 2), 'utf-8');
+
+    const newUsersPayload: StoredUser[] = [
+      {
+        _id: 'new-editor',
+        name: 'Staff Editor',
+        email: 'editor@example.com',
+        image: '',
+        role: 'copy_editor',
+        passwordHash: '$2a$12$staffHashedPassword',
+        passwordSetAt: '2026-01-01T00:00:00.000Z',
+        isActive: true,
+        readCount: 0,
+        savedArticles: [],
+        preferredLanguage: 'hi',
+        preferredCategories: [],
+        optInDailyEpaper: false,
+        pushEnabled: false,
+        notificationsEnabled: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+
+    await Promise.all([
+      readUsersFile(tempFilePath),
+      writeUsersFile(newUsersPayload, tempFilePath),
+    ]);
+
+    const disk = JSON.parse(await fs.readFile(tempFilePath, 'utf-8'));
+    // Staff editor payload must survive
+    expect(disk.some((u: StoredUser) => u.email === 'editor@example.com')).toBe(true);
+  });
+
+  // 3. two concurrent upserts: both expected updates survive
+  it('3. two concurrent upserts: both expected updates survive according to intended semantics', async () => {
+    const tempFilePath = path.join(tempDir, 'concurrent-upserts.json');
+    await fs.writeFile(tempFilePath, '[]', 'utf-8');
+
+    await Promise.all([
+      upsertStoredUser(
+        { email: 'user1@example.com', name: 'User One', optInDailyEpaper: true },
+        tempFilePath
+      ),
+      upsertStoredUser(
+        { email: 'user2@example.com', name: 'User Two', optInDailyEpaper: false },
+        tempFilePath
+      ),
+    ]);
+
+    const disk: StoredUser[] = JSON.parse(await fs.readFile(tempFilePath, 'utf-8'));
+    expect(disk).toHaveLength(2);
+    expect(disk.find((u) => u.email === 'user1@example.com')?.name).toBe('User One');
+    expect(disk.find((u) => u.email === 'user2@example.com')?.name).toBe('User Two');
+  });
+
+  // 4. reader sanitization still works
+  it('4. reader sanitization still works: reader credential fields prohibited on disk and memory', async () => {
+    const tempFilePath = path.join(tempDir, 'reader-sanitization.json');
+    await fs.writeFile(tempFilePath, '[]', 'utf-8');
+
+    const result = await upsertStoredUser(
+      {
+        email: 'reader@example.com',
+        name: 'Sanitized Reader',
+        role: 'reader',
+        passwordHash: '$2a$12$forbiddenReaderHash',
+        passwordSetAt: '2026-01-01T00:00:00.000Z',
+      } as any,
+      tempFilePath
+    );
+
+    expect(result.passwordHash).toBeUndefined();
+    expect(result.passwordSetAt).toBeUndefined();
+
+    const raw = await fs.readFile(tempFilePath, 'utf-8');
+    expect(raw).not.toContain('forbiddenReaderHash');
+  });
+
+  // 5. mixed-role preservation still works
+  it('5. mixed-role preservation still works: staff passwords preserved, reader passwords omitted', async () => {
+    const tempFilePath = path.join(tempDir, 'mixed-role.json');
+    await fs.writeFile(tempFilePath, '[]', 'utf-8');
+
+    await upsertStoredUser(
+      {
+        email: 'reporter@example.com',
+        name: 'Staff Reporter',
+        role: 'reporter',
+        passwordHash: '$2a$12$staffValidHash',
+        passwordSetAt: '2026-01-01T00:00:00.000Z',
+      },
+      tempFilePath
+    );
+
+    await upsertStoredUser(
+      {
+        email: 'reader@example.com',
+        name: 'Reader Record',
+        role: 'reader',
+        passwordHash: '$2a$12$readerShouldBeOmitted',
+      } as any,
+      tempFilePath
+    );
+
+    const disk: StoredUser[] = JSON.parse(await fs.readFile(tempFilePath, 'utf-8'));
+    const reporter = disk.find((u) => u.email === 'reporter@example.com');
+    const reader = disk.find((u) => u.email === 'reader@example.com');
+
+    expect(reporter?.passwordHash).toBe('$2a$12$staffValidHash');
+    expect(reader?.passwordHash).toBeUndefined();
+  });
+
+  // 6. clean files still avoid unnecessary scrub rewrite
+  it('6. clean files still avoid unnecessary scrub rewrite', async () => {
+    const tempFilePath = path.join(tempDir, 'clean-file.json');
+    const cleanData: StoredUser[] = [
+      {
+        _id: 'clean-1',
+        name: 'Clean User',
+        email: 'clean@example.com',
+        image: '',
+        role: 'reader',
+        isActive: true,
+        readCount: 0,
+        savedArticles: [],
+        preferredLanguage: 'hi',
+        preferredCategories: [],
+        optInDailyEpaper: false,
+        pushEnabled: false,
+        notificationsEnabled: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+    await fs.writeFile(tempFilePath, JSON.stringify(cleanData, null, 2), 'utf-8');
+
+    const atomicSpy = vi.spyOn(atomicStorage, 'writeJsonFileAtomically');
+    await readUsersFile(tempFilePath);
+    expect(atomicSpy).not.toHaveBeenCalled();
+  });
+
+  // 7. write failure releases lock correctly
+  it('7. write failure releases lock correctly so subsequent mutations succeed', async () => {
+    const tempFilePath = path.join(tempDir, 'write-failure-releases-lock.json');
+    await fs.writeFile(tempFilePath, '[]', 'utf-8');
+
+    vi.spyOn(atomicStorage, 'writeJsonFileAtomically').mockRejectedValueOnce(
+      new Error('Simulated atomic write failure')
+    );
+
+    // First mutation fails
+    await expect(
+      upsertStoredUser({ email: 'fail@example.com', name: 'Fail User' }, tempFilePath)
+    ).rejects.toThrow('Simulated atomic write failure');
+
+    // Subsequent mutation must acquire lock cleanly and succeed
+    const successUser = await upsertStoredUser(
+      { email: 'success@example.com', name: 'Success User' },
+      tempFilePath
+    );
+    expect(successUser.email).toBe('success@example.com');
+
+    const disk: StoredUser[] = JSON.parse(await fs.readFile(tempFilePath, 'utf-8'));
+    expect(disk).toHaveLength(1);
+    expect(disk[0].email).toBe('success@example.com');
+  });
+
+  // 8. no deadlock on nested storage helpers
+  it('8. no deadlock on nested storage helpers: concurrent find, read, upsert, scrub finish cleanly', async () => {
+    const tempFilePath = path.join(tempDir, 'no-deadlock.json');
+    await fs.writeFile(tempFilePath, '[]', 'utf-8');
+
+    await upsertStoredUser({ email: 'seed@example.com', name: 'Seed' }, tempFilePath);
+
+    const results = await Promise.all([
+      findStoredUserByEmail('seed@example.com', tempFilePath),
+      readUsersFile(tempFilePath),
+      upsertStoredUser({ email: 'seed@example.com', name: 'Seed Updated' }, tempFilePath),
+      scrubLegacyReaderCredentialsFromFile(tempFilePath),
+    ]);
+
+    expect(results[0]?.email).toBe('seed@example.com');
+    expect(results[1]).toHaveLength(1);
+    expect(results[2].name).toBe('Seed Updated');
+    expect(results[3]).toBe(0);
+  });
+
+  // 9. repeated concurrent operations terminate
+  it('9. repeated concurrent operations terminate without lost updates', async () => {
+    const tempFilePath = path.join(tempDir, 'repeated-concurrent.json');
+    await fs.writeFile(tempFilePath, '[]', 'utf-8');
+
+    const upsertPromises = Array.from({ length: 10 }, (_, i) =>
+      upsertStoredUser(
+        { email: `concurrent-${i}@example.com`, name: `User ${i}` },
+        tempFilePath
+      )
+    );
+
+    const upserted = await Promise.all(upsertPromises);
+    expect(upserted).toHaveLength(10);
+
+    const disk: StoredUser[] = JSON.parse(await fs.readFile(tempFilePath, 'utf-8'));
+    expect(disk).toHaveLength(10);
+    for (let i = 0; i < 10; i++) {
+      expect(disk.some((u) => u.email === `concurrent-${i}@example.com`)).toBe(true);
+    }
   });
 });
