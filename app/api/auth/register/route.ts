@@ -97,15 +97,13 @@ export async function POST(req: NextRequest) {
         lastLoginAt: new Date(),
       });
 
-      // Best-effort secondary sync to file store for profile resilience
+      // Best-effort secondary sync to file store for profile resilience (strictly non-credential profile metadata)
       try {
         await upsertStoredUser({
           _id: newUser._id.toString(),
           name: trimmedName,
           email: safeEmail,
           whatsappNumber: normalizedPhone || undefined,
-          passwordHash,
-          passwordSetAt: new Date().toISOString(),
           role: 'reader',
           optInDailyEpaper: Boolean(optInDailyEpaper),
           preferredLanguage: languagePreference === 'en' ? 'en' : 'hi',

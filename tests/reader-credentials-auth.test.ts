@@ -250,4 +250,58 @@ describe('GAP-010: Reader Credential Authorization & Reverse Split-Brain Prevent
     expect(findStoredUserByIdentifierMock).not.toHaveBeenCalled();
     expect(upsertStoredUserMock).not.toHaveBeenCalled();
   });
+
+  // 7. Stale legacy reader hash exists in file store: Mongo password mismatch rejects auth and ignores file hash
+  it('7. Stale legacy reader hash exists in file store: Mongo password mismatch rejects auth and ignores file hash', async () => {
+    connectDBMock.mockResolvedValue(true);
+    userFindOneMock.mockResolvedValue({
+      _id: 'mongo-user-123',
+      name: 'Mongo Reader',
+      email: testEmail,
+      passwordHash: newHash,
+      isActive: true,
+      save: vi.fn(),
+    });
+    findStoredUserByIdentifierMock.mockResolvedValue({
+      _id: 'file-user-123',
+      name: 'Legacy Stale Reader',
+      email: testEmail,
+      passwordHash: oldHash,
+      isActive: true,
+      role: 'reader',
+    });
+
+    const { authorizeReaderCredentials } = await import('@/lib/auth/readerCredentials');
+
+    const result = await authorizeReaderCredentials({
+      loginId: testEmail,
+      password: oldPassword,
+    });
+
+    expect(result).toBeNull();
+    expect(findStoredUserByIdentifierMock).not.toHaveBeenCalled();
+  });
+
+  // 8. Mongo unavailable + valid legacy file reader hash: fails closed without reading file credentials
+  it('8. Mongo unavailable + valid legacy file reader hash: fails closed without reading file credentials', async () => {
+    connectDBMock.mockRejectedValue(new Error('MongoNetworkError: connection lost'));
+    findStoredUserByIdentifierMock.mockResolvedValue({
+      _id: 'file-user-123',
+      name: 'Legacy File Reader',
+      email: testEmail,
+      passwordHash: oldHash,
+      isActive: true,
+      role: 'reader',
+    });
+
+    const { authorizeReaderCredentials } = await import('@/lib/auth/readerCredentials');
+
+    const result = await authorizeReaderCredentials({
+      loginId: testEmail,
+      password: oldPassword,
+    });
+
+    expect(result).toBeNull();
+    expect(findStoredUserByIdentifierMock).not.toHaveBeenCalled();
+  });
 });

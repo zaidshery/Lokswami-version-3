@@ -117,14 +117,16 @@ describe('POST /api/auth/register (Mongo-Authoritative Registration)', () => {
     );
 
     expect(upsertStoredUserMock).toHaveBeenCalledTimes(1);
-    expect(upsertStoredUserMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        _id: 'mongo-user-uuid-123',
-        name: 'Test Subscriber',
-        whatsappNumber: '+919876543210',
-        role: 'reader',
-      })
-    );
+    const fileSyncPayload = upsertStoredUserMock.mock.calls[0][0];
+    expect(fileSyncPayload).toMatchObject({
+      _id: 'mongo-user-uuid-123',
+      name: 'Test Subscriber',
+      whatsappNumber: '+919876543210',
+      role: 'reader',
+    });
+    // Security Invariant (Phase 1.5): File sync payload must NOT contain password credentials
+    expect(fileSyncPayload.passwordHash).toBeUndefined();
+    expect(fileSyncPayload.passwordSetAt).toBeUndefined();
   });
 
   // 2. Mongo unavailable: returns 503, User.create not called, file-store upsert NOT called

@@ -110,9 +110,10 @@ describe('GAP-010: Final Password Consistency & Split-Brain Hardening', () => {
     expect(capturedMongoUpdate.$set.passwordHash).toMatch(/^\$2[aby]\$\d+\$/);
     expect(capturedMongoUpdate.$set.passwordSetAt).toBeInstanceOf(Date);
 
-    // Verify file-store synced
+    // Verify file-store synced non-credential profile only (Phase 1.5 invariant)
     expect(capturedFileUpsert).toBeDefined();
-    expect(capturedFileUpsert.passwordHash).toBe(capturedMongoUpdate.$set.passwordHash);
+    expect(capturedFileUpsert.passwordHash).toBeUndefined();
+    expect(capturedFileUpsert.passwordSetAt).toBeUndefined();
     expect(capturedFileUpsert.email).toBe(testEmail);
   });
 
@@ -290,13 +291,13 @@ describe('GAP-010: Final Password Consistency & Split-Brain Hardening', () => {
     expect(body.data.whatsappNumber).toBe('+919123456780');
     expect(body.data.preferredLanguage).toBe('en');
 
-    // Invariant: passwordHash and passwordSetAt must remain untouched
+    // Invariant (Phase 1.5): File store profile updates must omit reader password credentials
     expect(capturedFileUpsert).toBeDefined();
     expect(capturedFileUpsert.name).toBe('Updated Name');
     expect(capturedFileUpsert.whatsappNumber).toBe('+919123456780');
     expect(capturedFileUpsert.preferredLanguage).toBe('en');
-    expect(capturedFileUpsert.passwordHash).toBe(existingHash);
-    expect(capturedFileUpsert.passwordSetAt).toBe('2026-08-01T00:00:00.000Z');
+    expect(capturedFileUpsert.passwordHash).toBeUndefined();
+    expect(capturedFileUpsert.passwordSetAt).toBeUndefined();
   });
 
   // 6. Prove there is no path where passwordHash is written only to file store and success is returned

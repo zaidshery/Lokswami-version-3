@@ -226,7 +226,7 @@ export async function PATCH(req: NextRequest) {
         );
       }
 
-      // Sync updated credentials to file-store fallback
+      // Sync updated profile to file-store fallback (strictly non-credential profile metadata)
       try {
         await upsertStoredUser({
           _id: updatedUser._id.toString(),
@@ -236,8 +236,6 @@ export async function PATCH(req: NextRequest) {
           optInDailyEpaper: updatedUser.optInDailyEpaper !== false,
           preferredLanguage: updatedUser.preferredLanguage,
           preferredCategories: updatedUser.preferredCategories,
-          passwordHash: updatedUser.passwordHash,
-          passwordSetAt: updatedUser.passwordSetAt ? new Date(updatedUser.passwordSetAt).toISOString() : undefined,
         });
       } catch (fileError) {
         console.warn('[Profile API PATCH] File store sync warning:', fileError);
@@ -266,7 +264,7 @@ export async function PATCH(req: NextRequest) {
       ).lean();
 
       if (updatedUser) {
-        // Sync non-password updates to file store
+        // Sync non-password updates to file store (strictly non-credential profile metadata)
         void upsertStoredUser({
           _id: updatedUser._id.toString(),
           name: updatedUser.name,
@@ -275,8 +273,6 @@ export async function PATCH(req: NextRequest) {
           optInDailyEpaper: updatedUser.optInDailyEpaper !== false,
           preferredLanguage: updatedUser.preferredLanguage,
           preferredCategories: updatedUser.preferredCategories,
-          passwordHash: updatedUser.passwordHash,
-          passwordSetAt: updatedUser.passwordSetAt ? new Date(updatedUser.passwordSetAt).toISOString() : undefined,
         });
 
         return NextResponse.json({
@@ -296,13 +292,13 @@ export async function PATCH(req: NextRequest) {
     }
 
     // File store fallback for non-password profile updates
+    // File store fallback for non-password profile updates (strictly non-credential profile metadata)
     const fileUser = await findStoredUserByEmail(email);
     if (fileUser) {
+      const { passwordHash: _ph, passwordSetAt: _psa, ...safeProfile } = fileUser;
       const updated = await upsertStoredUser({
-        ...fileUser,
+        ...safeProfile,
         ...updates,
-        passwordHash: fileUser.passwordHash,
-        passwordSetAt: fileUser.passwordSetAt,
       });
 
       return NextResponse.json({
