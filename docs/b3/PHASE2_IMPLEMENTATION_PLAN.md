@@ -97,36 +97,60 @@ Decoupled all 11 public read endpoints for articles, home feed, categories, citi
 ### Phase 2.2: Content Newsroom Writes & Editorial State Machine Decoupling
 
 #### 1. Goal
-Decouple administrative article mutations, optimistic concurrency versioning (CAS locks), revision history, audio resolution, and editorial state transitions from monolithic route handlers into a dedicated `EditorialService`.
+Decouple administrative article mutations, optimistic concurrency versioning (CAS locks), revision history, audio resolution, and editorial state transitions from monolithic route handlers into a dedicated `EditorialService`, `NewsroomArticleRepository`, and supporting adapters while preserving 100% of existing contracts.
 
-#### 2. Scope & Target Routes
-- `app/api/admin/articles/route.ts` (GET list, POST create)
-- `app/api/admin/articles/[id]/route.ts` (GET detail, PUT full update, PATCH partial update, DELETE archive)
-- `app/api/admin/articles/[id]/lock/route.ts` (GET, POST acquire, DELETE release)
-- `app/api/admin/articles/[id]/revisions/route.ts` (GET history)
-- `app/api/admin/articles/[id]/revisions/[revisionId]/restore/route.ts` (POST restore)
-- `app/api/admin/articles/[id]/activity/route.ts` (GET, POST activity log)
-- `app/api/admin/categories/route.ts` (GET, POST)
-- `app/api/admin/categories/[id]/route.ts` (PUT, DELETE)
+#### 2. Status
+`COMPLETE (PASSED)`
 
-#### 3. Files to Create & Modify
-- **NEW**: `lib/content/editorialService.ts` (State machine transitions, validation, CAS locks, revisions).
-- **NEW**: `lib/content/articleLockRepository.ts` (Encapsulates `ArticleLock` model and file fallback).
-- **MODIFY**: `app/api/admin/articles/[id]/route.ts` (Refactor 2,289 lines down to clean controller delegating to `editorialService`).
-- **MODIFY**: `app/api/admin/articles/route.ts` and sub-routes.
+#### 3. Scope & Target Routes Refactored
+All 8 target administrative routes refactored into thin controllers:
+- `app/api/admin/articles/route.ts` (117 lines, down from 899 lines — 87.0% reduction)
+- `app/api/admin/articles/[id]/route.ts` (180 lines, down from 2,289 lines — 92.1% reduction)
+- `app/api/admin/articles/[id]/lock/route.ts` (104 lines, down from 337 lines — 69.1% reduction)
+- `app/api/admin/articles/[id]/revisions/route.ts` (53 lines, down from 132 lines — 59.8% reduction)
+- `app/api/admin/articles/[id]/revisions/[revisionId]/restore/route.ts` (71 lines, down from 325 lines — 78.2% reduction)
+- `app/api/admin/articles/[id]/activity/route.ts` (43 lines, down from 106 lines — 59.4% reduction)
+- `app/api/admin/categories/route.ts` (56 lines, down from 175 lines — 68.0% reduction)
+- `app/api/admin/categories/[id]/route.ts` (22 lines, down from 55 lines — 60.0% reduction)
 
-#### 4. Tests & Characterization Strategy
-- **Status**: `CHARACTERIZATION TEST REQUIRED FIRST`.
-- **Pre-Migration Test Additions**: Write focused characterization tests for CAS lock version mismatch HTTP responses (`409 Conflict`) and draft revision snapshot restore before refactoring.
-- **Regression Suites**: `tests/api/admin-articles-routes.test.ts`, `tests/api/admin-article-workflow.test.ts`, `tests/article-locks.test.ts`.
+#### 4. Files Created
+- `lib/server/content/newsroomArticleTypes.ts` (188 lines): Domain types, CAS errors, revision snapshot definitions, input shapes.
+- `lib/server/content/newsroomArticleRepository.ts` (481 lines): Newsroom article dual-persistence (Mongo/file), CAS conditional updates, revisions, assignee resolution.
+- `lib/server/content/newsroomArticleValidation.ts` (742 lines): Input normalization, length/readiness validators, breaking-audio gate, list filtering.
+- `lib/server/content/editorialService.ts` (778 lines): Newsroom article lifecycle orchestration (create, update, autosave, workflow transitions, fast-publish, delete, side effects).
+- `lib/server/content/editorialRevisionService.ts` (207 lines): Revision history retrieval, rollback validation, and restore orchestration.
+- `lib/server/content/articleLockRepository.ts` (281 lines): Editorial lock persistence (Mongo/file fallback), acquisition, renewal, takeover, heartbeat.
+- `lib/server/content/adminTaxonomyService.ts` (192 lines): Category administration persistence and validation.
+- `lib/server/epaper/adminArticleCompat.ts` (379 lines): Narrow compatibility adapter isolating legacy E-Paper story draft mutations without mutating `releasedSnapshot`.
+- `tests/api/admin-article-workflow.test.ts` (460 lines): Dedicated characterization and regression tests for workflow transitions, 409 CAS conflicts, breaking-audio gates, and RBAC guards.
 
-#### 5. Definition of Done
-- `app/api/admin/articles/[id]/route.ts` reduced from 2,289 lines to < 200 lines.
-- Editorial state machine transitions (`Draft → Review → Copy Desk → Admin → Published`) fully encapsulated in `EditorialService`.
-- All admin article and workflow test suites pass.
-
-#### 6. Expected Architectural Improvement
-Eliminates the largest single source of technical debt in the repository.
+#### 5. Quality Gates & Test Verification
+- **AST Architecture Assertion**: Zero occurrences of `@/lib/models/Article`, `connectDB`, `mongoose`, `@/lib/storage/articlesFile`, `Article.find*`, `Article.create`, `Article.update*`, `Article.delete*`, `updateStoredArticle`, or `deleteStoredArticle` across all 8 migrated admin routes.
+- **Focused Newsroom Tests**: 7 test files, 69 tests pass (100%).
+- **Phase 1 & Phase 2.1 Regression Guards**:
+  - `tests/content-domain-boundaries.test.ts` (11 tests pass)
+  - `tests/epaper-release-snapshot-safety.test.ts` (1 test pass)
+  - `tests/pdf-worker-isolation.test.ts` (5 tests pass)
+  - `tests/pdf-render-mutex-safety.test.ts` (9 tests pass)
+  - `tests/storage-reader-credential-scrub.test.ts` (14 tests pass)
+  - `tests/public-articles-service.test.ts` (12 tests pass)
+  - `tests/api/public-articles-routes.test.ts` (4 tests pass)
+  - `tests/api/public-v1-articles-routes.test.ts` (4 tests pass)
+  - `tests/video-sitemap-route.test.ts` (7 tests pass)
+  - `tests/api/public-v1-taxonomy-routes.test.ts` (2 tests pass)
+  - `tests/reader-credentials-auth.test.ts` (8 tests pass)
+- **Official Quality Gates**:
+  - `npm run typecheck`: 0 errors.
+  - `npm run lint:strict`: 0 warnings, 0 errors across all strict directories.
+  - `npm run test:security`: 8 test files, 63 tests pass.
+  - `npm run test:governance`: 4 test files, 16 tests pass.
+  - `npm run test:four-role-newsroom`: 6 test files, 25 tests pass.
+  - `npm run test:ci`: 209 test files, 998 tests pass + auth guards (7 cases) + admin credentials (synthetic 6 cases).
+  - `npm run build:ci`: Production build successful (exit code 0, 172/172 static pages).
+  - `git diff --check`: 0 whitespace or formatting errors.
+  - Runtime data files committed: NONE (`data/*.json` clean).
+  - UI/API contracts changed: NONE.
+  - Phase 2.3 started: NO.
 
 ---
 

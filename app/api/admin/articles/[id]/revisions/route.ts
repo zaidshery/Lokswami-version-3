@@ -1,23 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Types } from 'mongoose';
-import connectDB from '@/lib/db/mongoose';
-import Article from '@/lib/models/Article';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
-import { canReadContent, canViewPage } from '@/lib/auth/permissions';
-import { getStoredArticleById } from '@/lib/storage/articlesFile';
-import { resolveArticleWorkflow } from '@/lib/workflow/article';
-
-async function shouldUseFileStore() {
-  if (!process.env.MONGODB_URI) return true;
-
-  try {
-    await connectDB();
-    return false;
-  } catch (error) {
-    console.error('MongoDB unavailable for article revisions route, using file store.', error);
-    return true;
-  }
-}
+import { EditorialRevisionService } from '@/lib/server/content/editorialRevisionService';
+import {
+  ArticleNotFoundError,
+  EditorialForbiddenError,
+  EditorialValidationError,
+} from '@/lib/server/content/newsroomArticleTypes';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -33,95 +21,28 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
-    if (!canViewPage(user.role, 'articles')) {
+    const { id } = await context.params;
+    const revisions = await EditorialRevisionService.getRevisions(id, user);
+    return NextResponse.json({ success: true, data: revisions });
+  } catch (error) {
+    if (error instanceof EditorialForbiddenError) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }
       );
     }
-
-    const { id } = await context.params;
-
-    if (await shouldUseFileStore()) {
-      const article = await getStoredArticleById(id);
-      if (!article) {
-        return NextResponse.json(
-          { success: false, error: 'Article not found' },
-          { status: 404 }
-        );
-      }
-      if (
-        !canReadContent(
-          user,
-          {
-            legacyAuthorName: article.author,
-            workflow: resolveArticleWorkflow(article),
-          },
-          { allowViewerRead: true }
-        )
-      ) {
-        return NextResponse.json(
-          { success: false, error: 'Forbidden' },
-          { status: 403 }
-        );
-      }
-
-      const revisions = [...article.revisions].sort(
-        (a, b) =>
-          new Date(String(b.savedAt || '')).getTime() -
-          new Date(String(a.savedAt || '')).getTime()
-      );
-
-      return NextResponse.json({ success: true, data: revisions });
-    }
-
-    if (!Types.ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid article ID' },
-        { status: 400 }
-      );
-    }
-
-    const article = (await Article.findById(id).select('author workflow updatedAt publishedAt revisions').lean()) as
-      | {
-          author?: string;
-          workflow?: unknown;
-          updatedAt?: Date | string;
-          publishedAt?: Date | string;
-          revisions?: Array<{ savedAt?: string | Date }>;
-        }
-      | null;
-    if (!article) {
+    if (error instanceof ArticleNotFoundError) {
       return NextResponse.json(
         { success: false, error: 'Article not found' },
         { status: 404 }
       );
     }
-    if (
-      !canReadContent(
-        user,
-        {
-          legacyAuthorName: article.author,
-          workflow: resolveArticleWorkflow(article),
-        },
-        { allowViewerRead: true }
-      )
-    ) {
+    if (error instanceof EditorialValidationError) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
+        { success: false, error: error.message },
+        { status: error.status }
       );
     }
-
-    const revisions = Array.isArray(article.revisions) ? [...article.revisions] : [];
-    revisions.sort(
-      (a, b) =>
-        new Date(String(b.savedAt || '')).getTime() -
-        new Date(String(a.savedAt || '')).getTime()
-    );
-
-    return NextResponse.json({ success: true, data: revisions });
-  } catch (error) {
     console.error('Error fetching article revisions:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch revisions' },
