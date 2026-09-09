@@ -55,7 +55,7 @@ import {
   listAllNewsroomArticles,
   resolveArticleVersion,
   resolveAssignee,
-  shouldUseFileStore,
+  resolveNewsroomArticleStore,
   updateNewsroomArticleWithCas,
 } from './newsroomArticleRepository';
 import {
@@ -98,7 +98,8 @@ export class EditorialService {
       throw new EditorialForbiddenError();
     }
 
-    const article = await findArticleById(id);
+    const store = await resolveNewsroomArticleStore();
+    const article = await findArticleById(id, store);
     if (article) {
       if (
         !canReadContent(actor, buildArticlePermissionRecord(article), {
@@ -110,13 +111,14 @@ export class EditorialService {
       return { kind: 'article', data: resolveArticleResponse(article) };
     }
 
-    // Fallback: Check if this was an E-Paper article
-    const epaperArticle = await findEpaperArticle(id);
-    if (epaperArticle) {
-      if (!canEditEpaper(actor.role)) {
-        throw new EditorialForbiddenError();
+    if (store === 'mongo') {
+      const epaperArticle = await findEpaperArticle(id);
+      if (epaperArticle) {
+        if (!canEditEpaper(actor.role)) {
+          throw new EditorialForbiddenError();
+        }
+        return { kind: 'epaper', data: mapEpaperArticle(epaperArticle) };
       }
-      return { kind: 'epaper', data: mapEpaperArticle(epaperArticle) };
     }
 
     throw new ArticleNotFoundError();
@@ -144,7 +146,8 @@ export class EditorialService {
     const isUnbounded = query.limit === null || query.limit === undefined || query.limit <= 0;
     const effectiveLimit = isUnbounded ? 1000 : Math.min(100, query.limit || 10);
 
-    const { articles } = await listAllNewsroomArticles({ category });
+    const store = await resolveNewsroomArticleStore();
+    const { articles } = await listAllNewsroomArticles({ category }, store);
 
     const filtered = articles
       .map((article) => resolveArticleResponse(article))
@@ -189,6 +192,9 @@ export class EditorialService {
     if (!canViewPage(actor.role, 'article_create') || !canCreateContent(actor.role, 'article')) {
       throw new EditorialForbiddenError();
     }
+
+    const store = await resolveNewsroomArticleStore();
+    const useFileStore = store === 'file';
 
     const bodyRecord = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
     const intentRaw = String(bodyRecord.intent || 'draft').toLowerCase();
@@ -251,7 +257,6 @@ export class EditorialService {
         );
       }
 
-      const useFileStore = await shouldUseFileStore();
       const sourceStory = await getStoryRecordForArticleLinking({
         useFileStore,
         storyId: input.sourceStoryId,
@@ -280,7 +285,7 @@ export class EditorialService {
 
     const uniqueSlug = await resolveUniqueArticleSlug(
       input.slug || input.seo.metaTitle || input.title,
-      (candidate) => checkSlugConflict(candidate)
+      (candidate) => checkSlugConflict(candidate, undefined, store)
     );
     input.slug = uniqueSlug;
 
@@ -292,6 +297,7 @@ export class EditorialService {
       throw new EditorialValidationError(canonicalError, 400);
     }
 
+    const creationDate = new Date();
     const articleDoc = {
       ...input,
       previousSlugs: [],
@@ -299,10 +305,10 @@ export class EditorialService {
       sourceStoryTitle: sourceStoryTitle || input.sourceStoryTitle || '',
       views: 0,
       workflow: toStoredWorkflowUpdate(workflow),
-      publishedAt: workflow.publishedAt ? workflow.publishedAt.toISOString() : null,
+      publishedAt: workflow.publishedAt ? workflow.publishedAt.toISOString() : creationDate.toISOString(),
     };
 
-    const created = await createNewsroomArticle(articleDoc);
+    const created = await createNewsroomArticle(articleDoc, store);
     const articleId = String(created._id || created.id || '');
 
     await recordArticleActivity({
@@ -318,7 +324,6 @@ export class EditorialService {
       },
     });
 
-    const useFileStore = await shouldUseFileStore();
     if (input.sourceStoryId) {
       await syncStoryLinkedArticle({
         useFileStore,
@@ -335,7 +340,7 @@ export class EditorialService {
           await updateNewsroomArticleWithCas(
             articleId,
             { breakingTts },
-            { skipRevision: true }
+            { skipRevision: true, store }
           );
         }
       } catch (ttsError) {
@@ -358,7 +363,8 @@ export class EditorialService {
       throw new EditorialForbiddenError();
     }
 
-    const current = await findArticleById(id);
+    const store = await resolveNewsroomArticleStore();
+    const current = await findArticleById(id, store);
     if (!current) {
       throw new ArticleNotFoundError();
     }
@@ -400,7 +406,7 @@ export class EditorialService {
     if (requestedSlug && requestedSlug !== currentSlug) {
       const resolvedSlug = await resolveUniqueArticleSlug(
         requestedSlug,
-        (candidate) => checkSlugConflict(candidate, id)
+        (candidate) => checkSlugConflict(candidate, id, store)
       );
       updates.slug = resolvedSlug;
 
@@ -432,6 +438,7 @@ export class EditorialService {
       skipRevision: false,
       revisionSnapshot: snapshot,
       currentRecord: current,
+      store,
     });
 
     if (
@@ -451,7 +458,7 @@ export class EditorialService {
 
     if (updated.sourceStoryId) {
       await syncStoryLinkedArticle({
-        useFileStore: await shouldUseFileStore(),
+        useFileStore: store === 'file',
         storyId: String(updated.sourceStoryId),
         articleId: id,
         articleStatus: resolveArticleWorkflow(updated).status,
@@ -473,7 +480,8 @@ export class EditorialService {
       throw new EditorialForbiddenError();
     }
 
-    const current = await findArticleById(id);
+    const store = await resolveNewsroomArticleStore();
+    const current = await findArticleById(id, store);
     if (!current) {
       throw new ArticleNotFoundError();
     }
@@ -519,7 +527,7 @@ export class EditorialService {
       if (requestedSlug && requestedSlug !== currentSlug) {
         const resolvedSlug = await resolveUniqueArticleSlug(
           requestedSlug,
-          (candidate) => checkSlugConflict(candidate, id)
+          (candidate) => checkSlugConflict(candidate, id, store)
         );
         updates.slug = resolvedSlug;
 
@@ -552,6 +560,7 @@ export class EditorialService {
       skipRevision: isAutosave,
       revisionSnapshot: snapshot,
       currentRecord: current,
+      store,
     });
 
     if (
@@ -572,7 +581,7 @@ export class EditorialService {
 
       if (updated.sourceStoryId) {
         await syncStoryLinkedArticle({
-          useFileStore: await shouldUseFileStore(),
+          useFileStore: store === 'file',
           storyId: String(updated.sourceStoryId),
           articleId: id,
           articleStatus: resolveArticleWorkflow(updated).status,
@@ -600,7 +609,8 @@ export class EditorialService {
       throw new EditorialValidationError('Invalid workflow action', 400);
     }
 
-    const current = await findArticleById(id);
+    const store = await resolveNewsroomArticleStore();
+    const current = await findArticleById(id, store);
     if (!current) {
       throw new ArticleNotFoundError();
     }
@@ -671,6 +681,7 @@ export class EditorialService {
       forceCas: true,
       skipRevision: true,
       currentRecord: current,
+      store,
     });
 
     // Authoritative state write has succeeded; execute side-effects in sequence
@@ -708,9 +719,8 @@ export class EditorialService {
     });
 
     if (updated.sourceStoryId) {
-      const useFileStore = await shouldUseFileStore();
       await syncStoryLinkedArticle({
-        useFileStore,
+        useFileStore: store === 'file',
         storyId: String(updated.sourceStoryId),
         articleId: id,
         articleStatus: toStatus,
@@ -735,7 +745,8 @@ export class EditorialService {
       throw new EditorialForbiddenError();
     }
 
-    const deleted = await deleteNewsroomArticleWithCas(id, expectedVersion);
+    const store = await resolveNewsroomArticleStore();
+    const deleted = await deleteNewsroomArticleWithCas(id, expectedVersion, store);
 
     const breakingTts = deleted.breakingTts && typeof deleted.breakingTts === 'object'
       ? (deleted.breakingTts as Record<string, unknown>)
@@ -746,9 +757,8 @@ export class EditorialService {
     }
 
     if (deleted.sourceStoryId) {
-      const useFileStore = await shouldUseFileStore();
       await clearStoryLinkedArticle({
-        useFileStore,
+        useFileStore: store === 'file',
         storyId: String(deleted.sourceStoryId),
         articleId: id,
       });

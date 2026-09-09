@@ -29,6 +29,7 @@ import {
   getArticleRevisions,
   hasPersistedArticleVersion,
   resolveArticleVersion,
+  resolveNewsroomArticleStore,
   restoreRevisionInStore,
 } from './newsroomArticleRepository';
 import {
@@ -48,7 +49,8 @@ export class EditorialRevisionService {
       throw new EditorialForbiddenError();
     }
 
-    const { article, revisions } = await getArticleRevisions(id);
+    const store = await resolveNewsroomArticleStore();
+    const { article, revisions } = await getArticleRevisions(id, store);
     if (!article) {
       throw new ArticleNotFoundError();
     }
@@ -81,7 +83,8 @@ export class EditorialRevisionService {
       throw new EditorialForbiddenError();
     }
 
-    const current = await findArticleById(id);
+    const store = await resolveNewsroomArticleStore();
+    const current = await findArticleById(id, store);
     if (!current) {
       throw new ArticleNotFoundError('Article or revision not found');
     }
@@ -120,7 +123,7 @@ export class EditorialRevisionService {
 
     if (revisionSlug) {
       const slugConflict =
-        revisionSlug !== currentSlug && (await checkSlugConflict(revisionSlug, id));
+        revisionSlug !== currentSlug && (await checkSlugConflict(revisionSlug, id, store));
       if (!slugConflict) {
         restoredSlug = revisionSlug;
         const slugHistory = new Set([
@@ -182,7 +185,8 @@ export class EditorialRevisionService {
       updates,
       snapshot,
       hasStoredVersion,
-      currentVersion
+      currentVersion,
+      store
     );
 
     if (!restored) {

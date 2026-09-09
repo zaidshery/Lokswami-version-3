@@ -6,6 +6,7 @@ import {
   ArticleVersionConflictError,
   EditorialForbiddenError,
   EditorialValidationError,
+  InvalidArticleIdError,
   MongoAssignmentUnavailableError,
 } from '@/lib/server/content/newsroomArticleTypes';
 import {
@@ -28,6 +29,10 @@ function handleEditorialError(
   fallbackMessage: string,
   fallbackStatus = 500
 ): NextResponse {
+  if (error instanceof InvalidArticleIdError) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  }
+
   if (error instanceof ArticleVersionConflictError) {
     return NextResponse.json(
       {

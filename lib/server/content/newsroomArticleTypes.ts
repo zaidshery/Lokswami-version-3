@@ -23,6 +23,16 @@ export class ArticleVersionConflictError extends Error {
   }
 }
 
+export type NewsroomArticleStore = 'mongo' | 'file';
+
+export class InvalidArticleIdError extends Error {
+  readonly status = 400;
+  constructor(message = 'Invalid article ID') {
+    super(message);
+    this.name = 'InvalidArticleIdError';
+  }
+}
+
 export class ArticleNotFoundError extends Error {
   constructor(message = 'Article not found') {
     super(message);

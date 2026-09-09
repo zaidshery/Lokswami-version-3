@@ -6,6 +6,7 @@ import {
   ArticleVersionConflictError,
   EditorialForbiddenError,
   EditorialValidationError,
+  InvalidArticleIdError,
 } from '@/lib/server/content/newsroomArticleTypes';
 
 type RouteContext = {
@@ -31,6 +32,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
       message: 'Revision restored successfully',
     });
   } catch (error) {
+    if (error instanceof InvalidArticleIdError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      );
+    }
     if (error instanceof EditorialForbiddenError) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },

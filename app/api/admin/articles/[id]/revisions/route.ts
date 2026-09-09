@@ -5,6 +5,7 @@ import {
   ArticleNotFoundError,
   EditorialForbiddenError,
   EditorialValidationError,
+  InvalidArticleIdError,
 } from '@/lib/server/content/newsroomArticleTypes';
 
 type RouteContext = {
@@ -25,6 +26,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const revisions = await EditorialRevisionService.getRevisions(id, user);
     return NextResponse.json({ success: true, data: revisions });
   } catch (error) {
+    if (error instanceof InvalidArticleIdError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      );
+    }
     if (error instanceof EditorialForbiddenError) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },

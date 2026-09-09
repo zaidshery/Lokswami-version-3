@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canReadContent, canViewPage } from '@/lib/auth/permissions';
 import { listArticleActivity } from '@/lib/server/articleActivity';
-import { findArticleById } from '@/lib/server/content/newsroomArticleRepository';
+import { InvalidArticleIdError } from '@/lib/server/content/newsroomArticleTypes';
+import {
+  findArticleById,
+  resolveNewsroomArticleStore,
+} from '@/lib/server/content/newsroomArticleRepository';
 import { buildArticlePermissionRecord } from '@/lib/server/content/newsroomArticleValidation';
 
 type RouteContext = {
@@ -21,7 +25,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params;
-    const article = await findArticleById(id);
+    const store = await resolveNewsroomArticleStore();
+    const article = await findArticleById(id, store);
     if (!article) {
       return NextResponse.json({ success: false, error: 'Article not found' }, { status: 404 });
     }
@@ -33,6 +38,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const activity = await listArticleActivity({ articleId: id, article });
     return NextResponse.json({ success: true, data: activity });
   } catch (error) {
+    if (error instanceof InvalidArticleIdError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
     console.error('Error fetching article activity:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch article activity' },

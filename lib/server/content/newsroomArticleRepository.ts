@@ -15,8 +15,10 @@ import {
 import {
   ArticleNotFoundError,
   ArticleVersionConflictError,
+  InvalidArticleIdError,
   MongoAssignmentUnavailableError,
   type AssigneeRef,
+  type NewsroomArticleStore,
   type PersistedArticleRecord,
   type RevisionSnapshot,
 } from './newsroomArticleTypes';
@@ -47,24 +49,38 @@ export async function shouldUseFileStore(): Promise<boolean> {
   }
 }
 
-export async function findArticleById(id: string): Promise<PersistedArticleRecord | null> {
-  if (await shouldUseFileStore()) {
+export async function resolveNewsroomArticleStore(): Promise<NewsroomArticleStore> {
+  const useFile = await shouldUseFileStore();
+  return useFile ? 'file' : 'mongo';
+}
+
+export async function findArticleById(
+  id: string,
+  store?: NewsroomArticleStore
+): Promise<PersistedArticleRecord | null> {
+  const effectiveStore: NewsroomArticleStore = store ?? (await resolveNewsroomArticleStore());
+  if (effectiveStore === 'file') {
     const stored = await getStoredArticleById(id);
     return (stored as unknown as PersistedArticleRecord) || null;
   }
 
   if (!Types.ObjectId.isValid(id)) {
-    return null;
+    throw new InvalidArticleIdError('Invalid article ID');
   }
 
+  await connectDB();
   const article = await Article.findById(id).lean();
   return (article as unknown as PersistedArticleRecord) || null;
 }
 
-export async function listAllNewsroomArticles(query: { category?: string | null }): Promise<{
+export async function listAllNewsroomArticles(
+  query: { category?: string | null },
+  store?: NewsroomArticleStore
+): Promise<{
   articles: PersistedArticleRecord[];
   source: 'mongo' | 'file';
 }> {
+  const effectiveStore: NewsroomArticleStore = store ?? (await resolveNewsroomArticleStore());
   const getStored = async () => {
     const all = await listAllStoredArticles();
     return {
@@ -73,7 +89,7 @@ export async function listAllNewsroomArticles(query: { category?: string | null 
     };
   };
 
-  if (await shouldUseFileStore()) {
+  if (effectiveStore === 'file') {
     return getStored();
   }
 
@@ -105,8 +121,12 @@ export async function listAllNewsroomArticles(query: { category?: string | null 
   }
 }
 
-export async function createNewsroomArticle(data: Record<string, unknown>): Promise<PersistedArticleRecord> {
-  if (await shouldUseFileStore()) {
+export async function createNewsroomArticle(
+  data: Record<string, unknown>,
+  store?: NewsroomArticleStore
+): Promise<PersistedArticleRecord> {
+  const effectiveStore: NewsroomArticleStore = store ?? (await resolveNewsroomArticleStore());
+  if (effectiveStore === 'file') {
     const created = await createStoredArticle(data as unknown as Parameters<typeof createStoredArticle>[0]);
     return created as unknown as PersistedArticleRecord;
   }
@@ -125,9 +145,11 @@ export async function updateNewsroomArticleWithCas(
     skipRevision?: boolean;
     revisionSnapshot?: RevisionSnapshot | null;
     currentRecord?: PersistedArticleRecord | null;
+    store?: NewsroomArticleStore;
   } = {}
 ): Promise<PersistedArticleRecord> {
-  if (await shouldUseFileStore()) {
+  const effectiveStore: NewsroomArticleStore = options.store ?? (await resolveNewsroomArticleStore());
+  if (effectiveStore === 'file') {
     const currentArticle = options.currentRecord ?? (await getStoredArticleById(id));
     if (!currentArticle) {
       throw new ArticleNotFoundError();
@@ -179,7 +201,7 @@ export async function updateNewsroomArticleWithCas(
   }
 
   if (!Types.ObjectId.isValid(id)) {
-    throw new ArticleNotFoundError('Invalid article ID');
+    throw new InvalidArticleIdError('Invalid article ID');
   }
 
   await connectDB();
@@ -255,9 +277,11 @@ export async function updateNewsroomArticleWithCas(
 
 export async function deleteNewsroomArticleWithCas(
   id: string,
-  expectedVersion?: number | null
+  expectedVersion?: number | null,
+  store?: NewsroomArticleStore
 ): Promise<PersistedArticleRecord> {
-  if (await shouldUseFileStore()) {
+  const effectiveStore: NewsroomArticleStore = store ?? (await resolveNewsroomArticleStore());
+  if (effectiveStore === 'file') {
     const current = await getStoredArticleById(id);
     if (!current) {
       throw new ArticleNotFoundError();
@@ -294,7 +318,7 @@ export async function deleteNewsroomArticleWithCas(
   }
 
   if (!Types.ObjectId.isValid(id)) {
-    throw new ArticleNotFoundError('Invalid article ID');
+    throw new InvalidArticleIdError('Invalid article ID');
   }
 
   await connectDB();
@@ -344,8 +368,13 @@ export async function deleteNewsroomArticleWithCas(
     : deleted) as PersistedArticleRecord;
 }
 
-export async function checkSlugConflict(slug: string, excludeId?: string): Promise<boolean> {
-  if (await shouldUseFileStore()) {
+export async function checkSlugConflict(
+  slug: string,
+  excludeId?: string,
+  store?: NewsroomArticleStore
+): Promise<boolean> {
+  const effectiveStore: NewsroomArticleStore = store ?? (await resolveNewsroomArticleStore());
+  if (effectiveStore === 'file') {
     const all = await listAllStoredArticles();
     return all.some((article) => {
       if (excludeId && (article._id === excludeId || (article as unknown as { id?: string }).id === excludeId)) {
@@ -371,11 +400,15 @@ export async function checkSlugConflict(slug: string, excludeId?: string): Promi
   return Boolean(existing);
 }
 
-export async function getArticleRevisions(id: string): Promise<{
+export async function getArticleRevisions(
+  id: string,
+  store?: NewsroomArticleStore
+): Promise<{
   article: PersistedArticleRecord | null;
   revisions: Array<Record<string, unknown>>;
 }> {
-  if (await shouldUseFileStore()) {
+  const effectiveStore: NewsroomArticleStore = store ?? (await resolveNewsroomArticleStore());
+  if (effectiveStore === 'file') {
     const article = await getStoredArticleById(id);
     if (!article) return { article: null, revisions: [] };
 
@@ -390,7 +423,7 @@ export async function getArticleRevisions(id: string): Promise<{
   }
 
   if (!Types.ObjectId.isValid(id)) {
-    return { article: null, revisions: [] };
+    throw new InvalidArticleIdError('Invalid article ID');
   }
 
   await connectDB();
@@ -420,15 +453,17 @@ export async function restoreRevisionInStore(
   updates: Record<string, unknown>,
   snapshot: RevisionSnapshot,
   hasStoredVersion: boolean,
-  currentVersion: number
+  currentVersion: number,
+  store?: NewsroomArticleStore
 ): Promise<PersistedArticleRecord | null> {
-  if (await shouldUseFileStore()) {
+  const effectiveStore: NewsroomArticleStore = store ?? (await resolveNewsroomArticleStore());
+  if (effectiveStore === 'file') {
     const restored = await restoreStoredArticleRevision(id, revisionId);
     return (restored as unknown as PersistedArticleRecord) || null;
   }
 
   if (!Types.ObjectId.isValid(id)) {
-    return null;
+    throw new InvalidArticleIdError('Invalid article ID');
   }
 
   await connectDB();
