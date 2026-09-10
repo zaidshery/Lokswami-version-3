@@ -85,13 +85,31 @@ async function ensureDataDir(dirPath: string = DATA_DIR) {
  * verifiers persisted in the file fallback. MongoDB is the sole reader credential authority.
  * Non-reader roles preserve existing attributes so staff/admin mechanisms are not disrupted.
  */
+function stripReaderCredentialKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripReaderCredentialKeys);
+  if (!value || typeof value !== 'object') return value;
+  const clean: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    if (key !== 'passwordHash' && key !== 'passwordSetAt') {
+      clean[key] = stripReaderCredentialKeys(nested);
+    }
+  }
+  return clean;
+}
+
+function containsReaderCredentialKeys(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(containsReaderCredentialKeys);
+  if (!value || typeof value !== 'object') return false;
+  return Object.entries(value).some(
+    ([key, nested]) =>
+      key === 'passwordHash' || key === 'passwordSetAt' || containsReaderCredentialKeys(nested)
+  );
+}
+
 export function sanitizeStoredUserCredentials<T extends Partial<StoredUser>>(user: T): T {
   const role = user.role || 'reader';
   if (role === 'reader') {
-    const sanitized = { ...user };
-    delete sanitized.passwordHash;
-    delete sanitized.passwordSetAt;
-    return sanitized;
+    return stripReaderCredentialKeys(user) as T;
   }
   return user;
 }
@@ -104,12 +122,9 @@ export function sanitizeStoredUsers(users: StoredUser[]): {
   const sanitized = users.map((user) => {
     const role = user.role || 'reader';
     if (role === 'reader') {
-      if (user.passwordHash !== undefined || user.passwordSetAt !== undefined) {
+      if (containsReaderCredentialKeys(user)) {
         hadLegacyReaderCredentials = true;
-        const clean = { ...user };
-        delete clean.passwordHash;
-        delete clean.passwordSetAt;
-        return clean;
+        return sanitizeStoredUserCredentials(user);
       }
     }
     return user;
@@ -269,12 +284,9 @@ export async function scrubLegacyReaderCredentialsFromFile(customFilePath?: stri
     let scrubbedCount = 0;
     const cleaned = raw.map((user: StoredUser) => {
       if ((user.role || 'reader') === 'reader') {
-        if (user.passwordHash !== undefined || user.passwordSetAt !== undefined) {
+        if (containsReaderCredentialKeys(user)) {
           scrubbedCount++;
-          const copy = { ...user };
-          delete copy.passwordHash;
-          delete copy.passwordSetAt;
-          return copy;
+          return sanitizeStoredUserCredentials(user);
         }
       }
       return user;

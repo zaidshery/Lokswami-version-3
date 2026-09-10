@@ -561,4 +561,34 @@ describe('P1-B: Storage Concurrency & Mutation Serialization (C4)', () => {
       expect(disk.some((u) => u.email === `concurrent-${i}@example.com`)).toBe(true);
     }
   });
+
+  it('10. recursively strips reader credential keys from spread and nested input', async () => {
+    const tempFilePath = path.join(tempDir, 'nested-reader-secrets.json');
+    await fs.writeFile(tempFilePath, '[]', 'utf-8');
+
+    await upsertStoredUser(
+      { email: 'nested@example.com', name: 'Nested Reader', role: 'reader' },
+      tempFilePath
+    );
+    await upsertStoredUser(
+      {
+        email: 'nested@example.com',
+        name: 'Nested Reader',
+        role: 'reader',
+        passwordHash: 'top-level-secret',
+        passwordSetAt: '2026-01-01T00:00:00.000Z',
+        legacy: {
+          passwordHash: 'nested-secret',
+          deeper: [{ passwordSetAt: 'nested-date', safe: 'retained' }],
+        },
+      } as unknown as Partial<StoredUser> & { email: string },
+      tempFilePath
+    );
+
+    const raw = await fs.readFile(tempFilePath, 'utf-8');
+    const [stored] = JSON.parse(raw);
+    expect(raw).not.toContain('passwordHash');
+    expect(raw).not.toContain('passwordSetAt');
+    expect(stored.legacy.deeper[0].safe).toBe('retained');
+  });
 });

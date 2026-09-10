@@ -265,14 +265,14 @@ All migrated routes are 71 physical source lines or fewer and contain zero direc
 - `npm run build:ci`: passed; optimized production compilation succeeded and 172/172 static pages generated.
 - `git diff --check`: passed; dependency manifests, runtime JSON, generated output, and secrets are unchanged.
 
-Phase 2.5 has not been started.
+Phase 2.5 follows from the verified Phase 2.4 foundation.
 
 ---
 
 ### Phase 2.5: Reader & Identity Domain Decoupling
 
-#### 1. Goal
-Decouple reader registration, session handling, reading preferences, saved bookmarks, and read tracking into `ReaderService` and `ReaderRepository`, preserving the MongoDB-only credential authority invariant.
+#### 1. Status: IMPLEMENTED & VERIFIED (Phase 2.5 Complete)
+Reader registration, Reader credential authentication, profile/settings operations, saved articles, and reading history now cross a cohesive application boundary in `lib/server/reader/`. MongoDB remains the only credential authority and the only persistence authority for saved articles and read tracking.
 
 #### 2. Scope & Target Routes
 - `app/api/auth/register/route.ts`
@@ -281,24 +281,38 @@ Decouple reader registration, session handling, reading preferences, saved bookm
 - `app/api/user/save/route.ts`
 - `app/api/user/track/route.ts`
 
-#### 3. Files to Create & Modify
-- **NEW**: `lib/reader/readerTypes.ts` (Reader profile, preferences, bookmarks DTOs).
-- **NEW**: `lib/reader/readerRepository.ts` (MongoDB credential operations + sanitized non-credential file storage).
-- **NEW**: `lib/reader/readerService.ts` (Registration workflow, password mutation, bookmark toggling).
-- **MODIFY**: `app/api/auth/register/route.ts`, `app/api/user/profile/route.ts`.
+#### 3. Implemented Architecture
+- `lib/server/reader/readerTypes.ts`: narrow session, registration, profile, saved-article, authentication, and domain-error contracts.
+- `lib/server/reader/readerRepository.ts`: the sole Reader-domain owner of raw `User`, `Article`, Mongo connection, and legacy `usersFile` access; it returns persistence-neutral values and never exposes Mongoose queries.
+- `lib/server/reader/readerIdentityService.ts`: validation, bcrypt-backed registration, eligible-Reader credential verification, and fail-closed Mongo authority.
+- `lib/server/reader/readerService.ts`: profile/settings, password mutation, bookmark, and read-history workflows.
+- `lib/auth/readerCredentials.ts`: retained as the stable NextAuth compatibility facade and delegates only Reader credential work to `ReaderIdentityService`.
+- Registration, profile, save, and track routes are thin HTTP/session/error-mapping controllers. The three-line NextAuth route and shared `lib/auth.ts` configuration were deliberately left unchanged.
 
-#### 4. Tests & Characterization Strategy
-- **Status**: `EXISTING COVERAGE SUFFICIENT`.
-- **Target Suites**:
-  - `tests/api/auth-registration.test.ts` (Verifies fail-closed Mongo registration).
-  - `tests/user-profile-password-fallback.test.ts` (Verifies password mutations fail closed on Mongo outage).
-  - `tests/reader-credentials-auth.test.ts`
-  - `tests/storage-reader-credential-scrub.test.ts` (Verifies serialized file scrub and zero passwords in fallback).
+#### 4. Preserved Contracts and Security Invariants
+- Registration keeps validation/status/envelope behavior, bcrypt cost, duplicate detection, `reader`/active defaults, and best-effort non-secret profile projection. Mongo failure returns the historical 503 and never creates file-only credentials.
+- Reader login normalizes identifiers, accepts only active Reader records with an authoritative Mongo password hash, and fails closed for missing/unreachable Mongo. Admin/staff provider order and Google/OAuth, JWT, session, cookie, redirect, and account-linking behavior are unchanged.
+- Password changes verify and write only through Mongo; a Mongo read or write failure returns the historical 503 and never mutates the file profile.
+- `usersFile` remains a non-secret Reader profile adapter. Reader `passwordHash` and `passwordSetAt` keys are scrubbed recursively from top-level, nested, corrupt, and spread-based input while non-Reader credentials retain their existing behavior.
+- Profile GET/PATCH retains its existing non-secret file fallback. Saved articles and read tracking remain Mongo-only, saved ordering is stable, tracking remains append-only in foundation order, and the verified history cap is 50 entries.
+- Existing middleware remains the rate-limit authority: registration uses the auth bucket (10/minute per client IP); profile, save, and track use the generic API bucket (100/minute per route/client IP).
 
-#### 5. Definition of Done
-- Registration and profile routes delegate to `readerService`.
-- Zero password hashes or credential fields ever touch file persistence.
-- All 9 reader authentication and profile test suites pass.
+#### 5. Verification Evidence
+- Focused Reader/Auth: 12 files, 84 tests passed.
+- Security: 8 files, 63 tests passed.
+- Governance: 4 files, 16 tests passed.
+- Four-role newsroom: 6 files, 25 tests passed.
+- Full `test:ci`: 219 Vitest files, 1,112 tests passed; 7 auth guards and 6 synthetic admin credential cases passed.
+- `npm run typecheck`, `npm run lint:strict`, and dependency security passed.
+- `npm run build:ci`: passed; optimized production compilation succeeded and 172/172 static pages generated.
+
+#### 6. Known P2 / Future Debt
+- The Mongo `User` collection remains physically shared across Reader and privileged identities; ownership is enforced by the repository/service boundary rather than separate schemas.
+- Reader profile resilience still depends on the legacy JSON adapter by compatibility requirement, although credential material is prohibited and recursively scrubbed.
+- Read tracking preserves the foundation's append-only semantics and 50-entry cap; deduplication would be a behavior change and is deferred.
+- The existing Vite native-config compatibility warning and slow local Next.js trace collection are inherited tooling concerns.
+
+Phase 2.6 has not been started.
 
 ---
 
