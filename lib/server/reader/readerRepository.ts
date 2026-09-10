@@ -5,6 +5,7 @@ import Article from '@/lib/models/Article';
 import { resolveArticleEditorialFlags } from '@/lib/content/articleEditorial';
 import { isPubliclyPublishedArticle } from '@/lib/content/articlePublication';
 import { normalizeWhatsAppNumber } from '@/lib/utils/phone';
+import { normalizeUserRole } from '@/lib/auth/roles';
 import { findStoredUserByEmail, upsertStoredUser } from '@/lib/storage/usersFile';
 import type {
   ReaderProfileProjection,
@@ -87,7 +88,7 @@ export function projectReaderProfile(value: RawUser): ReaderProfileProjection {
     email: String(value.email || '').trim().toLowerCase(),
     whatsappNumber: typeof value.whatsappNumber === 'string' ? value.whatsappNumber : undefined,
     image: typeof value.image === 'string' ? value.image : undefined,
-    role: 'reader',
+    role: normalizeUserRole(value.role) || 'reader',
     isActive: value.isActive !== false,
     optInDailyEpaper: value.optInDailyEpaper !== false,
     preferredLanguage: value.preferredLanguage === 'en' ? 'en' : 'hi',

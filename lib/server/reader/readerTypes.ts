@@ -1,3 +1,5 @@
+import type { UserRole } from '@/lib/auth/roles';
+
 export type ReaderSessionIdentity = {
   userId: string;
   email: string;
@@ -44,7 +46,7 @@ export type ReaderProfileProjection = {
   email: string;
   whatsappNumber?: string;
   image?: string;
-  role?: 'reader';
+  role?: UserRole;
   isActive?: boolean;
   optInDailyEpaper?: boolean;
   preferredLanguage?: 'hi' | 'en';

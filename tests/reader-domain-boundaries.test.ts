@@ -52,6 +52,21 @@ describe('Phase 2.5 Reader domain boundaries', () => {
     expect(JSON.stringify(projected)).not.toContain('passwordSetAt');
   });
 
+  it.each(['admin', 'super_admin', 'reporter', 'copy_editor'] as const)(
+    'preserves the %s role without projecting Mongo credential fields',
+    (role) => {
+      const projected = projectReaderProfile({
+        _id: 'staff-1',
+        name: 'Staff',
+        email: 'staff@example.com',
+        role,
+        passwordHash: 'mongo-secret',
+      });
+      expect(projected.role).toBe(role);
+      expect(JSON.stringify(projected)).not.toContain('passwordHash');
+    }
+  );
+
   it('does not make the Reader domain depend on shared NextAuth configuration', () => {
     for (const file of [
       'lib/server/reader/readerRepository.ts',

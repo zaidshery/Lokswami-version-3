@@ -298,11 +298,11 @@ Reader registration, Reader credential authentication, profile/settings operatio
 - Existing middleware remains the rate-limit authority: registration uses the auth bucket (10/minute per client IP); profile, save, and track use the generic API bucket (100/minute per route/client IP).
 
 #### 5. Verification Evidence
-- Focused Reader/Auth: 12 files, 84 tests passed.
+- Focused Reader/Auth: 12 files, 88 tests passed.
 - Security: 8 files, 63 tests passed.
 - Governance: 4 files, 16 tests passed.
 - Four-role newsroom: 6 files, 25 tests passed.
-- Full `test:ci`: 219 Vitest files, 1,112 tests passed; 7 auth guards and 6 synthetic admin credential cases passed.
+- Full `test:ci`: 219 Vitest files, 1,116 tests passed; 7 auth guards and 6 synthetic admin credential cases passed.
 - `npm run typecheck`, `npm run lint:strict`, and dependency security passed.
 - `npm run build:ci`: passed; optimized production compilation succeeded and 172/172 static pages generated.
 
