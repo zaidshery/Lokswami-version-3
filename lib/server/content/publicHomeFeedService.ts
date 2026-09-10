@@ -3,20 +3,13 @@ import 'server-only';
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 import { isPubliclyPublishedArticle } from '@/lib/content/articlePublication';
 import { toPublicVideoItem } from '@/lib/content/videoPublication';
-import { getCitySlugFromName } from '@/lib/constants/epaperCities';
 import Article from '@/lib/models/Article';
-import EPaper from '@/lib/models/EPaper';
 import { videoService } from '@/lib/server/video/videoService';
+import { epaperService } from '@/lib/server/epaper/epaperService';
 import { resolveReusableBreakingTts } from '@/lib/server/breakingTts';
 import { listAllStoredArticles } from '@/lib/storage/articlesFile';
-import { listAllStoredEPapers } from '@/lib/storage/epapersFile';
 import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
-import { resolveEpaperCoverImagePath } from '@/lib/utils/epaperCover';
 import { type EPaperPublicationType } from '@/lib/types/epaper';
-import {
-  buildPublicationTypeMongoFilter,
-  normalizePublicationIssueMonth,
-} from '@/lib/utils/epaperPublication';
 import { resolveArticleEditorialFlags } from '@/lib/content/articleEditorial';
 
 export type PublicHomeFeedSource = 'mongo' | 'file';
@@ -165,27 +158,9 @@ function toIsoDate(value: unknown) {
   return parsed.toISOString();
 }
 
-function toDateLabel(value: unknown) {
-  const parsed = new Date(
-    value instanceof Date || typeof value === 'string' || typeof value === 'number'
-      ? value
-      : Date.now()
-  );
-  if (Number.isNaN(parsed.getTime())) return '';
-  return parsed.toISOString().slice(0, 10);
-}
-
 function toNumber(value: unknown, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function firstNonEmptyString(...values: unknown[]) {
-  for (const value of values) {
-    const text = String(value || '').trim();
-    if (text) return text;
-  }
-  return '';
 }
 
 function normalizeLimit(
@@ -317,76 +292,6 @@ function mapVideo(raw: unknown, forceShort?: boolean): PublicHomeFeedVideo | nul
   };
 }
 
-function mapMongoEPaper(raw: unknown): PublicHomeFeedEPaper | null {
-  const input = asObject(raw);
-  const id = toId(input._id || input.id);
-  if (!id) return null;
-
-  const publishDate = toDateLabel(input.publishDate);
-  const citySlug = String(input.citySlug || '').trim();
-  const publicationType =
-    String(input.publicationType || '').trim() === 'emagazine'
-      ? 'emagazine'
-      : 'epaper';
-
-  return {
-    id,
-    publicationType,
-    citySlug,
-    cityName: String(input.cityName || '').trim(),
-    title: String(input.title || '').trim(),
-    publishDate,
-    thumbnailPath: resolveEpaperCoverImagePath({
-      thumbnailPath: input.thumbnailPath,
-      thumbnail: input.thumbnail,
-      pages: input.pages,
-    }),
-    pdfPath: firstNonEmptyString(input.pdfPath, input.pdfUrl),
-    pageCount: Math.max(1, Math.floor(toNumber(input.pageCount, 1))),
-    href: buildEpaperHref(citySlug, publishDate, publicationType),
-  };
-}
-
-function mapFileEPaper(raw: unknown): PublicHomeFeedEPaper | null {
-  const input = asObject(raw);
-  const id = toId(input._id || input.id);
-  if (!id) return null;
-
-  const cityName = String(input.city || input.cityName || '').trim();
-  const citySlug = String(input.citySlug || '').trim() || getCitySlugFromName(cityName);
-  const publishDate = String(input.publishDate || '').trim() || toDateLabel(input.publishedAt);
-
-  return {
-    id,
-    publicationType: 'epaper',
-    citySlug,
-    cityName,
-    title: String(input.title || '').trim(),
-    publishDate,
-    thumbnailPath: firstNonEmptyString(input.thumbnailPath, input.thumbnail),
-    pdfPath: firstNonEmptyString(input.pdfPath, input.pdfUrl),
-    pageCount: Math.max(1, Math.floor(toNumber(input.pages || input.pageCount, 1))),
-    href: buildEpaperHref(citySlug, publishDate, 'epaper'),
-  };
-}
-
-function buildEpaperHref(
-  citySlug: string,
-  publishDate: string,
-  publicationType: EPaperPublicationType = 'epaper'
-) {
-  if (publicationType === 'emagazine') {
-    const month = normalizePublicationIssueMonth(publishDate);
-    return month ? `/main/e-magazine?month=${encodeURIComponent(month)}` : '/main/e-magazine';
-  }
-
-  const params = new URLSearchParams();
-  if (citySlug) params.set('city', citySlug);
-  if (publishDate) params.set('date', publishDate);
-  const query = params.toString();
-  return query ? `/main/epaper?${query}` : '/main/epaper';
-}
-
 async function resolveSource(): Promise<PublicHomeFeedSource> {
   return (await isMongoAvailable({ label: 'public home feed' })) ? 'mongo' : 'file';
 }
@@ -403,7 +308,7 @@ async function loadMongoFeed(
     articleCandidateMinimum
   );
 
-  const [articleDocs, videoData, epaperDocs, emagazineDocs] = await Promise.all([
+  const [articleDocs, videoData, editions] = await Promise.all([
     Article.find({
       $or: [
         { 'workflow.status': 'published' },
@@ -427,25 +332,7 @@ async function loadMongoFeed(
       { videos: limits.videos, shorts: limits.shorts },
       'mongo'
     ),
-    EPaper.find({
-      status: 'published',
-      isCurrentRevision: { $ne: false },
-      citySlug: 'indore',
-      ...buildPublicationTypeMongoFilter('epaper'),
-    })
-      .select('_id publicationType citySlug cityName title publishDate thumbnailPath thumbnail pdfPath pdfUrl pageCount pages')
-      .sort({ publishDate: -1, _id: -1 })
-      .limit(1)
-      .lean(),
-    EPaper.find({
-      status: 'published',
-      isCurrentRevision: { $ne: false },
-      ...buildPublicationTypeMongoFilter('emagazine'),
-    })
-      .select('_id publicationType citySlug cityName title publishDate thumbnailPath thumbnail pdfPath pdfUrl pageCount pages')
-      .sort({ publishDate: -1, _id: -1 })
-      .limit(1)
-      .lean(),
+    epaperService.getHomeFeedEditions('mongo'),
   ]);
 
   const articles = articleDocs
@@ -477,19 +364,19 @@ async function loadMongoFeed(
       .filter((item): item is PublicHomeFeedVideo => Boolean(item))
       .sort(compareByPublishedAtDesc)
       .slice(0, limits.shorts),
-    epaper: mapMongoEPaper(epaperDocs[0]) || null,
-    emagazine: mapMongoEPaper(emagazineDocs[0]) || null,
+    epaper: editions.epaper,
+    emagazine: editions.emagazine,
   };
 }
 
 async function loadFileFeed(limits: Required<PublicHomeFeedLimits>) {
-  const [articleRows, videoData, epaperRows] = await Promise.all([
+  const [articleRows, videoData, editions] = await Promise.all([
     listAllStoredArticles(),
     videoService.getHomeFeedVideos(
       { videos: limits.videos, shorts: limits.shorts },
       'file'
     ),
-    listAllStoredEPapers(),
+    epaperService.getHomeFeedEditions('file'),
   ]);
 
   const articles = articleRows
@@ -508,12 +395,6 @@ async function loadFileFeed(limits: Required<PublicHomeFeedLimits>) {
           .slice(0, limits.breaking)
       : [];
 
-  const latestEPaper: PublicHomeFeedEPaper | null = epaperRows
-    .map((item) => mapFileEPaper(item))
-    .filter((item): item is PublicHomeFeedEPaper => Boolean(item))
-    .filter((item) => item.citySlug === 'indore')
-    .sort((a, b) => b.publishDate.localeCompare(a.publishDate))[0] ?? null;
-
   return {
     articles,
     breaking,
@@ -527,8 +408,8 @@ async function loadFileFeed(limits: Required<PublicHomeFeedLimits>) {
       .filter((item): item is PublicHomeFeedVideo => Boolean(item))
       .sort(compareByPublishedAtDesc)
       .slice(0, limits.shorts),
-    epaper: latestEPaper,
-    emagazine: null,
+    epaper: editions.epaper,
+    emagazine: editions.emagazine,
   };
 }
 

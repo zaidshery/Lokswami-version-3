@@ -194,6 +194,8 @@ describe('e-paper page image quality profile', () => {
       'app/api/admin/epapers/[id]/uploads/finalize/route.ts'
     );
     const renderer = read('lib/server/epaperPdfRenderer.ts');
+    const uploadService = read('lib/server/epaper/epaperUploadService.ts');
+    const workerAdapter = read('lib/server/epaper/epaperWorkerAdapter.ts');
 
     expect(createPage).toContain('/api/admin/epapers/uploads');
     expect(createPage).toContain('/uploads/finalize');
@@ -202,12 +204,13 @@ describe('e-paper page image quality profile', () => {
     expect(detailPage).toContain('Upload PDF');
     expect(detailPage).toContain('PDF uploaded');
     expect(detailPage).toContain('Page conversion progress');
-    expect(uploadsRoute).toContain('canResumeDraftUpload');
-    expect(uploadsRoute).toContain('resumed: true');
+    expect(uploadsRoute).toContain('epaperUploadService.initialize');
+    expect(uploadService).toContain('canResumeDraftUpload');
+    expect(uploadService).toContain('resumed: true');
     expect(createPage).not.toContain('renderPdfFilePages');
-    expect(finalizeRoute).toContain('queueEpaperPageProcessing');
-    expect(finalizeRoute).toContain('deleteDigitalOceanSpacesAssetByPublicId');
-    expect(uploadsRoute).toContain('deleteDigitalOceanSpacesAssetByPublicId');
+    expect(finalizeRoute).toContain('epaperUploadService.finalize');
+    expect(workerAdapter).toContain('queueEpaperPageProcessing');
+    expect(uploadService).toContain('deleteDigitalOceanSpacesAssetByPublicId');
     expect(renderer).toContain('const TARGET_WIDTH = 3000');
     expect(renderer).toContain('const JPEG_QUALITY = 90');
   });
@@ -219,12 +222,15 @@ describe('e-paper page image quality profile', () => {
     const retryRoute = read(
       'app/api/admin/epapers/[id]/processing/retry/route.ts'
     );
+    const uploadService = read('lib/server/epaper/epaperUploadService.ts');
+    const processingService = read('lib/server/epaper/epaperProcessingService.ts');
 
-    expect(finalizeRoute).toContain('shouldUseGlobalPublicationScope(epaper.publicationType)');
-    expect(finalizeRoute).toContain('? undefined');
-    expect(finalizeRoute).toContain(': epaper.citySlug');
-    expect(retryRoute).toContain('_id publicationType citySlug status pageCount pages');
-    expect(retryRoute).toContain('shouldUseGlobalPublicationScope(epaper.publicationType)');
+    expect(finalizeRoute).toContain('epaperUploadService.finalize');
+    expect(uploadService).toContain('shouldUseGlobalPublicationScope(paper.publicationType)');
+    expect(uploadService).toContain('? undefined');
+    expect(processingService).toContain('_id publicationType citySlug status pageCount pages');
+    expect(processingService).toContain('shouldUseGlobalPublicationScope(paper.publicationType)');
+    expect(retryRoute).toContain('epaperProcessingService.retry');
   });
 
   it('uses rendered PDF page one as the cover without a thumbnail upload', () => {
