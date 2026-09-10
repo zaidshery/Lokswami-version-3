@@ -159,36 +159,59 @@ All 8 target administrative routes refactored into thin controllers:
 #### 1. Goal
 Decouple video catalog management, vertical short-video feed pagination, aspect ratio classification, and video sitemaps into a dedicated `VideoService` and `VideoRepository`.
 
-#### 2. Scope & Target Routes
-- `app/api/admin/videos/route.ts`
-- `app/api/admin/videos/[id]/route.ts`
-- `app/api/admin/videos/[id]/activity/route.ts`
-- `app/api/v1/public/videos/route.ts`
-- `app/api/v1/public/videos/latest/route.ts`
-- `app/api/v1/public/shorts/route.ts`
-- `app/api/v1/public/shorts/latest/route.ts`
-- `app/api/v1/public/shorts/[slug]/route.ts`
-- `app/api/shorts/latest/route.ts` (Legacy alias)
-- `app/api/videos/latest/route.ts` (Legacy alias)
-- `app/video-sitemap.xml/route.ts`
+#### 2. Status
+`COMPLETE / VERIFIED`
 
-#### 3. Files to Create & Modify
-- **NEW**: `lib/video/videoTypes.ts` (Video DTOs, shorts cursor types, playback metadata).
-- **NEW**: `lib/video/videoRepository.ts` (Encapsulates `Video` Mongoose queries and `videosFile.ts` fallback).
-- **NEW**: `lib/video/videoService.ts` (Public swipe feed cursor pagination, CMS video curation, sitemap feeder).
-- **MODIFY**: Target video routes and `app/video-sitemap.xml/route.ts`.
+Phase 2.3 was resumed from the preserved local working tree at baseline
+`dff1abf12dd51328927bdfb32a272da80207882a`; no reset, clean, or branch replacement was performed.
 
-#### 4. Tests & Characterization Strategy
-- **Status**: `EXISTING COVERAGE SUFFICIENT`.
-- **Target Suites**:
-  - `tests/video-sitemap-route.test.ts` (Asserts Phase 1 invariants: landscape `/main/videos?video=<id>`, shorts `/main/shorts/<slug>`, pagination >50 items).
-  - `tests/api/v1-public-shorts.test.ts`
-  - `tests/api/v1-public-videos.test.ts`
+#### 3. Implemented Architecture
+- `lib/server/video/videoTypes.ts` (146 lines): Video store, DTO, query, cursor, preview, and domain error contracts.
+- `lib/server/video/videoRepository.ts` (335 lines): All Video Mongoose and `videosFile` persistence, authoritative mutation-store resolution, admin queries, public cursor reads, exact/legacy Swipe lookup, and home-feed Video reads.
+- `lib/server/video/videoService.ts` (87 lines): Public regular-video, Swipe feed/detail, published Article preview, and home-feed orchestration.
+- `lib/server/video/videoEditorialPolicy.ts` (456 lines): CMS input normalization, validation, workflow compatibility, list filtering/sorting, and serialization policy.
+- `lib/server/video/videoEditorialService.ts` (478 lines): CMS list/detail/create/update/workflow/delete/activity orchestration with one pinned Video store per mutation.
+- `lib/server/publicVideos.ts` (26 lines) and `lib/server/publicSwipeFeed.ts` (14 lines): Backward-compatible thin facades over the Video domain.
+- `lib/server/content/publicHomeFeedService.ts`: Video persistence removed; E-Paper persistence intentionally unchanged for Phase 2.4.
 
-#### 5. Definition of Done
-- Video routes delegate cleanly to `videoService`.
-- Sitemaps consume `videoService.getPublicVideoFeedPage(...)`.
-- Phase 1 video sitemap URL and pagination invariants remain 100% green.
+The runtime dependency direction is now:
+
+```text
+HTTP controller / sitemap / home feed
+    -> VideoService or VideoEditorialService
+    -> VideoRepository
+    -> MongoDB or videosFile fallback
+```
+
+Public non-mutating reads retain graceful Mongo-to-file fallback. Every multi-step Video mutation resolves `mongo` or `file` once and threads that store through the operation; a later Mongo failure is returned and never switches the write to file storage.
+
+#### 4. Controller Reduction (Baseline -> Verified)
+- `app/api/admin/videos/route.ts`: 635 -> 118 lines (81.4% reduction).
+- `app/api/admin/videos/[id]/route.ts`: 1,006 -> 147 lines (85.4% reduction).
+- `app/api/admin/videos/[id]/activity/route.ts`: 98 -> 51 lines (48.0% reduction).
+
+All target admin/public Video controllers, the sitemap consumer, and both compatibility facades contain zero direct `Video` model, Mongoose, `connectDB`, or `videosFile` persistence usage.
+
+#### 5. Contract Verification
+- Admin: list, draft, submit, publish, publish RBAC, detail, Mongo invalid IDs, file non-ObjectId IDs, update, both legacy `isPublished` directions, workflow, assignment, fast-publish, archive, delete, activity, Mongo/file paths, and one-store-only mutation behavior.
+- Public Video: regular `publishedAt`/ID cursor behavior, publication filtering, Mongo read fallback, and file fallback.
+- Swipe: default limit 8, `createdAt` primary cursor with `publishedAt` fallback, future/unpublished/processing/failed/16:9 exclusion, legacy metadata eligibility, exact slug, generated legacy slug, published Article preview, 404/503 contracts, and cache headers.
+- Sitemap: regular `/main/videos?video=<id>` and short `/main/shorts/<slug>` paths, pagination beyond 50, cursor-loop protection, ID/URL dedupe, and XML fields.
+- Home feed: Video/short output compatibility preserved with no Video persistence in the composer.
+
+#### 6. Quality Gates & Exact Results
+- Focused Phase 2.3 suite: 9 test files, 63 tests passed.
+- `npm run typecheck`: passed, 0 errors.
+- `npm run lint:strict`: passed, 0 warnings and 0 errors.
+- `npm run test:security`: 8 test files, 63 tests passed.
+- `npm run test:governance`: 4 test files, 16 tests passed (including typecheck).
+- `npm run test:four-role-newsroom`: 6 test files, 25 tests passed (including typecheck).
+- `npm run test:ci`: 211 test files, 1,045 tests passed; auth guards 7/7; synthetic admin credentials 6/6.
+- `npm run build:ci`: passed; production compilation succeeded and 172/172 static pages generated.
+- Explicit safety regression set: 14 test files, 117 tests passed, covering PDF worker isolation, PDF render mutex, E-Paper release snapshots, reader credentials and fail-closed registration, credential scrub, video sitemap, public Articles, content boundaries, newsroom Article workflow, and Phase 2.2 compatibility hardening.
+- `git diff --check`: passed; runtime data files are clean.
+
+Phase 2.4 has not been started.
 
 ---
 
