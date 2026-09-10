@@ -1,4 +1,5 @@
 import type { AdminSessionIdentity } from '@/lib/auth/admin';
+import type { ITtsAsset } from '@/lib/models/TtsAsset';
 import type { EPaperPublicationType } from '@/lib/types/epaper';
 import type { PublicEpaperFilterState } from '@/lib/utils/publicEpaperFilters';
 
@@ -6,6 +7,44 @@ export type { AdminSessionIdentity, EPaperPublicationType, PublicEpaperFilterSta
 
 export type EpaperStore = 'mongo' | 'file';
 export type EpaperRecord = Record<string, unknown>;
+
+type EpaperTtsAssetCloneFields = Pick<
+  ITtsAsset,
+  | 'sourceType'
+  | 'sourceId'
+  | 'sourceParentId'
+  | 'variant'
+  | 'title'
+  | 'textHash'
+  | 'contentVersionHash'
+  | 'languageCode'
+  | 'voice'
+  | 'provider'
+  | 'model'
+  | 'mimeType'
+  | 'audioUrl'
+  | 'storageMode'
+  | 'status'
+  | 'chunkCount'
+  | 'charCount'
+  | 'generatedAt'
+  | 'lastVerifiedAt'
+  | 'failureCount'
+  | 'lastError'
+  | 'metadata'
+>;
+
+export type EpaperTtsAssetCloneSource = EpaperTtsAssetCloneFields & {
+  _id: unknown;
+};
+
+export type CreateEpaperTtsAssetInput = Omit<
+  EpaperTtsAssetCloneFields,
+  'sourceId' | 'sourceParentId'
+> & {
+  sourceId: string;
+  sourceParentId: string;
+};
 
 export type EpaperPageDTO = {
   pageNumber: number;

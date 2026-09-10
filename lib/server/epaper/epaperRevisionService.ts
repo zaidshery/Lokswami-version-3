@@ -46,15 +46,16 @@ export class EpaperRevisionService {
       ids.set(String(article._id), String(clone._id));
     }
     const assets = await this.repo.listReadyTtsAssets({ sourceParentId: String(source._id), sourceType: 'epaperArticle', provider: 'manual', status: 'ready' });
-    for (const raw of assets) {
-      const asset = asObject(raw); const nextId = ids.get(String(asset.sourceId || ''));
+    for (const asset of assets) {
+      const nextId = ids.get(String(asset.sourceId || ''));
       if (!nextId) continue;
       await this.repo.createTtsAsset({ sourceType: asset.sourceType, sourceId: nextId, sourceParentId: String(revision._id),
-        variant: asset.variant, language: asset.language, provider: asset.provider, model: asset.model, voice: asset.voice,
-        textHash: asset.textHash, audioUrl: asset.audioUrl, storageKey: asset.storageKey, mimeType: asset.mimeType,
-        sizeBytes: asset.sizeBytes, durationSeconds: asset.durationSeconds, chunkCount: asset.chunkCount,
-        status: asset.status, createdBy: asset.createdBy,
-        metadata: { ...asObject(asset.metadata), clonedFromEpaperId: String(source._id), clonedFromAssetId: String(asset._id) } });
+        variant: asset.variant, title: asset.title, textHash: asset.textHash, contentVersionHash: asset.contentVersionHash,
+        languageCode: asset.languageCode, voice: asset.voice, provider: asset.provider, model: asset.model,
+        mimeType: asset.mimeType, audioUrl: asset.audioUrl, storageMode: asset.storageMode, status: asset.status,
+        chunkCount: asset.chunkCount, charCount: asset.charCount, generatedAt: asset.generatedAt,
+        lastVerifiedAt: asset.lastVerifiedAt, failureCount: asset.failureCount, lastError: asset.lastError,
+        metadata: { ...(asset.metadata || {}), clonedFromEpaperId: String(source._id), clonedFromAssetId: String(asset._id) } });
     }
     await recordEpaperActivity({ epaperId: String(revision._id), actor, action: 'revision_created', fromStatus: 'published', toStatus: 'hotspot_mapping',
       message: buildEpaperActivityMessage({ action: 'revision_created' }), metadata: { familyId, revisionNumber, supersedesId: String(source._id) } });

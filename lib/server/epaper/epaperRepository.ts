@@ -31,6 +31,8 @@ import {
 import type {
   EpaperRecord,
   EpaperStore,
+  EpaperTtsAssetCloneSource,
+  CreateEpaperTtsAssetInput,
   PublicEpaperFeedInput,
   PublicEpaperFeedItem,
   PublicEpaperListInput,
@@ -398,11 +400,11 @@ export class EpaperRepository {
     return EPaper.find({ familyId }).sort({ revisionNumber: -1, createdAt: -1 }).lean();
   }
 
-  async listReadyTtsAssets(query: EpaperRecord) {
-    return TtsAsset.find(query).lean();
+  async listReadyTtsAssets(query: EpaperRecord): Promise<EpaperTtsAssetCloneSource[]> {
+    return TtsAsset.find(query).lean() as unknown as Promise<EpaperTtsAssetCloneSource[]>;
   }
 
-  async createTtsAsset(data: EpaperRecord) {
+  async createTtsAsset(data: CreateEpaperTtsAssetInput) {
     const created = await TtsAsset.create(data);
     return asObject(created.toObject());
   }

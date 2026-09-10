@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   listArticles: vi.fn(), createArticle: vi.fn(), release: vi.fn(),
   updatePages: vi.fn(), listOcr: vi.fn(), queueOcr: vi.fn(), reviewOcr: vi.fn(),
   processingStatus: vi.fn(), processingRetry: vi.fn(), crop: vi.fn(),
+  createRevision: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/admin', () => ({ getAdminSession: mocks.session, getAdminSessionFromReq: mocks.session }));
@@ -22,6 +23,7 @@ vi.mock('@/lib/server/epaper/epaperPageService', () => ({ epaperPageService: { u
 vi.mock('@/lib/server/epaper/epaperOcrService', () => ({ epaperOcrService: { list: mocks.listOcr, queue: mocks.queueOcr, review: mocks.reviewOcr } }));
 vi.mock('@/lib/server/epaper/epaperProcessingService', () => ({ epaperProcessingService: { status: mocks.processingStatus, retry: mocks.processingRetry } }));
 vi.mock('@/lib/server/epaper/epaperCropService', () => ({ epaperCropService: { crop: mocks.crop } }));
+vi.mock('@/lib/server/epaper/epaperRevisionService', () => ({ epaperRevisionService: { create: mocks.createRevision } }));
 
 const actor = { id: 'admin-1', name: 'Admin', email: 'admin@example.com', role: 'admin' as const };
 const id = '507f1f77bcf86cd799439011';
@@ -50,6 +52,19 @@ describe('Phase 2.4 admin E-Paper domain contracts', () => {
     mocks.listOcr.mockResolvedValue([]); mocks.queueOcr.mockResolvedValue({ message: 'OCR queued.', data: { jobIds: ['j1'], queued: 1, paused: true } });
     mocks.processingStatus.mockResolvedValue({ job: null, pageCount: 1, pages: [], productionStatus: 'hotspot_mapping', stuckWarning: '' });
     mocks.processingRetry.mockResolvedValue({ message: 'Page processing retry queued.', data: { jobId: 'j1', pageNumbers: [1] } });
+    mocks.createRevision.mockResolvedValue({ message: 'Draft revision 2 created.', data: { revisionId: id, familyId: 'family-1', revisionNumber: 2 } });
+  });
+
+  it('preserves the historical revision success status and response body', async () => {
+    const { POST } = await import('@/app/api/admin/epapers/[id]/revisions/route');
+    const response = await POST(request(`/api/admin/epapers/${id}/revisions`, 'POST'), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      message: 'Draft revision 2 created.',
+      data: { revisionId: id, familyId: 'family-1', revisionNumber: 2 },
+    });
+    expect(mocks.createRevision).toHaveBeenCalledWith(actor, id);
   });
 
   it('preserves 401 when the admin session is missing', async () => {
