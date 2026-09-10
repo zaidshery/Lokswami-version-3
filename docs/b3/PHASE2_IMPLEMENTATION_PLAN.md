@@ -217,41 +217,55 @@ Phase 2.4 has not been started.
 
 ### Phase 2.4: E-Paper & E-Magazine Domain Decoupling
 
-#### 1. Goal
-Decouple edition lifecycles, page coordinate hotspots, Hindi OCR suggestion review, story clipping links, background worker dispatch, and immutable `releasedSnapshot` isolation into `EpaperService` and `EpaperRepository`.
+**Status**: `COMPLETE` on the authoritative foundation baseline `8291d6f3a9723507b1f31ba2faf5b00d11bca5fe`.
 
-#### 2. Scope & Target Routes
-- `app/api/admin/epapers/route.ts`
-- `app/api/admin/epapers/[id]/route.ts`
-- `app/api/admin/epapers/[id]/pages/route.ts`
-- `app/api/admin/epapers/[id]/articles/route.ts`
-- `app/api/admin/epapers/[id]/articles/[articleId]/release/route.ts`
-- `app/api/admin/epapers/[id]/crop-hotspot/route.ts`
-- `app/api/admin/epapers/[id]/ocr/route.ts`
-- `app/api/admin/epapers/[id]/processing/route.ts`
-- `app/api/admin/stories/*`
-- `app/api/v1/public/epapers/*`
-- `app/api/public/epapers/[id]/pdf/route.ts`
+#### 1. Implemented Architecture
+The E-Paper and E-Magazine domain now follows this dependency direction:
 
-#### 3. Files to Create & Modify
-- **NEW**: `lib/epaper/epaperTypes.ts` (Edition, Page, Hotspot, and Clipping DTOs).
-- **NEW**: `lib/epaper/epaperRepository.ts` (Encapsulates `EPaper`, `EPaperArticle`, `Story` models & `epapersFile.ts`).
-- **NEW**: `lib/epaper/epaperService.ts` (Edition release workflow, hotspot mapping, worker job dispatch).
-- **NEW**: `lib/epaper/epaperWorkerAdapter.ts` (Communicates with isolated native PDF and OCR workers).
-- **MODIFY**: Target administrative and public E-Paper route handlers.
+```text
+HTTP controller / public home-feed composer
+    -> E-Paper application service
+    -> EpaperRepository or EpaperWorkerAdapter
+    -> MongoDB / inherited E-Paper file fallback / isolated PDF and OCR workers
+```
 
-#### 4. Tests & Characterization Strategy
-- **Status**: `EXISTING COVERAGE SUFFICIENT`.
-- **Target Suites**:
-  - `tests/epaper-release-snapshot-safety.test.ts` (Verifies unreleased draft edits NEVER mutate `releasedSnapshot`).
-  - `tests/pdf-render-mutex-safety.test.ts` (Verifies isolated PDF worker anti-wedge and thread recycle).
-  - `tests/pdf-worker-isolation.test.ts`
-  - `tests/api/admin-epaper-routes.test.ts`
+`lib/server/epaper/` now contains the shared types, mappers, repository, public query service, editorial lifecycle service, article/release service, page service, OCR service, processing service, revision service, metadata service, manual TTS service, crop service, upload service, and worker adapter. `EPaper`, `EPaperArticle`, `EPaperOcrSuggestion`, `EPaperProcessingJob`, Mongoose, and `epapersFile` access were removed from every migrated controller and from `PublicHomeFeedService`. The pre-existing `adminArticleCompat.ts` remains the intentionally isolated compatibility seam for Article-owned routes.
 
-#### 5. Definition of Done
-- `app/api/admin/epapers/[id]/route.ts` reduced from 1,012 lines to < 200 lines.
-- Immutable `releasedSnapshot` invariant strictly enforced inside `EpaperService`.
-- All 24 E-Paper test suites pass cleanly.
+The 22 migrated controllers cover admin edition CRUD/activity, pages, articles, explicit release, OCR review/queueing, processing/retry, revisions, crop, manual TTS, upload initialization/finalization/import, cron dispatch, legacy public list/detail/story-TTS, and the public PDF redirect. Request parsing, authentication, HTTP status mapping, response envelopes, and cache headers remain in the controllers; persistence and workflow decisions live in the domain.
+
+#### 2. Controller Reduction (Foundation -> Verified)
+- `app/api/admin/epapers/route.ts`: 752 -> 43 physical source lines (94.3% reduction).
+- `app/api/admin/epapers/[id]/route.ts`: 1,011 -> 71 physical source lines (93.0% reduction; below the required 200-line ceiling).
+- `app/api/admin/epapers/[id]/pages/route.ts`: 521 -> 29 physical source lines (94.4% reduction).
+- `app/api/admin/epapers/[id]/articles/route.ts`: 394 -> 37 physical source lines (90.6% reduction).
+- `app/api/epapers/[id]/route.ts`: 326 -> 25 physical source lines (92.3% reduction).
+- `app/api/public/epapers/[id]/pdf/route.ts`: 129 -> 22 physical source lines (82.9% reduction).
+
+All migrated routes are 71 physical source lines or fewer and contain zero direct E-Paper model, Mongoose, `connectDB`, `Types.ObjectId`, or `epapersFile` imports.
+
+#### 3. Safety and Compatibility Guarantees
+- `releasedSnapshot` is still the sole public story payload. Ordinary editorial saves never mutate it. Explicit release is idempotent for an already-released saved version, increments the version only after a validated draft, and uses an `updatedAt` compare-and-set so a concurrent edit returns `409` instead of publishing stale content. The characterized sequence proves public V1 -> draft edit -> public V1 -> explicit release -> public V2.
+- The worker adapter delegates to the inherited queue APIs; the native PDF worker implementation, render mutex, timeout/termination/recycle behavior, retry leases, cleanup, OCR language assets, and no-overlap guard were not rewritten or bypassed.
+- Public E-Paper reads retain the inherited Mongo-to-file fallback. File storage is never used to manufacture E-Magazine data: E-Magazine file fallback is empty/not-found. Mutations remain Mongo-backed where previously required and do not switch stores after a failed write.
+- Legacy E-Paper and E-Magazine response fields, filtering, cursor behavior, manual TTS contracts, public PDF `302` plus `Cache-Control: no-store`, RBAC, and reader/admin routes are preserved.
+- `PublicHomeFeedService` receives E-Paper/E-Magazine results from `epaperService`; it no longer imports raw E-Paper models or file storage.
+
+#### 4. Verification Evidence
+- Focused Phase 2.4 contract/architecture/release suite: 5 test files, 42 tests passed.
+- Complete discovered E-Paper/PDF Vitest inventory: 32 files, 157 tests passed.
+- Tracked Playwright E-Paper/E-Magazine reader smoke suite: 1 file, 4/4 desktop/mobile cases passed.
+- Cross-domain Content, home-feed, Article workflow, and Video regression set: 6 files, 54 tests passed.
+- `npm run typecheck`: passed, 0 errors.
+- `npm run lint:strict`: passed, 0 warnings and 0 errors.
+- `npm run verify:dependency-security`: passed all tracked advisory ranges.
+- `npm run test:security`: 8 files, 63 tests passed.
+- `npm run test:governance`: 4 files, 16 tests passed (including typecheck).
+- `npm run test:four-role-newsroom`: 6 files, 25 tests passed (including typecheck).
+- `npm run test:ci`: 215 files, 1,086 tests passed; auth guards 7/7; synthetic admin credentials 6/6.
+- `npm run build:ci`: passed; optimized production compilation succeeded and 172/172 static pages generated.
+- `git diff --check`: passed; dependency manifests, runtime JSON, generated output, and secrets are unchanged.
+
+Phase 2.5 has not been started.
 
 ---
 

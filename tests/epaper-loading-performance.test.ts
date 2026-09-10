@@ -38,7 +38,7 @@ describe('e-paper loading performance', () => {
   });
 
   it('bounds a stalled public MongoDB query before using fallback storage', () => {
-    const feed = read('lib/server/publicEpaperFeed.ts');
+    const feed = read('lib/server/epaper/epaperRepository.ts');
     const availability = read('lib/db/mongoAvailability.ts');
     const model = read('lib/models/EPaper.ts');
     const articles = read('lib/content/serverArticles.ts');
