@@ -404,12 +404,14 @@ Decoupled public analytics event ingestion, Web Vitals privacy tracking, leaders
   - `mediaService.ts`: Media catalog CRUD orchestration and upload validation/processing.
 - **Audio / TTS Domain (`lib/server/audio/`)**:
   - `ttsTypes.ts`: TTS asset filters, summaries, cleanup inputs, revalidation results, and manual settings contracts.
-  - `ttsRepository.ts`: Persistence adapter for `TtsAsset` and `TtsAuditEvent` collections, aggregations, cleanup queries, and settings counts.
+  - `ttsRepository.ts`: Persistence adapter for `TtsAsset`, `TtsAuditEvent`, and `TtsConfig` collections, aggregations, cleanup queries, and settings counts. Business metadata resides solely in MongoDB with no JSON file fallback.
   - `ttsService.ts`: TTS asset listing and aggregation, retention-based cleanup with dry-run support, remote/local audio storage revalidation, manual-only settings status, and audit logging.
+  - `lib/utils/ttsStorage.ts`: Physical audio file storage adapter managing DigitalOcean Spaces (primary when configured) and local filesystem storage (`public/uploads/tts`, `storage/uploads/tts`).
 
 #### 3. Stale-Doc Discrepancies & Real Findings
 - **Live Analytics Transport**: Stale docs mentioned SSE streams; repository reality contains BOTH JSON snapshot polling with `no-store` (`app/api/admin/analytics/live/route.ts`) and an SSE stream (`app/api/admin/analytics/live/stream/route.ts`). Both contracts are preserved without adding external pub/sub infrastructure.
 - **Manual TTS Only**: Automatic TTS / Gemini TTS synthesis was decommissioned. Settings PUT intentionally returns 405 Method Not Allowed and records skipped audit event; prewarm returns 410 Gone; retry returns 405 Method Not Allowed. No AI speech generation was reintroduced.
+- **TTS Metadata vs. Physical Storage**: TTS business metadata is persisted strictly in MongoDB (`TtsAsset`, `TtsAuditEvent`, `TtsConfig`) with no file store fallback (`data/tts-assets.json` does not exist). Physical audio `.mp3` files are stored in DigitalOcean Spaces or local storage via `lib/utils/ttsStorage.ts`.
 - **Privacy Invariants**: Web Vitals beacon tracking and anonymous Swipe tracking strictly enforce `ipAddress = ''` and `userAgent = ''`.
 
 #### 4. Scope & Target Routes Migrated
@@ -448,8 +450,9 @@ Decoupled public analytics event ingestion, Web Vitals privacy tracking, leaders
 - **Phase 2.5 — Reader & Identity Domain**: COMPLETE
 - **Phase 2.6 — Audience & Distribution Domain**: COMPLETE
 - **Phase 2.7 — Analytics, Media & Manual TTS**: COMPLETE
-- **Final Phase-2 Integration Audit**: IN REVIEW (Canonical audit report in `docs/b3/PHASE2_FINAL_INTEGRATION_AUDIT.md`, architecture frozen in `docs/b3/ARCHITECTURE_FREEZE_V1.md`, debt cataloged in `docs/b3/PHASE2_DEBT_REGISTER.md`).
-- **Phase 3**: NOT STARTED.
+- **Final Phase-2 Integration Audit**: READY FOR FINAL ARCHITECTURE FREEZE REVIEW (PR #9 open; canonical audit report in `docs/b3/PHASE2_FINAL_INTEGRATION_AUDIT.md`, architecture frozen in `docs/b3/ARCHITECTURE_FREEZE_V1.md`, debt cataloged in `docs/b3/PHASE2_DEBT_REGISTER.md`).
+- **PR #9 Status**: OPEN (NOT MERGED).
+- **Phase 3 Implementation**: NOT STARTED.
 
 
 ---

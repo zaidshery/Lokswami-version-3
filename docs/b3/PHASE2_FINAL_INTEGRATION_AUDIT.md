@@ -11,11 +11,20 @@ Following the completion and merge of Phase 2.7, this comprehensive integration 
 **Audit Results Summary:**
 - **P0 Critical Blockers**: **0**
 - **P1 Freeze Blockers**: **0**
-- **P2 Production Debt Items**: **9** (Cataloged in `docs/b3/PHASE2_DEBT_REGISTER.md`)
+- **P2 Production Debt Items**: **10** (Cataloged in `docs/b3/PHASE2_DEBT_REGISTER.md`)
 - **P3 Documentation / Polish**: **0**
-- **Quality Gates Status**: 100% Passed (Typecheck: 0 errors; Strict Lint: 0 warnings; Security Suite: 8/8 passed; Governance: 4/4 passed; Four-Role Newsroom: 6/6 passed; Dependency Security: Passed; Full CI: 228/228 files passed; Next.js Build: Clean build).
+- **Quality Gates Status**: Passed across all required gates:
+  - Static Typecheck: 0 errors (`tsc --noEmit`)
+  - Strict Linting: 0 errors, 0 warnings across all strict directories (`npm run lint:strict`)
+  - Security Suite: 8/8 test files passed (`npm run test:security`)
+  - Governance Suite: 4/4 test files passed (`npm run test:governance`)
+  - Four-Role Newsroom Suite: 6/6 test files passed (`npm run test:four-role-newsroom`)
+  - Dependency Security Floor: Passed for all tracked advisory ranges (`scripts/validate-dependency-security.js`)
+  - Full CI Suite: 228/228 test files, 1,179/1,179 tests passed + 7 auth guards + 6 synthetic admin credential tests (`npm run test:ci`)
+  - Production Next.js Build: Succeeded cleanly (`npm run build:ci`)
+- **Dependency Advisory Findings**: Separately, `npm ci` reports 35 dependency findings (31 moderate, 3 high, 1 critical) in third-party packages. These require controlled triage and remediation and are recorded as P2 production debt (`DEBT-010`). No broad dependency upgrade was performed during the architecture freeze.
 
-**Conclusion**: The integrated Phase-2 system is internally consistent, secure, and compliant with all B3 foundation invariants. The codebase is **READY FOR ARCHITECTURE FREEZE REVIEW**.
+**Conclusion**: All required Phase-2 automated gates pass and the final integration audit identified no unresolved P0/P1 runtime regressions within the audited scope. The codebase is **READY FOR ARCHITECTURE FREEZE REVIEW**.
 
 ---
 
@@ -32,13 +41,13 @@ Following the completion and merge of Phase 2.7, this comprehensive integration 
 
 ## 3. Scope
 
-The audit covered all seven integrated Phase-2 implementation domain slices:
+The audit covered all integrated Phase-2 implementation domain slices:
 1. **Phase 2.1**: Content Public Read Domain (`lib/server/content/`, public articles, home feed, taxonomies, search)
 2. **Phase 2.2**: Content Newsroom Write Domain (`lib/server/content/newsroom*`, drafts, editorial review, CAS version locks, revisions)
 3. **Phase 2.3**: Video & Swipe Domain (`lib/server/video/`, regular videos, Swipe/shorts feed, exact slug resolution, video sitemaps)
 4. **Phase 2.4**: E-Paper & E-Magazine Domain (`lib/server/epaper/`, editions, page review, PDF worker isolation, released snapshots, TTS cloning)
 5. **Phase 2.5**: Reader & Identity Domain (`lib/server/reader/`, reader auth, registration, profiles, bookmarks, credential scrubbing)
-6. **Phase 2.6**: Audience & Distribution Domain (`lib/server/distribution/`, social posts, automation dispatch, contact inbox, elections, polls)
+6. **Phase 2.6**: Audience & Distribution Domain (`lib/server/audience/`, `lib/server/distribution/`, audience capture, contact messages inbox, elections, social posts, automation dispatch)
 7. **Phase 2.7**: Analytics, Media & Manual TTS Domain (`lib/server/analytics/`, `lib/server/media/`, `lib/server/audio/`, Spaces adapter, Web Vitals, manual TTS lifecycle)
 
 ---
@@ -53,7 +62,7 @@ The audit covered all seven integrated Phase-2 implementation domain slices:
    - Verifying native PDF render worker execution boundaries, timeout recovery, and queue isolation.
    - Validating sitemap pagination loop safety and deduplication.
 3. **Targeted Domain Verification**:
-   - Executing focused domain test suites (35 test files, 272 domain-specific test cases across all 7 slices).
+   - Executing focused domain test suites (35 test files, 272 domain-specific test cases across all slices).
 4. **Full System Quality Gates**:
    - `npm run typecheck` (`tsc --noEmit`)
    - `npm run lint:strict` (`eslint ... --max-warnings=0`)
@@ -169,19 +178,27 @@ The audit covered all seven integrated Phase-2 implementation domain slices:
 
 ## 11. Phase 2.6 — Audience + Distribution Findings
 
-- **Inspection Targets**: `lib/server/distribution/socialDistributionService.ts`, `lib/server/distribution/socialPostRepository.ts`, `app/api/admin/social-posts/*`, `app/api/admin/audience/inbox/*`.
+- **Inspection Targets**:
+  - Audience Domain: `lib/server/audience/audienceCaptureService.ts`, `lib/server/audience/audienceRepository.ts`, `lib/server/audience/contactService.ts`, `lib/server/audience/contactRepository.ts`, `lib/server/audience/electionAudienceService.ts`, `lib/server/audience/electionAssetRepository.ts`.
+  - Distribution Domain: `lib/server/distribution/socialDistributionService.ts`, `lib/server/distribution/socialPostRepository.ts`, `lib/server/distribution/distributionTypes.ts`, `lib/server/socialAutomation.ts`.
+  - Content Query Seams: `lib/server/content/socialDistributionContentQueryService.ts`, `lib/server/content/sitemapContentQueryService.ts`.
+  - Admin & Public Routes: `app/api/contact/route.ts`, `app/api/subscribe/route.ts`, `app/api/marketing/lead/route.ts`, `app/api/advertise/inquiry/route.ts`, `app/api/careers/apply/route.ts`, `app/api/admin/contact-messages/route.ts`, `app/api/admin/contact-messages/[id]/route.ts`, `app/api/elections/results/route.ts`, `app/api/admin/elections/*`, `app/api/admin/social-posts/*`.
 - **Findings**:
-  - Audience capture routes (`/api/contact`, `/api/subscribe`, `/api/careers/apply`) validate form inputs and apply rate limiting.
-  - Admin audience inbox provides role-aware visibility.
+  - **Domain Separation**: Audience capture and citizen interaction concerns are fully encapsulated within `lib/server/audience/`, while external social distribution orchestration resides strictly within `lib/server/distribution/`.
+  - **Audience Capture**: Public capture routes (`/api/contact`, `/api/subscribe`, `/api/marketing/lead`, `/api/advertise/inquiry`, `/api/careers/apply`) validate form inputs, apply anti-bot checks, and enforce rate limiting.
+  - **Contact Inbox Route**: Correct administrative inbox routes are `app/api/admin/contact-messages` (listing/filtering) and `app/api/admin/contact-messages/[id]` (detail, PATCH workflow status, DELETE). There are no stale `app/api/admin/audience/inbox/*` routes.
   - **Social Post Dispatch Human Gate**: Social copy generated by AI or newsroom tools remains in `draft` status. `socialDistributionService.dispatch()` rejects dispatch unless `status === 'approved'` or `status === 'scheduled'`.
-  - Zero autonomous publication: No Phase 2 distribution mechanism can auto-publish newsroom articles or broadcast unapproved social posts.
+  - **Zero Autonomous Publication**: No Phase 2 distribution mechanism can auto-publish newsroom articles or broadcast unapproved social posts.
 - **Verification**: `tests/phase2-audience-distribution-boundaries.test.ts` (5 tests), `tests/api/audience-capture-routes.test.ts` (9 tests), `tests/api/audience-inbox-election-routes.test.ts` (5 tests), `tests/api/admin-social-post-dispatch-route.test.ts` (3 tests).
 
 ---
 
 ## 12. Phase 2.7 — Analytics + Media + Manual TTS Findings
 
-- **Inspection Targets**: `lib/server/analytics/analyticsService.ts`, `lib/server/media/spacesAdapter.ts`, `lib/server/media/mediaService.ts`, `lib/server/audio/ttsService.ts`, `app/api/admin/tts/cleanup/route.ts`.
+- **Inspection Targets**:
+  - Analytics Domain: `lib/server/analytics/analyticsService.ts`, `lib/server/analytics/analyticsRepository.ts`, `lib/server/analytics/analyticsReportService.ts`.
+  - Media Domain: `lib/server/media/mediaService.ts`, `lib/server/media/mediaRepository.ts`, `lib/server/media/mediaImageService.ts`, `lib/server/media/spacesAdapter.ts`.
+  - Audio / Manual TTS Domain: `lib/server/audio/ttsService.ts`, `lib/server/audio/ttsRepository.ts`, `lib/utils/ttsStorage.ts`.
 - **Findings**:
   - **Analytics Privacy**:
     - Anonymous Swipe events (`source === 'lokswami_swipe'`) omit IP address, User-Agent, and client session IDs, regenerating an unlinked session ID and filtering metadata to an allowlist.
@@ -190,9 +207,12 @@ The audit covered all seven integrated Phase-2 implementation domain slices:
     - `SpacesAdapter` wraps S3-compatible client calls without exposing `DIGITALOCEAN_SPACES_SECRET_KEY` in responses or error logs.
     - `MediaService` enforces reporter desk role boundaries (reporters see own/desk media; admins see all).
     - Image processing via Sharp produces WebP and AVIF variants and focal crops without runtime crashes.
-  - **Manual TTS Only**:
-    - Automated TTS synthesis is completely decommissioned. Settings updates via PUT return 405 Method Not Allowed.
-    - Cleanup endpoint preserves exact historical response shape (`dryRun`, `retentionDays`, `cutoff`, `processed`, `deletedAssets`, `deletedFiles`, `missingFiles`) and unexpected error text `"Failed to clean up TTS assets."`.
+  - **Manual TTS Architecture (Metadata vs. Physical Storage)**:
+    - **Business Metadata Persistence**: Managed by `ttsService` and `ttsRepository` directly against MongoDB models: `TtsAsset`, `TtsAuditEvent`, and `TtsConfig`. **There is no JSON file fallback (`data/tts-assets.json` does not exist)**; if MongoDB is unavailable, TTS metadata operations fail closed.
+    - **Model Naming**: Audit logging is persisted in the `TtsAuditEvent` collection (not `TtsAuditLog`).
+    - **Physical Audio Storage**: Physical `.mp3` audio files are managed via `lib/utils/ttsStorage.ts` which uses DigitalOcean Spaces when configured, with fallback to local filesystem directories (`public/uploads/tts` or `storage/uploads/tts`).
+    - **Decommissioned Synthesis**: Automated TTS synthesis is completely decommissioned. Settings PUT intentionally returns HTTP 405 Method Not Allowed; TTS retry returns HTTP 405; TTS prewarm returns HTTP 410.
+    - **Cleanup & Retention**: The `/api/admin/tts/cleanup` endpoint preserves exact historical response shapes (`deletedAssets`, `deletedFiles`, `missingFiles`) and logs an audit record via `TtsAuditEvent`.
 - **Verification**: `tests/phase2-analytics-media-tts-boundaries.test.ts` (6 tests), `tests/analytics-domain-service.test.ts` (6 tests), `tests/media-domain-service.test.ts` (9 tests), `tests/tts-domain-service.test.ts` (8 tests), `tests/api/admin-tts-routes.test.ts` (9 tests), `tests/web-vitals-instrumentation.test.ts` (9 tests), `tests/api/swipe-analytics-privacy.test.ts` (1 test).
 
 ---
@@ -212,7 +232,7 @@ All application domains adhere strictly to the downward unidirectional flow:
 ┌────────────────────────────────────────────────────────────────────────┐
 │                       Domain Application Services                      │
 │ (publicArticleService, editorialService, videoService, epaperService,  │
-│  readerService, socialDistributionService, analyticsService, etc.)     │
+│  readerService, audienceService, socialDistributionService, etc.)      │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
                                     ▼
@@ -233,26 +253,31 @@ All application domains adhere strictly to the downward unidirectional flow:
 2. **Video Domain**: Consumes Content domain via the public boundary (`validatePublishedSwipeArticle` using `getPublicArticleById`). Never touches raw `Article` Mongoose model.
 3. **EPaper Domain**: Owns editions, pages, and clipping stories. Integrates with Audio/TTS via `findReadyManualTtsAsset` by reference only. Never directly mutates Article or Video documents.
 4. **Reader Domain**: Manages reader identity and bookmarks. Connects to Content domain to resolve bookmark titles/slugs. Never provides credential authority to newsroom staff.
-5. **Audience / Distribution Domain**: Queries Content domain via `socialDistributionContentQueryService` to generate social seeds. Human approval mandatory before external webhook dispatch.
-6. **Analytics Domain**: Telemetry ingest only. Never serves as an authoritative source of truth for editorial entities.
-7. **Media Domain**: Manages uploaded digital assets and focal crops. Never owns business workflow state for articles or epapers.
-8. **Audio / TTS Domain**: Catalogs and cleans uploaded audio files. Never triggers automated LLM/TTS generation.
+5. **Audience Domain**: Manages audience capture (subscriptions, marketing leads, contact messages, career applications, advertising inquiries) and election results/graphics. Completely separated from distribution.
+6. **Distribution Domain**: Queries Content domain via `socialDistributionContentQueryService` to generate social seeds. Human approval mandatory before external webhook dispatch.
+7. **Analytics Domain**: Telemetry ingest only. Never serves as an authoritative source of truth for editorial entities.
+8. **Media Domain**: Manages uploaded digital assets and focal crops. Never owns business workflow state for articles or epapers.
+9. **Audio / TTS Domain**: Catalogs and cleans uploaded audio files. Distinguishes Mongo-only business metadata from DigitalOcean/local audio file storage. Never triggers automated speech synthesis.
 
 ---
 
 ## 14. Persistence & Fallback Matrix
 
-| Domain | Storage Authority | Fallback Policy | Read Fallback | Write Fallback | Credential Scrubbed | Mutation Store Pinning |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Content (Public Read)** | MongoDB | File (`data/articles.json`) | Yes (Published only) | N/A (Read-only) | Yes | N/A |
-| **Content (Newsroom Write)** | MongoDB | File (`data/articles.json`) | Yes (Drafts/Locks) | Pinned on start | N/A | Strict (No mid-write flip) |
-| **Video & Swipe** | MongoDB | File (`data/videos.json`) | Yes (Published only) | Pinned on start | N/A | Strict (No mid-write flip) |
-| **EPaper Editions & Stories** | MongoDB | File (`data/epapers.json`) | Yes (Epaper only; no fake mags) | Mongo authoritative for release | N/A | Pinned on start |
-| **Reader Identity & Auth** | MongoDB | FAIL CLOSED | Profile metadata only | FAIL CLOSED | Strict (`passwordHash` stripped) | Mongo Only for credentials |
-| **Audience & Distribution** | MongoDB | File (`data/social-posts.json`) | Yes | Pinned on start | N/A | Pinned on start |
-| **Analytics Telemetry** | MongoDB | File (`data/analytics-events.json`) | Yes (Local report fallback) | Appends to disk | N/A | Pinned on start |
-| **Media Metadata** | MongoDB | File (`data/media.json`) | Yes | Pinned on start | N/A | S3 / DO Spaces |
-| **Audio / Manual TTS** | MongoDB | File (`data/tts-assets.json`) | Yes | Pinned on start | N/A | S3 / DO Spaces |
+The persistence and fallback semantics differ across domain capabilities and are documented below factually based on repository runtime evidence:
+
+| Domain / Capability | Primary Authority | Read Fallback | Write Fallback | Can Mutation Switch Store Mid-Request? | Contains Credentials? | External Storage? | Fail-Closed vs Graceful Degradation |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Content (Public Reads)** | MongoDB (`Article`, `Category`) | File (`data/articles.json`) | N/A (Read-only) | N/A | No | No | Graceful degradation (read fallback) |
+| **Content (Newsroom Writes)** | MongoDB (`Article`, `ArticleRevision`, `ArticleLock`) | File (`data/articles.json`) | Pinned on start | **No** (Strict pinning) | No | No | Graceful degradation with store pinning |
+| **Video & Swipe** | MongoDB (`Video`) | File (`data/videos.json`) | Pinned on start | **No** (Strict pinning) | No | No | Graceful degradation with store pinning |
+| **EPaper & Magazine** | MongoDB (`EPaper`, `EPaperArticle`) | File (`data/epapers.json` — newspapers only) | Mongo authoritative for release | **No** (Strict pinning) | No | No | Graceful degradation (no fake magazines) |
+| **Reader Identity & Auth** | MongoDB (`User` role: reader) | Profile metadata only (`data/users.json`) | **FAIL CLOSED** (No file writes for auth) | **No** | **Yes** (`passwordHash`) | No | **FAIL CLOSED** for all auth, registration, and passwords |
+| **Audience Capture** | MongoDB (`ContactMessage`, `Subscriber`, `MarketingLead`, etc.) | File (`data/contact-messages.json`, leads, etc.) | Pinned on start | **No** (Strict pinning) | No | No | Graceful degradation for public submissions |
+| **Social Distribution** | MongoDB (`SocialPost`) | File (`data/social-posts.json`) | Pinned on start | **No** (Strict pinning) | No | Webhook (n8n/automation) | Graceful degradation with store pinning |
+| **Analytics Telemetry** | MongoDB (`AnalyticsEvent`) | File (`data/analytics-events.json`) | Appends to disk | **No** (Strict pinning) | No | No | Graceful degradation (non-blocking) |
+| **Media Metadata** | MongoDB (`Media`) | File (`data/media.json`) | Pinned on start | **No** (Strict pinning) | No | DO Spaces (blobs) | Graceful degradation for metadata |
+| **Audio / TTS Business Metadata** | MongoDB (`TtsAsset`, `TtsAuditEvent`, `TtsConfig`) | **None** (NO JSON fallback) | **None** (MongoDB only) | **No** | No | No | **Fail-closed / Error** on DB outage |
+| **Physical Audio Storage** | DigitalOcean Spaces (when configured) | Local fs (`public/uploads/tts`, `storage/uploads/tts`) | Local fs if Spaces unconfigured | **No** | Server S3 keys | DO Spaces | Graceful fallback to local disk |
 
 ---
 
@@ -314,7 +339,9 @@ All publication paths require explicit, authenticated, privileged human action:
 - **Input Validation**: All public and admin mutations validate parameters using strict type guards and regular expressions.
 - **Path Traversal Protection**: File storage and upload utilities sanitize filenames and enforce root directory boundaries.
 - **Rate Limiting**: Multi-tiered rate limiting via Upstash Redis (with in-memory fallback) protects public endpoints (`/api/auth/*`, `/api/contact`, `/api/analytics/*`, `/api/poll/*`).
-- **Dependency Security**: `npm run verify:dependency-security` confirms zero active vulnerable ranges across production packages. Overrides in `package.json` lock vulnerable sub-dependencies (`postcss`, `sharp`, `picomatch`, `js-yaml`, `nanoid`).
+- **Dependency Security Governance**:
+  - LokSwami's tracked dependency security floor passes for all explicitly governed advisory ranges (`npm run verify:dependency-security`).
+  - Separately, `npm ci` currently reports 35 dependency findings (31 moderate, 3 high, 1 critical). These require controlled triage and remediation and are recorded as P2 production debt (`DEBT-010`). No broad dependency upgrades were performed during the architecture freeze.
 
 ---
 
@@ -329,7 +356,7 @@ All publication paths require explicit, authenticated, privileged human action:
 - **Typecheck**: `tsc --noEmit` exited with 0 errors
 - **Strict Linting**: `eslint app/api/admin lib/api lib/auth lib/db lib/models lib/security lib/server lib/storage --max-warnings=0` exited with 0 errors and 0 warnings
 - **Production Next.js Build**: `npm run build:ci` succeeded; all static and dynamic routes compiled without errors
-- **Standard Lint Warning Count**: Recorded 197 historical warnings (0 errors, 197 warnings) in legacy UI components/tests, compliant with Section 27 baseline instructions.
+- **Standard Lint Warning Count**: Recorded 197 historical warnings (0 errors, 197 warnings) in legacy UI components/tests.
 
 ---
 
@@ -338,22 +365,23 @@ All publication paths require explicit, authenticated, privileged human action:
 - **P0 Critical Blockers**: **0**
 - **P1 Freeze Blockers**: **0**
 
-No functional, architectural, or security regressions were introduced during Phase 2 integration. All earlier slices remain 100% operational.
+All required Phase-2 automated gates pass and the final integration audit identified no unresolved P0/P1 runtime regressions within the audited scope.
 
 ---
 
 ## 22. P2 Production Debt
 
-The following 9 architectural debt items were verified during the audit and are intentionally deferred to Phase 3+ (documented in detail in `docs/b3/PHASE2_DEBT_REGISTER.md`):
-1. `DEBT-001`: End-to-End Observability & Distributed Tracing (`x-request-id`, OpenTelemetry)
-2. `DEBT-002`: Durable Asynchronous Job Queue (Redis/BullMQ for OCR, PDF, notifications)
-3. `DEBT-003`: Distributed Pub/Sub for Live Analytics (Replacing local in-memory event aggregation)
-4. `DEBT-004`: Dedicated Image & Media Processing Workers (Offloading Sharp from Web runtime)
-5. `DEBT-005`: Automated CDN / Edge Cache Invalidation Maturity
-6. `DEBT-006`: Node.js & Tooling Runtime Modernization (Resolving CommonJS/ESM Vite config warning)
-7. `DEBT-007`: Legacy UI Lint Warning Remediation (Clearing 197 historical `any` and `img` warnings)
-8. `DEBT-008`: Automated Production Datastore Backup & Recovery Orchestration
-9. `DEBT-009`: Production Load Testing & Core Web Vitals Field Telemetry Harness
+The following 10 architectural debt items were cataloged during the audit and are intentionally deferred to future roadmap phases (Phases 3 through 8, detailed in `docs/b3/PHASE2_DEBT_REGISTER.md`):
+1. `DEBT-001`: End-to-End Observability & Distributed Tracing (`x-request-id`, OpenTelemetry) — Target: Phase 4
+2. `DEBT-002`: Durable Asynchronous Job Queue (BullMQ / Redis for OCR, PDF, notifications) — Target: Phase 4
+3. `DEBT-003`: Distributed Pub/Sub for Live Analytics (Replacing local in-memory event aggregation) — Target: Phase 4 / Phase 8
+4. `DEBT-004`: Dedicated Image & Media Processing Workers (Offloading Sharp from Web runtime) — Target: Phase 4 / Phase 8
+5. `DEBT-005`: Automated CDN / Edge Cache Invalidation Maturity — Target: Phase 4
+6. `DEBT-006`: Node.js & Tooling Runtime Modernization (Resolving CommonJS/ESM Vite config warning) — Target: Phase 4
+7. `DEBT-007`: Legacy UI Lint Warning Remediation (Clearing 197 historical `any` and `img` warnings) — Target: Phase 3 / Phase 4
+8. `DEBT-008`: Automated Production Datastore Backup & Recovery Orchestration — Target: Phase 4
+9. `DEBT-009`: Production Load Testing & Core Web Vitals Field Telemetry Harness — Target: Phase 3 / Phase 4
+10. `DEBT-010`: Dependency Advisory Triage & Remediation (35 npm audit findings) — Target: Phase 4
 
 ---
 
