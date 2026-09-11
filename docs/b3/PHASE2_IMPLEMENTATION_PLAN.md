@@ -440,7 +440,17 @@ Decoupled public analytics event ingestion, Web Vitals privacy tracking, leaders
 - Sharp image processing runs in-process in the Node runtime; offloading to dedicated image workers is deferred to production infrastructure phases.
 - Manual audio storage presence checks verify local files via fs and HTTP URLs via status check.
 
-Phase 2.7 complete. Final Phase-2 integration audit has NOT started. Phase 3 has NOT started.
+### Final Integration Audit Status
+- **Phase 2.1 — Content Public Reads**: COMPLETE
+- **Phase 2.2 — Content Newsroom Writes**: COMPLETE
+- **Phase 2.3 — Video & Swipe Domain**: COMPLETE
+- **Phase 2.4 — E-Paper & E-Magazine Domain**: COMPLETE
+- **Phase 2.5 — Reader & Identity Domain**: COMPLETE
+- **Phase 2.6 — Audience & Distribution Domain**: COMPLETE
+- **Phase 2.7 — Analytics, Media & Manual TTS**: COMPLETE
+- **Final Phase-2 Integration Audit**: IN REVIEW (Canonical audit report in `docs/b3/PHASE2_FINAL_INTEGRATION_AUDIT.md`, architecture frozen in `docs/b3/ARCHITECTURE_FREEZE_V1.md`, debt cataloged in `docs/b3/PHASE2_DEBT_REGISTER.md`).
+- **Phase 3**: NOT STARTED.
+
 
 ---
 
