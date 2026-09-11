@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSiteUrl } from '@/lib/seo/articleSeo';
-import { getPublicVideoFeedPage } from '@/lib/server/publicVideos';
 import { buildVideoReaderPath } from '@/lib/utils/readerContentPaths';
-
-import type { PublicVideoItem } from '@/lib/content/videoPublication';
+import { sitemapContentQueryService } from '@/lib/server/content/sitemapContentQueryService';
 
 export const dynamic = 'force-dynamic';
-
-const MAX_SITEMAP_VIDEOS = 10000;
-const MAX_SITEMAP_PAGES = 250;
-const SITEMAP_PAGE_SIZE = 50;
 
 function escapeXml(value: string) {
   return value
@@ -27,44 +21,7 @@ function absoluteUrl(baseUrl: string, path: string) {
 export async function GET() {
   const siteUrl = getSiteUrl();
 
-  const allVideos: PublicVideoItem[] = [];
-  const seenVideoIds = new Set<string>();
-  const seenCursors = new Set<string>();
-
-  let cursorPublishedAt: string | null | undefined = null;
-  let cursorId: string | null | undefined = null;
-  let pageCount = 0;
-
-  while (pageCount < MAX_SITEMAP_PAGES && allVideos.length < MAX_SITEMAP_VIDEOS) {
-    pageCount++;
-    const page = await getPublicVideoFeedPage({
-      limit: SITEMAP_PAGE_SIZE,
-      cursorPublishedAt,
-      cursorId,
-    });
-
-    for (const item of page.items) {
-      if (!seenVideoIds.has(item._id)) {
-        seenVideoIds.add(item._id);
-        allVideos.push(item);
-        if (allVideos.length >= MAX_SITEMAP_VIDEOS) break;
-      }
-    }
-
-    if (!page.hasMore || !page.nextCursor) {
-      break;
-    }
-
-    const cursorKey = `${page.nextCursor.publishedAt}:${page.nextCursor.id}`;
-    if (seenCursors.has(cursorKey)) {
-      console.warn('[video-sitemap] Loop detected in cursor pagination at:', cursorKey);
-      break;
-    }
-    seenCursors.add(cursorKey);
-
-    cursorPublishedAt = page.nextCursor.publishedAt;
-    cursorId = page.nextCursor.id;
-  }
+  const allVideos = await sitemapContentQueryService.listVideos();
 
   const seenUrls = new Set<string>();
   const urlNodes: string[] = [];

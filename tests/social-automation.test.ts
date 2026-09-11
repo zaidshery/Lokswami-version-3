@@ -107,4 +107,33 @@ describe('social automation helpers', () => {
       externalUrl: '',
     });
   });
+
+  it('redacts provider credentials from failed webhook responses', async () => {
+    process.env.SOCIAL_AUTOMATION_PROVIDER = 'n8n';
+    process.env.N8N_SOCIAL_WEBHOOK_URL = 'https://n8n.example.com/webhook/private-token';
+    process.env.SOCIAL_AUTOMATION_SHARED_SECRET = 'shared-secret';
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: vi.fn().mockResolvedValue(
+        'Rejected shared-secret at https://n8n.example.com/webhook/private-token'
+      ),
+    } as unknown as Response);
+
+    await expect(
+      dispatchSocialPostToAutomation({
+        actor: { id: 'admin-1', name: 'Desk', email: 'desk@example.com', role: 'admin' },
+        post: {
+          _id: 'social-1',
+          sourceStoryId: 'story-1',
+          platform: 'facebook',
+          status: 'approved',
+          caption: 'Headline',
+          hashtags: '#Lokswami',
+          thumbnailUrl: '',
+          videoUrl: 'https://cdn.example.com/final.mp4',
+        },
+      })
+    ).rejects.toThrow('Rejected [REDACTED] at [REDACTED]');
+  });
 });

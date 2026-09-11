@@ -1,13 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { EPAPER_CITY_OPTIONS } from '@/lib/constants/epaperCities';
 import { NEWS_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCategories';
-import { listEPapersForSitemap } from '@/lib/content/publicSitemap';
-import {
-  countPublicArticlesForSitemap,
-  getServerArticlePath,
-  listArticlesForSitemap,
-  listArticlesForSitemapSlice,
-} from '@/lib/content/serverArticles';
+import { sitemapContentQueryService } from '@/lib/server/content/sitemapContentQueryService';
 
 export const revalidate = 86_400;
 
@@ -58,11 +52,9 @@ function uniqueEntries(entries: MetadataRoute.Sitemap) {
  * lifting the previous hardcoded 5,000 article limit.
  */
 export async function generateSitemaps(): Promise<Array<{ id: number }>> {
-  const totalArticles =
-    typeof countPublicArticlesForSitemap === 'function'
-      ? await countPublicArticlesForSitemap()
-      : 0;
-  const chunkCount = Math.max(1, Math.ceil(totalArticles / SITEMAP_ARTICLE_CHUNK_SIZE));
+  const chunkCount = await sitemapContentQueryService.countArticleChunks(
+    SITEMAP_ARTICLE_CHUNK_SIZE
+  );
   return Array.from({ length: chunkCount }, (_, index) => ({ id: index }));
 }
 
@@ -87,15 +79,15 @@ export default async function sitemap(props?: {
 
   // If this is a chunked request for page > 0, return only that article slice
   if (isChunkedRequest && sitemapId > 0) {
-    const articles = typeof listArticlesForSitemapSlice === 'function'
-      ? await listArticlesForSitemapSlice({
-          skip: sitemapId * SITEMAP_ARTICLE_CHUNK_SIZE,
-          limit: SITEMAP_ARTICLE_CHUNK_SIZE,
-        })
-      : await listArticlesForSitemap(SITEMAP_ARTICLE_CHUNK_SIZE);
+    const articles = await sitemapContentQueryService.listArticles({
+      isChunkedRequest: true,
+      sitemapId,
+      chunkSize: SITEMAP_ARTICLE_CHUNK_SIZE,
+      legacyLimit: ARTICLE_SITEMAP_LIMIT,
+    });
 
     const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
-      url: absoluteUrl(siteUrl, getServerArticlePath(article)),
+      url: absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article)),
       lastModified: new Date(article.updatedAt),
       changeFrequency: 'weekly',
       priority: 0.8,
@@ -148,7 +140,7 @@ export default async function sitemap(props?: {
     priority: 0.65,
   }));
 
-  const epapers = await listEPapersForSitemap(EPAPER_SITEMAP_LIMIT);
+  const epapers = await sitemapContentQueryService.listEPapers(EPAPER_SITEMAP_LIMIT);
   const epaperEntries: MetadataRoute.Sitemap = epapers.map((paper) => ({
     url: absoluteUrl(siteUrl, buildEpaperIssuePath(paper)),
     lastModified: new Date(paper.updatedAt),
@@ -157,14 +149,15 @@ export default async function sitemap(props?: {
   }));
 
   // Fetch articles: chunked requests fetch slice 0; legacy unparameterized calls fetch up to ARTICLE_SITEMAP_LIMIT
-  const articles = isChunkedRequest
-    ? typeof listArticlesForSitemapSlice === 'function'
-      ? await listArticlesForSitemapSlice({ skip: 0, limit: SITEMAP_ARTICLE_CHUNK_SIZE })
-      : await listArticlesForSitemap(SITEMAP_ARTICLE_CHUNK_SIZE)
-    : await listArticlesForSitemap(ARTICLE_SITEMAP_LIMIT);
+  const articles = await sitemapContentQueryService.listArticles({
+    isChunkedRequest,
+    sitemapId: 0,
+    chunkSize: SITEMAP_ARTICLE_CHUNK_SIZE,
+    legacyLimit: ARTICLE_SITEMAP_LIMIT,
+  });
 
   const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
-    url: absoluteUrl(siteUrl, getServerArticlePath(article)),
+    url: absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article)),
     lastModified: new Date(article.updatedAt),
     changeFrequency: 'weekly',
     priority: 0.8,

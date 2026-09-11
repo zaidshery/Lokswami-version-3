@@ -45,6 +45,15 @@ function clean(value: unknown, maxLength = 500) {
   return String(value ?? '').trim().slice(0, maxLength);
 }
 
+function redactProviderSecrets(message: string, config: SocialAutomationConfig) {
+  return [config.sharedSecret, config.webhookUrl]
+    .filter(Boolean)
+    .reduce(
+      (safeMessage, secret) => safeMessage.split(secret).join('[REDACTED]'),
+      message
+    );
+}
+
 function getOrigin() {
   return clean(
     process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || FALLBACK_SITE_URL,
@@ -167,7 +176,8 @@ export async function dispatchSocialPostToAutomation(params: {
 
   const responseText = await response.text();
   if (!response.ok) {
-    throw new Error(responseText || `Automation dispatch failed with status ${response.status}`);
+    const message = responseText || `Automation dispatch failed with status ${response.status}`;
+    throw new Error(redactProviderSecrets(clean(message, 2000), config));
   }
 
   let parsed: unknown = null;
