@@ -324,7 +324,7 @@ Decoupled audience capture (newsletter subscriptions, marketing leads, commercia
 #### 2. Architecture & Domain Ownership
 - **Audience Domain (`lib/server/audience/`)**:
   - `audienceTypes.ts`: Domain models for newsletter subscriptions, marketing leads, advertise inquiries, career applications, contact workflows, and election assets.
-  - `audienceRepository.ts`: Pure persistence adapter for `Subscriber`, `MarketingLead`, `AdvertiseInquiry`, and `CareerApplication` with automatic file fallback.
+  - `audienceRepository.ts`: Persistence adapter for `Subscriber` (MongoDB only; zero file fallback), `MarketingLead`, `AdvertiseInquiry`, and `CareerApplication` (Mongo-first with catch-block JSON fallback).
   - `audienceCaptureService.ts`: Business logic, honeypot detection, input normalization, and validation for public capture routes.
   - `contactRepository.ts`: Persistence adapter for `ContactMessage` Mongo collection and file store fallback, including pagination, status filtering, and workflow notes.
   - `contactService.ts`: Ticket generation (`generateContactTicketId`), acknowledgement email orchestration, anti-bot verification (`verifyAntiBot`), rate limiting, deduplication, and workflow updates.

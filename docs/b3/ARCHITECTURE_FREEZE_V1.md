@@ -68,7 +68,7 @@ All system layers follow a strict unidirectional downward dependency hierarchy:
 | **Video & Swipe** | `Video`, `data/videos.json`, `data/video-activity.json` | `publicVideos`, `videoEditorialService`, `videoRepository` | Public article detail via public content service | Direct query or mutation of raw `Article` model | MongoDB | Mongo-first with JSON file read fallback. Write store pinned on mutation start (`resolveStore`). |
 | **EPaper & Magazine** | `EPaper`, `EPaperArticle`, `EPaperActivity`, `data/epapers.json` | `epaperService`, `epaperArticleService`, `epaperRevisionService`, `epaperRepository`, `epaperTtsService`, `epaperOcrService` | Audio TTS references, PDF native worker, OCR worker | Mutation of Article or Video records | MongoDB | Mongo-first with JSON file fallback (newspapers only; no fake magazines). |
 | **Reader & Identity** | `User` (role: 'reader'), `data/users.json` (sanitized) | `readerIdentityService`, `readerService`, `readerRepository` | Public articles (for saved bookmarks) | Staff authentication; reading/writing password hashes from/to file store | MongoDB (Sole credential authority) | FAIL CLOSED for credentials/auth/passwords. Non-secret profile read fallback only. |
-| **Audience: Subscriptions** | `Subscriber` | `audienceCaptureService`, `audienceRepository` | None | Storing/authenticating reader passwords | MongoDB sole authority | Mongo-only. NO JSON fallback. Returns HTTP 503 when unconfigured. |
+| **Audience: Subscriptions** | `Subscriber` | `audienceCaptureService`, `audienceRepository` | None | Storing/authenticating reader passwords | MongoDB sole authority | Mongo-only. NO JSON fallback. Returns HTTP 503 if MONGODB_URI missing; uncaught DB exceptions return HTTP 500 in route catch block. |
 | **Audience: Marketing Leads** | `MarketingLead`, `data/marketing-leads.json` | `audienceCaptureService`, `audienceRepository` | None | Mutating editorial or staff records | MongoDB primary | Mongo-first with JSON fallback (`data/marketing-leads.json`) after Mongo error in catch block. |
 | **Audience: Commercial Inquiries** | `AdvertiseInquiry`, `data/advertise-inquiries.json` | `audienceCaptureService`, `audienceRepository` | None | Mutating editorial or staff records | MongoDB primary | Mongo-first with JSON fallback (`data/advertise-inquiries.json`) after Mongo error in catch block. |
 | **Audience: Career Applications** | `CareerApplication`, `data/career-applications.json` | `audienceCaptureService`, `audienceRepository` | None | Mutating editorial or staff records | MongoDB primary | Mongo-first with JSON fallback (`data/career-applications.json`) after Mongo error in catch block. |
@@ -197,7 +197,11 @@ The system maintains an explicit architectural separation between the **Audience
 ### A. Audience Domain (`lib/server/audience/`)
 Owns and coordinates public audience capture, citizen engagement, and election results:
 - **Newsletter Subscriptions**: `POST /api/subscribe` → `audienceCaptureService` → `Subscriber` model.
-  - *Persistence*: **MongoDB only**. There is NO JSON fallback. If `MONGODB_URI` is missing or MongoDB is unreachable, returns HTTP 503 (`Subscription service is not configured yet`).
+  - *Persistence*: **MongoDB only**. There is NO JSON/file fallback.
+  - *Failure Semantics*:
+    - **Missing Configuration (`MONGODB_URI` missing)**: `audienceCaptureService.subscribe()` returns HTTP 503 (`{ success: false, error: 'Subscription service is not configured yet' }`).
+    - **Database Exception (unreachable/operation failure)**: When `MONGODB_URI` is configured but `connectDB()` or `Subscriber` operation throws, `audienceCaptureService` does not convert the exception to 503; the unhandled error reaches `app/api/subscribe/route.ts` whose catch block returns HTTP 500 (`{ success: false, error: 'Failed to subscribe. Please try again.' }`).
+    - In both failure cases, no file-based subscriber record is created.
 - **Marketing Leads**: `POST /api/marketing/lead` → `audienceCaptureService` → `audienceRepository.saveMarketingLead`.
   - *Persistence*: **Mongo-first with catch-block JSON fallback**. Attempts MongoDB `MarketingLead.findOneAndUpdate()`; if Mongo is unconfigured or throws, catches error and persists to `data/marketing-leads.json`. Also synchronizes subscriber list if `wantsDailyAlerts` is set.
 - **Commercial Advertising Inquiries**: `POST /api/advertise/inquiry` → `audienceCaptureService` → `audienceRepository.createAdvertiseInquiry`.
@@ -251,7 +255,7 @@ Owns and coordinates external content distribution and social dispatch:
      - In **Analytics Telemetry** (`AnalyticsRepository.saveEvent`), telemetry ingestion attempts MongoDB first and appends to `data/analytics-events.json` upon caught failure.
    - **Mongo Sole Authority / Fail-Closed (Zero Fallback)**:
      - **Reader Credentials & Auth**: MongoDB is the sole authority. Registration, login, and password mutations fail closed (HTTP 503 / null session); file fallback contains strictly non-secret profile data and never persists credentials.
-     - **Newsletter Subscriptions**: `Subscriber` is MongoDB-only. If MongoDB is unconfigured or unreachable, `audienceCaptureService.subscribe()` returns HTTP 503 without file writes.
+     - **Newsletter Subscriptions**: `Subscriber` is MongoDB-only with zero file fallback. If `MONGODB_URI` is missing, `audienceCaptureService.subscribe()` returns HTTP 503. If MongoDB is configured but connection/database operations throw, the exception bubbles uncaught to `app/api/subscribe/route.ts` which catches and returns HTTP 500. In neither case is any file-based subscriber record created.
      - **Audio / TTS Business Metadata**: `TtsAsset`, `TtsAuditEvent`, and `TtsConfig` reside solely in MongoDB. Operations fail closed on DB errors; no JSON metadata fallback exists.
    - **Direct Local File Authority**:
      - **Elections**: Election results and graphics are stored natively on the filesystem (`data/election-results.json` and `public/elections/*.jpg`).
