@@ -324,7 +324,7 @@ Decoupled audience capture (newsletter subscriptions, marketing leads, commercia
 #### 2. Architecture & Domain Ownership
 - **Audience Domain (`lib/server/audience/`)**:
   - `audienceTypes.ts`: Domain models for newsletter subscriptions, marketing leads, advertise inquiries, career applications, contact workflows, and election assets.
-  - `audienceRepository.ts`: Pure persistence adapter for `Subscriber`, `MarketingLead`, `AdvertiseInquiry`, and `CareerApplication` with automatic file fallback.
+  - `audienceRepository.ts`: Persistence adapter for `Subscriber` (MongoDB only; zero file fallback), `MarketingLead`, `AdvertiseInquiry`, and `CareerApplication` (Mongo-first with catch-block JSON fallback).
   - `audienceCaptureService.ts`: Business logic, honeypot detection, input normalization, and validation for public capture routes.
   - `contactRepository.ts`: Persistence adapter for `ContactMessage` Mongo collection and file store fallback, including pagination, status filtering, and workflow notes.
   - `contactService.ts`: Ticket generation (`generateContactTicketId`), acknowledgement email orchestration, anti-bot verification (`verifyAntiBot`), rate limiting, deduplication, and workflow updates.
@@ -404,12 +404,14 @@ Decoupled public analytics event ingestion, Web Vitals privacy tracking, leaders
   - `mediaService.ts`: Media catalog CRUD orchestration and upload validation/processing.
 - **Audio / TTS Domain (`lib/server/audio/`)**:
   - `ttsTypes.ts`: TTS asset filters, summaries, cleanup inputs, revalidation results, and manual settings contracts.
-  - `ttsRepository.ts`: Persistence adapter for `TtsAsset` and `TtsAuditEvent` collections, aggregations, cleanup queries, and settings counts.
+  - `ttsRepository.ts`: Persistence adapter for `TtsAsset`, `TtsAuditEvent`, and `TtsConfig` collections, aggregations, cleanup queries, and settings counts. Business metadata resides solely in MongoDB with no JSON file fallback.
   - `ttsService.ts`: TTS asset listing and aggregation, retention-based cleanup with dry-run support, remote/local audio storage revalidation, manual-only settings status, and audit logging.
+  - `lib/utils/ttsStorage.ts`: Physical audio file storage adapter managing DigitalOcean Spaces (primary when configured) and local filesystem storage (`public/uploads/tts`, `storage/uploads/tts`).
 
 #### 3. Stale-Doc Discrepancies & Real Findings
 - **Live Analytics Transport**: Stale docs mentioned SSE streams; repository reality contains BOTH JSON snapshot polling with `no-store` (`app/api/admin/analytics/live/route.ts`) and an SSE stream (`app/api/admin/analytics/live/stream/route.ts`). Both contracts are preserved without adding external pub/sub infrastructure.
 - **Manual TTS Only**: Automatic TTS / Gemini TTS synthesis was decommissioned. Settings PUT intentionally returns 405 Method Not Allowed and records skipped audit event; prewarm returns 410 Gone; retry returns 405 Method Not Allowed. No AI speech generation was reintroduced.
+- **TTS Metadata vs. Physical Storage**: TTS business metadata is persisted strictly in MongoDB (`TtsAsset`, `TtsAuditEvent`, `TtsConfig`) with no file store fallback (`data/tts-assets.json` does not exist). Physical audio `.mp3` files are stored in DigitalOcean Spaces or local storage via `lib/utils/ttsStorage.ts`.
 - **Privacy Invariants**: Web Vitals beacon tracking and anonymous Swipe tracking strictly enforce `ipAddress = ''` and `userAgent = ''`.
 
 #### 4. Scope & Target Routes Migrated
@@ -440,7 +442,18 @@ Decoupled public analytics event ingestion, Web Vitals privacy tracking, leaders
 - Sharp image processing runs in-process in the Node runtime; offloading to dedicated image workers is deferred to production infrastructure phases.
 - Manual audio storage presence checks verify local files via fs and HTTP URLs via status check.
 
-Phase 2.7 complete. Final Phase-2 integration audit has NOT started. Phase 3 has NOT started.
+### Final Integration Audit Status
+- **Phase 2.1 — Content Public Reads**: COMPLETE
+- **Phase 2.2 — Content Newsroom Writes**: COMPLETE
+- **Phase 2.3 — Video & Swipe Domain**: COMPLETE
+- **Phase 2.4 — E-Paper & E-Magazine Domain**: COMPLETE
+- **Phase 2.5 — Reader & Identity Domain**: COMPLETE
+- **Phase 2.6 — Audience & Distribution Domain**: COMPLETE
+- **Phase 2.7 — Analytics, Media & Manual TTS**: COMPLETE
+- **Final Phase-2 Integration Audit**: READY FOR FINAL ARCHITECTURE FREEZE REVIEW (PR #9 open; canonical audit report in `docs/b3/PHASE2_FINAL_INTEGRATION_AUDIT.md`, architecture frozen in `docs/b3/ARCHITECTURE_FREEZE_V1.md`, debt cataloged in `docs/b3/PHASE2_DEBT_REGISTER.md`).
+- **PR #9 Status**: OPEN (NOT MERGED).
+- **Phase 3 Implementation**: NOT STARTED.
+
 
 ---
 
