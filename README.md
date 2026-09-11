@@ -139,7 +139,7 @@ Readiness currently checks:
 Hostinger Node deployment is the supported production path for this repo.
 
 - Use `GitHub Actions` for CI and Hostinger's `Import Git Repository` flow for automatic production deploys from `main`
-- See `HOSTINGER_CICD_SETUP.md` for the exact GitHub + Hostinger setup sequence
+- See `docs/deployment/HOSTINGER_CICD_SETUP.md` for the exact GitHub + Hostinger setup sequence
 - Set `NEXTAUTH_URL` to your final Hostinger domain
 - Set `NEXT_PUBLIC_SITE_URL` to that same domain
 - Set `NEXT_PUBLIC_GTM_ID` only if you want GTM live in production
@@ -155,7 +155,7 @@ Hostinger Node deployment is the supported production path for this repo.
 - Roll back to the previous prepared Hostinger release with `npm run rollback:hostinger` and then `npm run start:hostinger`
 - The Hostinger flow now stages versioned releases in `.hostinger/releases/*`, rebuilds a shared `.hostinger/shared-next-static/` bundle, and keeps an overlap of older hashed `/_next/static/*` assets to prevent post-deploy `ChunkLoadError` and `text/plain` asset 404 crashes
 - `npm run test:smoke -- https://your-domain.com` now checks live HTML asset integrity, not just status codes
-- See `HOSTINGER_DEPLOY.md` for the full server checklist
+- See `docs/deployment/HOSTINGER_DEPLOY.md` for the full server checklist
 
 Vercel is also supported for the `zaidshery/Zaid-lokswami` GitHub repo with Git-based CI/CD.
 
@@ -165,16 +165,23 @@ Vercel is also supported for the `zaidshery/Zaid-lokswami` GitHub repo with Git-
 - Configure production env vars before the first live deploy: `MONGODB_URI`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_SITE_URL`
 - Add DigitalOcean Spaces env vars as well if uploads or e-paper assets are used in production
   If story videos upload directly from the browser, add the deployed app origin to the bucket CORS rules too.
-- See `VERCEL_CICD_SETUP.md` for the full setup and branch-protection checklist
+- See `docs/deployment/VERCEL_CICD_SETUP.md` for the full setup and branch-protection checklist
 
 ## Project Docs
 
-- `HOSTINGER_CICD_SETUP.md` for GitHub Actions + Hostinger auto-deploy setup
-- `HOSTINGER_DEPLOY.md` for the production deployment flow
-- `VERCEL_CICD_SETUP.md` for GitHub Actions + Vercel CI/CD
-- `DEPLOY_SMOKE_CHECKLIST.md` for the post-deploy verification pass
-- `ADMIN_RUNTIME_CHECKLIST.md` for production admin and CMS verification
-- `NEXT_SPRINT.md` for the current priority order and sprint direction
+For the master documentation index, see [`docs/README.md`](docs/README.md).
+
+- [`docs/b3/ROADMAP.md`](docs/b3/ROADMAP.md) for the authoritative B3 Phase 3–8 product roadmap
+- [`docs/b3/ARCHITECTURE_FREEZE_V1.md`](docs/b3/ARCHITECTURE_FREEZE_V1.md) for the canonical frozen architecture contract
+- [`docs/deployment/HOSTINGER_CICD_SETUP.md`](docs/deployment/HOSTINGER_CICD_SETUP.md) for GitHub Actions + Hostinger auto-deploy setup
+- [`docs/deployment/HOSTINGER_DEPLOY.md`](docs/deployment/HOSTINGER_DEPLOY.md) for the production deployment flow
+- [`docs/deployment/VERCEL_CICD_SETUP.md`](docs/deployment/VERCEL_CICD_SETUP.md) for GitHub Actions + Vercel CI/CD
+- [`docs/deployment/DEPLOY_SMOKE_CHECKLIST.md`](docs/deployment/DEPLOY_SMOKE_CHECKLIST.md) for the post-deploy verification pass
+- [`docs/operations/ADMIN_RUNTIME_CHECKLIST.md`](docs/operations/ADMIN_RUNTIME_CHECKLIST.md) for production admin and CMS verification
+- [`docs/setup/MONGODB_SETUP.md`](docs/setup/MONGODB_SETUP.md) for MongoDB database setup and indexing
+- [`docs/setup/EPAPER_V2_SETUP.md`](docs/setup/EPAPER_V2_SETUP.md) for E-Paper PDF and OCR dependencies setup
+- [`docs/setup/QUICK_START.md`](docs/setup/QUICK_START.md) for developer onboarding
+- [`docs/archive/legacy-admin/`](docs/archive/legacy-admin/) for historical planning documents and legacy checklists
 
 ## Scripts
 

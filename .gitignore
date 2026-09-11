@@ -1,7 +1,7 @@
 # Dependencies
 node_modules/
 
-# Next.js
+# Next.js & Deploy Artifacts
 .next/
 .next-dev/
 .next-dev-server.json
@@ -10,14 +10,17 @@ out/
 
 # Environment variables
 .env
-.env.hostinger
 .env.local
-.env.*.local
+.env.hostinger
+.env.production
+.env.test
+.env*.local
 
 # Build info
 *.tsbuildinfo
 
-# Logs
+# Logs & Archives
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -33,7 +36,7 @@ __create_zip.ps1
 .vscode/
 .idea/
 
-# Local browser automation artifacts
+# Local browser automation & test artifacts
 .tmp-headless-browser/
 edge-dom.txt
 git-output.txt
@@ -51,14 +54,5 @@ data/users.json
 data/article-locks.json
 public/uploads/*
 
-# Local secret env files
-.env
-.env.local
-.env.hostinger
-.env.production
-.env.test
-.env*.local
-
 # Runtime logs
 storage/logs/
-*.log

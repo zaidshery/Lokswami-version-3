@@ -1,5 +1,9 @@
 # Phase 5 Governance Checklist
 
+> [!NOTE]
+> **Historical Document**: This document reflects historical pre-freeze governance verification.
+> The canonical B3 architecture is defined in `docs/b3/ARCHITECTURE_FREEZE_V1.md` and current operational procedures are in `docs/operations/ADMIN_RUNTIME_CHECKLIST.md`.
+
 Run this when you want to close Phase 5 properly and prove the new super-admin governance surfaces are healthy.
 
 ## Automated Checks
@@ -109,7 +113,7 @@ npm run verify:prod-env
 npm run verify:deploy -- https://your-domain.com
 ```
 
-3. Complete `ADMIN_RUNTIME_CHECKLIST.md`.
+3. Complete [`ADMIN_RUNTIME_CHECKLIST.md`](../../operations/ADMIN_RUNTIME_CHECKLIST.md).
 
 ## Phase 5 Close Rule
 

@@ -1,5 +1,9 @@
 # Lokswami Admin Current Roadmap Status
 
+> [!WARNING]
+> **Historical Document**: This document reflects historical admin roadmap status prior to Architecture Freeze v1.
+> The canonical roadmap is located at `docs/b3/ROADMAP.md` and current architectural specifications are at `docs/b3/ARCHITECTURE_FREEZE_V1.md`.
+
 This file replaces the older "future roadmap" view with the current real build status of the admin platform.
 
 ## Purpose

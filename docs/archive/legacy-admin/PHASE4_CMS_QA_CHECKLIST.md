@@ -1,5 +1,10 @@
 # Phase 4 CMS QA Checklist
 
+> [!WARNING]
+> **Historical Document**: Do not use as current Git/deployment guidance.
+> The current authoritative B3 workflow is defined by `AGENTS.md`,
+> `docs/b3/ARCHITECTURE_FREEZE_V1.md`, and current repository instructions.
+
 ## Reporter
 - Sign in as a `reporter` and confirm the sidebar shows `My Work`, `My Articles`, `My Stories`, and `Media`, but not `Review Queue`.
 - Open `My Work` and confirm the summary cards show `My Drafts`, `Waiting On Desk`, `Needs Changes`, and `Assigned To Me`.
