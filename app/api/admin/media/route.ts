@@ -1,42 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/db/mongoose';
-import Media from '@/lib/models/Media';
-import fs from 'fs/promises';
-import path from 'path';
-import {
-  getAdminSessionFromReq,
-  type AdminSessionIdentity,
-} from '@/lib/auth/admin';
+import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canDeleteContent, canViewPage } from '@/lib/auth/permissions';
 import { isReporterDeskRole } from '@/lib/auth/roles';
-
-type MediaRecord = {
-  _id?: string;
-  filename: string;
-  url: string;
-  size?: number;
-  type?: string;
-  uploadedBy?: string;
-  createdAt?: string | Date;
-};
-
-function filterMediaForUser(records: MediaRecord[], user: AdminSessionIdentity): MediaRecord[] {
-  if (!isReporterDeskRole(user.role)) {
-    return records;
-  }
-
-  const normalizedEmail = user.email.trim().toLowerCase();
-
-  return records.filter((record) => record.uploadedBy?.trim().toLowerCase() === normalizedEmail);
-}
-
-function sortMediaByCreatedAt(records: MediaRecord[]): MediaRecord[] {
-  return [...records].sort((left, right) => {
-    const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
-    const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
-    return rightTime - leftTime;
-  });
-}
+import {
+  mediaService,
+  MediaValidationError,
+} from '@/lib/server/media/mediaService';
 
 export async function GET(req: NextRequest) {
   try {
@@ -55,32 +24,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (!process.env.MONGODB_URI) {
-      const dataPath = path.resolve(process.cwd(), 'data', 'media.json');
-      try {
-        const raw = await fs.readFile(dataPath, 'utf-8');
-        const parsed = JSON.parse(raw || '[]');
-        const medias = Array.isArray(parsed) ? (parsed as MediaRecord[]) : [];
-        const scopedMedia = sortMediaByCreatedAt(filterMediaForUser(medias, user));
-        return NextResponse.json({
-          success: true,
-          data: scopedMedia,
-          meta: {
-            scope: isReporterDeskRole(user.role) ? 'own' : 'all',
-            canDelete: canDeleteContent(user),
-          },
-        });
-      } catch {
-        return NextResponse.json({ success: true, data: [] });
-      }
-    }
-
-    await connectDB();
-    const query = isReporterDeskRole(user.role) ? { uploadedBy: user.email } : {};
-    const medias = await Media.find(query).sort({ createdAt: -1 }).lean();
+    const data = await mediaService.listMedia(user);
     return NextResponse.json({
       success: true,
-      data: medias,
+      data,
       meta: {
         scope: isReporterDeskRole(user.role) ? 'own' : 'all',
         canDelete: canDeleteContent(user),
@@ -100,33 +47,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { filename, url, size, type } = body;
-    if (!filename || !url) return NextResponse.json({ success: false, error: 'Missing fields' }, { status: 400 });
+    const body = (await req.json().catch(() => ({}))) as {
+      filename?: string;
+      url?: string;
+      size?: number;
+      type?: string;
+    };
 
-    if (!process.env.MONGODB_URI) {
-      const dataDir = path.resolve(process.cwd(), 'data');
-      await fs.mkdir(dataDir, { recursive: true });
-      const dataPath = path.join(dataDir, 'media.json');
-      let medias: MediaRecord[] = [];
-      try {
-        const raw = await fs.readFile(dataPath, 'utf-8');
-        const parsed = JSON.parse(raw || '[]');
-        medias = Array.isArray(parsed) ? (parsed as MediaRecord[]) : [];
-      } catch {}
-      const newMedia = { _id: Date.now().toString(), filename, url, size: size || 0, type: type || 'image/*', uploadedBy: user.email || 'admin', createdAt: new Date() };
-      medias.push(newMedia);
-      await fs.writeFile(dataPath, JSON.stringify(medias, null, 2), 'utf-8');
-      return NextResponse.json({ success: true, data: newMedia }, { status: 201 });
-    }
+    const media = await mediaService.createMedia(
+      {
+        filename: String(body.filename || '').trim(),
+        url: String(body.url || '').trim(),
+        size: body.size,
+        type: body.type,
+      },
+      user
+    );
 
-    await connectDB();
-    const media = new Media({ filename, url, size: size || 0, type: type || 'image/*', uploadedBy: user.email || 'admin' });
-    await media.save();
     return NextResponse.json({ success: true, data: media }, { status: 201 });
   } catch (error) {
+    if (error instanceof MediaValidationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
+
     console.error('media create error', error);
     return NextResponse.json({ success: false, error: 'Failed to create media' }, { status: 500 });
   }
 }
-

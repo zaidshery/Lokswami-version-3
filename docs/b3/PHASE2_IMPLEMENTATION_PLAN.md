@@ -387,33 +387,60 @@ Phase 2.7 has not been started.
 
 ### Phase 2.7: Analytics, Media Storage & Audio Decoupling
 
-#### 1. Goal
-Decouple Core Web Vitals beacon tracking, leadership reporting schedules, DigitalOcean Spaces S3 pre-signed upload generation, and manual TTS audio asset cataloging into dedicated services.
+#### 1. Status: IMPLEMENTED & VERIFIED (Phase 2.7 Complete)
+Decoupled public analytics event ingestion, Web Vitals privacy tracking, leadership reporting schedules, Media catalog CRUD, DigitalOcean Spaces storage operations, Sharp image optimization pipelines, and manual TTS audio asset management into dedicated domain services and repositories in `lib/server/analytics/`, `lib/server/media/`, and `lib/server/audio/`.
 
-#### 2. Scope & Target Routes
-- `app/api/analytics/track/route.ts`
-- `app/api/v1/public/analytics/vitals/route.ts`
-- `app/api/admin/analytics/*`
-- `app/api/admin/settings/leadership-reports/route.ts`
-- `app/api/admin/media/*`
-- `app/api/admin/upload/route.ts`
-- `app/api/admin/uploads/*`
-- `app/api/admin/tts/*`
+#### 2. Architecture & Domain Ownership
+- **Analytics Domain (`lib/server/analytics/`)**:
+  - `analyticsTypes.ts`: Event payloads, public track inputs, request context, and Web Vitals result contracts.
+  - `analyticsRepository.ts`: Pure persistence adapter managing Mongo `AnalyticsEvent` creation with automatic `createStoredAnalyticsEvent` file store fallback.
+  - `analyticsService.ts`: Public event validation (`EVENT_REGEX`, `SOURCE_REGEX`), session handling, anonymous Swipe privacy (zero IP / UA, `SWIPE_METADATA_KEYS` filter), non-swipe browserLanguage / countryCode enrichment, and Web Vitals privacy (zero IP / UA, metric normalization).
+  - `analyticsReportService.ts`: Leadership reporting schedule query coordination and health snapshot orchestration.
+- **Media Storage Domain (`lib/server/media/`)**:
+  - `mediaTypes.ts`: Media records, upload purposes, upload validation rules, image crop variants, and upload results.
+  - `spacesAdapter.ts`: Provider adapter wrapping `lib/utils/digitalOceanSpaces.ts` without rewriting SigV4 signing or exposing credentials.
+  - `mediaRepository.ts`: Persistence adapter for `Media` Mongoose collection and `data/media.json` fallback, including reporter desk role scoping.
+  - `mediaImageService.ts`: Isolated Sharp image optimization pipeline generating primary WebP (quality 88), AVIF (quality 64), and responsive focal crops (`landscape16x9`, `standard4x3`, `square1x1`).
+  - `mediaService.ts`: Media catalog CRUD orchestration and upload validation/processing.
+- **Audio / TTS Domain (`lib/server/audio/`)**:
+  - `ttsTypes.ts`: TTS asset filters, summaries, cleanup inputs, revalidation results, and manual settings contracts.
+  - `ttsRepository.ts`: Persistence adapter for `TtsAsset` and `TtsAuditEvent` collections, aggregations, cleanup queries, and settings counts.
+  - `ttsService.ts`: TTS asset listing and aggregation, retention-based cleanup with dry-run support, remote/local audio storage revalidation, manual-only settings status, and audit logging.
 
-#### 3. Files to Create & Modify
-- **NEW**: `lib/analytics/analyticsService.ts` & `lib/analytics/analyticsRepository.ts`.
-- **NEW**: `lib/media/mediaService.ts` & `lib/media/spacesAdapter.ts`.
-- **NEW**: `lib/audio/ttsService.ts` & `lib/audio/ttsRepository.ts`.
-- **MODIFY**: Target analytics, media, and TTS route handlers.
+#### 3. Stale-Doc Discrepancies & Real Findings
+- **Live Analytics Transport**: Stale docs mentioned SSE streams; repository reality contains BOTH JSON snapshot polling with `no-store` (`app/api/admin/analytics/live/route.ts`) and an SSE stream (`app/api/admin/analytics/live/stream/route.ts`). Both contracts are preserved without adding external pub/sub infrastructure.
+- **Manual TTS Only**: Automatic TTS / Gemini TTS synthesis was decommissioned. Settings PUT intentionally returns 405 Method Not Allowed and records skipped audit event; prewarm returns 410 Gone; retry returns 405 Method Not Allowed. No AI speech generation was reintroduced.
+- **Privacy Invariants**: Web Vitals beacon tracking and anonymous Swipe tracking strictly enforce `ipAddress = ''` and `userAgent = ''`.
 
-#### 4. Tests & Characterization Strategy
-- **Status**: `EXISTING COVERAGE SUFFICIENT`.
-- **Target Suites**: `tests/api/analytics-routes.test.ts`, `tests/api/media-upload-routes.test.ts`, `tests/api/tts-routes.test.ts`.
+#### 4. Scope & Target Routes Migrated
+- `app/api/analytics/track/route.ts` (POST public analytics tracking)
+- `app/api/v1/public/analytics/vitals/route.ts` (POST public Web Vitals beacon)
+- `app/api/admin/settings/leadership-reports/route.ts` (GET leadership report settings)
+- `app/api/admin/media/route.ts` (GET list, POST create media assets)
+- `app/api/admin/media/[id]/route.ts` (DELETE media asset)
+- `app/api/admin/upload/route.ts` (POST general upload with Sharp optimizations)
+- `app/api/admin/tts/assets/route.ts` (GET TTS assets listing with aggregations)
+- `app/api/admin/tts/cleanup/route.ts` (POST TTS expired asset cleanup)
+- `app/api/admin/tts/revalidate/route.ts` (POST TTS storage presence revalidation)
+- `app/api/admin/tts/settings/route.ts` (GET settings, PUT 405 rejection)
 
-#### 5. Definition of Done
-- Real-time analytics SSE streams, report schedulers, and S3 pre-signing completely isolated in domain modules.
-- Zero direct AWS SDK or Spaces client instantiation inside HTTP route files.
-- Full CI test suite passes (207 test files, >930 tests).
+#### 5. Verification Evidence
+- Focused Phase 2.7 test suites: 11 files, 56 tests passed (`tests/phase2-analytics-media-tts-boundaries.test.ts`, `tests/analytics-domain-service.test.ts`, `tests/media-domain-service.test.ts`, `tests/tts-domain-service.test.ts`, `tests/api/admin-tts-routes.test.ts`, `tests/api/swipe-analytics-privacy.test.ts`, `tests/api/admin-upload-route.test.ts`, `tests/api/admin-article-tts-upload-routes.test.ts`, `tests/api/admin-breaking-tts-upload-routes.test.ts`, `tests/tts-manual-assets.test.ts`, `tests/epaper-revision-tts-clone.test.ts`).
+- Cross-phase regressions: Phase 1 (28 tests), Phase 2.1 (22 tests), Phase 2.2 (39 tests), Phase 2.3 (44 tests), Phase 2.4 (44 tests), Phase 2.5 (68 tests), Phase 2.6 (30 tests) passed cleanly.
+- Security: 8 files, 63 tests passed (`npm run test:security`).
+- Governance: 4 files, 16 tests passed (`npm run test:governance`).
+- Four-role newsroom: 6 files, 25 tests passed (`npm run test:four-role-newsroom`).
+- Full Vitest suite: 228 Vitest files, 1,178 tests passed (100% green).
+- Auth guards (7 cases) & Admin credentials (6 cases) passed.
+- `npm run typecheck`, `npm run lint:strict`, and `npm run verify:dependency-security` passed with 0 errors / 0 warnings.
+- `npm run build:ci` passed; production bundle built cleanly with zero errors.
+
+#### 6. Known P2 / Future Debt
+- Live analytics snapshot polling remains local in-memory aggregation rather than distributed pub/sub.
+- Sharp image processing runs in-process in the Node runtime; offloading to dedicated image workers is deferred to production infrastructure phases.
+- Manual audio storage presence checks verify local files via fs and HTTP URLs via status check.
+
+Phase 2.7 complete. Final Phase-2 integration audit has NOT started. Phase 3 has NOT started.
 
 ---
 
