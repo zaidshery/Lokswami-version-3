@@ -105,12 +105,16 @@ describe('Admin TTS Routes', () => {
       expect(res.status).toBe(401);
     });
 
-    it('delegates to ttsService.cleanupAssets', async () => {
+    it('delegates to ttsService.cleanupAssets and returns historical response shape', async () => {
       getAdminSessionFromReqMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
       cleanupAssetsMock.mockResolvedValue({
+        dryRun: false,
+        retentionDays: 90,
+        cutoff: '2026-06-01T00:00:00.000Z',
+        processed: 5,
         deletedAssets: 2,
         deletedFiles: 2,
-        dryRun: false,
+        missingFiles: 0,
       });
 
       const { POST } = await import('@/app/api/admin/tts/cleanup/route');
@@ -124,6 +128,16 @@ describe('Admin TTS Routes', () => {
 
       expect(res.status).toBe(200);
       expect(data.success).toBe(true);
+      expect(data.data).toEqual({
+        dryRun: false,
+        retentionDays: 90,
+        cutoff: '2026-06-01T00:00:00.000Z',
+        processed: 5,
+        deletedAssets: 2,
+        deletedFiles: 2,
+        missingFiles: 0,
+      });
+      expect(data.data.filters).toBeUndefined();
       expect(cleanupAssetsMock).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'stale',
@@ -131,6 +145,21 @@ describe('Admin TTS Routes', () => {
         }),
         expect.objectContaining({ id: 'admin-1' })
       );
+    });
+
+    it('returns 500 with historical error string on unexpected service error', async () => {
+      getAdminSessionFromReqMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+      cleanupAssetsMock.mockRejectedValue(new Error('Database disk error'));
+
+      const { POST } = await import('@/app/api/admin/tts/cleanup/route');
+      const res = await POST(createPostRequest('http://localhost/api/admin/tts/cleanup'));
+      const data = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(data).toEqual({
+        success: false,
+        error: 'Failed to clean up TTS assets.',
+      });
     });
   });
 

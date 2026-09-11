@@ -51,9 +51,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.error('Failed to cleanup admin TTS assets:', error);
+    console.error('Failed to clean up admin TTS assets:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to cleanup TTS assets.' },
+      { success: false, error: 'Failed to clean up TTS assets.' },
       { status: 500 }
     );
   }

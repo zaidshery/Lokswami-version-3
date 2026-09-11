@@ -32,13 +32,13 @@ export interface TtsCleanupInput {
 }
 
 export interface TtsCleanupResult {
-  deletedAssets: number;
-  deletedFiles: number;
-  missingFiles: number;
   dryRun: boolean;
   retentionDays: number;
   cutoff: string;
-  filters: Record<string, unknown>;
+  processed: number;
+  deletedAssets: number;
+  deletedFiles: number;
+  missingFiles: number;
 }
 
 export interface TtsRevalidateInput {

@@ -172,14 +172,35 @@ describe('TtsService domain boundaries', () => {
         adminUser
       );
 
+      expect(result.processed).toBe(1);
       expect(result.deletedAssets).toBe(1);
+      expect(result.deletedFiles).toBe(0);
+      expect(result.missingFiles).toBe(0);
+      expect(result.dryRun).toBe(false);
+      expect(result.retentionDays).toBe(90);
+      expect(typeof result.cutoff).toBe('string');
+      expect('filters' in result).toBe(false);
+
       expect(mockRepository.deleteAssetDocument).toHaveBeenCalled();
       expect(mockRepository.recordAuditEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'cleanup',
           result: 'success',
+          metadata: expect.objectContaining({
+            dryRun: false,
+            retentionDays: 90,
+            deletedAssets: 1,
+            deletedFiles: 0,
+            missingFiles: 0,
+            filters: expect.objectContaining({ status: 'all' }),
+          }),
         })
       );
+      // Ensure counts are NOT nested under metadata.counts
+      const auditCall = (mockRepository.recordAuditEvent as any).mock.calls.find(
+        (call: any[]) => call[0]?.action === 'cleanup'
+      );
+      expect(auditCall[0].metadata.counts).toBeUndefined();
     });
 
     it('supports dry-run cleanup without deleting documents', async () => {
@@ -191,7 +212,9 @@ describe('TtsService domain boundaries', () => {
       );
 
       expect(result.dryRun).toBe(true);
+      expect(result.processed).toBe(1);
       expect(result.deletedAssets).toBe(1);
+      expect('filters' in result).toBe(false);
       expect(mockRepository.deleteAssetDocument).not.toHaveBeenCalled();
     });
   });

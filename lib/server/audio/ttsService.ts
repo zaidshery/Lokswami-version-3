@@ -219,22 +219,20 @@ export class TtsService {
           sourceParentId: input.sourceParentId || null,
           limit,
         },
-        counts: {
-          deletedAssets,
-          deletedFiles,
-          missingFiles,
-        },
+        deletedAssets,
+        deletedFiles,
+        missingFiles,
       },
     });
 
     return {
-      deletedAssets,
-      deletedFiles,
-      missingFiles,
       dryRun,
       retentionDays,
       cutoff: cutoff.toISOString(),
-      filters,
+      processed: assets.length,
+      deletedAssets,
+      deletedFiles,
+      missingFiles,
     };
   }
 
