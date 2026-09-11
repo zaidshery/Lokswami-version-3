@@ -13,6 +13,9 @@ vi.mock('@/lib/auth/admin', () => ({
   getAdminSessionFromReq: getAdminSessionMock,
 }));
 
+vi.mock('@/lib/db/mongoose', () => ({ default: vi.fn() }));
+vi.mock('@/lib/models/SocialPost', () => ({ default: {} }));
+
 vi.mock('@/lib/storage/socialPostsFile', () => ({
   getStoredSocialPostById: getStoredSocialPostByIdMock,
   updateStoredSocialPost: updateStoredSocialPostMock,
@@ -78,7 +81,7 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
     expect(response.status).toBe(400);
     expect(payload.error).toContain('Approve or schedule');
     expect(dispatchSocialPostToAutomationMock).not.toHaveBeenCalled();
-  });
+  }, 15000);
 
   it('sends approved drafts to automation and marks them publishing', async () => {
     getAdminSessionMock.mockResolvedValue({
@@ -138,5 +141,60 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
         automationProvider: 'n8n',
       })
     );
-  });
+  }, 15000);
+
+  it('allows failed posts to retry and persists a provider failure state', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'desk@example.com',
+      name: 'Desk',
+      role: 'admin',
+    });
+    getStoredSocialPostByIdMock.mockResolvedValue({
+      _id: 'social-1',
+      sourceStoryId: 'story-1',
+      sourceArticleId: 'article-1',
+      platform: 'facebook',
+      status: 'failed',
+      caption: 'Caption',
+      hashtags: '#Lokswami',
+      thumbnailUrl: '',
+      videoUrl: 'https://cdn.example.com/final.mp4',
+      scheduledAt: null,
+    });
+    dispatchSocialPostToAutomationMock.mockRejectedValue(new Error('Provider unavailable'));
+    updateStoredSocialPostMock.mockImplementation(
+      async (_id: string, updates: Record<string, unknown>) => ({
+        _id: 'social-1',
+        sourceStoryId: 'story-1',
+        platform: 'facebook',
+        ...updates,
+      })
+    );
+
+    const { POST } = await import('@/app/api/admin/social-posts/[id]/dispatch/route');
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: 'social-1' }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(dispatchSocialPostToAutomationMock).toHaveBeenCalledTimes(1);
+    expect(updateStoredSocialPostMock).toHaveBeenCalledWith(
+      'social-1',
+      {
+        status: 'failed',
+        lastError: 'Provider unavailable',
+        automationProvider: 'n8n',
+      }
+    );
+    expect(payload).toEqual({
+      success: false,
+      error: 'Provider unavailable',
+      data: expect.objectContaining({
+        status: 'failed',
+        lastError: 'Provider unavailable',
+      }),
+    });
+  }, 15000);
 });

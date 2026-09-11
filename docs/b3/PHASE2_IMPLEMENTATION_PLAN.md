@@ -312,43 +312,76 @@ Reader registration, Reader credential authentication, profile/settings operatio
 - Read tracking preserves the foundation's append-only semantics and 50-entry cap; deduplication would be a behavior change and is deferred.
 - The existing Vite native-config compatibility warning and slow local Next.js trace collection are inherited tooling concerns.
 
-Phase 2.6 has not been started.
+Phase 2.6 has been completed and verified.
 
 ---
 
 ### Phase 2.6: Audience & Distribution Domain Decoupling
 
-#### 1. Goal
-Decouple social sharing post generation, XML sitemaps, reader polls, elections results, newsletter subscribers, contact messages, and commercial inquiries into a unified `DistributionService`.
+#### 1. Status: IMPLEMENTED & VERIFIED (Phase 2.6 Complete)
+Decoupled audience capture (newsletter subscriptions, marketing leads, commercial advertising inquiries, career applications), contact messages & administrative workflow inbox, elections management, social distribution lifecycle, and XML sitemaps from direct storage queries, establishing explicit domain service and repository layers in `lib/server/audience/`, `lib/server/distribution/`, and content-owned facades in `lib/server/content/`.
 
-#### 2. Scope & Target Routes
-- `app/api/admin/social-posts/*`
-- `app/api/admin/polls/*`
-- `app/api/admin/contact-messages/*`
-- `app/api/admin/elections/*`
-- `app/api/subscribe/route.ts`
-- `app/api/marketing/lead/route.ts`
-- `app/api/advertise/inquiry/route.ts`
-- `app/api/careers/apply/route.ts`
-- `app/api/contact/route.ts`
-- `app/api/poll/*`
-- `app/news-sitemap.xml/route.ts`
-- `app/sitemap.ts`
+#### 2. Architecture & Domain Ownership
+- **Audience Domain (`lib/server/audience/`)**:
+  - `audienceTypes.ts`: Domain models for newsletter subscriptions, marketing leads, advertise inquiries, career applications, contact workflows, and election assets.
+  - `audienceRepository.ts`: Pure persistence adapter for `Subscriber`, `MarketingLead`, `AdvertiseInquiry`, and `CareerApplication` with automatic file fallback.
+  - `audienceCaptureService.ts`: Business logic, honeypot detection, input normalization, and validation for public capture routes.
+  - `contactRepository.ts`: Persistence adapter for `ContactMessage` Mongo collection and file store fallback, including pagination, status filtering, and workflow notes.
+  - `contactService.ts`: Ticket generation (`generateContactTicketId`), acknowledgement email orchestration, anti-bot verification (`verifyAntiBot`), rate limiting, deduplication, and workflow updates.
+  - `electionAssetRepository.ts`: File-based storage operations for state election graphics.
+  - `electionAudienceService.ts`: Public and admin election results reading/writing and graphic asset lifecycle.
+- **Distribution Domain (`lib/server/distribution/`)**:
+  - `distributionTypes.ts`: Domain models for social posts, platform targets, status lifecycle, and actor identities.
+  - `socialPostRepository.ts`: Persistence adapter for `SocialPost` Mongo and file storage.
+  - `socialDistributionService.ts`: Social post listing, metadata updates, draft generation orchestration, and automation webhook dispatch.
+  - `lib/server/socialAutomation.ts`: Webhook payload generation and provider credential redaction (`redactProviderSecrets`).
+- **Content-Owned Query Facades (`lib/server/content/`)**:
+  - `socialDistributionContentQueryService.ts`: Content query facade allowing Distribution to look up Story and Article data without owning Content persistence.
+  - `sitemapContentQueryService.ts`: Content query facade providing chunked article counting, article slicing, e-paper listings, news articles, and bounded video feed pagination for all sitemaps.
 
-#### 3. Files to Create & Modify
-- **NEW**: `lib/audience/audienceTypes.ts` (Social post drafts, poll votes, inquiry types).
-- **NEW**: `lib/audience/audienceRepository.ts` (Social, subscriber, inquiry models & file fallbacks).
-- **NEW**: `lib/audience/distributionService.ts` (Social dispatch, poll voting, sitemap aggregation).
-- **MODIFY**: Target administrative and public distribution routes.
+#### 3. Route Discrepancies & Audit Findings
+- **Marketing Lead Route**: Documented historically as `/api/marketing-leads`; actual implementation is `app/api/marketing/lead/route.ts`. Preserved exact existing path.
+- **Advertise Inquiry Route**: Documented historically as `/api/advertise`; actual implementation is `app/api/advertise/inquiry/route.ts`. Preserved exact existing path.
+- **Push Route Investigation**: Full repository scan confirmed no `PushSubscription`, `webpush`, or `p256dh` implementations exist. No artificial push endpoint was introduced in Phase 2.6.
+- **Fast-Publish Investigation**: Confirmed that `/api/admin/videos/[id]/fast-publish` does not exist and never existed in git history. Video urgent publication is handled via standard workflow action `fast_publish` on `app/api/admin/videos/[id]/route.ts` routing to `videoEditorialService.applyWorkflowAction`, pinned by boundary tests.
 
-#### 4. Tests & Characterization Strategy
-- **Status**: `EXISTING COVERAGE SUFFICIENT`.
-- **Target Suites**: `tests/api/social-posts-routes.test.ts`, `tests/api/poll-routes.test.ts`, `tests/api/contact-routes.test.ts`.
+#### 4. Scope & Target Routes Migrated
+- `app/api/subscribe/route.ts` (POST newsletter capture)
+- `app/api/marketing/lead/route.ts` (POST marketing lead capture)
+- `app/api/advertise/inquiry/route.ts` (POST commercial advertise inquiry)
+- `app/api/careers/apply/route.ts` (POST career application)
+- `app/api/contact/route.ts` (POST public contact submission)
+- `app/api/admin/contact-messages/route.ts` (GET contact messages list with pagination & counts)
+- `app/api/admin/contact-messages/[id]/route.ts` (GET contact detail, PATCH workflow updates)
+- `app/api/elections/results/route.ts` (GET public election results with cache headers)
+- `app/api/admin/elections/results/route.ts` (GET/POST admin election results)
+- `app/api/admin/elections/upload/route.ts` (POST admin election graphic upload)
+- `app/api/admin/elections/delete/route.ts` (POST admin election graphic deletion)
+- `app/api/admin/social-posts/route.ts` (GET social post list with RBAC)
+- `app/api/admin/social-posts/[id]/route.ts` (PATCH social post updates)
+- `app/api/admin/social-posts/[id]/dispatch/route.ts` (POST automation dispatch with retry & redaction)
+- `app/api/admin/social-posts/generate/route.ts` (POST social post draft generation via facade)
+- `app/sitemap.ts` (MetadataRoute standard chunked dynamic sitemap)
+- `app/news-sitemap.xml/route.ts` (GET Google News XML sitemap)
+- `app/video-sitemap.xml/route.ts` (GET Google Video XML sitemap with bounded pagination & loop protection)
 
-#### 5. Definition of Done
-- Distribution and engagement routes cleanly decoupled from raw storage.
-- Sitemaps generate deterministic, validated XML feeds via service layer.
-- All 25 audience test suites pass.
+#### 5. Verification Evidence
+- Focused Phase 2.6 test suites: 6 files, 30 tests passed (`tests/phase2-audience-distribution-boundaries.test.ts`, `tests/api/audience-capture-routes.test.ts`, `tests/api/audience-inbox-election-routes.test.ts`, `tests/api/admin-social-post-routes.test.ts`, `tests/api/admin-social-post-dispatch-route.test.ts`, `tests/social-automation.test.ts`).
+- Cross-phase regressions: Phase 1 (28 tests), Phase 2.1 (22 tests), Phase 2.2 (39 tests), Phase 2.3 (44 tests), Phase 2.4 (44 tests), Phase 2.5 (68 tests) passed cleanly.
+- Security: 8 files, 63 tests passed (`npm run test:security`).
+- Governance: 4 files, 16 tests passed (`npm run test:governance`).
+- Four-role newsroom: 6 files, 25 tests passed (`npm run test:four-role-newsroom`).
+- Full Vitest suite: 223 Vitest files, 1,141 tests passed (100% green).
+- Auth guards (7 cases) & Admin credentials (6 cases) passed.
+- `npm run typecheck`, `npm run lint:strict`, and `npm run verify:dependency-security` passed with 0 errors / 0 warnings.
+- `npm run build:ci` passed; production bundle built cleanly with 258 routes.
+
+#### 6. Known P2 / Future Debt
+- Polls domain routes (`app/api/poll/*`, `app/api/admin/polls/*`) continue on their stable historical persistence adapter.
+- Web push notification subscriptions deferred until a dedicated push delivery subsystem is scoped.
+- Video publication preserves the unified workflow action route pattern rather than dedicated single-action endpoints.
+
+Phase 2.7 has not been started.
 
 ---
 
