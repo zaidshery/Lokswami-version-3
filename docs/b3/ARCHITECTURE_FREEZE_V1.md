@@ -62,15 +62,20 @@ All system layers follow a strict unidirectional downward dependency hierarchy:
 
 ## 5. Domain Ownership Matrix
 
-| Domain | Owned Models / Storage | Owned Services | Allowed Cross-Domain Reads | Forbidden Operations | Persistence Authority | Fallback Policy |
+| Domain / Capability | Owned Models / Storage | Owned Services | Allowed Cross-Domain Reads | Forbidden Operations | Persistence Authority | Fallback Policy |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Content** | `Article`, `Category`, `ArticleRevision`, `ArticleLock`, `data/articles.json` | `publicArticleService`, `editorialService`, `editorialRevisionService`, `publicHomeFeedService`, `publicTaxonomyService`, `adminTaxonomyService` | Media URLs, Audio TTS references | Direct mutation of Video or EPaper documents | MongoDB | Mongo-first with JSON file read fallback. Write store pinned on mutation start. |
-| **Video & Swipe** | `Video`, `data/videos.json`, `data/video-activity.json` | `publicVideos`, `videoEditorialService`, `videoRepository` | Public article detail via public content service | Direct query or mutation of raw `Article` model | MongoDB | Mongo-first with JSON file read fallback. Write store pinned on mutation start. |
+| **Content** | `Article`, `Category`, `ArticleRevision`, `ArticleLock`, `data/articles.json` | `publicArticleService`, `editorialService`, `editorialRevisionService`, `publicHomeFeedService`, `publicTaxonomyService`, `adminTaxonomyService` | Media URLs, Audio TTS references | Direct mutation of Video or EPaper documents | MongoDB | Mongo-first with JSON file read fallback. Write store pinned on mutation start (`resolveNewsroomArticleStore`). |
+| **Video & Swipe** | `Video`, `data/videos.json`, `data/video-activity.json` | `publicVideos`, `videoEditorialService`, `videoRepository` | Public article detail via public content service | Direct query or mutation of raw `Article` model | MongoDB | Mongo-first with JSON file read fallback. Write store pinned on mutation start (`resolveStore`). |
 | **EPaper & Magazine** | `EPaper`, `EPaperArticle`, `EPaperActivity`, `data/epapers.json` | `epaperService`, `epaperArticleService`, `epaperRevisionService`, `epaperRepository`, `epaperTtsService`, `epaperOcrService` | Audio TTS references, PDF native worker, OCR worker | Mutation of Article or Video records | MongoDB | Mongo-first with JSON file fallback (newspapers only; no fake magazines). |
 | **Reader & Identity** | `User` (role: 'reader'), `data/users.json` (sanitized) | `readerIdentityService`, `readerService`, `readerRepository` | Public articles (for saved bookmarks) | Staff authentication; reading/writing password hashes from/to file store | MongoDB (Sole credential authority) | FAIL CLOSED for credentials/auth/passwords. Non-secret profile read fallback only. |
-| **Audience Capture** | `ContactMessage`, `Subscriber`, `MarketingLead`, `AdvertiseInquiry`, `CareerApplication`, `data/contact-messages.json`, `data/marketing-leads.json`, `data/career-applications.json`, `data/advertise-inquiries.json`, `data/election-results.json`, `public/elections/*.jpg` | `audienceCaptureService`, `audienceRepository`, `contactService`, `contactRepository`, `electionAudienceService`, `electionAssetRepository` | None | Direct mutation of core editorial articles or reader user credentials | MongoDB (capture) & Local files (elections) | Mongo-first with JSON file fallback for contact messages and leads. Write store pinned on start. |
-| **Social Distribution** | `SocialPost`, `data/social-posts.json` | `socialDistributionService`, `socialPostRepository`, `socialAutomation.ts` | Content seed queries via `socialDistributionContentQueryService` | Autonomous publishing of newsroom articles; auto-dispatch of unapproved drafts | MongoDB | Mongo-first with JSON file fallback (`data/social-posts.json`). Write store pinned on mutation start. |
-| **Analytics** | `AnalyticsEvent`, `data/analytics-events.json` | `analyticsService`, `analyticsReportService`, `analyticsRepository` | Ingests telemetry only | Becoming source of truth for editorial entities | MongoDB | Mongo-first with file fallback. Write store pinned on start. |
+| **Audience: Subscriptions** | `Subscriber` | `audienceCaptureService`, `audienceRepository` | None | Storing/authenticating reader passwords | MongoDB sole authority | Mongo-only. NO JSON fallback. Returns HTTP 503 when unconfigured. |
+| **Audience: Marketing Leads** | `MarketingLead`, `data/marketing-leads.json` | `audienceCaptureService`, `audienceRepository` | None | Mutating editorial or staff records | MongoDB primary | Mongo-first with JSON fallback (`data/marketing-leads.json`) after Mongo error in catch block. |
+| **Audience: Commercial Inquiries** | `AdvertiseInquiry`, `data/advertise-inquiries.json` | `audienceCaptureService`, `audienceRepository` | None | Mutating editorial or staff records | MongoDB primary | Mongo-first with JSON fallback (`data/advertise-inquiries.json`) after Mongo error in catch block. |
+| **Audience: Career Applications** | `CareerApplication`, `data/career-applications.json` | `audienceCaptureService`, `audienceRepository` | None | Mutating editorial or staff records | MongoDB primary | Mongo-first with JSON fallback (`data/career-applications.json`) after Mongo error in catch block. |
+| **Audience: Contact Messages & Workflow** | `ContactMessage`, `data/contact-messages.json` | `contactService`, `contactRepository` | None | Mutating staff accounts or publishing content | MongoDB primary | Mongo-first with JSON fallback (`data/contact-messages.json`) after Mongo error in catch block for create, update, detail, and list queries. |
+| **Audience: Elections** | `data/election-results.json`, `public/elections/*.jpg` | `electionAudienceService`, `electionAssetRepository` | None | Mutating editorial stories | Local filesystem & JSON file | File-based authority (`data/election-results.json` and `public/elections/*.jpg`). No MongoDB collection. |
+| **Social Distribution** | `SocialPost`, `data/social-posts.json` | `socialDistributionService`, `socialPostRepository`, `socialAutomation.ts` | Content seed queries via `socialDistributionContentQueryService` | Autonomous publishing of newsroom articles; auto-dispatch of unapproved drafts | MongoDB primary | Mongo-first with JSON file fallback (`data/social-posts.json`). Write store pinned on mutation start (`resolveStore`). |
+| **Analytics** | `AnalyticsEvent`, `data/analytics-events.json` | `analyticsService`, `analyticsReportService`, `analyticsRepository` | Ingests telemetry only | Becoming source of truth for editorial entities | MongoDB primary | Mongo-first with file fallback (`data/analytics-events.json`) on write error. Non-blocking telemetry append. |
 | **Media** | `Media`, `data/media.json`, DO Spaces bucket | `mediaService`, `mediaImageService`, `mediaRepository`, `spacesAdapter` | None | Mutating business records of other domains | MongoDB & S3/Spaces | Mongo-first with file fallback for metadata; S3 for binary blobs. |
 | **Audio / Manual TTS** | **Metadata**: `TtsAsset`, `TtsAuditEvent`, `TtsConfig`<br/>**Audio Blobs**: DO Spaces bucket / Local fs (`public/uploads/tts`, `storage/uploads/tts`) | `ttsService`, `ttsRepository`, `ttsStorage.ts` | Content/EPaper references | Owning editorial workflows; automated speech synthesis | **Metadata**: MongoDB<br/>**Audio Blobs**: DO Spaces / Local fs | **Metadata**: Mongo only (NO JSON fallback). Fail closed/error on DB outage.<br/>**Audio Blobs**: Spaces with local fs fallback. |
 
@@ -190,20 +195,31 @@ TtsService / Media Adapters ──► lib/utils/ttsStorage.ts
 The system maintains an explicit architectural separation between the **Audience Domain** and the **Distribution Domain**:
 
 ### A. Audience Domain (`lib/server/audience/`)
-Owns and coordinates public audience capture and citizen touchpoints:
-- **Newsletter Subscriptions**: `POST /api/subscribe` → `audienceCaptureService` → `Subscriber` model (MongoDB).
-- **Marketing Leads**: `POST /api/marketing/lead` → `audienceCaptureService` → `MarketingLead` model (MongoDB with `data/marketing-leads.json` fallback).
-- **Contact Messages & Ticketing**: `POST /api/contact` → `contactService` → `ContactMessage` model (MongoDB with `data/contact-messages.json` fallback).
-- **Contact Inbox Administration**: `app/api/admin/contact-messages/*` (`GET`, `GET [id]`, `PATCH [id]`, `DELETE [id]`) → `contactService` & `contactRepository`.
-- **Career Applications**: `POST /api/careers/apply` → `audienceCaptureService` → `CareerApplication` model (MongoDB with `data/career-applications.json` fallback).
-- **Commercial Advertising Inquiries**: `POST /api/advertise/inquiry` → `audienceCaptureService` → `AdvertiseInquiry` model (MongoDB with `data/advertise-inquiries.json` fallback).
-- **Elections Management**: `GET /api/elections/results`, `app/api/admin/elections/*` (`results`, `upload`, `delete`) → `electionAudienceService` & `electionAssetRepository` (`data/election-results.json`, `public/elections/*.jpg`).
+Owns and coordinates public audience capture, citizen engagement, and election results:
+- **Newsletter Subscriptions**: `POST /api/subscribe` → `audienceCaptureService` → `Subscriber` model.
+  - *Persistence*: **MongoDB only**. There is NO JSON fallback. If `MONGODB_URI` is missing or MongoDB is unreachable, returns HTTP 503 (`Subscription service is not configured yet`).
+- **Marketing Leads**: `POST /api/marketing/lead` → `audienceCaptureService` → `audienceRepository.saveMarketingLead`.
+  - *Persistence*: **Mongo-first with catch-block JSON fallback**. Attempts MongoDB `MarketingLead.findOneAndUpdate()`; if Mongo is unconfigured or throws, catches error and persists to `data/marketing-leads.json`. Also synchronizes subscriber list if `wantsDailyAlerts` is set.
+- **Commercial Advertising Inquiries**: `POST /api/advertise/inquiry` → `audienceCaptureService` → `audienceRepository.createAdvertiseInquiry`.
+  - *Persistence*: **Mongo-first with catch-block JSON fallback**. Attempts MongoDB `AdvertiseInquiry.create()`; if Mongo fails, catches error and persists to `data/advertise-inquiries.json`.
+- **Career Applications**: `POST /api/careers/apply` → `audienceCaptureService` → `audienceRepository.createCareerApplication`.
+  - *Persistence*: **Mongo-first with catch-block JSON fallback**. Attempts MongoDB `CareerApplication.create()`; if Mongo fails, catches error and persists to `data/career-applications.json`.
+- **Contact Messages & Workflow Inbox**: `POST /api/contact`, `app/api/admin/contact-messages/*` → `contactService` & `contactRepository`.
+  - *Persistence*: **Mongo-first with catch-block JSON fallback**. Tries MongoDB `ContactMessage` first; on error, falls back to `data/contact-messages.json` for submission creation (`create`), status/assignee/note updates (`update`), detail retrieval (`getById`), and inbox pagination/filtering (`list`).
+- **Elections Management**: `GET /api/elections/results`, `app/api/admin/elections/*` (`results`, `upload`, `delete`) → `electionAudienceService` & `electionAssetRepository`.
+  - *Persistence*: **Dedicated local file and graphic asset storage**. Results are stored and normalized in `data/election-results.json` via `lib/elections/storage.ts`. State visual graphics are written to and deleted from `public/elections/${stateId}.jpg`. No MongoDB collection is used.
 
 ### B. Distribution Domain (`lib/server/distribution/`)
 Owns and coordinates external content distribution and social dispatch:
 - **Social Posts Management**: `app/api/admin/social-posts/*` (`GET`, `PATCH [id]`, `POST [id]/dispatch`, `POST generate`) → `socialDistributionService` & `socialPostRepository` (`SocialPost` model in MongoDB with `data/social-posts.json` fallback).
+- **Write Store Pinning**: Multi-step social mutations evaluate `resolveStore()` once at the start of the operation and pass the selected store (`mongo` or `file`) through subsequent repository calls, ensuring operations do not flip stores mid-request.
 - **Content Query Facade**: Queries article and story context via `socialDistributionContentQueryService` in `lib/server/content/`.
-- **Strict Human Approval Gate**: Social drafts cannot be dispatched unless status is explicitly `approved` or `scheduled`. Zero autonomous publication.
+- **Social Dispatch State Machine & Human Gates**:
+  - `approved` = **Dispatchable**. Explicitly approved by an authorized editor (`admin` or `super_admin`).
+  - `scheduled` = **Dispatchable**. Scheduled for automated distribution.
+  - `failed` = **Retry / Re-dispatchable**. If webhook dispatch fails, post transitions to `failed` with recorded error. Re-dispatching a failed post simply retries automation for an item previously vetted and approved by a human editor.
+  - `draft` / unapproved = **NOT Dispatchable**. The dispatch endpoint strictly rejects unapproved drafts with HTTP 400 (`Approve or schedule the social post before sending it to automation.`).
+  - **Approval Integrity Invariant**: Failed retry does NOT bypass original human approval. An unapproved draft can never transition directly to dispatch.
 - **Provider Credential Redaction**: Webhook payloads are sanitized by `redactProviderSecrets` before external dispatch.
 
 ---
@@ -226,13 +242,20 @@ Owns and coordinates external content distribution and social dispatch:
    - Public non-secret content reads (Articles, Videos, EPapers, Taxonomies) query MongoDB first with a timeout bound.
    - If MongoDB fails or times out, they fall back gracefully to local JSON stores (`data/*.json`).
    - Empty feeds return empty collections; they never fabricate mock articles or synthetic magazines.
-2. **Write Operations**:
-   - Write paths evaluate store availability at request start.
-   - Once a store is selected (MongoDB or file), the operation is **pinned** to that store. Mutations never flip stores mid-request.
-   - Credential-bearing mutations fail closed; they never fall back to disk.
-3. **No Symmetric Fallback for Audio / TTS**:
-   - Audio/TTS business metadata does not maintain a JSON file fallback. If MongoDB is unavailable, TTS metadata operations fail closed.
-   - Physical audio storage uses DigitalOcean Spaces when configured, falling back to local disk storage (`public/uploads/tts` or `storage/uploads/tts`).
+2. **Write Operations & Fallback Semantics**:
+   The platform does **not** employ a single uniform write fallback policy. Rather, fallback semantics reflect the concrete requirements and runtime implementations of each domain:
+   - **Store Pinned at Start (Multi-Step Editorial Workflows)**:
+     - In **Content Newsroom Writes** (`resolveNewsroomArticleStore`), **Video & Swipe** (`VideoRepository.resolveStore`), and **Social Distribution** (`SocialPostRepository.resolveStore`), the write target (`mongo` or `file`) is evaluated once at mutation start and threaded through all steps. A failure mid-flight returns an error and never flips stores mid-request.
+   - **Inline Try/Catch Fallback (Public Capture Pipelines)**:
+     - In **Audience Capture** (`MarketingLead`, `AdvertiseInquiry`, `CareerApplication`, `ContactMessage`), mutations attempt MongoDB first. If MongoDB throws or is unreachable, the error is caught and the record is written to secondary JSON files (`data/*.json`).
+     - In **Analytics Telemetry** (`AnalyticsRepository.saveEvent`), telemetry ingestion attempts MongoDB first and appends to `data/analytics-events.json` upon caught failure.
+   - **Mongo Sole Authority / Fail-Closed (Zero Fallback)**:
+     - **Reader Credentials & Auth**: MongoDB is the sole authority. Registration, login, and password mutations fail closed (HTTP 503 / null session); file fallback contains strictly non-secret profile data and never persists credentials.
+     - **Newsletter Subscriptions**: `Subscriber` is MongoDB-only. If MongoDB is unconfigured or unreachable, `audienceCaptureService.subscribe()` returns HTTP 503 without file writes.
+     - **Audio / TTS Business Metadata**: `TtsAsset`, `TtsAuditEvent`, and `TtsConfig` reside solely in MongoDB. Operations fail closed on DB errors; no JSON metadata fallback exists.
+   - **Direct Local File Authority**:
+     - **Elections**: Election results and graphics are stored natively on the filesystem (`data/election-results.json` and `public/elections/*.jpg`).
+     - **Media & Audio Blobs**: Physical binaries reside in DigitalOcean Spaces when configured, with fallback to local filesystem storage (`public/uploads/`, `storage/uploads/`).
 
 ---
 
