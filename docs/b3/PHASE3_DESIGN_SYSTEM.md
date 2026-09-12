@@ -41,13 +41,16 @@ The color system is centralized in `tailwind.config.js` and `app/globals.css`.
 | `brand-50` | `#fff1f2` | Soft brand tint for light badges and active pill backgrounds |
 | `brand-950` | `#3f070b` | Deep dark brand tone for dark-mode breaking badges |
 
-### 2.2 Resolution of the "Orange" Aliasing Debt
+### 2.2 Brand Palette Tokens & Legacy Orange Aliasing Status
 Prior to Phase 3.2, `tailwind.config.js` aliased Tailwind's entire `orange` palette to red (`orange.500 = '#e72129'`).
-- **Phase 3.2 Resolution**: The canonical `brand` palette (`brand-50` through `brand-950`) and explicit semantic tokens (`brand-hover`, `brand-active`, `breaking`) have been established.
-- **Backwards Compatibility Guarantee**: The legacy `orange` and `red` aliases remain in `tailwind.config.js` so existing components function without disruption. Future Phase-3 slices will systematically migrate to `brand-*` tokens.
+- **Canonical Brand Tokens Established**: Canonical `brand-*` tokens (`brand-50` through `brand-950`, `brand-hover`, `brand-active`, `breaking`) are now established as the canonical path for LokSwami branding.
+- **Legacy Alias Maintained for Backward Compatibility**: The legacy `orange->red` alias remains temporarily in `tailwind.config.js` for backward compatibility so existing components function without disruption.
+- **Incremental Reader Migration**: Existing `orange-*` usage across reader and admin surfaces will be migrated incrementally in later Phase-3 reader slices before the alias is safely removed. UX-003 remains open in the debt tracking register until all legacy usages have migrated.
 
 ### 2.3 Normalized Editorial Surfaces (Light & Dark Mode)
-To eliminate the dark-mode banding identified in Phase 3.1 (where `#242024`, `#020617`, and `#18181b` competed), Phase 3.2 defines cohesive surface scales:
+To establish a cohesive surface hierarchy across reader surfaces (addressing the dark-mode banding identified in Phase 3.1 where `#242024`, `#020617`, and `#18181b` competed), Phase 3.2 establishes a canonical editorial surface scale:
+- **Canonical surface tokens established**: Semantic tokens and CSS variables are now defined in `tailwind.config.js` and `app/globals.css`.
+- **Incremental Reader Migration**: Existing reader surfaces will migrate incrementally in later Phase-3 slices (beginning with Reader Shell in 3.3 and Homepage in 3.4) rather than being mass-refactored in this foundational slice.
 
 #### Light Mode Surfaces
 - **Base Canvas**: `#ffffff` (`bg-white`)
@@ -185,7 +188,13 @@ Responsive design follows a strict mobile-first progression:
 - `md`: **768px** — Portrait tablets / iPad mini
 - `lg`: **1024px** — Landscape tablets / small laptops
 - `xl`: **1280px** — Standard desktop monitors
-- `2xl`: **1440px** — Wide desktop monitors
+- `wide`: **1440px** — Explicit LokSwami wide editorial container breakpoint
+- `2xl`: **1536px** — Preserved Tailwind standard breakpoint (1536px)
+
+#### Breakpoint Audit & 2xl Characterization
+Before adopting a 1440px wide breakpoint, a repository-wide inspection was conducted:
+`git grep -n "2xl:" -- app components`
+This identified **14 active production usages** across reader and admin surfaces (including `HomePageClient.tsx`, `CategoryPageClient.tsx`, `LatestFeedClient.tsx`, `Header.tsx`, `DesktopHeroEpaperCard.tsx`, and CMS admin editor modules). To guarantee zero unintended responsive shifts or layout regressions on existing production components, Tailwind's default `2xl: 1536px` semantic was strictly preserved. A dedicated, explicitly named breakpoint `wide: 1440px` was added to fulfill LokSwami's wide editorial layout requirements.
 
 **Rules**:
 - No ad-hoc media queries (`min-[380px]`, `min-[420px]`) unless mathematically justified for multi-column grids.
@@ -202,27 +211,27 @@ Responsive design follows a strict mobile-first progression:
 - **Easing**: `cubic-bezier(0.2, 0.8, 0.2, 1)` (snappy editorial response).
 
 ### 9.2 Reduced Motion Guarantee
-All animations degrade gracefully when the reader enables reduced motion at the OS level:
-```css
-@media (prefers-reduced-motion: reduce) {
-  .cnp-motion,
-  .marquee-animate,
-  [data-animate="true"] {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-```
+All animations degrade gracefully when the reader enables reduced motion at the OS level (`prefers-reduced-motion: reduce`).
+
+In addition to the global CSS reset for animation classes (`.cnp-motion`, `.marquee-animate`, `[data-animate="true"]`), all design system primitives implement local, primitive-level reduced-motion contracts:
+- **Button**: Suppresses transition and active scale via `motion-reduce:transition-none motion-reduce:active:scale-100`. The loading spinner halts animation via `motion-reduce:animate-none`.
+- **BreakingBadge**: Disables the live pulsing ring via `motion-reduce:animate-none` on the ping indicator while keeping the high-urgency status visible.
+- **Skeleton**: Disables background pulsing via `motion-reduce:animate-none`, rendering a static muted placeholder.
 
 ### 9.3 Focus States
 - Interactive elements must support the `.editorial-focus-ring` utility.
 - When focused via keyboard (`:focus-visible`), a 2px high-contrast LokSwami Red ring (`#e72129`) with a 2px offset appears.
 - Never set `outline: none` without replacing it with an accessible focus indicator.
 
-### 9.4 Touch Target Minimums
-- All primary interactive elements on mobile (buttons, nav tabs, icon controls) must maintain a minimum touch target of **44×44px** (`min-h-[44px]`), with secondary desktop controls having a minimum of **36×36px**.
+### 9.4 Touch Target Contract (Mobile-First >= 44x44px)
+In compliance with WCAG 2.2 Success Criterion 2.5.8 and mobile touch ergonomics:
+- **Mobile Touch-First Base**: All primary interactive controls on mobile screens have an interactive hit box of at least **44×44px** (`min-h-[44px]`).
+  - `Button sm`: `min-h-[44px]` on mobile (may reduce to `sm:min-h-[36px]` on tablet/desktop viewports).
+  - `Button md`: `min-h-[44px]` across all viewports.
+  - `Button lg`: `min-h-[48px]` across all viewports.
+  - `SectionHeader CTA`: `min-h-[44px]` on mobile (`sm:min-h-[36px]` on tablet/desktop).
+- **Desktop Secondary Controls**: Secondary controls may reduce to `>= 36px` only at clearly desktop/tablet breakpoints (`sm:` / 640px+ or `md:` / 768px+).
+- **Internal Typography vs. Hit Box**: Visual compactness on small controls is achieved through internal padding and typography (e.g. `text-xs px-3 py-1.5`) while strictly maintaining the accessible `>= 44px` interactive touch target.
 
 ---
 
@@ -231,20 +240,21 @@ All animations degrade gracefully when the reader enables reduced motion at the 
 The following normalized primitives have been established in `components/ui/`:
 
 ### 1. `Button` (`components/ui/Button.tsx`)
+- **Type**: `forwardRef accessible button primitive` extending `ButtonHTMLAttributes<HTMLButtonElement>`, rendering `<button>`.
 - **Variants**: `primary`, `secondary`, `outline`, `ghost`, `destructive`, `breaking`
-- **Sizes**: `sm` (34-36px), `md` (40-44px), `lg` (44-48px)
-- **Features**: Accessible `aria-busy` and `aria-disabled` on loading, left/right icon slots, keyboard focus ring, touch-target compliant.
+- **Sizes**: `sm` (`min-h-[44px] sm:min-h-[36px]`), `md` (`min-h-[44px]`), `lg` (`min-h-[48px]`)
+- **Features**: Accessible `aria-busy` and `aria-disabled` on loading, left/right icon slots, keyboard focus ring (`.editorial-focus-ring`), touch-target compliant, reduced motion enforcement (`motion-reduce:transition-none`, `motion-reduce:active:scale-100`, spinner `motion-reduce:animate-none`), Hindi-safe `tracking-normal` on breaking variant.
 
 ### 2. `Badge` (`components/ui/Badge.tsx`)
 - **Variants**: `brand`, `breaking`, `neutral`, `outline`, `success`, `warning`
 - **Sizes**: `sm` (11px), `md` (12px)
-- **Features**: Uppercase tracking-normal Devanagari protection, icon slot.
+- **Features**: `tracking-normal` Devanagari protection (prevents shirorekha fragmentation on Hindi labels like `लाइव`), icon slot.
 
 ### 3. `BreakingBadge` (`components/ui/BreakingBadge.tsx`)
-- **Features**: Live pulsing dot indicator, high-urgency urgent red styling, `role="status"`.
+- **Features**: Live pulsing dot indicator with `motion-reduce:animate-none`, `tracking-normal` shirorekha protection, high-urgency urgent red styling, `role="status"`.
 
 ### 4. `SectionHeader` (`components/ui/SectionHeader.tsx`)
-- **Features**: Signature LokSwami vertical red accent bar, configurable semantic heading level (`h1`, `h2`, `h3`, `h4`), optional call-to-action link (`ArrowRight`), Devanagari line-height protection.
+- **Features**: Signature LokSwami vertical red accent bar, configurable semantic heading level (`h1`, `h2`, `h3`, `h4`), optional call-to-action link (`ArrowRight`) with mobile `>= 44px` touch target (`min-h-[44px] sm:min-h-[36px]`), Devanagari line-height protection.
 
 ### 5. `Container` (`components/layout/Container.tsx`)
 - **Variants**: `reading` (68ch), `article` (52rem), `narrow` (48rem), `standard` (72rem), `wide` (86rem, default), `full` (100%).
@@ -261,10 +271,10 @@ The following normalized primitives have been established in `components/ui/`:
 
 ### 9. `Skeleton` (`components/ui/Skeleton.tsx`)
 - **Variants**: `text`, `circular`, `rectangular`, `rounded`
-- **Features**: `aria-hidden="true"`, subtle pulse animation, respects `prefers-reduced-motion`.
+- **Features**: `aria-hidden="true"`, subtle pulse animation, respects `prefers-reduced-motion` via `motion-reduce:animate-none`.
 
 ### 10. `MetadataRow` (`components/ui/MetadataRow.tsx`)
-- **Features**: Standardized article byline, published date with clock icon, reading time estimate, category badge, and accessible separator dots.
+- **Features**: Standardized article byline, published date with clock icon, reading time estimate, category badge, view count supporting `viewCount={0}` ("0 विचार" / "0 views"), and accessible separator dots.
 
 ---
 
