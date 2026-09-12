@@ -1,5 +1,9 @@
 # Next Sprint Direction
 
+> [!NOTE]
+> **Historical Document**: This sprint planning note predates the official Phase 2 Architecture Freeze v1.
+> Authoritative project direction is maintained in `docs/b3/ROADMAP.md` and `docs/b3/ARCHITECTURE_FREEZE_V1.md`.
+
 ## Sprint Goal
 
 Make production operations boring.

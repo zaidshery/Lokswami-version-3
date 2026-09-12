@@ -78,7 +78,7 @@ Or run:
 npm run verify:deploy -- https://your-domain.com
 ```
 
-Then complete the signed-in checks in `ADMIN_RUNTIME_CHECKLIST.md`.
+Then complete the signed-in checks in [`ADMIN_RUNTIME_CHECKLIST.md`](../operations/ADMIN_RUNTIME_CHECKLIST.md).
 
 `verify:deploy` now runs the generic smoke checks, the TTS smoke checks, and the admin guest-boundary checks together.
 

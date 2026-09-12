@@ -112,4 +112,4 @@ After each production deploy:
 4. Test a media upload flow if Spaces is enabled.
 5. Run `npm run test:smoke -- https://your-domain.com`.
 
-See `HOSTINGER_DEPLOY.md` and `DEPLOY_SMOKE_CHECKLIST.md` for the fuller operational checklist.
+See [`HOSTINGER_DEPLOY.md`](./HOSTINGER_DEPLOY.md) and [`DEPLOY_SMOKE_CHECKLIST.md`](./DEPLOY_SMOKE_CHECKLIST.md) for the fuller operational checklist.

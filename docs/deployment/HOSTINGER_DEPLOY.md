@@ -4,7 +4,7 @@ This project is now prepared for a standard Hostinger Node.js deployment.
 
 This is the only documented production deployment target for the repo. Remove any old non-Hostinger production examples from active environment files and OAuth settings.
 
-For the GitHub + Hostinger auto-deploy path, see `HOSTINGER_CICD_SETUP.md`.
+For the GitHub + Hostinger auto-deploy path, see [`HOSTINGER_CICD_SETUP.md`](./HOSTINGER_CICD_SETUP.md).
 That document covers the recommended CI/CD model for this repo: GitHub Actions for CI, Hostinger's GitHub integration for automatic production deploys, and the optional upload-package fallback workflow.
 
 Assumption:
@@ -262,7 +262,7 @@ Before deployment or restart:
 After deployment:
 
 1. Run `npm run verify:deploy -- https://your-domain.com`
-2. Complete the manual checks in `DEPLOY_SMOKE_CHECKLIST.md` and `ADMIN_RUNTIME_CHECKLIST.md`
+2. Complete the manual checks in [`DEPLOY_SMOKE_CHECKLIST.md`](./DEPLOY_SMOKE_CHECKLIST.md) and [`ADMIN_RUNTIME_CHECKLIST.md`](../operations/ADMIN_RUNTIME_CHECKLIST.md)
 
 `verify:deploy` runs all three:
 
@@ -293,4 +293,4 @@ Recommended cron frequency:
 
 Full setup guide:
 
-- `LEADERSHIP_REPORTS_HOSTINGER.md`
+- [`LEADERSHIP_REPORTS_HOSTINGER.md`](./LEADERSHIP_REPORTS_HOSTINGER.md)
