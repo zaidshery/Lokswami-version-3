@@ -309,7 +309,7 @@ All moved documentation files were cross-referenced across the entire codebase u
 
 ## 16. Quality Gates & Test Results
 
-All quality gates will be executed on the working tree before commit and push:
+All required quality gates were executed on the working tree before commit and push:
 1. `git diff --check`: Verifies no whitespace or conflict marker errors.
 2. `npm run typecheck`: TypeScript verification across all files.
 3. `npm run lint:strict`: Strict ESLint check on core domain and governance code.
@@ -341,7 +341,7 @@ All non-blocking debt items remain strictly aligned with the canonical roadmap a
   - **DEBT-008**: Multi-region database backup automation and staging restore drill orchestration.
   - **DEBT-009 (Production)**: Automated leadership alerts and daily CWV aggregation rollups from ingested telemetry.
   - **DEBT-010**: Controlled remediation and upgrades for 35 npm advisory findings (31 moderate, 3 high, 1 critical).
-  - **DEBT-011**: Operational UI hardening for deployment safeguard doc paths (`/HOSTINGER_DEPLOY.md`, `/DEPLOY_SMOKE_CHECKLIST.md`, `/ADMIN_RUNTIME_CHECKLIST.md`) via established doc-viewing or repository-linking patterns.
+  - **Unnumbered Phase-4 operational UI debt**: Admin Deployment Safeguards documentation links currently use pre-existing non-routable source-file paths (`/HOSTINGER_DEPLOY.md`, `/DEPLOY_SMOKE_CHECKLIST.md`, `/ADMIN_RUNTIME_CHECKLIST.md`). Resolve during Phase 4 operational hardening using an established documentation link/viewing pattern.
 - **Phase 8 (Apps & Advanced Scale)**:
   - **DEBT-003 / DEBT-004 (Scale Extraction)**: Physical microservice extraction for distributed pub/sub and media workers if measured production scale requires container isolation.
 
