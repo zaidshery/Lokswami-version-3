@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" role="img" aria-labelledby="title desc">
+  <title id="title">Lokswami Demo E-Paper Page Placeholder</title>
+  <desc id="desc">Deterministic local demo placeholder image for e-paper page media.</desc>
+  <defs>
+    <linearGradient id="epaper-bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+    <linearGradient id="header-accent" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#dc2626" />
+      <stop offset="100%" stop-color="#991b1b" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="1600" fill="url(#epaper-bg)" />
+  <rect x="0" y="0" width="1200" height="18" fill="url(#header-accent)" />
+  <!-- Masthead -->
+  <rect x="60" y="50" width="1080" height="120" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" />
+  <text x="600" y="125" fill="#1e293b" font-size="54" font-family="Segoe UI, Arial, sans-serif" font-weight="900" text-anchor="middle">लोकस्वामी ई-पेपर</text>
+  <text x="600" y="155" fill="#64748b" font-size="20" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">इंदौर संस्करण | स्थानीय विकास एवं परीक्षण संस्करण</text>
+
+  <!-- Newspaper layout columns simulation -->
+  <!-- Lead story -->
+  <rect x="60" y="200" width="680" height="420" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" />
+  <rect x="80" y="220" width="640" height="200" rx="4" fill="#e2e8f0" />
+  <text x="400" y="330" fill="#64748b" font-size="24" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">मुख्य समाचार छायाचित्र</text>
+  <rect x="80" y="440" width="480" height="24" rx="4" fill="#1e293b" />
+  <rect x="80" y="475" width="640" height="16" rx="3" fill="#64748b" />
+  <rect x="80" y="500" width="620" height="16" rx="3" fill="#64748b" />
+  <rect x="80" y="525" width="580" height="16" rx="3" fill="#64748b" />
+  <rect x="80" y="550" width="600" height="16" rx="3" fill="#64748b" />
+
+  <!-- Side column -->
+  <rect x="760" y="200" width="380" height="420" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" />
+  <rect x="780" y="220" width="340" height="140" rx="4" fill="#e2e8f0" />
+  <rect x="780" y="380" width="300" height="20" rx="4" fill="#1e293b" />
+  <rect x="780" y="415" width="340" height="14" rx="3" fill="#64748b" />
+  <rect x="780" y="435" width="320" height="14" rx="3" fill="#64748b" />
+  <rect x="780" y="455" width="330" height="14" rx="3" fill="#64748b" />
+
+  <!-- Middle section -->
+  <rect x="60" y="640" width="1080" height="440" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" />
+  <rect x="90" y="670" width="320" height="180" rx="4" fill="#e2e8f0" />
+  <rect x="440" y="670" width="320" height="180" rx="4" fill="#e2e8f0" />
+  <rect x="790" y="670" width="320" height="180" rx="4" fill="#e2e8f0" />
+  <rect x="90" y="870" width="280" height="20" rx="4" fill="#1e293b" />
+  <rect x="440" y="870" width="280" height="20" rx="4" fill="#1e293b" />
+  <rect x="790" y="870" width="280" height="20" rx="4" fill="#1e293b" />
+  <rect x="90" y="905" width="310" height="14" rx="3" fill="#64748b" />
+  <rect x="440" y="905" width="310" height="14" rx="3" fill="#64748b" />
+  <rect x="790" y="905" width="310" height="14" rx="3" fill="#64748b" />
+
+  <!-- Bottom section -->
+  <rect x="60" y="1100" width="1080" height="420" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" />
+  <text x="600" y="1320" fill="#94a3b8" font-size="32" font-family="Segoe UI, Arial, sans-serif" font-weight="700" text-anchor="middle">लोकस्वामी परीक्षण ई-संस्करण पृष्ठ 1</text>
+  <text x="600" y="1365" fill="#cbd5e1" font-size="20" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Lokswami QA Demo E-Paper Fixture Page</text>
+</svg>
