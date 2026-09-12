@@ -4,34 +4,53 @@
  */
 
 import './register';
-import { verifyDemoData } from './engine';
+import {
+  DEMO_BREAKING_MODES,
+  DEMO_CONTENT_SOURCES,
+  verifyDemoData,
+  type DemoBreakingMode,
+  type DemoContentSource,
+} from './engine';
 import { SUPPORTED_SCENARIOS } from './scenarios';
 
 function parseArgs(args: string[]) {
   let scenario = 'full';
+  let source = 'synthetic';
+  let breaking = 'snapshot';
 
   for (const arg of args) {
     if (arg.startsWith('--scenario=')) {
       scenario = arg.slice('--scenario='.length).trim();
+    } else if (arg.startsWith('--source=')) {
+      source = arg.slice('--source='.length).trim();
+    } else if (arg.startsWith('--breaking=')) {
+      breaking = arg.slice('--breaking='.length).trim();
     }
   }
 
-  return { scenario };
+  return { scenario, source, breaking };
 }
 
 async function main() {
-  const { scenario } = parseArgs(process.argv.slice(2));
+  const { scenario, source, breaking } = parseArgs(process.argv.slice(2));
 
   console.log('============================================================');
   console.log(' LokSwami B3 Demo Content Harness: VERIFY');
   console.log('============================================================');
   console.log(`Verifying Scenario: ${scenario}`);
+  console.log(`Content Source:     ${source}`);
+  console.log(`Breaking Mode:      ${breaking}`);
   console.log('------------------------------------------------------------');
 
   try {
-    const result = await verifyDemoData(scenario);
+    const result = await verifyDemoData(scenario, {
+      source: source as DemoContentSource,
+      breaking: breaking as DemoBreakingMode,
+    });
 
     console.log(`Store Active:     ${result.store.toUpperCase()}`);
+    console.log(`Source Active:    ${result.source.toUpperCase()}`);
+    console.log(`Real Content:     ${result.composition.realPercent}% (${result.composition.real}/${result.composition.total})`);
     console.log(`Total Checks:     ${result.checks.length}`);
     console.log(`Passed:           ${result.totalPassed}`);
     console.log(`Failed:           ${result.totalFailed}`);
@@ -67,6 +86,8 @@ async function main() {
     console.error('VERIFICATION ERROR:');
     console.error(error instanceof Error ? error.message : String(error));
     console.error('Supported scenarios:', SUPPORTED_SCENARIOS.join(', '));
+    console.error('Supported sources:', DEMO_CONTENT_SOURCES.join(', '));
+    console.error('Supported breaking modes:', DEMO_BREAKING_MODES.join(', '));
     console.error('============================================================');
     process.exit(1);
   }

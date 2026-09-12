@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": "breaking-101",
+      "articleId": "public-article-101",
+      "slug": "indore-water-project",
+      "title": "Sanitized breaking headline",
+      "category": "Regional",
+      "city": "Indore",
+      "publishedAt": "2026-09-10T08:05:00.000Z"
+    }
+  ]
+}

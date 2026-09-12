@@ -12,31 +12,32 @@ import {
   type ScenarioFixturePlan,
 } from './scenarios';
 import {
-  DEMO_ARTICLES,
   DEMO_ARTICLE_IDS,
   type DemoArticleFixture,
 } from './fixtures/articles';
 import {
-  DEMO_VIDEOS,
   DEMO_VIDEO_IDS,
   type DemoVideoFixture,
 } from './fixtures/videos';
 import {
-  DEMO_SHORTS,
   DEMO_SHORT_IDS,
   type DemoShortFixture,
 } from './fixtures/shorts';
 import {
-  DEMO_EPAPERS,
   DEMO_EPAPER_IDS,
   DEMO_EPAPER_ARTICLES,
   type DemoEpaperFixture,
 } from './fixtures/epaper';
 import {
-  DEMO_MAGAZINES,
   DEMO_MAGAZINE_IDS,
   type DemoMagazineFixture,
 } from './fixtures/magazine';
+import {
+  ensureRealSnapshotAssets,
+  getRealSnapshotOwnership,
+  resolveRealSnapshotPlan,
+  type RealSnapshotOwnership,
+} from './realSnapshot';
 
 import connectDB from '@/lib/db/mongoose';
 import Article from '@/lib/models/Article';
@@ -71,10 +72,29 @@ import {
 } from '@/lib/storage/epapersFile';
 
 export type DemoStoreMode = 'mongo' | 'file';
+export const DEMO_CONTENT_SOURCES = ['synthetic', 'lokswami'] as const;
+export const DEMO_BREAKING_MODES = ['snapshot', 'none'] as const;
+export type DemoContentSource = (typeof DEMO_CONTENT_SOURCES)[number];
+export type DemoBreakingMode = (typeof DEMO_BREAKING_MODES)[number];
+
+export interface DemoHarnessSelection {
+  source?: DemoContentSource;
+  breaking?: DemoBreakingMode;
+}
+
+export interface ScenarioComposition {
+  total: number;
+  real: number;
+  synthetic: number;
+  realPercent: number;
+}
 
 export interface SeedResult {
   store: DemoStoreMode;
   scenario: DemoScenarioName;
+  source: DemoContentSource;
+  breaking: DemoBreakingMode;
+  composition: ScenarioComposition;
   articlesSeeded: number;
   videosSeeded: number;
   shortsSeeded: number;
@@ -85,6 +105,7 @@ export interface SeedResult {
 
 export interface ResetResult {
   store: DemoStoreMode;
+  source: DemoContentSource;
   articlesRemoved: number;
   videosRemoved: number;
   epapersRemoved: number;
@@ -102,10 +123,124 @@ export interface VerificationResult {
   ok: boolean;
   store: DemoStoreMode;
   scenario: DemoScenarioName;
+  source: DemoContentSource;
+  breaking: DemoBreakingMode;
+  composition: ScenarioComposition;
   checks: VerificationCheck[];
   totalPassed: number;
   totalFailed: number;
   totalSkipped: number;
+}
+
+export type DemoFixtureOwnershipKind =
+  | 'article'
+  | 'video'
+  | 'epaper'
+  | 'epaperArticle';
+
+const DEMO_EPAPER_ARTICLE_IDS = DEMO_EPAPER_ARTICLES.map((article) => article._id);
+const DEMO_FIXTURE_IDS: Record<DemoFixtureOwnershipKind, ReadonlySet<string>> = {
+  article: new Set(DEMO_ARTICLE_IDS),
+  video: new Set([...DEMO_VIDEO_IDS, ...DEMO_SHORT_IDS]),
+  epaper: new Set([...DEMO_EPAPER_IDS, ...DEMO_MAGAZINE_IDS]),
+  epaperArticle: new Set(DEMO_EPAPER_ARTICLE_IDS),
+};
+
+function normalizeSelection(options: DemoHarnessSelection = {}) {
+  const source = options.source || 'synthetic';
+  const breaking = options.breaking || 'snapshot';
+  if (!DEMO_CONTENT_SOURCES.includes(source)) {
+    throw new Error(
+      `Unknown demo content source "${source}". Supported sources: ${DEMO_CONTENT_SOURCES.join(', ')}`
+    );
+  }
+  if (!DEMO_BREAKING_MODES.includes(breaking)) {
+    throw new Error(
+      `Unknown breaking mode "${breaking}". Supported modes: ${DEMO_BREAKING_MODES.join(', ')}`
+    );
+  }
+  return { source, breaking };
+}
+
+export function resolveHarnessScenarioPlan(
+  scenarioName: string = 'full',
+  options: DemoHarnessSelection = {}
+): ScenarioFixturePlan {
+  const { source, breaking } = normalizeSelection(options);
+  const plan = source === 'lokswami'
+    ? resolveRealSnapshotPlan(scenarioName, { breaking })
+    : resolveScenarioPlan(scenarioName);
+  const articles = breaking === 'none'
+    ? plan.articles.map((article) => ({ ...article, isBreaking: false, breakingTts: null }))
+    : plan.articles;
+  const publicArticleIds = new Set(articles.map((article) => article._id));
+
+  return {
+    ...plan,
+    articles,
+    // A published short is valid only when its linked published article is in this plan.
+    shorts: plan.shorts.filter(
+      (short) => Boolean(short.articleId) && publicArticleIds.has(short.articleId)
+    ),
+  };
+}
+
+export function summarizeScenarioComposition(
+  plan: ScenarioFixturePlan,
+  source: DemoContentSource
+): ScenarioComposition {
+  const total =
+    plan.articles.length +
+    plan.videos.length +
+    plan.shorts.length +
+    plan.epapers.length +
+    plan.magazines.length;
+  const real = source === 'lokswami' ? total : 0;
+  return {
+    total,
+    real,
+    synthetic: total - real,
+    realPercent: total === 0 ? 0 : Math.round((real / total) * 100),
+  };
+}
+
+function syntheticOwnership(): RealSnapshotOwnership {
+  return {
+    articleIds: DEMO_ARTICLE_IDS,
+    videoIds: [...DEMO_VIDEO_IDS, ...DEMO_SHORT_IDS],
+    epaperIds: [...DEMO_EPAPER_IDS, ...DEMO_MAGAZINE_IDS],
+    epaperArticleIds: DEMO_EPAPER_ARTICLE_IDS,
+  };
+}
+
+export function resolveHarnessOwnership(
+  options: Pick<DemoHarnessSelection, 'source'> = {}
+): RealSnapshotOwnership {
+  const { source } = normalizeSelection(options);
+  return source === 'lokswami' ? getRealSnapshotOwnership() : syntheticOwnership();
+}
+
+/** Exact ownership predicate used by reset; names and prefixes never confer ownership. */
+export function isOwnedDemoFixtureId(
+  kind: DemoFixtureOwnershipKind,
+  id: string
+): boolean {
+  return DEMO_FIXTURE_IDS[kind].has(id);
+}
+
+export function isOwnedHarnessFixtureId(
+  kind: DemoFixtureOwnershipKind,
+  id: string,
+  options: Pick<DemoHarnessSelection, 'source'> = {}
+): boolean {
+  const ownership = resolveHarnessOwnership(options);
+  const idsByKind: Record<DemoFixtureOwnershipKind, string[]> = {
+    article: ownership.articleIds,
+    video: ownership.videoIds,
+    epaper: ownership.epaperIds,
+    epaperArticle: ownership.epaperArticleIds,
+  };
+  return idsByKind[kind].includes(id);
 }
 
 const dataDir = path.resolve(process.cwd(), 'data');
@@ -446,11 +581,12 @@ async function seedEpapersFile(
  */
 export async function seedScenario(
   scenarioName: string = 'full',
-  options: { dryRun?: boolean } = {}
+  options: DemoHarnessSelection & { dryRun?: boolean } = {}
 ): Promise<SeedResult> {
   const store = await resolveDemoStore();
-  const plan = resolveScenarioPlan(scenarioName);
-  await ensureDemoAssets();
+  const selection = normalizeSelection(options);
+  const plan = resolveHarnessScenarioPlan(scenarioName, selection);
+  const composition = summarizeScenarioComposition(plan, selection.source);
 
   const skipped: string[] = [];
 
@@ -458,6 +594,8 @@ export async function seedScenario(
     return {
       store,
       scenario: plan.name,
+      ...selection,
+      composition,
       articlesSeeded: plan.articles.length,
       videosSeeded: plan.videos.length,
       shortsSeeded: plan.shorts.length,
@@ -468,6 +606,12 @@ export async function seedScenario(
           ? ['SKIPPED — unsupported by current file-store contract: e-magazine and releasedSnapshot lifecycle']
           : [],
     };
+  }
+
+  if (selection.source === 'lokswami') {
+    await ensureRealSnapshotAssets();
+  } else {
+    await ensureDemoAssets();
   }
 
   // 1. Seed Articles
@@ -513,6 +657,8 @@ export async function seedScenario(
   return {
     store,
     scenario: plan.name,
+    ...selection,
+    composition,
     articlesSeeded,
     videosSeeded,
     shortsSeeded,
@@ -527,21 +673,24 @@ export async function seedScenario(
 // ---------------------------------------------------------------------------
 
 /**
- * Resets ONLY demo fixtures by deterministic IDs or demo namespace.
+ * Resets ONLY demo fixtures by their exact deterministic IDs.
  * Strictly prevents unscoped deletions, dropDatabase, or dropCollection.
  */
 export async function resetDemoData(
-  options: { dryRun?: boolean } = {}
+  options: DemoHarnessSelection & { dryRun?: boolean } = {}
 ): Promise<ResetResult> {
   const store = await resolveDemoStore();
+  const selection = normalizeSelection(options);
+  const ownership = resolveHarnessOwnership(selection);
 
   if (options.dryRun) {
     return {
       store,
-      articlesRemoved: DEMO_ARTICLE_IDS.length,
-      videosRemoved: DEMO_VIDEO_IDS.length + DEMO_SHORT_IDS.length,
-      epapersRemoved: DEMO_EPAPER_IDS.length + DEMO_MAGAZINE_IDS.length,
-      epaperArticlesRemoved: DEMO_EPAPER_ARTICLES.length,
+      source: selection.source,
+      articlesRemoved: ownership.articleIds.length,
+      videosRemoved: ownership.videoIds.length,
+      epapersRemoved: ownership.epaperIds.length,
+      epaperArticlesRemoved: ownership.epaperArticleIds.length,
     };
   }
 
@@ -551,49 +700,40 @@ export async function resetDemoData(
   let epaperArticlesRemoved = 0;
 
   if (store === 'mongo') {
-    // Scoped article reset: strictly demo IDs or demo- slug prefix
+    // Exact article fixture ownership only. A slug or namespace prefix is never ownership.
     const articleDel = await Article.deleteMany({
-      $or: [
-        { _id: { $in: DEMO_ARTICLE_IDS } },
-        { slug: /^demo-/ },
-      ],
+      _id: { $in: ownership.articleIds },
     });
     articlesRemoved = articleDel.deletedCount || 0;
 
-    // Scoped video reset: strictly demo video & short IDs or demo- slug prefix
+    // Exact video and short fixture ownership only.
     const videoDel = await Video.deleteMany({
-      $or: [
-        { _id: { $in: [...DEMO_VIDEO_IDS, ...DEMO_SHORT_IDS] } },
-        { slug: /^demo-/ },
-      ],
+      _id: { $in: ownership.videoIds },
     });
     videosRemoved = videoDel.deletedCount || 0;
 
-    // Scoped epaper article reset
+    // Exact E-Paper article fixture ownership only. Sharing a fixture edition is insufficient.
     const epaperArtDel = await EPaperArticle.deleteMany({
-      epaperId: { $in: DEMO_EPAPER_IDS },
+      _id: { $in: ownership.epaperArticleIds },
     });
     epaperArticlesRemoved = epaperArtDel.deletedCount || 0;
 
-    // Scoped epaper reset: strictly demo epaper & magazine IDs or demo- familyId
+    // Exact E-Paper and E-Magazine fixture ownership only.
     const epaperDel = await EPaper.deleteMany({
-      $or: [
-        { _id: { $in: [...DEMO_EPAPER_IDS, ...DEMO_MAGAZINE_IDS] } },
-        { familyId: /^demo-/ },
-      ],
+      _id: { $in: ownership.epaperIds },
     });
     epapersRemoved = epaperDel.deletedCount || 0;
   } else {
     // File store scoped reset
-    const demoArticleIdSet = new Set<string>(DEMO_ARTICLE_IDS);
-    const demoVideoIdSet = new Set<string>([...DEMO_VIDEO_IDS, ...DEMO_SHORT_IDS]);
-    const demoEpaperIdSet = new Set<string>([...DEMO_EPAPER_IDS, ...DEMO_MAGAZINE_IDS]);
+    const demoArticleIdSet = new Set<string>(ownership.articleIds);
+    const demoVideoIdSet = new Set<string>(ownership.videoIds);
+    const demoEpaperIdSet = new Set<string>(ownership.epaperIds);
 
     // Articles
     try {
       const storedArticles = await listAllStoredArticles();
       const filtered = storedArticles.filter(
-        (a) => !demoArticleIdSet.has(a._id) && !a.slug.startsWith('demo-')
+        (a) => !demoArticleIdSet.has(a._id)
       );
       articlesRemoved = storedArticles.length - filtered.length;
       await writeJsonFileAtomically(articlesJsonPath, filtered);
@@ -605,7 +745,7 @@ export async function resetDemoData(
     try {
       const storedVideos = (await listAllStoredVideos()) as unknown as StoredVideo[];
       const filtered = storedVideos.filter(
-        (v) => !demoVideoIdSet.has(v._id) && !v.slug.startsWith('demo-')
+        (v) => !demoVideoIdSet.has(v._id)
       );
       videosRemoved = storedVideos.length - filtered.length;
       await writeJsonFileAtomically(videosJsonPath, filtered);
@@ -617,7 +757,7 @@ export async function resetDemoData(
     try {
       const storedEpapers = await listAllStoredEPapers();
       const filtered = storedEpapers.filter(
-        (e) => !demoEpaperIdSet.has(e._id) && !e._id.startsWith('demo-')
+        (e) => !demoEpaperIdSet.has(e._id)
       );
       epapersRemoved = storedEpapers.length - filtered.length;
       await writeJsonFileAtomically(epapersJsonPath, filtered);
@@ -628,6 +768,7 @@ export async function resetDemoData(
 
   return {
     store,
+    source: selection.source,
     articlesRemoved,
     videosRemoved,
     epapersRemoved,
@@ -643,11 +784,29 @@ export async function resetDemoData(
  * Verifies demo fixtures through real reader-public read services where supported.
  */
 export async function verifyDemoData(
-  scenarioName: string = 'full'
+  scenarioName: string = 'full',
+  options: DemoHarnessSelection = {}
 ): Promise<VerificationResult> {
   const store = await resolveDemoStore();
-  const plan = resolveScenarioPlan(scenarioName);
+  const selection = normalizeSelection(options);
+  const plan = resolveHarnessScenarioPlan(scenarioName, selection);
+  const composition = summarizeScenarioComposition(plan, selection.source);
   const checks: VerificationCheck[] = [];
+
+  const publicFileExists = async (publicUrl: string) => {
+    if (!publicUrl.startsWith('/') || publicUrl.startsWith('//')) return false;
+    const relativePath = publicUrl.replace(/^\/+/, '');
+    const publicRoot = path.resolve(process.cwd(), 'public');
+    const candidate = path.resolve(publicRoot, relativePath);
+    const relative = path.relative(publicRoot, candidate);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) return false;
+    try {
+      await fs.access(candidate);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   // 1. Verify Articles through Public Resolution Service
   for (const article of plan.articles) {
@@ -688,21 +847,75 @@ export async function verifyDemoData(
     }
   }
 
+  if (selection.source === 'lokswami' && plan.articles.length > 0) {
+    const localizedImages = await Promise.all(
+      plan.articles.map(async (article) => ({
+        article,
+        exists: Boolean(article.image) && await publicFileExists(article.image),
+      }))
+    );
+    const missingImages = localizedImages.filter(({ exists }) => !exists);
+    checks.push({
+      name: 'Localized article image assets',
+      category: 'article',
+      status: missingImages.length === 0 ? 'passed' : 'failed',
+      details: missingImages.length === 0
+        ? `All ${localizedImages.length} real article images exist under public/demo/lokswami`
+        : `${missingImages.length} localized article image(s) are missing`,
+    });
+
+    const searchArticle = plan.articles.find((article) =>
+      article.title.split(/\s+/u).some((token) => token.trim().length >= 2)
+    ) || plan.articles[0];
+    const searchTerm = searchArticle.title
+      .split(/\s+/u)
+      .map((token) => token.trim())
+      .find((token) => token.length >= 2) || searchArticle.title.slice(0, 8);
+    try {
+      const searchResult = await publicArticleService.listPublicArticles({
+        query: searchTerm,
+        limit: 50,
+      });
+      const found = searchResult.items.some((item) => item._id === searchArticle._id);
+      checks.push({
+        name: `Public article search: ${searchTerm}`,
+        category: 'article',
+        status: found ? 'passed' : 'failed',
+        details: found
+          ? `Found real snapshot article ${searchArticle.slug}`
+          : `Search did not return real snapshot article ${searchArticle.slug}`,
+      });
+    } catch (error) {
+      checks.push({
+        name: `Public article search: ${searchTerm}`,
+        category: 'article',
+        status: 'failed',
+        details: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   // 2. Verify Breaking News via Breaking Feed
   const activeBreaking = plan.articles.filter((a) => a.isBreaking);
   if (activeBreaking.length > 0) {
     try {
       const breakingFeed = await publicArticleService.getBreakingArticles(10);
       for (const expected of activeBreaking) {
-        const found = breakingFeed.some(
+        const found = breakingFeed.find(
           (item) => item.id === expected._id || item.title === expected.title
         );
         if (found) {
+          const audioExists = selection.source !== 'lokswami'
+            || (found.ttsReady === true
+              && Boolean(found.ttsAudioUrl)
+              && await publicFileExists(found.ttsAudioUrl || ''));
           checks.push({
             name: `Breaking News Feed: ${expected.slug}`,
             category: 'breaking',
-            status: 'passed',
-            details: `Found in active public breaking feed (${breakingFeed.length} items total)`,
+            status: audioExists ? 'passed' : 'failed',
+            details: audioExists
+              ? `Found in active public breaking feed (${breakingFeed.length} items total) with reusable audio ready`
+              : 'Breaking item was visible, but reusable local audio was not ready',
           });
         } else {
           checks.push({
@@ -922,6 +1135,8 @@ export async function verifyDemoData(
     ok,
     store,
     scenario: plan.name,
+    ...selection,
+    composition,
     checks,
     totalPassed,
     totalFailed,

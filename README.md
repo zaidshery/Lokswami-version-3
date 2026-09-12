@@ -134,6 +134,28 @@ Readiness currently checks:
 - readable story text coverage
 - missing thumbnail / missing PDF
 
+## Local real-content and CMS QA
+
+Use a bounded, read-only snapshot of LokSwami's public reader APIs for realistic local QA. The downloaded archive stays under the gitignored `.local/content-snapshots/` tree; CI uses only sanitized fixtures and never contacts production.
+
+```bash
+# 1. Pull and inspect a local production-content snapshot (GET only)
+LOKSWAMI_REAL_CONTENT=true npm run content:snapshot:pull
+npm run content:snapshot:inspect
+
+# 2. Seed and verify the local destination
+LOKSWAMI_DEMO_DATA=true npm run demo:seed -- --source=lokswami --scenario=full
+LOKSWAMI_DEMO_DATA=true npm run demo:verify -- --source=lokswami --scenario=full
+
+# 3. Provision four local CMS QA roles (requires loopback MongoDB and password env vars)
+LOKSWAMI_CMS_QA=true npm run cms:qa:provision
+
+# 4. Start the local reader/CMS
+npm run dev
+```
+
+See [`docs/b3/LOCAL_REAL_CONTENT_QA_HARNESS.md`](docs/b3/LOCAL_REAL_CONTENT_QA_HARNESS.md) for source, safety, cache, refresh, reset, media, and scenario details. See [`docs/b3/CMS_LOCAL_QA_ACCESS_MATRIX.md`](docs/b3/CMS_LOCAL_QA_ACCESS_MATRIX.md) for exact role access and the local CMS checklist. No command in this workflow writes back to production.
+
 ## Deployment
 
 Hostinger Node deployment is the supported production path for this repo.
@@ -173,6 +195,8 @@ For the master documentation index, see [`docs/README.md`](docs/README.md).
 
 - [`docs/b3/ROADMAP.md`](docs/b3/ROADMAP.md) for the authoritative B3 Phase 3–8 product roadmap
 - [`docs/b3/ARCHITECTURE_FREEZE_V1.md`](docs/b3/ARCHITECTURE_FREEZE_V1.md) for the canonical frozen architecture contract
+- [`docs/b3/LOCAL_REAL_CONTENT_QA_HARNESS.md`](docs/b3/LOCAL_REAL_CONTENT_QA_HARNESS.md) for the local read-only production-content snapshot workflow
+- [`docs/b3/CMS_LOCAL_QA_ACCESS_MATRIX.md`](docs/b3/CMS_LOCAL_QA_ACCESS_MATRIX.md) for local CMS QA provisioning and role access
 - [`docs/deployment/HOSTINGER_CICD_SETUP.md`](docs/deployment/HOSTINGER_CICD_SETUP.md) for GitHub Actions + Hostinger auto-deploy setup
 - [`docs/deployment/HOSTINGER_DEPLOY.md`](docs/deployment/HOSTINGER_DEPLOY.md) for the production deployment flow
 - [`docs/deployment/VERCEL_CICD_SETUP.md`](docs/deployment/VERCEL_CICD_SETUP.md) for GitHub Actions + Vercel CI/CD

@@ -6,7 +6,10 @@ import {
   parseMongoDatabaseName,
   isSafeLocalHost,
 } from '@/scripts/demo/safety';
-import { resolveDemoStore } from '@/scripts/demo/engine';
+import {
+  isOwnedDemoFixtureId,
+  resolveDemoStore,
+} from '@/scripts/demo/engine';
 import { resolveScenarioPlan, SUPPORTED_SCENARIOS } from '@/scripts/demo/scenarios';
 import { DEMO_ARTICLES, DEMO_ARTICLE_IDS } from '@/scripts/demo/fixtures/articles';
 import { DEMO_VIDEOS, DEMO_VIDEO_IDS } from '@/scripts/demo/fixtures/videos';
@@ -226,6 +229,21 @@ describe('Demo Fixture Harness Safety Guardrails', () => {
   });
 
   describe('Deterministic Demo Namespace & Scoped Reset', () => {
+    it('treats only exact fixture IDs as reset-owned records', () => {
+      expect(isOwnedDemoFixtureId('article', DEMO_ARTICLE_IDS[0])).toBe(true);
+      expect(isOwnedDemoFixtureId('video', DEMO_VIDEO_IDS[0])).toBe(true);
+      expect(isOwnedDemoFixtureId('video', DEMO_SHORT_IDS[0])).toBe(true);
+      expect(isOwnedDemoFixtureId('epaper', DEMO_EPAPER_IDS[0])).toBe(true);
+      expect(isOwnedDemoFixtureId('epaper', DEMO_MAGAZINE_IDS[0])).toBe(true);
+      expect(isOwnedDemoFixtureId('epaperArticle', DEMO_EPAPER_ARTICLES[0]._id)).toBe(true);
+
+      // Prefixes and shared parent IDs do not establish ownership.
+      expect(isOwnedDemoFixtureId('article', 'demo-unrelated-article')).toBe(false);
+      expect(isOwnedDemoFixtureId('video', 'demo-unrelated-video')).toBe(false);
+      expect(isOwnedDemoFixtureId('epaper', 'demo-unrelated-epaper')).toBe(false);
+      expect(isOwnedDemoFixtureId('epaperArticle', DEMO_EPAPER_IDS[0])).toBe(false);
+    });
+
     it('verifies all demo article IDs and slugs belong to deterministic demo namespace', () => {
       for (const id of DEMO_ARTICLE_IDS) {
         expect(id).toMatch(/^65f00000000000000000[0-9a-f]{4}$/);
@@ -340,6 +358,17 @@ describe('Demo Fixture Harness Safety Guardrails', () => {
 
       // dropCollection must NEVER exist
       expect(content).not.toMatch(/\.dropCollection\s*\(/);
+
+      // Namespace/prefix matches are not exact ownership and must never drive reset.
+      expect(content).not.toMatch(/\{\s*slug:\s*\/\^demo-/);
+      expect(content).not.toMatch(/\{\s*familyId:\s*\/\^demo-/);
+      expect(content).not.toMatch(/\.slug\.startsWith\(\s*['"]demo-/);
+      expect(content).not.toMatch(/\._id\.startsWith\(\s*['"]demo-/);
+
+      // E-Paper article cleanup must use exact article IDs, not the broader parent edition ID.
+      expect(content).toMatch(
+        /EPaperArticle\.deleteMany\(\{[\s\S]*?_id:\s*\{\s*\$in:\s*ownership\.epaperArticleIds\s*\}/
+      );
     });
 
     it('ensures safety.ts never exposes or logs raw Mongo URIs with credentials', () => {

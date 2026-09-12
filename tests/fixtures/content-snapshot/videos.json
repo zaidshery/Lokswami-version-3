@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "_id": "video-201",
+      "slug": "sanitized-video",
+      "title": "Sanitized LokSwami video",
+      "description": "Fixture description.",
+      "thumbnail": "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg",
+      "youtubeUrl": "https://www.youtube.com/watch?v=abcdefghijk",
+      "duration": 95,
+      "category": "Regional",
+      "mediaProvider": "youtube",
+      "publishedAt": "2026-09-08T06:00:00.000Z"
+    }
+  ]
+}

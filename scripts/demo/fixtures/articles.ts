@@ -3,7 +3,7 @@
  * Realistic Synthetic Hindi News Article Fixtures
  */
 
-import { makeDemoMongoId, relativeDate, relativeIsoDate } from './common';
+import { makeDemoMongoId, relativeDate } from './common';
 
 export interface DemoArticleFixture {
   _id: string;
@@ -17,6 +17,15 @@ export interface DemoArticleFixture {
   views: number;
   isBreaking: boolean;
   isTrending: boolean;
+  breakingTts?: {
+    audioUrl: string;
+    textHash: string;
+    languageCode: 'hi-IN' | 'en-IN';
+    voice: 'manual';
+    model: 'manual';
+    mimeType: 'audio/wav';
+    generatedAt: Date;
+  } | null;
   tags: string[];
   publishedAt: Date;
   updatedAt: Date;
