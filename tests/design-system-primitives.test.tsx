@@ -58,14 +58,14 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(screen.getByTestId('right-icon')).toBeInTheDocument();
     });
 
-    it('enforces mobile touch target contract for sm, md, and lg sizes without mobile sm reduction', () => {
+    it('enforces universal touch target contract for sm, md, and lg sizes without responsive reduction', () => {
       const { rerender } = render(<Button size="sm">छोटा बटन</Button>);
       const smButton = screen.getByRole('button');
       expect(smButton).toHaveClass('min-h-[44px]');
       expect(smButton).toHaveClass('min-w-[44px]');
       expect(smButton.className).not.toContain('sm:min-h-[36px]');
-      expect(smButton).toHaveClass('lg:min-h-[36px]');
-      expect(smButton).toHaveClass('lg:min-w-0');
+      expect(smButton.className).not.toContain('lg:min-h-[36px]');
+      expect(smButton.className).not.toContain('lg:min-w-0');
 
       rerender(<Button size="md">मध्यम बटन</Button>);
       const mdButton = screen.getByRole('button');
@@ -149,7 +149,7 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(heading).toHaveClass('hindi-headline');
     });
 
-    it('renders CTA link when href and ctaText are passed and enforces mobile touch target and reduced motion contract', () => {
+    it('renders CTA link when href and ctaText are passed and enforces universal touch target and reduced motion contract', () => {
       render(
         <SectionHeader
           title="राजनीति"
@@ -160,8 +160,9 @@ describe('LokSwami B3 Design System Primitives', () => {
       const link = screen.getByRole('link', { name: /सभी देखें/ });
       expect(link).toHaveAttribute('href', '/main/category/politics');
       expect(link).toHaveClass('min-h-[44px]');
+      expect(link).toHaveClass('min-w-[44px]');
       expect(link.className).not.toContain('sm:min-h-[36px]');
-      expect(link).toHaveClass('lg:min-h-[36px]');
+      expect(link.className).not.toContain('lg:min-h-[36px]');
       expect(link).toHaveClass('motion-reduce:transition-none');
     });
   });

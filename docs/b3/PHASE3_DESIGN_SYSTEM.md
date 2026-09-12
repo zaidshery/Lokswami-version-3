@@ -214,7 +214,7 @@ This identified **14 active production usages** across reader and admin surfaces
 All animations degrade gracefully when the reader enables reduced motion at the OS level (`prefers-reduced-motion: reduce`).
 
 > [!NOTE]
-> While new design system primitives strictly implement and enforce reduced-motion contracts out of the box, legacy reader animations (such as the homepage carousel auto-scroll and breaking news marquee ticker) retain known accessibility debt tracked under Phase 3.1 (UX-004) scheduled for resolution during surface-specific migrations in Phases 3.4 and 3.5.
+> While new design system primitives strictly implement and enforce reduced-motion contracts out of the box, legacy reader reduced-motion issues remain recorded in the Phase 3.1 Accessibility findings and will be addressed in later reader slices (such as homepage carousel auto-scroll and breaking news marquee ticker migrations in Phases 3.4 and 3.5).
 
 In addition to the global CSS reset for animation classes (`.cnp-motion`, `.marquee-animate`, `[data-animate="true"]`), all design system primitives implement local, primitive-level reduced-motion contracts:
 - **Button**: Suppresses transition and active scale via `motion-reduce:transition-none motion-reduce:active:scale-100`. The loading spinner halts animation via `motion-reduce:animate-none`.
@@ -227,15 +227,15 @@ In addition to the global CSS reset for animation classes (`.cnp-motion`, `.marq
 - When focused via keyboard (`:focus-visible`), a 2px high-contrast LokSwami Red ring (`#e72129`) with a 2px offset appears.
 - Never set `outline: none` without replacing it with an accessible focus indicator.
 
-### 9.4 Touch Target Contract (Mobile-First >= 44x44px)
-In compliance with WCAG 2.2 Success Criterion 2.5.8 and mobile touch ergonomics:
-- **Mobile Touch-First Base**: All primary interactive controls on mobile and tablet screens have an interactive hit box of at least **44×44px** (`min-h-[44px] min-w-[44px]`).
-  - `Button sm`: `min-h-[44px] min-w-[44px]` through mobile and tablet viewports (may reduce to `lg:min-h-[36px] lg:min-w-0` on desktop viewports `lg:` 1024px+).
-  - `Button md`: `min-h-[44px] min-w-[44px]` across all viewports.
-  - `Button lg`: `min-h-[48px] min-w-[48px]` across all viewports.
-  - `SectionHeader CTA`: `min-h-[44px]` through mobile and tablet viewports (`lg:min-h-[36px]` on desktop viewports `lg:` 1024px+).
-- **Desktop Secondary Controls**: Secondary controls may reduce to `>= 36px` only at clearly non-mobile desktop breakpoints (`lg:` 1024px+). The `sm: 640px` breakpoint is explicitly classified as large phone / landscape mobile and must not reduce touch targets below 44px.
-- **Internal Typography vs. Hit Box**: Visual compactness on small controls is achieved through internal padding and typography (e.g. `text-xs px-3 py-1.5`) while strictly maintaining the accessible `>= 44px` interactive touch target on mobile and tablet screens.
+### 9.4 Touch Target Contract (Universal >= 44x44px Floor)
+In compliance with WCAG 2.2 Success Criterion 2.5.8 and universal touch ergonomics:
+- **Universal Touch Target Floor**: For the new Phase-3 design-system primitives, all interactive touch targets guarantee at least **44×44px** (`min-h-[44px] min-w-[44px]`) across all breakpoints:
+  - `Button sm`: `min-h-[44px] min-w-[44px]` across all breakpoints.
+  - `Button md`: `min-h-[44px] min-w-[44px]` across all breakpoints.
+  - `Button lg`: `min-h-[48px] min-w-[48px]` across all breakpoints.
+  - `SectionHeader CTA`: `min-h-[44px] min-w-[44px]` across all breakpoints.
+- **No Responsive 36px Reduction**: The foundation primitives maintain their durable accessibility contract everywhere without shrinking to 36px at `lg:` (1024px+), avoiding touch target degradation on landscape tablets or touch-screen laptops. Note that legacy reader controls may still retain pre-existing touch-target debt (recorded in Phase 3.1 audit); this universal contract governs the new Phase-3 design-system primitives.
+- **Internal Typography vs. Hit Box**: Visual compactness on small controls is achieved through internal padding and typography (e.g. `text-xs px-3 py-1.5`) while strictly maintaining the accessible `>= 44×44px` interactive touch target at all breakpoints.
 
 ---
 
@@ -246,8 +246,8 @@ The following normalized primitives have been established in `components/ui/`:
 ### 1. `Button` (`components/ui/Button.tsx`)
 - **Type**: `forwardRef accessible button primitive` extending `ButtonHTMLAttributes<HTMLButtonElement>`, rendering `<button>`.
 - **Variants**: `primary`, `secondary`, `outline`, `ghost`, `destructive`, `breaking`
-- **Sizes**: `sm` (`min-h-[44px] min-w-[44px] lg:min-h-[36px] lg:min-w-0`), `md` (`min-h-[44px] min-w-[44px]`), `lg` (`min-h-[48px] min-w-[48px]`)
-- **Features**: Accessible `aria-busy` and `aria-disabled` on loading, left/right icon slots, keyboard focus ring (`.editorial-focus-ring`), touch-target compliant (`>=44x44px` mobile/tablet), reduced motion enforcement (`motion-reduce:transition-none`, `motion-reduce:active:scale-100`, spinner `motion-reduce:animate-none`), Hindi-safe `tracking-normal` on breaking variant.
+- **Sizes**: `sm` (`min-h-[44px] min-w-[44px]`), `md` (`min-h-[44px] min-w-[44px]`), `lg` (`min-h-[48px] min-w-[48px]`)
+- **Features**: Accessible `aria-busy` and `aria-disabled` on loading, left/right icon slots, keyboard focus ring (`.editorial-focus-ring`), touch-target compliant (`>=44x44px` at all breakpoints), reduced motion enforcement (`motion-reduce:transition-none`, `motion-reduce:active:scale-100`, spinner `motion-reduce:animate-none`), Hindi-safe `tracking-normal` on breaking variant.
 
 ### 2. `Badge` (`components/ui/Badge.tsx`)
 - **Variants**: `brand`, `breaking`, `neutral`, `outline`, `success`, `warning`
@@ -258,7 +258,7 @@ The following normalized primitives have been established in `components/ui/`:
 - **Features**: Live pulsing dot indicator with `motion-reduce:animate-none`, `tracking-normal` shirorekha protection, high-urgency urgent red styling, `role="status"`.
 
 ### 4. `SectionHeader` (`components/ui/SectionHeader.tsx`)
-- **Features**: Signature LokSwami vertical red accent bar, configurable semantic heading level (`h1`, `h2`, `h3`, `h4`), optional call-to-action link (`ArrowRight`) with mobile `>= 44px` touch target (`min-h-[44px] lg:min-h-[36px]`), reduced-motion transition suppression (`motion-reduce:transition-none`), Devanagari line-height protection.
+- **Features**: Signature LokSwami vertical red accent bar, configurable semantic heading level (`h1`, `h2`, `h3`, `h4`), optional call-to-action link (`ArrowRight`) with universal `>= 44×44px` touch target (`min-h-[44px] min-w-[44px]`), reduced-motion transition suppression (`motion-reduce:transition-none`), Devanagari line-height protection.
 
 ### 5. `Container` (`components/layout/Container.tsx`)
 - **Variants**: `reading` (68ch), `article` (52rem), `narrow` (48rem), `standard` (72rem), `wide` (86rem, default), `full` (100%).
