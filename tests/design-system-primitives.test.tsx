@@ -57,6 +57,38 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(screen.getByTestId('left-icon')).toBeInTheDocument();
       expect(screen.getByTestId('right-icon')).toBeInTheDocument();
     });
+
+    it('enforces mobile touch target contract for sm, md, and lg sizes', () => {
+      const { rerender } = render(<Button size="sm">छोटा बटन</Button>);
+      const smButton = screen.getByRole('button');
+      expect(smButton).toHaveClass('min-h-[44px]');
+
+      rerender(<Button size="md">मध्यम बटन</Button>);
+      const mdButton = screen.getByRole('button');
+      expect(mdButton).toHaveClass('min-h-[44px]');
+
+      rerender(<Button size="lg">बड़ा बटन</Button>);
+      const lgButton = screen.getByRole('button');
+      expect(lgButton).toHaveClass('min-h-[48px]');
+    });
+
+    it('enforces reduced-motion contracts for interactions and loading spinner', () => {
+      const { rerender } = render(<Button>एनिमेशन टेस्ट</Button>);
+      const button = screen.getByRole('button');
+      expect(button).toHaveClass('motion-reduce:transition-none');
+      expect(button).toHaveClass('motion-reduce:active:scale-100');
+
+      rerender(<Button isLoading>लोड हो रहा है</Button>);
+      const spinner = button.querySelector('svg');
+      expect(spinner).toHaveClass('motion-reduce:animate-none');
+    });
+
+    it('preserves tracking-normal on breaking variant to protect Hindi text from shirorekha fragmentation', () => {
+      render(<Button variant="breaking">ताज़ा खबर</Button>);
+      const button = screen.getByRole('button');
+      expect(button).toHaveClass('tracking-normal');
+      expect(button).not.toHaveClass('tracking-wider');
+    });
   });
 
   describe('Badge & BreakingBadge primitives', () => {
@@ -71,11 +103,23 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(screen.getByText('संपादकीय')).toHaveClass('bg-zinc-100');
     });
 
-    it('renders BreakingBadge with role status and pulsing indicator', () => {
-      render(<BreakingBadge label="ब्रेकिंग न्यूज" pulse />);
+    it('preserves tracking-normal on breaking badge variant to prevent Devanagari shirorekha fragmentation', () => {
+      render(<Badge variant="breaking">लाइव</Badge>);
+      const badge = screen.getByText('लाइव');
+      expect(badge).toHaveClass('tracking-normal');
+      expect(badge).not.toHaveClass('tracking-wider');
+    });
+
+    it('renders BreakingBadge with role status, tracking-normal, and reduced-motion indicator', () => {
+      const { container } = render(<BreakingBadge label="ब्रेकिंग न्यूज" pulse />);
       const badge = screen.getByRole('status', { name: 'ब्रेकिंग न्यूज' });
       expect(badge).toBeInTheDocument();
       expect(badge).toHaveClass('bg-breaking');
+      expect(badge).toHaveClass('tracking-normal');
+      expect(badge).not.toHaveClass('tracking-wider');
+
+      const pingDot = container.querySelector('.animate-ping');
+      expect(pingDot).toHaveClass('motion-reduce:animate-none');
     });
   });
 
@@ -87,7 +131,7 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(heading).toHaveClass('hindi-headline');
     });
 
-    it('renders CTA link when href and ctaText are passed', () => {
+    it('renders CTA link when href and ctaText are passed and enforces mobile touch target contract', () => {
       render(
         <SectionHeader
           title="राजनीति"
@@ -97,6 +141,7 @@ describe('LokSwami B3 Design System Primitives', () => {
       );
       const link = screen.getByRole('link', { name: /सभी देखें/ });
       expect(link).toHaveAttribute('href', '/main/category/politics');
+      expect(link).toHaveClass('min-h-[44px]');
     });
   });
 
@@ -176,6 +221,12 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(skeleton.style.height).toBe('20px');
     });
 
+    it('satisfies reduced-motion contract with motion-reduce:animate-none', () => {
+      const { container } = render(<Skeleton variant="text" />);
+      const skeleton = container.firstChild as HTMLElement;
+      expect(skeleton).toHaveClass('motion-reduce:animate-none');
+    });
+
     it('supports circular and rounded variants', () => {
       const { container, rerender } = render(<Skeleton variant="circular" />);
       expect(container.firstChild).toHaveClass('rounded-full');
@@ -200,6 +251,19 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(screen.getByText('राजेश शर्मा')).toBeInTheDocument();
       expect(screen.getByText('10 मिनट पहले')).toBeInTheDocument();
       expect(screen.getByText('4 मिनट')).toBeInTheDocument();
+    });
+
+    it('renders viewCount={0} correctly in Hindi and English without hiding zero count', () => {
+      const { rerender } = render(<MetadataRow viewCount={0} language="hi" />);
+      expect(screen.getByText('0 विचार')).toBeInTheDocument();
+
+      rerender(<MetadataRow viewCount={0} language="en" />);
+      expect(screen.getByText('0 views')).toBeInTheDocument();
+    });
+
+    it('renders non-zero viewCount correctly', () => {
+      render(<MetadataRow viewCount={1250} language="hi" />);
+      expect(screen.getByText('1,250 विचार')).toBeInTheDocument();
     });
   });
 });

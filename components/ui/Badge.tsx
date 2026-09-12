@@ -20,7 +20,7 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   brand:
     'bg-brand-500 text-white dark:bg-brand-500 dark:text-white font-bold',
   breaking:
-    'bg-breaking text-white font-black uppercase tracking-wider',
+    'bg-breaking text-white font-black tracking-normal',
   neutral:
     'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700',
   outline:

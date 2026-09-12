@@ -36,7 +36,7 @@ export function Skeleton({
   return (
     <div
       aria-hidden="true"
-      className={`animate-pulse bg-zinc-200/80 dark:bg-zinc-800/70 ${VARIANT_CLASSES[variant]} ${className}`}
+      className={`animate-pulse motion-reduce:animate-none bg-zinc-200/80 dark:bg-zinc-800/70 ${VARIANT_CLASSES[variant]} ${className}`}
       style={inlineStyles}
       {...props}
     />

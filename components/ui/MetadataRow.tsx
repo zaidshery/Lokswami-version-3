@@ -36,11 +36,12 @@ export function MetadataRow({
       : `${readMinutes} min read`
     : null;
 
-  const viewCountLabel = viewCount
-    ? language === 'hi'
-      ? `${viewCount.toLocaleString('hi-IN')} विचार`
-      : `${viewCount.toLocaleString('en-IN')} views`
-    : null;
+  const viewCountLabel =
+    typeof viewCount === 'number' && !Number.isNaN(viewCount)
+      ? language === 'hi'
+        ? `${viewCount.toLocaleString('hi-IN')} विचार`
+        : `${viewCount.toLocaleString('en-IN')} views`
+      : null;
 
   return (
     <div
