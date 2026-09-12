@@ -152,7 +152,7 @@ export async function ensureDemoAssets(): Promise<void> {
   const sourceAssetsDir = path.resolve(process.cwd(), 'scripts', 'demo', 'assets');
   await fs.mkdir(publicDemoDir, { recursive: true });
 
-  const files = ['news-16x9.svg', 'story-9x16.svg', 'epaper-3x4.svg'];
+  const files = ['news-16x9.svg', 'story-9x16.svg', 'epaper-3x4.svg', 'sample.pdf'];
   for (const file of files) {
     const src = path.join(sourceAssetsDir, file);
     const dest = path.join(publicDemoDir, file);
@@ -258,6 +258,67 @@ async function seedVideosFile(videos: (DemoVideoFixture | DemoShortFixture)[]): 
   return videos.length;
 }
 
+function toMongoEPaperDoc(fixture: DemoEpaperFixture): Record<string, unknown> {
+  const pageCount = typeof fixture.pages === 'number' ? fixture.pages : 4;
+  const cityName = fixture.city === 'Indore' ? 'इंदौर' : fixture.city === 'Ujjain' ? 'उज्जैन' : fixture.city;
+  return {
+    _id: fixture._id,
+    publicationType: 'epaper',
+    citySlug: fixture.citySlug || fixture.city.toLowerCase(),
+    cityName,
+    title: fixture.title,
+    publishDate: new Date(fixture.publishDate),
+    pdfPath: fixture.pdfPath,
+    thumbnailPath: fixture.thumbnailPath,
+    pageCount,
+    pages: Array.from({ length: pageCount }, (_, i) => ({
+      pageNumber: i + 1,
+      imagePath: fixture.thumbnailPath,
+      pageType: 'editorial',
+      processingStatus: 'ready',
+      reviewStatus: 'ready',
+    })),
+    status: fixture.status,
+    familyId: fixture.familyId || `fam-${fixture._id}`,
+    revisionNumber: fixture.revisionNumber || 1,
+    isCurrentRevision: fixture.isCurrentRevision ?? true,
+    publishedAt: fixture.publishedAt ? new Date(fixture.publishedAt) : null,
+    productionStatus: fixture.status === 'published' ? 'published' : 'draft_upload',
+    createdAt: new Date(fixture.createdAt),
+    updatedAt: new Date(fixture.updatedAt),
+  };
+}
+
+function toMongoMagazineDoc(fixture: DemoMagazineFixture): Record<string, unknown> {
+  const pageCount = typeof fixture.pages === 'number' ? fixture.pages : 4;
+  return {
+    _id: fixture._id,
+    publicationType: 'emagazine',
+    citySlug: fixture.citySlug || fixture.city.toLowerCase(),
+    cityName: 'इंदौर',
+    title: fixture.title,
+    publishDate: new Date(fixture.publishDate),
+    pdfPath: fixture.pdfPath,
+    thumbnailPath: fixture.thumbnailPath,
+    pageCount,
+    pages: Array.from({ length: pageCount }, (_, i) => ({
+      pageNumber: i + 1,
+      imagePath: fixture.thumbnailPath,
+      pageType: 'editorial',
+      processingStatus: 'ready',
+      reviewStatus: 'ready',
+    })),
+    status: fixture.status,
+    familyId: fixture.familyId || `fam-${fixture._id}`,
+    revisionNumber: fixture.revisionNumber || 1,
+    isCurrentRevision: fixture.isCurrentRevision ?? true,
+    publishedAt: new Date(fixture.publishedAt),
+    productionStatus: 'published',
+    createdAt: new Date(fixture.createdAt),
+    updatedAt: new Date(fixture.updatedAt),
+  };
+}
+
 async function seedEpapersMongo(
   epapers: DemoEpaperFixture[],
   magazines: DemoMagazineFixture[]
@@ -265,28 +326,57 @@ async function seedEpapersMongo(
   let epapersCount = 0;
   let magazinesCount = 0;
 
+  const seededEpaperIds = new Set<string>();
+
   for (const fixture of epapers) {
+    const doc = toMongoEPaperDoc(fixture);
     await EPaper.findOneAndUpdate(
       { _id: fixture._id },
-      { $set: fixture },
+      { $set: doc },
       { upsert: true, new: true, runValidators: true }
     );
+    seededEpaperIds.add(fixture._id);
     epapersCount += 1;
   }
 
-  // Seed released EPaperArticle documents for the released Indore edition
-  for (const articleFixture of DEMO_EPAPER_ARTICLES) {
-    await EPaperArticle.findOneAndUpdate(
-      { _id: articleFixture._id },
-      { $set: articleFixture },
-      { upsert: true, new: true, runValidators: true }
-    );
+  // Seed released EPaperArticle documents ONLY if editions were seeded, and only for those editions
+  if (epapers.length > 0) {
+    const articlesToSeed = epapers
+      .flatMap((e) => e.articles)
+      .filter((a) => seededEpaperIds.has(a.epaperId));
+
+    for (const articleFixture of articlesToSeed) {
+      const normalizedHotspot = {
+        x: articleFixture.hotspot.x > 1 ? articleFixture.hotspot.x / 100 : articleFixture.hotspot.x,
+        y: articleFixture.hotspot.y > 1 ? articleFixture.hotspot.y / 100 : articleFixture.hotspot.y,
+        w: articleFixture.hotspot.w > 1 ? articleFixture.hotspot.w / 100 : articleFixture.hotspot.w,
+        h: articleFixture.hotspot.h > 1 ? articleFixture.hotspot.h / 100 : articleFixture.hotspot.h,
+      };
+
+      const doc = {
+        ...articleFixture,
+        hotspot: normalizedHotspot,
+        releasedSnapshot: articleFixture.releasedSnapshot
+          ? {
+              ...articleFixture.releasedSnapshot,
+              hotspot: normalizedHotspot,
+            }
+          : null,
+      };
+
+      await EPaperArticle.findOneAndUpdate(
+        { _id: articleFixture._id },
+        { $set: doc },
+        { upsert: true, new: true, runValidators: true }
+      );
+    }
   }
 
   for (const fixture of magazines) {
+    const doc = toMongoMagazineDoc(fixture);
     await EPaper.findOneAndUpdate(
       { _id: fixture._id },
-      { $set: fixture },
+      { $set: doc },
       { upsert: true, new: true, runValidators: true }
     );
     magazinesCount += 1;
@@ -298,6 +388,9 @@ async function seedEpapersMongo(
 async function seedEpapersFile(
   epapers: DemoEpaperFixture[]
 ): Promise<number> {
+  // StoredEPaper has no draft lifecycle; exclude draft fixtures from publication-only file store
+  const publishedOnly = epapers.filter((e) => e.status === 'published');
+
   let all: StoredEPaper[] = [];
   try {
     all = await listAllStoredEPapers();
@@ -310,7 +403,7 @@ async function seedEpapersFile(
     existingMap.set(item._id, index);
   });
 
-  for (const fixture of epapers) {
+  for (const fixture of publishedOnly) {
     // Only map valid StoredEPaper fields for file store
     const target: StoredEPaper = {
       _id: fixture._id,
@@ -326,10 +419,10 @@ async function seedEpapersFile(
         page: h.page,
         title: h.title,
         text: h.text,
-        x: h.x,
-        y: h.y,
-        width: h.width,
-        height: h.height,
+        x: h.x > 1 ? h.x / 100 : h.x,
+        y: h.y > 1 ? h.y / 100 : h.y,
+        width: h.width > 1 ? h.width / 100 : h.width,
+        height: h.height > 1 ? h.height / 100 : h.height,
       })),
       publishedAt: fixture.publishedAt ? fixture.publishedAt.toISOString() : new Date().toISOString(),
       updatedAt: fixture.updatedAt ? fixture.updatedAt.toISOString() : new Date().toISOString(),
@@ -345,7 +438,7 @@ async function seedEpapersFile(
   }
 
   await writeJsonFileAtomically(epapersJsonPath, all);
-  return epapers.length;
+  return publishedOnly.length;
 }
 
 /**
@@ -405,6 +498,11 @@ export async function seedScenario(
     magazinesSeeded = res.magazinesCount;
   } else {
     epapersSeeded = await seedEpapersFile(plan.epapers);
+    if (plan.epapers.some((e) => e.status === 'draft')) {
+      skipped.push(
+        'SKIPPED — draft e-paper isolation unsupported in publication-only file store (draft editions excluded)'
+      );
+    }
     if (plan.magazines.length > 0) {
       skipped.push(
         'SKIPPED — unsupported by current file-store contract: e-magazine and releasedSnapshot lifecycle'
@@ -519,7 +617,7 @@ export async function resetDemoData(
     try {
       const storedEpapers = await listAllStoredEPapers();
       const filtered = storedEpapers.filter(
-        (e) => !demoEpaperIdSet.has(e._id) && !e.title.includes('परीक्षण')
+        (e) => !demoEpaperIdSet.has(e._id) && !e._id.startsWith('demo-')
       );
       epapersRemoved = storedEpapers.length - filtered.length;
       await writeJsonFileAtomically(epapersJsonPath, filtered);
@@ -740,12 +838,37 @@ export async function verifyDemoData(
       }
     } else {
       // Draft edition should NOT be publicly resolved
-      checks.push({
-        name: `Draft E-Paper Edition Isolation: ${epaper.title}`,
-        category: 'epaper',
-        status: 'passed',
-        details: `Draft edition safely preserved without public exposure`,
-      });
+      if (store === 'file') {
+        let fileEp: StoredEPaper[] = [];
+        try {
+          fileEp = await listAllStoredEPapers();
+        } catch {
+          fileEp = [];
+        }
+        const leaked = fileEp.some((e) => e._id === epaper._id);
+        if (leaked) {
+          checks.push({
+            name: `Draft E-Paper Edition Isolation: ${epaper.title}`,
+            category: 'epaper',
+            status: 'failed',
+            details: `Draft edition leaked into publication-only file store data/epapers.json`,
+          });
+        } else {
+          checks.push({
+            name: `Draft E-Paper Edition Isolation: ${epaper.title}`,
+            category: 'epaper',
+            status: 'passed',
+            details: `Draft edition safely excluded from publication-only file store`,
+          });
+        }
+      } else {
+        checks.push({
+          name: `Draft E-Paper Edition Isolation: ${epaper.title}`,
+          category: 'epaper',
+          status: 'passed',
+          details: `Draft edition safely preserved in Mongo without public release`,
+        });
+      }
     }
   }
 

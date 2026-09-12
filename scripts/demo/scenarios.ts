@@ -3,7 +3,7 @@
  * Scenario Definitions & Composition
  */
 
-import { DEMO_ARTICLES, type DemoArticleFixture } from './fixtures/articles';
+import { DEMO_ARTICLES, DEMO_ARTICLE_IDS, type DemoArticleFixture } from './fixtures/articles';
 import { DEMO_VIDEOS, type DemoVideoFixture } from './fixtures/videos';
 import { DEMO_SHORTS, type DemoShortFixture } from './fixtures/shorts';
 import { DEMO_EPAPERS, type DemoEpaperFixture } from './fixtures/epaper';
@@ -87,16 +87,20 @@ export function resolveScenarioPlan(name: string = 'full'): ScenarioFixturePlan 
         magazines: [],
       };
 
-    case 'video':
+    case 'video': {
+      const linkedArticleIds = new Set(DEMO_SHORTS.map((s) => s.articleId).filter(Boolean));
       return {
         name: 'video',
-        description: 'Video & Shorts QA scenario: 7 landscape videos and 8 vertical shorts',
-        articles: DEMO_ARTICLES.slice(0, 10), // Base articles for short linkages
+        description: 'Video & Shorts QA scenario: 7 landscape videos and 8 vertical shorts with all required linked articles',
+        articles: DEMO_ARTICLES.filter(
+          (a) => linkedArticleIds.has(a._id) || DEMO_ARTICLE_IDS.slice(0, 10).includes(a._id)
+        ),
         videos: DEMO_VIDEOS,
         shorts: DEMO_SHORTS,
         epapers: [],
         magazines: [],
       };
+    }
 
     case 'epaper':
       return {

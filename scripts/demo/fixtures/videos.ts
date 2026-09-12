@@ -55,7 +55,7 @@ export const DEMO_VIDEOS: DemoVideoFixture[] = [
     thumbnail: '/placeholders/news-16x9.svg',
     videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     duration: 480, // 8m
-    category: 'Technology',
+    category: 'Tech',
     isShort: false,
     isPublished: true,
     aspectRatio: '16:9',

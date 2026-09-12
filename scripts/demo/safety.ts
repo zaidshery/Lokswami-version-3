@@ -35,23 +35,48 @@ export function parseMongoDatabaseName(uri: string): string | null {
  */
 export function isSafeLocalHost(host: string): boolean {
   if (!host || typeof host !== 'string') return false;
-  return LOCAL_HOSTS.has(host.toLowerCase().trim());
+  // Handle bracketed IPv6 e.g. [::1]
+  const unbracketed = host.replace(/^\[|\]$/g, '').toLowerCase().trim();
+  return LOCAL_HOSTS.has(unbracketed);
 }
 
 /**
  * Determines whether a MongoDB URI points strictly to local loopback hosts.
+ * Validates EVERY host in single-host and multi-host replica set connection strings.
  */
 export function isLocalMongoUri(uri: string): boolean {
   if (!uri || typeof uri !== 'string') return false;
-  try {
-    const normalized = uri.replace(/^mongodb(\+srv)?:\/\//i, 'http://');
-    const parsed = new URL(normalized);
-    return isSafeLocalHost(parsed.hostname);
-  } catch {
-    const match = uri.match(/^mongodb(?:\+srv)?:\/\/([^/:@?#]+)/i);
-    if (!match || !match[1]) return false;
-    return isSafeLocalHost(match[1]);
+
+  // Extract the authority/hosts section: between protocol and path/query
+  const match = uri.match(/^mongodb(?:\+srv)?:\/\/(?:[^@\s]+@)?([^/?#\s]+)/i);
+  if (!match || !match[1]) return false;
+
+  const hostsSection = match[1].trim();
+  if (!hostsSection) return false;
+
+  // Multi-host connection strings are separated by commas
+  const hostEntries = hostsSection.split(',').map((h) => h.trim()).filter(Boolean);
+  if (hostEntries.length === 0) return false;
+
+  for (const entry of hostEntries) {
+    let hostName: string;
+    if (entry.startsWith('[')) {
+      // IPv6 bracketed format: [::1]:27017 or [::1]
+      const ipv6Match = entry.match(/^\[([^\]]+)\](?::\d+)?$/);
+      if (!ipv6Match || !ipv6Match[1]) return false;
+      hostName = ipv6Match[1];
+    } else {
+      // Standard hostname:port or hostname
+      const parts = entry.split(':');
+      hostName = parts[0];
+    }
+
+    if (!isSafeLocalHost(hostName)) {
+      return false;
+    }
   }
+
+  return true;
 }
 
 /**

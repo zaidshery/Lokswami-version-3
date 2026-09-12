@@ -270,6 +270,61 @@ describe('Demo Fixture Harness Safety Guardrails', () => {
         expect(videoIds.size).toBe(plan.videos.length + plan.shorts.length);
       }
     });
+
+    it('ensures video scenario plan includes all articles linked by its shorts', () => {
+      const videoPlan = resolveScenarioPlan('video');
+      const articleIdSet = new Set(videoPlan.articles.map((a) => a._id));
+      for (const short of videoPlan.shorts) {
+        expect(short.articleId).toBeDefined();
+        expect(articleIdSet.has(short.articleId)).toBe(true);
+      }
+    });
+
+    it('validates multi-host MongoDB URI safety rejects if any host is non-local', () => {
+      setEnv('NODE_ENV', 'development');
+      process.env.LOKSWAMI_DEMO_DATA = 'true';
+      delete process.env.LOKSWAMI_DEMO_REMOTE_MONGO;
+      delete process.env.LOKSWAMI_DEMO_DB_NAME;
+
+      // Mixed localhost + remote host MUST reject
+      process.env.MONGODB_URI = 'mongodb://localhost:27017,remote.example.com:27017/lokswami_dev';
+      expect(() => assertDemoSafety()).toThrow(/LOKSWAMI_DEMO_REMOTE_MONGO=true/);
+
+      // All local hosts MUST pass
+      process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017,localhost:27018,[::1]:27019/lokswami_dev';
+      expect(() => assertDemoSafety()).not.toThrow();
+    });
+
+    it('verifies demo video and shorts categories match NEWS_CATEGORIES and use Tech instead of Technology', () => {
+      for (const v of DEMO_VIDEOS) {
+        expect(v.category).not.toBe('Technology');
+      }
+      for (const s of DEMO_SHORTS) {
+        expect(s.category).not.toBe('Technology');
+      }
+    });
+
+    it('verifies epaper article hotspot coordinates are normalized fractions between 0 and 1', () => {
+      for (const art of DEMO_EPAPER_ARTICLES) {
+        expect(art.hotspot.x).toBeGreaterThanOrEqual(0);
+        expect(art.hotspot.x).toBeLessThanOrEqual(1);
+        expect(art.hotspot.y).toBeGreaterThanOrEqual(0);
+        expect(art.hotspot.y).toBeLessThanOrEqual(1);
+        expect(art.hotspot.w).toBeGreaterThanOrEqual(0);
+        expect(art.hotspot.w).toBeLessThanOrEqual(1);
+        expect(art.hotspot.h).toBeGreaterThanOrEqual(0);
+        expect(art.hotspot.h).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('verifies sample.pdf asset exists and contains valid PDF header', () => {
+      const srcPdf = path.resolve(process.cwd(), 'scripts/demo/assets/sample.pdf');
+      const publicPdf = path.resolve(process.cwd(), 'public/demo/sample.pdf');
+      expect(fs.existsSync(srcPdf)).toBe(true);
+      expect(fs.existsSync(publicPdf)).toBe(true);
+      const content = fs.readFileSync(srcPdf, 'utf-8');
+      expect(content.startsWith('%PDF-')).toBe(true);
+    });
   });
 
   describe('Static Analysis: No Destructive Unscoped Database Operations', () => {

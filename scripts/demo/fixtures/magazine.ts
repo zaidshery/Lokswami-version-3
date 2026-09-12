@@ -38,7 +38,7 @@ export const DEMO_MAGAZINES: DemoMagazineFixture[] = [
     description: 'मध्य प्रदेश की कला, संस्कृति, आधुनिक विकास और नवाचार पर केंद्रित विशेष मासिक पत्रिका',
     publishDate: todayDateStr,
     thumbnailPath: '/placeholders/epaper-3x4.svg',
-    pdfPath: '/placeholders/sample.pdf',
+    pdfPath: '/demo/sample.pdf',
     pages: 4,
     status: 'published',
     productionStatus: 'published',
