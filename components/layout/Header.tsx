@@ -11,6 +11,7 @@ import {
   Menu,
   Moon,
   Newspaper,
+  Search,
   Settings,
   Sun,
   User,
@@ -83,7 +84,7 @@ export default function Header() {
       <header
         aria-label="Site header"
         aria-busy="true"
-        className="fixed left-0 right-0 top-11 z-50 border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12"
+        className="relative z-40 w-full border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md dark:border-zinc-800 dark:bg-[#0e0e12]/95"
       >
         <div className="relative flex h-12 items-center justify-between px-2 min-[380px]:px-3 sm:h-[3.45rem] sm:px-5 md:px-8">
           <div className="flex shrink-0 items-center">
@@ -117,7 +118,7 @@ export default function Header() {
   }
 
   return (
-    <header className="fixed left-0 right-0 top-11 z-50 border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md transition-all duration-500 dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12">
+    <header className="relative z-40 w-full border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md transition-colors duration-500 dark:border-zinc-800 dark:bg-[#0e0e12]/95">
       <div className="relative w-full px-2 min-[380px]:px-3 sm:px-5 md:px-8">
         <div className="relative flex h-12 items-center justify-between gap-1 sm:h-[3.45rem] sm:gap-3">
           {/* Left: Mobile Hamburger Menu / Tablet & Desktop Logo */}
@@ -127,7 +128,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={toggleMobileMenu}
-                className="reader-touch-button reader-focus-ring -ml-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl text-zinc-800 transition-colors hover:bg-zinc-100 hover:text-zinc-950 active:scale-95 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-white"
+                className="editorial-focus-ring -ml-0.5 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-zinc-800 transition-colors hover:bg-zinc-100 hover:text-zinc-950 active:scale-95 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-white"
                 aria-label={language === 'hi' ? 'मेनू खोलें' : 'Open menu'}
                 aria-controls="mobile-drawer"
                 aria-expanded={isMobileMenuOpen}
@@ -146,7 +147,7 @@ export default function Header() {
           </div>
 
           {/* Center: Hindi Written Logo "लोकस्वामी" on mobile */}
-          <div className="flex min-w-0 flex-1 items-center justify-center px-1 translate-x-4 min-[375px]:translate-x-5 sm:translate-x-0 sm:hidden">
+          <div className="flex min-w-0 flex-1 items-center justify-center px-1 sm:hidden">
             <Link
               href="/main"
               className="cnp-motion inline-flex h-12 max-w-full items-center justify-center transition-transform duration-200 active:scale-95"
@@ -161,18 +162,29 @@ export default function Header() {
 
           <div className="flex shrink-0 items-center justify-end sm:ml-2">
             <div className="inline-flex max-w-full items-center gap-1 rounded-xl border border-zinc-200/90 bg-gradient-to-b from-white to-zinc-100/80 p-0.5 shadow-[0_8px_18px_rgba(15,23,42,0.08)] dark:border-zinc-700/80 dark:from-zinc-900 dark:to-zinc-900/75 sm:gap-1.5 sm:rounded-2xl sm:p-1">
+              {/* E-Paper Quick Action - visible on >=390px mobile & desktop (BottomNav provides E-Paper on narrow mobile) */}
               <Link
                 href="/main/epaper"
-                className="cnp-motion reader-touch-button reader-focus-ring inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-red-200/80 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2 text-[10.5px] font-semibold text-white shadow-sm transition-all hover:brightness-105 active:scale-95 dark:border-red-500/30 min-[380px]:h-8.5 min-[380px]:px-2.5 min-[380px]:text-[11px] sm:h-9 sm:rounded-xl sm:px-2.5 sm:text-xs"
+                className="cnp-motion editorial-focus-ring hidden min-[390px]:inline-flex sm:inline-flex h-8 min-h-[44px] shrink-0 items-center gap-1 rounded-lg border border-brand-500/30 bg-brand-500 px-2 text-[10.5px] font-semibold text-white shadow-sm transition-all hover:bg-brand-600 active:scale-95 dark:border-brand-500/40 min-[380px]:h-8.5 min-[380px]:px-2.5 min-[380px]:text-[11px] sm:h-9 sm:rounded-xl sm:px-2.5 sm:text-xs"
                 aria-label={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
               >
                 <Newspaper className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                 <span className="leading-none tracking-normal">{language === 'hi' ? 'ई-पेपर' : 'e-Paper'}</span>
               </Link>
 
+              {/* Search Entry Button - Accessible across all viewports */}
+              <Link
+                href="/main/search"
+                className="cnp-motion editorial-focus-ring inline-flex h-8 w-8 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-800 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-brand-500/40 dark:hover:bg-brand-950/40 dark:hover:text-brand-300 min-[380px]:h-8.5 min-[380px]:w-8.5 sm:h-9 sm:w-9 sm:rounded-xl"
+                aria-label={language === 'hi' ? 'समाचार खोजें' : 'Search news'}
+                title={language === 'hi' ? 'खोजें' : 'Search'}
+              >
+                <Search className="h-4 w-4" strokeWidth={2.2} />
+              </Link>
+
               <div className="relative hidden lg:block" ref={userMenuRef}>
                 {status === 'loading' ? (
-                  <div className="h-10 w-10 animate-pulse rounded-full border border-zinc-200/80 bg-zinc-200/80 dark:border-zinc-700 dark:bg-zinc-700" />
+                  <div className="h-10 w-10 min-h-[44px] min-w-[44px] animate-pulse rounded-full border border-zinc-200/80 bg-zinc-200/80 dark:border-zinc-700 dark:bg-zinc-700" />
                 ) : userEmail ? (
                   <>
                     <motion.button
@@ -180,7 +192,7 @@ export default function Header() {
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => setIsUserMenuOpen((open) => !open)}
-                      className="relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-zinc-200/80 bg-white text-zinc-800 shadow-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                      className="editorial-focus-ring relative inline-flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center overflow-hidden rounded-full border border-zinc-200/80 bg-white text-zinc-800 shadow-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                       aria-label={language === 'hi' ? 'रीडर मेनू' : 'Reader menu'}
                     >
                       {userImage ? (
@@ -246,7 +258,7 @@ export default function Header() {
                             <button
                               type="button"
                               onClick={handleReaderSignOut}
-                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-brand-600 transition hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40"
                             >
                               <LogOut size={16} />
                               <span>Sign Out</span>
@@ -260,7 +272,7 @@ export default function Header() {
                   <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                     <Link
                       href="/signin"
-                      className="cnp-motion inline-flex h-10 items-center gap-1 rounded-xl border border-zinc-200/80 bg-white px-3 text-xs font-semibold text-zinc-800 shadow-sm hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-red-500/40 dark:hover:bg-red-500/15 dark:hover:text-red-300"
+                      className="cnp-motion editorial-focus-ring inline-flex h-10 min-h-[44px] items-center gap-1 rounded-xl border border-zinc-200/80 bg-white px-3 text-xs font-semibold text-zinc-800 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-brand-500/40 dark:hover:bg-brand-950/40 dark:hover:text-brand-300"
                       aria-label={language === 'hi' ? 'साइन इन' : 'Sign In'}
                     >
                       <User size={16} />
@@ -274,7 +286,7 @@ export default function Header() {
                 onClick={toggleTheme}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="cnp-motion reader-touch-button reader-focus-ring inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-800 shadow-sm hover:border-amber-300 hover:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800 min-[380px]:h-8.5 min-[380px]:w-8.5 sm:h-9 sm:w-9 sm:rounded-xl"
+                className="cnp-motion editorial-focus-ring inline-flex h-8 w-8 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-800 shadow-sm hover:border-amber-300 hover:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800 min-[380px]:h-8.5 min-[380px]:w-8.5 sm:h-9 sm:w-9 sm:rounded-xl"
                 aria-label="Toggle theme"
               >
                 <span className="attention-pulsate-bck-slow inline-flex">
@@ -287,15 +299,15 @@ export default function Header() {
                 onClick={toggleLanguage}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="cnp-motion reader-touch-button reader-focus-ring hidden lg:inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-zinc-200/80 bg-white px-2.5 text-xs font-bold text-zinc-800 shadow-sm hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 sm:h-9 sm:rounded-xl"
+                className="cnp-motion editorial-focus-ring hidden min-h-[44px] shrink-0 items-center gap-1 rounded-lg border border-zinc-200/80 bg-white px-2.5 text-xs font-bold text-zinc-800 shadow-sm hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 lg:inline-flex sm:rounded-xl"
                 aria-label={language === 'hi' ? 'भाषा: हिंदी / English' : 'Language: English / Hindi'}
                 title={language === 'hi' ? 'Switch to English' : 'हिंदी में बदलें'}
               >
-                <span className={language === 'hi' ? 'text-red-600 dark:text-red-400 font-black' : 'text-zinc-400 dark:text-zinc-500 font-semibold'}>
+                <span className={language === 'hi' ? 'text-brand-500 dark:text-brand-400 font-black' : 'text-zinc-400 dark:text-zinc-500 font-semibold'}>
                   हि
                 </span>
                 <span className="text-zinc-300 dark:text-zinc-600 font-normal">/</span>
-                <span className={language === 'en' ? 'text-red-600 dark:text-red-400 font-black' : 'text-zinc-400 dark:text-zinc-500 font-semibold'}>
+                <span className={language === 'en' ? 'text-brand-500 dark:text-brand-400 font-black' : 'text-zinc-400 dark:text-zinc-500 font-semibold'}>
                   EN
                 </span>
               </motion.button>
@@ -305,7 +317,7 @@ export default function Header() {
       </div>
 
       <div className="border-t border-zinc-200/80 dark:border-zinc-800">
-        <div className="scrollbar-hide reader-scroll-x flex min-h-10 items-center overflow-x-auto touch-pan-x px-2 sm:px-4 md:min-h-11 md:px-6 2xl:justify-center" data-swipe-ignore="true">
+        <div className="scrollbar-hide reader-scroll-x flex min-h-10 items-center overflow-x-auto lg:overflow-visible touch-pan-x px-2 sm:px-4 md:min-h-11 md:px-6 2xl:justify-center" data-swipe-ignore="true">
           <DesktopNav className="min-w-max py-0" />
         </div>
       </div>

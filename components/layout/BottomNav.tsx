@@ -84,10 +84,10 @@ export default function BottomNav({
   const inactiveTone = isOverlayDark
     ? 'text-zinc-300 hover:text-white'
     : 'text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100';
-  const activeTone = isOverlayDark ? 'text-orange-400' : 'text-orange-600 dark:text-orange-400';
+  const activeTone = isOverlayDark ? 'text-brand-400' : 'text-brand-500 dark:text-brand-400';
   const activeBackgroundTone = isOverlayDark
     ? 'bg-white/10'
-    : 'bg-orange-50 dark:bg-orange-500/10';
+    : 'bg-brand-50 dark:bg-brand-500/15';
 
   const isProfileActive =
     pathname.startsWith('/main/account') ||
@@ -106,7 +106,7 @@ export default function BottomNav({
       {/* Signature Lokswami Brand Gradient Top Line */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 -top-[1px] h-[2px] bg-gradient-to-r from-red-600 via-rose-500 to-orange-500 shadow-[0_0_8px_rgba(225,29,72,0.35)]"
+        className="pointer-events-none absolute inset-x-0 -top-[1px] h-[2px] bg-gradient-to-r from-brand-500 via-rose-500 to-amber-500 shadow-[0_0_8px_rgba(225,29,72,0.35)]"
       />
       <div className="mx-auto grid min-h-[var(--bottom-nav-height)] w-full max-w-xl grid-cols-6 items-center gap-x-0.5 px-1 pb-[max(env(safe-area-inset-bottom),0.25rem)] pt-1 min-[360px]:gap-x-1 min-[360px]:px-2 sm:gap-x-2 sm:px-4">
         {navItems.map((item) => {
@@ -127,7 +127,7 @@ export default function BottomNav({
               href={href}
               aria-label={explicitAriaLabel}
               aria-current={isActive ? 'page' : undefined}
-              className="reader-touch-link reader-focus-ring touch-target-compact relative flex w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 min-[360px]:px-1"
+              className="reader-touch-link relative flex min-h-[44px] min-w-[44px] w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 min-[360px]:px-1 editorial-focus-ring"
             >
               {isActive ? (
                 <motion.div
@@ -139,16 +139,23 @@ export default function BottomNav({
 
               <Icon
                 size={20}
-                strokeWidth={isActive ? 2.3 : 1.9}
+                strokeWidth={isActive ? 2.4 : 1.8}
                 className={`cnp-motion relative z-10 min-[380px]:h-[22px] min-[380px]:w-[22px] ${isActive ? activeTone : inactiveTone}`}
               />
               <span
-                className={`cnp-motion relative z-10 max-w-full truncate text-[8.5px] font-semibold leading-normal pb-0.5 min-[360px]:text-[9px] min-[390px]:text-[10px] sm:text-[11px] ${
+                className={`cnp-motion relative z-10 max-w-full truncate text-[11px] font-semibold tracking-normal leading-tight pb-0.5 sm:text-xs ${
                   isActive ? activeTone : inactiveTone
                 }`}
               >
                 {label}
               </span>
+              {/* Visible non-color active dot indicator */}
+              {isActive ? (
+                <span
+                  aria-hidden="true"
+                  className={`relative z-10 -mt-0.5 h-1 w-1 rounded-full ${isOverlayDark ? 'bg-white' : 'bg-brand-500 dark:bg-brand-400'}`}
+                />
+              ) : null}
             </Link>
           );
         })}

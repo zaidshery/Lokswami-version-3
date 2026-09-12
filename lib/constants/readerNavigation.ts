@@ -16,11 +16,18 @@ export const READER_NAVIGATION = {
   contact: { name: '\u0938\u0902\u092a\u0930\u094d\u0915', nameEn: 'Contact', href: '/main/contact' },
 } as const satisfies Record<string, ReaderNavigationLink>;
 
-export function isReaderNavigationActive(pathname: string, href: string) {
-  if (href === READER_NAVIGATION.videos.href && pathname.startsWith('/main/shorts/')) {
+export function isReaderNavigationActive(pathname: string, href: string): boolean {
+  if (!pathname || !href) return false;
+  const cleanPath = pathname.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const cleanHref = href.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+
+  if (cleanHref === '/main' || cleanHref === '/') {
+    return cleanPath === '/main' || cleanPath === '/';
+  }
+
+  if (cleanHref === READER_NAVIGATION.videos.href && cleanPath.startsWith('/main/shorts')) {
     return true;
   }
-  return href === '/main'
-    ? pathname === href
-    : pathname === href || pathname.startsWith(`${href}/`);
+
+  return cleanPath === cleanHref || cleanPath.startsWith(`${cleanHref}/`);
 }
