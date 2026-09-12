@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/lib/store/appStore';
@@ -41,10 +42,18 @@ const PRIMARY_NAV_LINKS = [
   },
 ];
 
-// Desktop-only products (preserved for existing responsive test contracts)
+// Desktop-only products (E-Paper, E-Magazine, Video)
 const DESKTOP_PRODUCT_LINKS = [
-  READER_NAVIGATION.epaper,
-  READER_NAVIGATION.emagazine,
+  {
+    name: 'ई-पेपर',
+    nameEn: 'E-Paper',
+    href: '/main/epaper',
+  },
+  {
+    name: 'ई-मैगज़ीन',
+    nameEn: 'E-Magazine',
+    href: '/main/e-magazine',
+  },
   {
     name: 'वीडियो',
     nameEn: 'Video',
@@ -81,18 +90,43 @@ export default function DesktopNav({ className = '' }: DesktopNavProps) {
   const pathname = usePathname();
   const { language } = useAppStore();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
   const moreRef = useRef<HTMLDivElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const isMoreActive = MORE_NAV_LINKS.some((link) =>
     isReaderNavigationActive(pathname, link.href)
   );
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!isMoreOpen) return;
 
+    function updatePosition() {
+      if (!moreButtonRef.current) return;
+      const rect = moreButtonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
+    }
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
     function handleClickOutside(event: MouseEvent) {
-      if (moreRef.current && !moreRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        moreRef.current &&
+        !moreRef.current.contains(target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(target))
+      ) {
         setIsMoreOpen(false);
       }
     }
@@ -108,6 +142,8 @@ export default function DesktopNav({ className = '' }: DesktopNavProps) {
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
@@ -226,40 +262,49 @@ export default function DesktopNav({ className = '' }: DesktopNavProps) {
           ) : null}
         </button>
 
-        {/* Dropdown Popover */}
-        <AnimatePresence>
-          {isMoreOpen ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 4 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-editorial-md border border-zinc-200 bg-white p-1.5 shadow-editorial-lg dark:border-zinc-800 dark:bg-[#16161c]"
-            >
-              <div className="flex flex-col gap-0.5">
-                {MORE_NAV_LINKS.map((link) => {
-                  const isActive = isReaderNavigationActive(pathname, link.href);
+        {/* Dropdown Popover - rendered via portal to prevent clipping by overflow-x containers */}
+        {mounted && isMoreOpen && typeof document !== 'undefined'
+          ? createPortal(
+              <AnimatePresence>
+                <motion.div
+                  ref={dropdownRef}
+                  initial={{ opacity: 0, scale: 0.95, y: 4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                  style={{
+                    position: 'fixed',
+                    top: dropdownPosition ? `${dropdownPosition.top}px` : '56px',
+                    right: dropdownPosition ? `${dropdownPosition.right}px` : '16px',
+                  }}
+                  className="z-[80] min-w-[200px] rounded-editorial-md border border-zinc-200 bg-white p-1.5 shadow-editorial-lg dark:border-zinc-800 dark:bg-[#16161c]"
+                >
+                  <div className="flex flex-col gap-0.5">
+                    {MORE_NAV_LINKS.map((link) => {
+                      const isActive = isReaderNavigationActive(pathname, link.href);
 
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setIsMoreOpen(false)}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={`cnp-motion editorial-focus-ring flex min-h-[44px] items-center rounded-editorial-sm px-3 py-2 text-xs font-semibold tracking-normal transition-colors ${
-                        isActive
-                          ? 'bg-brand-50 text-brand-500 dark:bg-brand-950/40 dark:text-brand-400 font-bold'
-                          : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100'
-                      }`}
-                    >
-                      <span>{language === 'hi' ? link.name : link.nameEn}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setIsMoreOpen(false)}
+                          aria-current={isActive ? 'page' : undefined}
+                          className={`cnp-motion editorial-focus-ring flex min-h-[44px] items-center rounded-editorial-sm px-3 py-2 text-xs font-semibold tracking-normal transition-colors ${
+                            isActive
+                              ? 'bg-brand-50 text-brand-500 dark:bg-brand-950/40 dark:text-brand-400 font-bold'
+                              : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100'
+                          }`}
+                        >
+                          <span>{language === 'hi' ? link.name : link.nameEn}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              </AnimatePresence>,
+              document.body
+            )
+          : null}
       </div>
     </nav>
   );

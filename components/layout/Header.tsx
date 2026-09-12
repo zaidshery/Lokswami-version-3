@@ -147,7 +147,7 @@ export default function Header() {
           </div>
 
           {/* Center: Hindi Written Logo "लोकस्वामी" on mobile */}
-          <div className="flex min-w-0 flex-1 items-center justify-center px-1 translate-x-4 min-[375px]:translate-x-5 sm:translate-x-0 sm:hidden">
+          <div className="flex min-w-0 flex-1 items-center justify-center px-1 sm:hidden">
             <Link
               href="/main"
               className="cnp-motion inline-flex h-12 max-w-full items-center justify-center transition-transform duration-200 active:scale-95"
@@ -162,10 +162,10 @@ export default function Header() {
 
           <div className="flex shrink-0 items-center justify-end sm:ml-2">
             <div className="inline-flex max-w-full items-center gap-1 rounded-xl border border-zinc-200/90 bg-gradient-to-b from-white to-zinc-100/80 p-0.5 shadow-[0_8px_18px_rgba(15,23,42,0.08)] dark:border-zinc-700/80 dark:from-zinc-900 dark:to-zinc-900/75 sm:gap-1.5 sm:rounded-2xl sm:p-1">
-              {/* E-Paper Quick Action */}
+              {/* E-Paper Quick Action - visible on >=390px mobile & desktop (BottomNav provides E-Paper on narrow mobile) */}
               <Link
                 href="/main/epaper"
-                className="cnp-motion editorial-focus-ring inline-flex h-8 min-h-[44px] shrink-0 items-center gap-1 rounded-lg border border-brand-500/30 bg-brand-500 px-2 text-[10.5px] font-semibold text-white shadow-sm transition-all hover:bg-brand-600 active:scale-95 dark:border-brand-500/40 min-[380px]:h-8.5 min-[380px]:px-2.5 min-[380px]:text-[11px] sm:h-9 sm:rounded-xl sm:px-2.5 sm:text-xs"
+                className="cnp-motion editorial-focus-ring hidden min-[390px]:inline-flex sm:inline-flex h-8 min-h-[44px] shrink-0 items-center gap-1 rounded-lg border border-brand-500/30 bg-brand-500 px-2 text-[10.5px] font-semibold text-white shadow-sm transition-all hover:bg-brand-600 active:scale-95 dark:border-brand-500/40 min-[380px]:h-8.5 min-[380px]:px-2.5 min-[380px]:text-[11px] sm:h-9 sm:rounded-xl sm:px-2.5 sm:text-xs"
                 aria-label={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
               >
                 <Newspaper className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
@@ -317,7 +317,7 @@ export default function Header() {
       </div>
 
       <div className="border-t border-zinc-200/80 dark:border-zinc-800">
-        <div className="scrollbar-hide reader-scroll-x flex min-h-10 items-center overflow-x-auto touch-pan-x px-2 sm:px-4 md:min-h-11 md:px-6 2xl:justify-center" data-swipe-ignore="true">
+        <div className="scrollbar-hide reader-scroll-x flex min-h-10 items-center overflow-x-auto lg:overflow-visible touch-pan-x px-2 sm:px-4 md:min-h-11 md:px-6 2xl:justify-center" data-swipe-ignore="true">
           <DesktopNav className="min-w-max py-0" />
         </div>
       </div>
