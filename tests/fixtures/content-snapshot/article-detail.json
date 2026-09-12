@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "data": {
+    "article": {
+      "_id": "public-article-101",
+      "slug": "indore-water-project",
+      "title": "Indore water project update",
+      "summary": "A sanitized detail summary.",
+      "content": "<p>Sanitized article body preserving the public API field shape.</p>",
+      "image": "https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/articles/water-project.jpg",
+      "category": "Regional",
+      "reporterMeta": { "reporterName": "News Desk" },
+      "publishedAt": "2026-09-10T08:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
+    }
+  }
+}

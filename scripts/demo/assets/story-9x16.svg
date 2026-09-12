@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" role="img" aria-labelledby="title desc">
+  <title id="title">Lokswami Demo Short Story Placeholder</title>
+  <desc id="desc">Deterministic local demo vertical placeholder image for shorts.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#18181b" />
+      <stop offset="100%" stop-color="#09090b" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#dc2626" />
+      <stop offset="100%" stop-color="#f97316" />
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#bg)" />
+  <rect x="0" y="0" width="1080" height="18" fill="url(#accent)" />
+  <circle cx="540" cy="960" r="70" fill="#dc2626" opacity="0.8" />
+  <polygon points="525,930 575,960 525,990" fill="#ffffff" />
+  <text x="540" y="1100" fill="#cbd5e1" font-size="38" font-family="Segoe UI, Arial, sans-serif" font-weight="700" text-anchor="middle">Lokswami Short QA</text>
+</svg>

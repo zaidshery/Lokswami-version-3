@@ -53,6 +53,8 @@ data/articles.json
 data/users.json
 data/article-locks.json
 public/uploads/*
+.local/content-snapshots/
+public/demo/lokswami/
 
 # Runtime logs
 storage/logs/
