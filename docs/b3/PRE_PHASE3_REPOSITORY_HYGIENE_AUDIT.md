@@ -13,7 +13,7 @@
 
 Prior to commencing Phase 3 feature implementation, this repository hygiene and documentation reorganization was conducted to eliminate root-folder clutter, remove obsolete Windows batch scripts and git artifacts, segregate historical pre-freeze planning materials, reorganize current setup and operational documentation into structured subdirectories, and ensure that future autonomous agents and human engineers encounter an unambiguous, canonical documentation tree.
 
-**Zero runtime code has been altered.** All domain boundaries, Mongoose models, repositories, routes, auth/RBAC helpers, and test suites established during Architecture Freeze v1 remain 100% intact and passing.
+**Zero runtime code has been altered.** All required automated gates passed and no runtime source files were modified by this cleanup. Domain boundaries, Mongoose models, repositories, routes, auth/RBAC helpers, and test suites established during Architecture Freeze v1 remain preserved.
 
 ---
 
@@ -102,7 +102,7 @@ The following 5 tracked files were proven to be obsolete test artifacts or unref
 | `git_status.txt` | **DELETE** | 0-byte tracked text file created during local Git diagnostics. | 0 references across repo. | **Zero risk**. No runtime, build, or CI impact. |
 | `git_version.txt` | **DELETE** | 0-byte tracked text file created during local Git diagnostics. | 0 references across repo. | **Zero risk**. No runtime, build, or CI impact. |
 | `test_echo.txt` | **DELETE** | 13-byte text file containing `hello world` and CRLF artifacts. | 0 references across repo. | **Zero risk**. No runtime, build, or CI impact. |
-| `commit.bat` | **DELETE** | Windows batch script with hard-coded automated commit/push sequence (`git add .`, `git commit -m "Auto commit"`, `git push origin main`). Violates branch safety. | 0 references in code/CI. | **Zero risk**. Prevents accidental blind commits. |
+| `commit.bat` | **DELETE** | Windows batch script with hard-coded one-off staging of specific files (`lib/notifications/teamInviteEmail.ts`, `app/api/admin/team/route.ts`, `app/api/admin/team/[id]/setup-link/route.ts`, `app/(admin)/admin/team/TeamManagementClient.tsx`), fixed commit message `feat: Implement secure automated email invitations via Resend`, and `git push`. Obsolete local helper, unsafe as a generic repository workflow, unreferenced by runtime/build/CI. | 0 references in code/CI. | **Zero risk**. Removes unsafe hard-coded staging script. |
 | `run_git.bat` | **DELETE** | Windows batch script containing obsolete absolute machine path (`C:\Users\Appex\Zaid-lokswami\...`) targeting an old machine. | 0 references in code/CI. | **Zero risk**. Obsolete local script. |
 
 ---
@@ -193,7 +193,7 @@ Specific checks were performed on potential untracked candidates mentioned in pr
 
 ## 10. Files Intentionally Retained
 
-### Core Code and Asset Directories (100% Retained)
+### Core Code and Asset Directories Retained
 - `app/`: Next.js App Router routes, layouts, and API handlers.
 - `components/`: Modular React components for admin, editorial, reader, and media.
 - `data/`: Preserved per explicit project requirement. Domain repositories utilize fallback JSON files when MongoDB is unconfigured or during local test execution.
@@ -276,8 +276,10 @@ All moved documentation files were cross-referenced across the entire codebase u
    - Updated relative links to `./HOSTINGER_DEPLOY.md` and `./DEPLOY_SMOKE_CHECKLIST.md`.
 6. **`docs/archive/legacy-admin/PHASE5_GOVERNANCE_CHECKLIST.md`**:
    - Updated relative link to `../../operations/ADMIN_RUNTIME_CHECKLIST.md`.
-7. **`lib/admin/deploymentSafeguards.ts`**:
-   - Evaluated for references. Contains UI string labels `/HOSTINGER_DEPLOY.md`, `/DEPLOY_SMOKE_CHECKLIST.md`, `/ADMIN_RUNTIME_CHECKLIST.md`. Per the explicit Architecture Freeze v1 and Pre-Phase-3 guidelines ("Runtime source changes Expected: NONE"), no files under `lib/` were modified.
+7. **`lib/admin/deploymentSafeguards.ts` & Admin Settings UI**:
+   - `lib/admin/deploymentSafeguards.ts` defines documentation paths (`/HOSTINGER_DEPLOY.md`, `/DEPLOY_SMOKE_CHECKLIST.md`, `/ADMIN_RUNTIME_CHECKLIST.md`), rendered as links in `app/(admin)/admin/settings/DeploymentSafeguardsPanel.tsx`.
+   - **Runtime Characterization**: These root-prefixed paths were non-functional web links prior to this cleanup; Next.js App Router does not serve root Markdown files as public web pages, so clicking these links previously returned 404 responses. They have historically functioned as non-routable source-file labels rather than valid web routes.
+   - **Decision & Claim Qualification**: In adherence to the Architecture Freeze v1 principle against inventing new runtime documentation-serving systems or copying source files into `public/` during hygiene cleanup, runtime source code was left untouched. The audit claim of "zero broken references" is explicitly qualified: all repository documentation, README links, and automation scripts were verified and updated, while these three admin UI doc paths are cataloged as existing operational UI debt (assigned to Phase 4 Production & Scale / operational hardening).
 
 ---
 
@@ -311,7 +313,7 @@ All quality gates will be executed on the working tree before commit and push:
 1. `git diff --check`: Verifies no whitespace or conflict marker errors.
 2. `npm run typecheck`: TypeScript verification across all files.
 3. `npm run lint:strict`: Strict ESLint check on core domain and governance code.
-4. `npm run verify:dependency-security`: Verifies zero unexpected high/critical production dependency vulnerabilities outside documented Phase 4 debt.
+4. `npm run verify:dependency-security`: Validates explicitly governed advisory-version floors (PASS). Note: npm currently reports 35 advisory findings (31 moderate, 3 high, 1 critical) across the full dependency tree, which remain cataloged under DEBT-010 for Phase 4 controlled remediation.
 5. `npm run test:security`: Validates API authentication and RBAC boundaries.
 6. `npm run test:governance`: Validates super-admin governance surfaces and permission review.
 7. `npm run test:four-role-newsroom`: Validates reporter, copy editor, admin, and super-admin workflows.
@@ -323,15 +325,25 @@ All quality gates will be executed on the working tree before commit and push:
 
 ## 17. Remaining Repository Debt
 
-The following known non-blocking debt items remain intentionally recorded for future phases per `docs/b3/PHASE2_DEBT_REGISTER.md`:
-- **Phase 4**:
-  - Deprecated transitive npm dependencies (`glob`, `rimraf`, `inflight`).
-  - Next.js 15 canary migration for React 19 canary stability.
-  - Normal lint warnings (~197 inherited warnings across legacy pages).
-- **Phase 5**:
-  - UI path labels in `lib/admin/deploymentSafeguards.ts` can be aligned with new doc paths when admin settings surfaces are refactored.
-- **Phase 6**:
-  - Advanced background workers and Redis queues for heavy OCR/TTS operations.
+All non-blocking debt items remain strictly aligned with the canonical roadmap and [`docs/b3/PHASE2_DEBT_REGISTER.md`](./PHASE2_DEBT_REGISTER.md):
+
+- **Phase 3 (Reader / Product Experience & Performance UX)**:
+  - **DEBT-007 (Partial)**: UI ESLint warning cleanup for reader and public components directly touched during Phase 3 UX work.
+  - **DEBT-009 (Partial)**: Field Core Web Vitals (CWV) telemetry aggregation and reader performance UX.
+- **Phase 4 (Production & Scale / Security & Operational Hardening)**:
+  - **DEBT-001**: End-to-end distributed tracing (`x-request-id`) and structured JSON logging.
+  - **DEBT-002**: Durable background queues (Redis / BullMQ) with retries and DLQs for PDF processing and OCR.
+  - **DEBT-003 (Initial)**: Distributed Pub/Sub adapter for multi-instance newsroom live analytics streaming.
+  - **DEBT-004 (Initial)**: Dedicated asynchronous media processing workers for Sharp image optimization.
+  - **DEBT-005**: Edge CDN cache purge integration (Cloudflare / Fastly API hooks).
+  - **DEBT-006**: Runtime modernization (migrating Vitest config to native ESM and Node 20.x maintenance).
+  - **DEBT-007 (Remaining)**: Incremental cleanup of remaining non-reader legacy ESLint warnings (total baseline: 197).
+  - **DEBT-008**: Multi-region database backup automation and staging restore drill orchestration.
+  - **DEBT-009 (Production)**: Automated leadership alerts and daily CWV aggregation rollups from ingested telemetry.
+  - **DEBT-010**: Controlled remediation and upgrades for 35 npm advisory findings (31 moderate, 3 high, 1 critical).
+  - **DEBT-011**: Operational UI hardening for deployment safeguard doc paths (`/HOSTINGER_DEPLOY.md`, `/DEPLOY_SMOKE_CHECKLIST.md`, `/ADMIN_RUNTIME_CHECKLIST.md`) via established doc-viewing or repository-linking patterns.
+- **Phase 8 (Apps & Advanced Scale)**:
+  - **DEBT-003 / DEBT-004 (Scale Extraction)**: Physical microservice extraction for distributed pub/sub and media workers if measured production scale requires container isolation.
 
 ---
 
