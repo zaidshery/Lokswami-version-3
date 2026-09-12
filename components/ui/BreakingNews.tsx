@@ -125,7 +125,7 @@ export default function BreakingNews({
 
   return (
     <div
-      className="fixed left-0 right-0 top-0 z-[60] w-full bg-gradient-to-r from-[#7f1116] via-[#97131a] to-[#7f1116] shadow-[inset_0_-1px_0_rgba(255,255,255,0.08),inset_0_1px_0_rgba(0,0,0,0.28),0_8px_24px_rgba(0,0,0,0.22)]"
+      className="relative z-[45] w-full bg-gradient-to-r from-[#7f1116] via-[#97131a] to-[#7f1116] shadow-[inset_0_-1px_0_rgba(255,255,255,0.08),inset_0_1px_0_rgba(0,0,0,0.28),0_8px_24px_rgba(0,0,0,0.22)]"
       role="region"
       aria-label={language === 'hi' ? 'Breaking news' : 'Breaking News'}
     >
@@ -178,7 +178,7 @@ export default function BreakingNews({
           <button
             type="button"
             onClick={toggleSound}
-            className="reader-touch-button reader-focus-ring flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+            className="editorial-focus-ring flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={ttsAvailable === false || isPreparingAudio}
             aria-label={buttonTitle}
             aria-pressed={soundEnabled}
