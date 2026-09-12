@@ -46,7 +46,7 @@ export function SectionHeader({
       {href && ctaText ? (
         <Link
           href={href}
-          className="editorial-focus-ring inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-editorial-sm px-2 text-xs font-bold text-brand-500 transition hover:bg-brand-50 hover:text-brand-600 dark:text-brand-400 dark:hover:bg-brand-950/40 dark:hover:text-brand-300 sm:min-h-[36px]"
+          className="editorial-focus-ring inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-editorial-sm px-2 text-xs font-bold text-brand-500 transition motion-reduce:transition-none hover:bg-brand-50 hover:text-brand-600 dark:text-brand-400 dark:hover:bg-brand-950/40 dark:hover:text-brand-300 lg:min-h-[36px]"
         >
           <span>{ctaText}</span>
           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />

@@ -125,7 +125,7 @@ Devanagari compound words must not be broken mid-syllable:
 | **Metadata / Time** | `0.75rem` (12px) | 1.40 | 500 Medium | Timestamps, read times, bylines |
 | **Caption** | `0.8125rem` (13px) | 1.40 | 500 Medium | Image captions, photo credits |
 | **Button / Nav** | `0.875rem` (14px) | 1.40 | 700 Bold | Navigation links, buttons |
-| **Badge / Tag** | `0.6875rem` (11px) | 1.20 | 700 Bold | Category pills, live breaking tags |
+| **Badge / Tag** | `0.6875rem` (11px) | 1.40 | 700 Bold | Category pills, live breaking tags |
 
 ---
 
@@ -213,10 +213,14 @@ This identified **14 active production usages** across reader and admin surfaces
 ### 9.2 Reduced Motion Guarantee
 All animations degrade gracefully when the reader enables reduced motion at the OS level (`prefers-reduced-motion: reduce`).
 
+> [!NOTE]
+> While new design system primitives strictly implement and enforce reduced-motion contracts out of the box, legacy reader animations (such as the homepage carousel auto-scroll and breaking news marquee ticker) retain known accessibility debt tracked under Phase 3.1 (UX-004) scheduled for resolution during surface-specific migrations in Phases 3.4 and 3.5.
+
 In addition to the global CSS reset for animation classes (`.cnp-motion`, `.marquee-animate`, `[data-animate="true"]`), all design system primitives implement local, primitive-level reduced-motion contracts:
 - **Button**: Suppresses transition and active scale via `motion-reduce:transition-none motion-reduce:active:scale-100`. The loading spinner halts animation via `motion-reduce:animate-none`.
 - **BreakingBadge**: Disables the live pulsing ring via `motion-reduce:animate-none` on the ping indicator while keeping the high-urgency status visible.
 - **Skeleton**: Disables background pulsing via `motion-reduce:animate-none`, rendering a static muted placeholder.
+- **SectionHeader**: Suppresses CTA link transition via `motion-reduce:transition-none`.
 
 ### 9.3 Focus States
 - Interactive elements must support the `.editorial-focus-ring` utility.
@@ -225,13 +229,13 @@ In addition to the global CSS reset for animation classes (`.cnp-motion`, `.marq
 
 ### 9.4 Touch Target Contract (Mobile-First >= 44x44px)
 In compliance with WCAG 2.2 Success Criterion 2.5.8 and mobile touch ergonomics:
-- **Mobile Touch-First Base**: All primary interactive controls on mobile screens have an interactive hit box of at least **44×44px** (`min-h-[44px]`).
-  - `Button sm`: `min-h-[44px]` on mobile (may reduce to `sm:min-h-[36px]` on tablet/desktop viewports).
-  - `Button md`: `min-h-[44px]` across all viewports.
-  - `Button lg`: `min-h-[48px]` across all viewports.
-  - `SectionHeader CTA`: `min-h-[44px]` on mobile (`sm:min-h-[36px]` on tablet/desktop).
-- **Desktop Secondary Controls**: Secondary controls may reduce to `>= 36px` only at clearly desktop/tablet breakpoints (`sm:` / 640px+ or `md:` / 768px+).
-- **Internal Typography vs. Hit Box**: Visual compactness on small controls is achieved through internal padding and typography (e.g. `text-xs px-3 py-1.5`) while strictly maintaining the accessible `>= 44px` interactive touch target.
+- **Mobile Touch-First Base**: All primary interactive controls on mobile and tablet screens have an interactive hit box of at least **44×44px** (`min-h-[44px] min-w-[44px]`).
+  - `Button sm`: `min-h-[44px] min-w-[44px]` through mobile and tablet viewports (may reduce to `lg:min-h-[36px] lg:min-w-0` on desktop viewports `lg:` 1024px+).
+  - `Button md`: `min-h-[44px] min-w-[44px]` across all viewports.
+  - `Button lg`: `min-h-[48px] min-w-[48px]` across all viewports.
+  - `SectionHeader CTA`: `min-h-[44px]` through mobile and tablet viewports (`lg:min-h-[36px]` on desktop viewports `lg:` 1024px+).
+- **Desktop Secondary Controls**: Secondary controls may reduce to `>= 36px` only at clearly non-mobile desktop breakpoints (`lg:` 1024px+). The `sm: 640px` breakpoint is explicitly classified as large phone / landscape mobile and must not reduce touch targets below 44px.
+- **Internal Typography vs. Hit Box**: Visual compactness on small controls is achieved through internal padding and typography (e.g. `text-xs px-3 py-1.5`) while strictly maintaining the accessible `>= 44px` interactive touch target on mobile and tablet screens.
 
 ---
 
@@ -242,26 +246,26 @@ The following normalized primitives have been established in `components/ui/`:
 ### 1. `Button` (`components/ui/Button.tsx`)
 - **Type**: `forwardRef accessible button primitive` extending `ButtonHTMLAttributes<HTMLButtonElement>`, rendering `<button>`.
 - **Variants**: `primary`, `secondary`, `outline`, `ghost`, `destructive`, `breaking`
-- **Sizes**: `sm` (`min-h-[44px] sm:min-h-[36px]`), `md` (`min-h-[44px]`), `lg` (`min-h-[48px]`)
-- **Features**: Accessible `aria-busy` and `aria-disabled` on loading, left/right icon slots, keyboard focus ring (`.editorial-focus-ring`), touch-target compliant, reduced motion enforcement (`motion-reduce:transition-none`, `motion-reduce:active:scale-100`, spinner `motion-reduce:animate-none`), Hindi-safe `tracking-normal` on breaking variant.
+- **Sizes**: `sm` (`min-h-[44px] min-w-[44px] lg:min-h-[36px] lg:min-w-0`), `md` (`min-h-[44px] min-w-[44px]`), `lg` (`min-h-[48px] min-w-[48px]`)
+- **Features**: Accessible `aria-busy` and `aria-disabled` on loading, left/right icon slots, keyboard focus ring (`.editorial-focus-ring`), touch-target compliant (`>=44x44px` mobile/tablet), reduced motion enforcement (`motion-reduce:transition-none`, `motion-reduce:active:scale-100`, spinner `motion-reduce:animate-none`), Hindi-safe `tracking-normal` on breaking variant.
 
 ### 2. `Badge` (`components/ui/Badge.tsx`)
 - **Variants**: `brand`, `breaking`, `neutral`, `outline`, `success`, `warning`
-- **Sizes**: `sm` (11px), `md` (12px)
-- **Features**: `tracking-normal` Devanagari protection (prevents shirorekha fragmentation on Hindi labels like `लाइव`), icon slot.
+- **Sizes**: `sm` (11px, `leading-[1.4]`), `md` (12px, `leading-[1.4]`)
+- **Features**: `tracking-normal` Devanagari protection (prevents shirorekha fragmentation on Hindi labels like `लाइव`), matra-clearance line-height standard (`leading-[1.4]`), icon slot.
 
 ### 3. `BreakingBadge` (`components/ui/BreakingBadge.tsx`)
 - **Features**: Live pulsing dot indicator with `motion-reduce:animate-none`, `tracking-normal` shirorekha protection, high-urgency urgent red styling, `role="status"`.
 
 ### 4. `SectionHeader` (`components/ui/SectionHeader.tsx`)
-- **Features**: Signature LokSwami vertical red accent bar, configurable semantic heading level (`h1`, `h2`, `h3`, `h4`), optional call-to-action link (`ArrowRight`) with mobile `>= 44px` touch target (`min-h-[44px] sm:min-h-[36px]`), Devanagari line-height protection.
+- **Features**: Signature LokSwami vertical red accent bar, configurable semantic heading level (`h1`, `h2`, `h3`, `h4`), optional call-to-action link (`ArrowRight`) with mobile `>= 44px` touch target (`min-h-[44px] lg:min-h-[36px]`), reduced-motion transition suppression (`motion-reduce:transition-none`), Devanagari line-height protection.
 
 ### 5. `Container` (`components/layout/Container.tsx`)
 - **Variants**: `reading` (68ch), `article` (52rem), `narrow` (48rem), `standard` (72rem), `wide` (86rem, default), `full` (100%).
 - **Features**: 100% backwards-compatible with existing codebase while providing explicit editorial width controls.
 
 ### 6. `ReaderPageShell` (`components/ui/ReaderPageShell.tsx`)
-- **Features**: Standardized page title (`<h1>`), eyebrow, summary, and action bar wrapper.
+- **Features**: Standardized page title (`<h1>`), Devanagari-safe eyebrow (`tracking-normal leading-[1.4]`), summary, and action bar wrapper.
 
 ### 7. `EmptyState` (`components/ui/EmptyState.tsx`)
 - **Features**: Centered icon, title, description, and primary action slot for empty feeds and search results.
@@ -274,7 +278,7 @@ The following normalized primitives have been established in `components/ui/`:
 - **Features**: `aria-hidden="true"`, subtle pulse animation, respects `prefers-reduced-motion` via `motion-reduce:animate-none`.
 
 ### 10. `MetadataRow` (`components/ui/MetadataRow.tsx`)
-- **Features**: Standardized article byline, published date with clock icon, reading time estimate, category badge, view count supporting `viewCount={0}` ("0 विचार" / "0 views"), and accessible separator dots.
+- **Features**: Standardized article byline, published date with clock icon, reading time estimate, category badge, view count supporting `viewCount={0}` ("0 विचार" / "0 views"), and normalized separator dots (bullets render strictly between adjacent metadata items, never as a leading item).
 
 ---
 

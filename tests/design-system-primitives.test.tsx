@@ -58,18 +58,24 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(screen.getByTestId('right-icon')).toBeInTheDocument();
     });
 
-    it('enforces mobile touch target contract for sm, md, and lg sizes', () => {
+    it('enforces mobile touch target contract for sm, md, and lg sizes without mobile sm reduction', () => {
       const { rerender } = render(<Button size="sm">छोटा बटन</Button>);
       const smButton = screen.getByRole('button');
       expect(smButton).toHaveClass('min-h-[44px]');
+      expect(smButton).toHaveClass('min-w-[44px]');
+      expect(smButton.className).not.toContain('sm:min-h-[36px]');
+      expect(smButton).toHaveClass('lg:min-h-[36px]');
+      expect(smButton).toHaveClass('lg:min-w-0');
 
       rerender(<Button size="md">मध्यम बटन</Button>);
       const mdButton = screen.getByRole('button');
       expect(mdButton).toHaveClass('min-h-[44px]');
+      expect(mdButton).toHaveClass('min-w-[44px]');
 
       rerender(<Button size="lg">बड़ा बटन</Button>);
       const lgButton = screen.getByRole('button');
       expect(lgButton).toHaveClass('min-h-[48px]');
+      expect(lgButton).toHaveClass('min-w-[48px]');
     });
 
     it('enforces reduced-motion contracts for interactions and loading spinner', () => {
@@ -110,6 +116,18 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(badge).not.toHaveClass('tracking-wider');
     });
 
+    it('enforces Hindi-safe line-height on badges and does not use leading-tight', () => {
+      const { rerender } = render(<Badge size="sm">राष्ट्रीय</Badge>);
+      const smBadge = screen.getByText('राष्ट्रीय');
+      expect(smBadge).toHaveClass('leading-[1.4]');
+      expect(smBadge.className).not.toContain('leading-tight');
+
+      rerender(<Badge size="md">अंतर्राष्ट्रीय</Badge>);
+      const mdBadge = screen.getByText('अंतर्राष्ट्रीय');
+      expect(mdBadge).toHaveClass('leading-[1.4]');
+      expect(mdBadge.className).not.toContain('leading-tight');
+    });
+
     it('renders BreakingBadge with role status, tracking-normal, and reduced-motion indicator', () => {
       const { container } = render(<BreakingBadge label="ब्रेकिंग न्यूज" pulse />);
       const badge = screen.getByRole('status', { name: 'ब्रेकिंग न्यूज' });
@@ -131,7 +149,7 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(heading).toHaveClass('hindi-headline');
     });
 
-    it('renders CTA link when href and ctaText are passed and enforces mobile touch target contract', () => {
+    it('renders CTA link when href and ctaText are passed and enforces mobile touch target and reduced motion contract', () => {
       render(
         <SectionHeader
           title="राजनीति"
@@ -142,6 +160,9 @@ describe('LokSwami B3 Design System Primitives', () => {
       const link = screen.getByRole('link', { name: /सभी देखें/ });
       expect(link).toHaveAttribute('href', '/main/category/politics');
       expect(link).toHaveClass('min-h-[44px]');
+      expect(link.className).not.toContain('sm:min-h-[36px]');
+      expect(link).toHaveClass('lg:min-h-[36px]');
+      expect(link).toHaveClass('motion-reduce:transition-none');
     });
   });
 
@@ -174,6 +195,24 @@ describe('LokSwami B3 Design System Primitives', () => {
       expect(screen.getByText('डिजिटल न्यूज़')).toBeInTheDocument();
       expect(screen.getByText('आज का ताज़ा अख़बार पढ़ें')).toBeInTheDocument();
       expect(screen.getByTestId('page-content')).toBeInTheDocument();
+    });
+
+    it('renders ReaderPageShell with Hindi-safe eyebrow typography without uppercase or tracking-wider', () => {
+      render(
+        <ReaderPageShell
+          title="ई-पेपर संस्करण"
+          eyebrow="डिजिटल न्यूज़"
+          description="आज का ताज़ा अख़बार पढ़ें"
+        >
+          <div data-testid="page-content">पृष्ठ सामग्री</div>
+        </ReaderPageShell>
+      );
+      const eyebrow = screen.getByText('डिजिटल न्यूज़');
+      expect(eyebrow).toBeInTheDocument();
+      expect(eyebrow).toHaveClass('tracking-normal');
+      expect(eyebrow).toHaveClass('leading-[1.4]');
+      expect(eyebrow.className).not.toContain('tracking-wider');
+      expect(eyebrow.className).not.toContain('uppercase');
     });
   });
 
@@ -264,6 +303,46 @@ describe('LokSwami B3 Design System Primitives', () => {
     it('renders non-zero viewCount correctly', () => {
       render(<MetadataRow viewCount={1250} language="hi" />);
       expect(screen.getByText('1,250 विचार')).toBeInTheDocument();
+    });
+
+    it('normalizes separator bullets so isolated viewCount has no leading bullet', () => {
+      const { container } = render(<MetadataRow viewCount={0} language="hi" />);
+      expect(screen.getByText('0 विचार')).toBeInTheDocument();
+      expect(container.textContent).not.toContain('•');
+      expect(container.innerHTML).not.toContain('&bull;');
+    });
+
+    it('normalizes separator bullets so isolated readMinutes has no leading bullet', () => {
+      const { container } = render(<MetadataRow readMinutes={4} language="hi" />);
+      expect(screen.getByText('4 मिनट')).toBeInTheDocument();
+      expect(container.textContent).not.toContain('•');
+      expect(container.innerHTML).not.toContain('&bull;');
+    });
+
+    it('renders exactly one separator between published text and read time', () => {
+      const { container } = render(
+        <MetadataRow publishedText="10 मिनट पहले" readMinutes={4} language="hi" />
+      );
+      expect(screen.getByText('10 मिनट पहले')).toBeInTheDocument();
+      expect(screen.getByText('4 मिनट')).toBeInTheDocument();
+      const bullets = container.querySelectorAll('span[aria-hidden="true"]');
+      const bulletElements = Array.from(bullets).filter(
+        (el) => el.textContent?.includes('•') || el.innerHTML.includes('&bull;')
+      );
+      expect(bulletElements).toHaveLength(1);
+    });
+
+    it('renders separator between read time and view count', () => {
+      const { container } = render(
+        <MetadataRow readMinutes={4} viewCount={10} language="hi" />
+      );
+      expect(screen.getByText('4 मिनट')).toBeInTheDocument();
+      expect(screen.getByText('10 विचार')).toBeInTheDocument();
+      const bullets = container.querySelectorAll('span[aria-hidden="true"]');
+      const bulletElements = Array.from(bullets).filter(
+        (el) => el.textContent?.includes('•') || el.innerHTML.includes('&bull;')
+      );
+      expect(bulletElements).toHaveLength(1);
     });
   });
 });

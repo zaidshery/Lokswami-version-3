@@ -35,7 +35,7 @@ export function ReaderPageShell({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0 flex-1">
                 {eyebrow ? (
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400">
+                  <p className="mb-1 text-xs font-bold tracking-normal leading-[1.4] text-brand-500 dark:text-brand-400">
                     {eyebrow}
                   </p>
                 ) : null}
