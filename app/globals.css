@@ -52,6 +52,22 @@
     --admin-shell-scrollbar-track: rgba(148, 163, 184, 0.14);
     --admin-shell-scrollbar-thumb: rgba(100, 116, 139, 0.58);
     --admin-shell-scrollbar-thumb-hover: rgba(71, 85, 105, 0.82);
+
+    /* LokSwami B3 Design System Tokens */
+    --brand-primary: #e72129;
+    --brand-hover: #c61d24;
+    --brand-active: #a8181f;
+    --breaking-red: #dc2626;
+    --editorial-reading-measure: 68ch;
+    --editorial-article-container: 52rem;
+    --editorial-surface-base: #ffffff;
+    --editorial-surface-elevated: #ffffff;
+    --editorial-surface-muted: #f8f9fa;
+    --editorial-border: #e4e4e7;
+    --editorial-border-strong: #d4d4d8;
+    --editorial-text-primary: #0f1419;
+    --editorial-text-secondary: #4b5563;
+    --editorial-text-muted: #6b7280;
   }
   
   html {
@@ -113,6 +129,17 @@
     --admin-shell-scrollbar-track: rgba(255, 255, 255, 0.08);
     --admin-shell-scrollbar-thumb: rgba(148, 163, 184, 0.48);
     --admin-shell-scrollbar-thumb-hover: rgba(226, 232, 240, 0.68);
+
+    /* LokSwami B3 Dark Mode Editorial Tokens */
+    --editorial-surface-base: #0e0e12;
+    --editorial-surface-elevated: #16161c;
+    --editorial-surface-overlay: #1f1f26;
+    --editorial-surface-muted: #272731;
+    --editorial-border: #2e2e38;
+    --editorial-border-strong: #3f3f4c;
+    --editorial-text-primary: #f8fafc;
+    --editorial-text-secondary: #94a3b8;
+    --editorial-text-muted: #64748b;
   }
   
   html.dark main {
@@ -1817,5 +1844,61 @@ iframe:-webkit-full-screen {
   }
 }
 
+/* ============================================================
+   LokSwami B3 Design System Foundation Utilities
+   ============================================================ */
 
+/* High-contrast visible focus ring adhering to WCAG 2.2 */
+.editorial-focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+.editorial-focus-ring:focus-visible {
+  outline: 2px solid var(--brand-primary, #e72129);
+  outline-offset: 2px;
+}
 
+/* Devanagari Hindi Text Protection & Line-Height Standards */
+.hindi-text {
+  font-family: var(--font-devanagari), 'Noto Sans Devanagari', Mangal, 'Kohinoor Devanagari', sans-serif;
+  letter-spacing: 0 !important;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.hindi-headline {
+  font-family: var(--font-devanagari), 'Noto Sans Devanagari', Mangal, 'Kohinoor Devanagari', sans-serif;
+  letter-spacing: 0 !important;
+  line-height: 1.38;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.hindi-body {
+  font-family: var(--font-devanagari), 'Noto Sans Devanagari', Mangal, 'Kohinoor Devanagari', sans-serif;
+  letter-spacing: 0 !important;
+  line-height: 1.72;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* Editorial Reading Width Standards */
+.max-w-reading-optimal {
+  max-width: var(--editorial-reading-measure, 68ch);
+}
+
+.max-w-article-optimal {
+  max-width: var(--editorial-article-container, 52rem);
+}
+
+/* Accessible Reduced Motion Guarantee */
+@media (prefers-reduced-motion: reduce) {
+  .cnp-motion,
+  .marquee-animate,
+  [data-animate="true"] {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
