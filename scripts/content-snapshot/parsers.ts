@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { LOKSWAMI_SOURCE_ORIGIN } from './safety';
+import { LOKSWAMI_SOURCE_ORIGIN, resolveVideoPlaybackUrl } from './safety';
 import type {
   SnapshotArticle,
   SnapshotBreakingItem,
@@ -233,12 +233,21 @@ function inferProvider(source: UnknownRecord, url: string): string {
   return /(?:youtube\.com|youtu\.be)/i.test(url) ? 'youtube' : 'spaces-mp4';
 }
 
+function videoPlaybackUrl(value: string): string {
+  try {
+    return resolveVideoPlaybackUrl(value).toString();
+  } catch {
+    return '';
+  }
+}
+
 function parseVideoRecord(raw: unknown, capturedAt: string, type: 'video' | 'short'): SnapshotVideo | SnapshotShort | null {
   const source = asRecord(raw);
   const sourceId = firstText(source, ['_id', 'id', 'videoId', 'uuid']);
   const title = firstText(source, ['title', 'headline', 'name']);
   const playback = firstText(source, ['playbackUrl', 'videoUrl', 'youtubeUrl', 'hlsUrl', 'url']);
-  if (!sourceId || !title || !playback) return null;
+  const approvedPlayback = videoPlaybackUrl(playback);
+  if (!sourceId || !title || !approvedPlayback) return null;
   const slug = firstText(source, ['slug']) || slugify(title) || sourceId;
   const thumbnailUrl = firstText(source, ['posterUrl', 'thumbnail', 'thumbnailUrl', 'image']);
   const common = {
@@ -251,8 +260,8 @@ function parseVideoRecord(raw: unknown, capturedAt: string, type: 'video' | 'sho
     title,
     description: firstText(source, ['description', 'summary', 'excerpt']),
     category: firstText(source, ['category', 'category.name']) || 'General',
-    provider: inferProvider(source, playback),
-    publicUrl: publicUrl(playback, '/main/videos'),
+    provider: inferProvider(source, approvedPlayback),
+    publicUrl: approvedPlayback,
     durationSeconds: Math.max(0, Math.floor(firstNumber(source, ['duration', 'durationSeconds']))),
     publishedAt: normalizeDate(firstText(source, ['publishedAt', 'createdAt'])),
     ...(thumbnailUrl ? { thumbnail: media(thumbnailUrl, 'image') } : {}),

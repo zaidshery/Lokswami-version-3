@@ -328,14 +328,10 @@ export function useBreakingNewsController({
 
         const payload = (await response.json().catch(() => ({}))) as { items?: unknown };
         const normalized = normalizeBreakingList(payload.items);
-        if (normalized.length) {
-          return normalized;
-        }
+        return normalized;
       } catch {
-        // Ignore and fall back below when allowed.
+        return options?.fallbackToMock ? fallbackItems : null;
       }
-
-      return options?.fallbackToMock ? fallbackItems : null;
     },
     [fallbackItems]
   );
@@ -647,12 +643,18 @@ export function useBreakingNewsController({
 
     const pollForUpdates = async () => {
       const nextItems = await fetchBreakingItems({ fallbackToMock: false });
-      if (!active || !mountedRef.current || !nextItems?.length) return;
+      if (!active || !mountedRef.current || !nextItems) return;
 
       if (
         breakingQueuesEqualByOrder(nextItems, queueRef.current) ||
         breakingQueuesEqualByOrder(nextItems, bufferedItemsRef.current || [])
       ) {
+        return;
+      }
+
+      if (!nextItems.length) {
+        invalidatePlayback();
+        replaceQueue([], { resetIndex: true });
         return;
       }
 
@@ -672,7 +674,13 @@ export function useBreakingNewsController({
         pollIntervalRef.current = null;
       }
     };
-  }, [commitVisibleHeadline, fetchBreakingItems, hasExternalItems, replaceQueue]);
+  }, [
+    commitVisibleHeadline,
+    fetchBreakingItems,
+    hasExternalItems,
+    invalidatePlayback,
+    replaceQueue,
+  ]);
 
   useEffect(() => {
     if (!queue.length) return;

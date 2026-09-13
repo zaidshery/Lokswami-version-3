@@ -25,6 +25,7 @@ import {
   SNAPSHOT_SCHEMA_VERSION,
   type SnapshotArticle,
   type SnapshotError,
+  type SnapshotFreshness,
   type SnapshotLimits,
   type SnapshotManifest,
   type SnapshotMediaReference,
@@ -58,7 +59,54 @@ export type PullSnapshotOptions = {
   client?: ReadOnlyLokswamiHttpClient;
   store?: ContentSnapshotStore;
   capturedAt?: string;
+  freshness?: { since?: string; days?: number };
 };
+
+const MAX_FRESHNESS_DAYS = 365;
+
+export function resolveSnapshotFreshness(
+  capturedAt: string,
+  input: { since?: string; days?: number } = {}
+): SnapshotFreshness {
+  if (input.since !== undefined && input.days !== undefined) {
+    throw new Error('Use only one snapshot freshness option: --since or --days.');
+  }
+  if (input.since !== undefined) {
+    const raw = input.since.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      throw new Error('Snapshot --since must use YYYY-MM-DD format.');
+    }
+    const parsed = new Date(`${raw}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw) {
+      throw new Error('Snapshot --since is not a valid calendar date.');
+    }
+    return { since: parsed.toISOString(), days: null };
+  }
+  if (input.days !== undefined) {
+    if (!Number.isInteger(input.days) || input.days < 1 || input.days > MAX_FRESHNESS_DAYS) {
+      throw new Error(`Snapshot --days must be an integer from 1 to ${MAX_FRESHNESS_DAYS}.`);
+    }
+    const captured = new Date(capturedAt);
+    if (Number.isNaN(captured.getTime())) {
+      throw new Error('Snapshot capture timestamp is invalid.');
+    }
+    return {
+      since: new Date(captured.getTime() - input.days * 24 * 60 * 60 * 1000).toISOString(),
+      days: input.days,
+    };
+  }
+  return { since: null, days: null };
+}
+
+function withinFreshness<T>(
+  records: T[],
+  freshness: SnapshotFreshness,
+  getDate: (record: T) => string
+): T[] {
+  if (!freshness.since) return records;
+  const cutoff = new Date(freshness.since).getTime();
+  return records.filter((record) => new Date(getDate(record)).getTime() >= cutoff);
+}
 
 export function normalizeSnapshotLimits(input: Partial<SnapshotLimits> = {}): SnapshotLimits {
   return {
@@ -242,6 +290,7 @@ export async function pullContentSnapshot(
   assertRealContentOptIn(options.env);
   const limits = normalizeSnapshotLimits(options.limits);
   const capturedAt = options.capturedAt || new Date().toISOString();
+  const freshness = resolveSnapshotFreshness(capturedAt, options.freshness);
   const client = options.client || new ReadOnlyLokswamiHttpClient();
   const store = options.store || new ContentSnapshotStore();
   const urls = buildEndpoints(limits);
@@ -249,7 +298,11 @@ export async function pullContentSnapshot(
   const errors: SnapshotError[] = [];
 
   const articlePayload = await getOptionalPayload(client, urls.articles, 'article', errors);
-  let articles = uniqueBySourceId(parseArticleList(articlePayload, capturedAt)).slice(0, limits.articles);
+  let articles = withinFreshness(
+    uniqueBySourceId(parseArticleList(articlePayload, capturedAt)),
+    freshness,
+    (article) => article.publishedAt
+  ).slice(0, limits.articles);
   if (!articles.length) {
     throw new Error('Snapshot pull produced no valid public articles; refusing to write an unusable snapshot.');
   }
@@ -278,13 +331,29 @@ export async function pullContentSnapshot(
     ? await getOptionalPayload(client, urls.homeFeed, 'emagazine', errors)
     : null;
 
-  let videos = uniqueBySourceId(parseVideos(videosPayload, capturedAt)).slice(0, limits.videos);
+  let videos = withinFreshness(
+    uniqueBySourceId(parseVideos(videosPayload, capturedAt)),
+    freshness,
+    (video) => video.publishedAt
+  ).slice(0, limits.videos);
   let shorts = resolveShortArticleLinks(
-    uniqueBySourceId(parseShorts(shortsPayload, capturedAt)).slice(0, limits.shorts),
+    withinFreshness(
+      uniqueBySourceId(parseShorts(shortsPayload, capturedAt)),
+      freshness,
+      (short) => short.publishedAt
+    ).slice(0, limits.shorts),
     articles
   );
-  let epapers = uniqueBySourceId(parseEpapers(epapersPayload, capturedAt)).slice(0, limits.epapers);
-  let emagazines = uniqueBySourceId(parseHomeFeedEmagazines(homeFeedPayload, capturedAt)).slice(0, limits.emagazines);
+  let epapers = withinFreshness(
+    uniqueBySourceId(parseEpapers(epapersPayload, capturedAt)),
+    freshness,
+    (publication) => publication.publishDate
+  ).slice(0, limits.epapers);
+  let emagazines = withinFreshness(
+    uniqueBySourceId(parseHomeFeedEmagazines(homeFeedPayload, capturedAt)),
+    freshness,
+    (publication) => publication.publishDate
+  ).slice(0, limits.emagazines);
 
   articles = await localizeArticles(articles, client, store, limits.concurrency, errors);
   videos = await localizeVideos(videos, client, store, limits.concurrency, errors);
@@ -301,8 +370,13 @@ export async function pullContentSnapshot(
     writeMethodsUsed: [],
     endpoints,
     limits,
+    freshness,
     articles,
-    breaking: uniqueBySourceId(parseBreaking(breakingPayload, capturedAt)).slice(0, limits.breaking),
+    breaking: withinFreshness(
+      uniqueBySourceId(parseBreaking(breakingPayload, capturedAt)),
+      freshness,
+      (item) => item.publishedAt
+    ).slice(0, limits.breaking),
     videos,
     shorts,
     epapers,
@@ -319,12 +393,18 @@ export function parsePullArgs(args: string[]): {
   limits: Partial<SnapshotLimits>;
   timeoutMs?: number;
   retries?: number;
+  freshness: { since?: string; days?: number };
 } {
   const limits: Partial<SnapshotLimits> = {};
+  const freshness: { since?: string; days?: number } = {};
   let timeoutMs: number | undefined;
   let retries: number | undefined;
   const numericKeys = new Set(['articles', 'breaking', 'videos', 'shorts', 'epapers', 'emagazines', 'concurrency']);
   for (const arg of args) {
+    if (arg.startsWith('--since=')) {
+      freshness.since = arg.slice('--since='.length);
+      continue;
+    }
     const match = arg.match(/^--([a-z-]+)=(\d+)$/);
     if (!match) throw new Error(`Unsupported snapshot option: ${arg}`);
     const key = match[1];
@@ -335,11 +415,13 @@ export function parsePullArgs(args: string[]): {
       timeoutMs = value;
     } else if (key === 'retries') {
       retries = normalizeBoundedInteger(value, MAX_HTTP_RETRIES, 0, MAX_HTTP_RETRIES);
+    } else if (key === 'days') {
+      freshness.days = value;
     } else {
       throw new Error(`Unsupported snapshot option: --${key}`);
     }
   }
-  return { limits, timeoutMs, retries };
+  return { limits, timeoutMs, retries, freshness };
 }
 
 async function main() {
@@ -349,7 +431,11 @@ async function main() {
       ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
       ...(args.retries === undefined ? {} : { retries: args.retries }),
     });
-    const manifest = await pullContentSnapshot({ limits: args.limits, client });
+    const manifest = await pullContentSnapshot({
+      limits: args.limits,
+      freshness: args.freshness,
+      client,
+    });
     console.log(`LokSwami snapshot captured at ${manifest.pulledAt}.`);
     console.log(`Articles: ${manifest.articles.length}; videos: ${manifest.videos.length}; shorts: ${manifest.shorts.length}.`);
     console.log(`E-papers: ${manifest.epapers.length}; e-magazines: ${manifest.emagazines.length}.`);

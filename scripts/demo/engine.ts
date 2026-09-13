@@ -914,7 +914,9 @@ export async function verifyDemoData(
             category: 'breaking',
             status: audioExists ? 'passed' : 'failed',
             details: audioExists
-              ? `Found in active public breaking feed (${breakingFeed.length} items total) with reusable audio ready`
+              ? selection.source === 'lokswami'
+                ? `Found in active public breaking feed (${breakingFeed.length} items total) with reusable audio ready`
+                : `Found in active public breaking feed (${breakingFeed.length} items total)`
               : 'Breaking item was visible, but reusable local audio was not ready',
           });
         } else {

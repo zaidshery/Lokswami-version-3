@@ -4,14 +4,22 @@ import type { SnapshotManifest } from './types';
 export function formatSnapshotInspection(manifest: SnapshotManifest): string {
   const supportedShorts = manifest.shorts.filter((item) => item.supported).length;
   const unsupportedShorts = manifest.shorts.length - supportedShorts;
+  const downloadedArticleImages = manifest.articles.filter(
+    (item) => item.image?.status === 'downloaded'
+  ).length;
+  const unavailableArticleImages = manifest.articles.filter(
+    (item) => item.image?.status === 'unavailable'
+  ).length;
   const providers = Array.from(new Set([...manifest.videos, ...manifest.shorts].map((item) => item.provider)))
     .filter(Boolean)
     .sort();
   return [
     `Source: ${manifest.sourceHost}`,
     `Snapshot captured: ${manifest.pulledAt}`,
+    `Freshness cutoff: ${manifest.freshness?.since || 'none (latest bounded API results)'}`,
     `Location: ${SNAPSHOT_RELATIVE_ROOT}`,
     `Articles: ${manifest.articles.length}`,
+    `Article images: ${downloadedArticleImages} downloaded, ${unavailableArticleImages} unavailable`,
     `Breaking: ${manifest.breaking.length}`,
     `Videos: ${manifest.videos.length}`,
     `Shorts: ${manifest.shorts.length} (${supportedShorts} supported, ${unsupportedShorts} unsupported)`,

@@ -21,7 +21,8 @@ const PUBLIC_SNAPSHOT_DIR = path.resolve(process.cwd(), 'public', 'demo', 'loksw
 const BREAKING_AUDIO_RELATIVE_PATH = 'uploads/breaking-audio/lokswami-qa-silent.wav';
 const BREAKING_AUDIO_PUBLIC_URL = `/${BREAKING_AUDIO_RELATIVE_PATH}`;
 
-export type RealScenarioName = DemoScenarioName | `real-${DemoScenarioName}` | 'stress';
+type RealSnapshotScenarioName = Exclude<DemoScenarioName, 'stress'>;
+export type RealScenarioName = RealSnapshotScenarioName | `real-${RealSnapshotScenarioName}`;
 
 export type RealSnapshotOwnership = {
   articleIds: string[];

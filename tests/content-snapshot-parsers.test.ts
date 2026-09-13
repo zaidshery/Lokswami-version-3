@@ -17,6 +17,8 @@ import {
   parseVideos,
   resolveShortArticleLinks,
 } from '@/scripts/content-snapshot/parsers';
+import { formatSnapshotInspection } from '@/scripts/content-snapshot/inspect';
+import type { SnapshotManifest } from '@/scripts/content-snapshot/types';
 
 const capturedAt = '2026-09-11T00:00:00.000Z';
 
@@ -54,6 +56,16 @@ describe('LokSwami public content snapshot parsers', () => {
     expect(magazine.pageCount).toBe(24);
   });
 
+  it('drops video records whose playback host is not an observed approved provider', () => {
+    expect(parseVideos({
+      items: [{
+        id: 'unapproved-video',
+        title: 'Unapproved provider',
+        videoUrl: 'https://example.com/video.mp4',
+      }],
+    }, capturedAt)).toEqual([]);
+  });
+
   it('marks orphan shorts unsupported and resolves only imported article relationships', () => {
     const articles = parseArticleList(articleList, capturedAt);
     const parsed = parseShorts(shorts, capturedAt);
@@ -66,5 +78,32 @@ describe('LokSwami public content snapshot parsers', () => {
     expect(resolved[1].supported).toBe(false);
     expect(resolved[1].articleLocalId).toBeUndefined();
     expect(resolved[1].unsupportedReason).toMatch(/does not expose a related article/i);
+  });
+
+  it('reports article-image availability separately without exposing secrets', () => {
+    const articles = parseArticleList(articleList, capturedAt);
+    articles[0].image = { ...articles[0].image!, status: 'downloaded' };
+    articles[1].image = { ...articles[1].image!, status: 'unavailable' };
+    const output = formatSnapshotInspection({
+      schemaVersion: 1,
+      sourceHost: 'lokswami.com',
+      sourceOrigin: 'https://lokswami.com',
+      pulledAt: capturedAt,
+      readMethodsUsed: ['GET'],
+      writeMethodsUsed: [],
+      endpoints: [],
+      limits: { articles: 2, breaking: 0, videos: 0, shorts: 0, epapers: 0, emagazines: 0, concurrency: 1 },
+      articles,
+      breaking: [],
+      videos: [],
+      shorts: [],
+      epapers: [],
+      emagazines: [],
+      errors: [],
+      assetSummary: { downloaded: 1, unavailable: 1 },
+    } satisfies SnapshotManifest);
+
+    expect(output).toContain('Article images: 1 downloaded, 1 unavailable');
+    expect(output).toContain('Production write methods used: NONE');
   });
 });

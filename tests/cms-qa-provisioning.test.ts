@@ -6,7 +6,13 @@ import {
   CMS_QA_IDENTITIES,
   isClearlyReservedCmsQaAccount,
 } from '@/scripts/cms-qa/safety';
-import { canViewPage } from '@/lib/auth/permissions';
+import {
+  ADMIN_PAGE_KEYS,
+  PAGE_ACCESS,
+  PAGE_LABELS,
+  canViewPage,
+} from '@/lib/auth/permissions';
+import type { AdminRole } from '@/lib/auth/roles';
 
 const PASSWORD_ENV = Object.fromEntries(
   CMS_QA_IDENTITIES.map((identity) => [identity.passwordEnv, 'local-only-password'])
@@ -107,6 +113,33 @@ describe('CMS QA provisioning safety', () => {
 });
 
 describe('high-value canonical CMS page access', () => {
+  it('keeps every documented page/role cell synchronized with PAGE_ACCESS', () => {
+    const matrix = fs.readFileSync(
+      path.join(process.cwd(), 'docs/b3/CMS_LOCAL_QA_ACCESS_MATRIX.md'),
+      'utf8'
+    );
+    const rows = new Map(
+      matrix
+        .split(/\r?\n/)
+        .map((line) => line.match(/^\| `([^`]+)` \| ([^|]+) \| (YES|NO) \| (YES|NO) \| (YES|NO) \| (YES|NO) \|$/))
+        .filter((match): match is RegExpMatchArray => Boolean(match))
+        .map((match) => [match[1], match.slice(2)])
+    );
+    const roles: AdminRole[] = ['super_admin', 'admin', 'copy_editor', 'reporter'];
+
+    expect(rows.size).toBe(ADMIN_PAGE_KEYS.length);
+    for (const page of ADMIN_PAGE_KEYS) {
+      const row = rows.get(page);
+      expect(row, `missing matrix row for ${page}`).toBeDefined();
+      expect(row?.[0].trim()).toBe(PAGE_LABELS[page]);
+      for (const [index, role] of roles.entries()) {
+        const expected = PAGE_ACCESS[page].includes(role) ? 'YES' : 'NO';
+        expect(row?.[index + 1], `${page} × ${role}`).toBe(expected);
+        expect(canViewPage(role, page), `${page} × ${role}`).toBe(expected === 'YES');
+      }
+    }
+  });
+
   it('preserves Super Admin governance access', () => {
     expect(canViewPage('super_admin', 'dashboard')).toBe(true);
     expect(canViewPage('super_admin', 'settings')).toBe(true);

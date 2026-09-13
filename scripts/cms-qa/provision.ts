@@ -30,19 +30,30 @@ export async function provisionCmsQaAccounts(env: NodeJS.ProcessEnv = process.en
   const connection = await connectDB();
   try {
     const emails = CMS_QA_IDENTITIES.map((identity) => identity.email);
-    const existingAccounts = (await User.find({ email: { $in: emails } }).lean()) as ExistingQaAccount[];
-    const existingByEmail = new Map(
-      existingAccounts.map((record) => [String(record.email || '').trim().toLowerCase(), record])
-    );
+    const loginIds = CMS_QA_IDENTITIES.map((identity) => identity.loginId);
+    const existingAccounts = (await User.find({
+      $or: [
+        { email: { $in: emails } },
+        { loginId: { $in: loginIds } },
+      ],
+    }).lean()) as ExistingQaAccount[];
 
-    for (const identity of CMS_QA_IDENTITIES) {
-      const existing = existingByEmail.get(identity.email);
-      if (existing && !isClearlyReservedCmsQaAccount(existing, identity)) {
+    for (const existing of existingAccounts) {
+      const normalizedEmail = String(existing.email || '').trim().toLowerCase();
+      const normalizedLoginId = String(existing.loginId || '').trim().toLowerCase();
+      const identity = CMS_QA_IDENTITIES.find(
+        (candidate) => candidate.email === normalizedEmail || candidate.loginId === normalizedLoginId
+      );
+      if (!identity || !isClearlyReservedCmsQaAccount(existing, identity)) {
         throw new Error(
-          `Refusing to modify ${identity.email}: the existing account is not clearly CMS-QA-reserved.`
+          'Refusing CMS QA provisioning: a reserved email or login ID belongs to a non-QA account.'
         );
       }
     }
+
+    const existingByEmail = new Map(
+      existingAccounts.map((record) => [String(record.email || '').trim().toLowerCase(), record])
+    );
 
     const passwordHashes = await Promise.all(
       CMS_QA_IDENTITIES.map((identity) => hashPassword(readCmsQaPassword(identity, env)))

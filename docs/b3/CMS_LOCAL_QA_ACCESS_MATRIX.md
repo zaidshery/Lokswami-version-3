@@ -25,7 +25,7 @@ $env:LOKSWAMI_QA_REPORTER_PASSWORD='<local password>'
 npm run cms:qa:provision
 ```
 
-The command refuses production, remote MongoDB, unnamed or ambiguously named databases, mismatched database confirmation, missing opt-in, missing/short passwords, and collisions with accounts that do not have the exact reserved QA name and login ID. It never prints passwords or hashes. Re-running it is idempotent and restores each reserved account's canonical role, active state, and password. There is no reset command.
+The command refuses production, remote MongoDB, unnamed or ambiguously named databases, mismatched database confirmation, missing opt-in, missing/short passwords, and any reserved-email or reserved-login-ID collision with an account that does not have the exact QA email, name, and login ID. It preflights all four identities before hashing or writing. It never prints passwords or hashes. Re-running it is idempotent and restores each reserved account's canonical role, active state, and password. There is no reset command.
 
 ## Canonical page matrix
 

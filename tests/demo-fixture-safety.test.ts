@@ -289,6 +289,24 @@ describe('Demo Fixture Harness Safety Guardrails', () => {
       }
     });
 
+    it('keeps a tiny, explicitly labelled synthetic stress scenario', () => {
+      const stressPlan = resolveScenarioPlan('stress');
+
+      expect(stressPlan.articles).toHaveLength(4);
+      expect(stressPlan.videos).toHaveLength(0);
+      expect(stressPlan.shorts).toHaveLength(0);
+      expect(stressPlan.epapers).toHaveLength(0);
+      expect(stressPlan.magazines).toHaveLength(0);
+      expect(stressPlan.articles.every((article) =>
+        article.title.startsWith('QA STRESS FIXTURE — ')
+        && article.summary.startsWith('QA STRESS FIXTURE — ')
+      )).toBe(true);
+      expect(stressPlan.articles.some((article) => article.image === '')).toBe(true);
+      expect(stressPlan.articles.some((article) => article.views === 0)).toBe(true);
+      expect(stressPlan.articles.some((article) => article.author.length > 30)).toBe(true);
+      expect(stressPlan.articles.some((article) => article.isBreaking && article.title.length > 100)).toBe(true);
+    });
+
     it('ensures video scenario plan includes all articles linked by its shorts', () => {
       const videoPlan = resolveScenarioPlan('video');
       const articleIdSet = new Set(videoPlan.articles.map((a) => a._id));

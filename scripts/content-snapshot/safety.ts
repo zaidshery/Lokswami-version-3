@@ -8,6 +8,12 @@ export const LOKSWAMI_MEDIA_HOSTS = new Set([
   'lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com',
   'i.ytimg.com',
 ]);
+export const LOKSWAMI_VIDEO_PROVIDER_HOSTS = new Set([
+  'www.youtube.com',
+  'youtube.com',
+  'youtu.be',
+  'lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com',
+]);
 
 export const MAX_SNAPSHOT_CONCURRENCY = 3;
 export const DEFAULT_HTTP_TIMEOUT_MS = 12_000;
@@ -74,6 +80,10 @@ export function resolveSourceUrl(value: string): URL {
 export function resolveAssetUrl(value: string): URL {
   const parsed = new URL(value, `${LOKSWAMI_SOURCE_ORIGIN}/`);
   return parseApprovedHttpsUrl(parsed, LOKSWAMI_MEDIA_HOSTS);
+}
+
+export function resolveVideoPlaybackUrl(value: string): URL {
+  return parseApprovedHttpsUrl(value, LOKSWAMI_VIDEO_PROVIDER_HOSTS);
 }
 
 export function assertSafeRedirect(

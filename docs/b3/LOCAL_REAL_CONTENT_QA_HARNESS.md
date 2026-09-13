@@ -24,7 +24,7 @@ The bounded importer uses these public endpoints:
 - `/api/v1/public/epapers`
 - `/api/v1/public/home-feed` for the current E-Magazine
 
-The source API host is fixed to `lokswami.com`. Downloadable assets are restricted to `lokswami.com`, `lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com`, and `i.ytimg.com`. The latter two were observed in public reader responses. Arbitrary source URLs are not accepted.
+The source API host is fixed to `lokswami.com`. Downloadable assets are restricted to `lokswami.com`, `lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com`, and `i.ytimg.com`. Preserved playback metadata is independently restricted to observed YouTube hosts and the LokSwami Spaces host. Arbitrary source, asset, and playback URLs are not accepted.
 
 ## Safety controls
 
@@ -87,6 +87,13 @@ LOKSWAMI_REAL_CONTENT=true npm run content:snapshot:pull -- \
   --epapers=3 --emagazines=1 --concurrency=2 --timeout-ms=12000 --retries=1
 ```
 
+Optionally constrain the bounded latest results by age or an explicit UTC date. Use only one freshness option at a time; the resolved cutoff is recorded in `manifest.json`:
+
+```bash
+LOKSWAMI_REAL_CONTENT=true npm run content:snapshot:pull -- --days=14 --articles=25
+LOKSWAMI_REAL_CONTENT=true npm run content:snapshot:pull -- --since=2026-09-01 --articles=25
+```
+
 An intentional refresh is the same safe bounded pull and replaces the local manifest/cache entries deterministically:
 
 ```bash
@@ -128,7 +135,13 @@ LOKSWAMI_DEMO_DATA=true npm run demo:seed -- \
   --source=lokswami --scenario=shell --breaking=none
 ```
 
-The legacy synthetic source remains available for the small edge-case stress pack. Synthetic content is not blended into the normal real snapshot scenario; consequently a normal real `full` plan is 100% real for supported records.
+The legacy synthetic scenarios remain compatible, and a dedicated four-Article `stress` scenario is available for edge cases that live data may not reliably provide: no image, zero views, an unusually long reporter name, and an ultra-long Hindi Breaking/mobile-wrap item. Every rendered title and summary is prefixed `QA STRESS FIXTURE`.
+
+```bash
+LOKSWAMI_DEMO_DATA=true npm run demo:seed -- --source=synthetic --scenario=stress
+```
+
+Synthetic content is not blended into the normal real snapshot scenario; consequently a normal real `full` plan is 100% real for supported records. The `stress` scenario is intentionally synthetic-only; `--source=lokswami` continues to select real snapshot scenarios.
 
 ## Media behavior
 

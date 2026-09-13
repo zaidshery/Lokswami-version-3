@@ -103,6 +103,11 @@ export type SnapshotLimits = {
   concurrency: number;
 };
 
+export type SnapshotFreshness = {
+  since: string | null;
+  days: number | null;
+};
+
 export type SnapshotError = {
   scope: SnapshotContentType | 'asset' | 'snapshot';
   sourceUrl: string;
@@ -118,6 +123,7 @@ export type SnapshotManifest = {
   writeMethodsUsed: [];
   endpoints: string[];
   limits: SnapshotLimits;
+  freshness?: SnapshotFreshness;
   articles: SnapshotArticle[];
   breaking: SnapshotBreakingItem[];
   videos: SnapshotVideo[];

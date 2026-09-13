@@ -8,7 +8,11 @@ import epapers from '@/tests/fixtures/content-snapshot/epapers.json';
 import homeFeed from '@/tests/fixtures/content-snapshot/home-feed.json';
 import shorts from '@/tests/fixtures/content-snapshot/shorts.json';
 import videos from '@/tests/fixtures/content-snapshot/videos.json';
-import { pullContentSnapshot } from '@/scripts/content-snapshot/pull';
+import {
+  parsePullArgs,
+  pullContentSnapshot,
+  resolveSnapshotFreshness,
+} from '@/scripts/content-snapshot/pull';
 import { ReadOnlyLokswamiHttpClient, type FetchLike } from '@/scripts/content-snapshot/safety';
 import { ContentSnapshotStore } from '@/scripts/content-snapshot/store';
 import { vi } from 'vitest';
@@ -94,5 +98,55 @@ describe('content snapshot pull orchestration', () => {
     const client = new ReadOnlyLokswamiHttpClient({ fetchImpl, retries: 0 });
     await expect(pullContentSnapshot({ env: {}, client })).rejects.toThrow(/LOKSWAMI_REAL_CONTENT=true/);
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('filters old records before detail and media requests with a recorded freshness cutoff', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'lokswami-content-freshness-'));
+    try {
+      const requestedUrls: string[] = [];
+      const fetchImpl = vi.fn<FetchLike>(async (input) => {
+        const url = String(input);
+        requestedUrls.push(url);
+        if (url.includes('/api/v1/public/articles?')) return jsonResponse(articleList);
+        if (url.includes('/api/v1/public/articles/indore-water-project')) {
+          return jsonResponse(articleDetail);
+        }
+        return imageResponse(url);
+      });
+      const manifest = await pullContentSnapshot({
+        env: { LOKSWAMI_REAL_CONTENT: 'true' },
+        capturedAt: '2026-09-11T00:00:00.000Z',
+        freshness: { days: 1 },
+        limits: { articles: 2, breaking: 0, videos: 0, shorts: 0, epapers: 0, emagazines: 0 },
+        client: new ReadOnlyLokswamiHttpClient({ fetchImpl, retries: 0 }),
+        store: new ContentSnapshotStore(root),
+      });
+
+      expect(manifest.articles.map((article) => article.slug)).toEqual(['indore-water-project']);
+      expect(manifest.freshness).toEqual({
+        since: '2026-09-10T00:00:00.000Z',
+        days: 1,
+      });
+      expect(requestedUrls.some((url) => url.includes('/state-policy-briefing'))).toBe(false);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('parses and validates mutually exclusive freshness CLI options', () => {
+    expect(parsePullArgs(['--days=14', '--articles=25'])).toMatchObject({
+      limits: { articles: 25 },
+      freshness: { days: 14 },
+    });
+    expect(parsePullArgs(['--since=2026-09-01'])).toMatchObject({
+      freshness: { since: '2026-09-01' },
+    });
+    expect(() => resolveSnapshotFreshness('2026-09-11T00:00:00.000Z', {
+      since: '2026-09-01',
+      days: 14,
+    })).toThrow(/only one/i);
+    expect(() => resolveSnapshotFreshness('2026-09-11T00:00:00.000Z', {
+      since: '2026-02-30',
+    })).toThrow(/valid calendar date/i);
   });
 });

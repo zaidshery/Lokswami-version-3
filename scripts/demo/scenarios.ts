@@ -18,6 +18,7 @@ export const SUPPORTED_SCENARIOS = [
   'epaper',
   'breaking-short',
   'breaking-long',
+  'stress',
 ] as const;
 
 export type DemoScenarioName = (typeof SUPPORTED_SCENARIOS)[number];
@@ -34,6 +35,21 @@ export interface ScenarioFixturePlan {
   shorts: DemoShortFixture[];
   epapers: DemoEpaperFixture[];
   magazines: DemoMagazineFixture[];
+}
+
+const QA_STRESS_ARTICLE_SLUGS = new Set([
+  'demo-civic-cleanliness-drive-indore',
+  'demo-local-handicraft-artisan-revival',
+  'demo-india-cricket-championship-victory',
+  'demo-breaking-weather-alert-madhya-pradesh-long',
+]);
+
+function stressArticle(article: DemoArticleFixture): DemoArticleFixture {
+  return {
+    ...article,
+    title: `QA STRESS FIXTURE — ${article.title}`,
+    summary: `QA STRESS FIXTURE — ${article.summary}`,
+  };
 }
 
 export function resolveScenarioPlan(name: string = 'full'): ScenarioFixturePlan {
@@ -135,6 +151,19 @@ export function resolveScenarioPlan(name: string = 'full'): ScenarioFixturePlan 
           ...a,
           isBreaking: a.slug === 'demo-breaking-weather-alert-madhya-pradesh-long',
         })),
+        videos: [],
+        shorts: [],
+        epapers: [],
+        magazines: [],
+      };
+
+    case 'stress':
+      return {
+        name: 'stress',
+        description: 'QA STRESS FIXTURE scenario: four synthetic articles covering no-image, zero-view, long-reporter, and ultra-long Hindi breaking/mobile-wrap behavior',
+        articles: DEMO_ARTICLES
+          .filter((article) => QA_STRESS_ARTICLE_SLUGS.has(article.slug))
+          .map(stressArticle),
         videos: [],
         shorts: [],
         epapers: [],

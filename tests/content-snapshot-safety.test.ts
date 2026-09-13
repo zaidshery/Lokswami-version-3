@@ -5,6 +5,7 @@ import {
   ReadOnlyLokswamiHttpClient,
   resolveAssetUrl,
   resolveSourceUrl,
+  resolveVideoPlaybackUrl,
   resolveWithinRoot,
   safeAssetFilename,
   validateAssetSignature,
@@ -33,6 +34,9 @@ describe('real-content snapshot safety boundary', () => {
     expect(resolveAssetUrl('https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/x.jpg').hostname)
       .toBe('lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com');
     expect(() => resolveAssetUrl('https://example.com/x.jpg')).toThrow(/not allowlisted/);
+    expect(resolveVideoPlaybackUrl('https://www.youtube.com/watch?v=abcdefghijk').hostname)
+      .toBe('www.youtube.com');
+    expect(() => resolveVideoPlaybackUrl('https://example.com/video.mp4')).toThrow(/not allowlisted/);
   });
 
   it('rejects redirects outside the relevant allowlist before following them', async () => {
@@ -98,5 +102,31 @@ describe('real-content snapshot safety boundary', () => {
     });
     expect(values).toEqual([2, 4, 6, 8, 10, 12]);
     expect(maximum).toBeLessThanOrEqual(3);
+  });
+
+  it('enforces bounded request timeouts and retry counts', async () => {
+    const timeoutFetch = vi.fn((_: string | URL | Request, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new Error('request aborted')));
+      })
+    );
+    await expect(
+      new ReadOnlyLokswamiHttpClient({
+        fetchImpl: timeoutFetch,
+        timeoutMs: 100,
+        retries: 0,
+      }).getJson('https://lokswami.com/api/v1/public/articles')
+    ).rejects.toThrow(/aborted/);
+    expect(timeoutFetch).toHaveBeenCalledTimes(1);
+
+    const retryFetch = vi.fn().mockResolvedValue(
+      new Response('temporarily unavailable', { status: 503 })
+    );
+    await expect(
+      new ReadOnlyLokswamiHttpClient({ fetchImpl: retryFetch, retries: 2 }).getJson(
+        'https://lokswami.com/api/v1/public/articles'
+      )
+    ).rejects.toThrow(/HTTP 503/);
+    expect(retryFetch).toHaveBeenCalledTimes(3);
   });
 });
