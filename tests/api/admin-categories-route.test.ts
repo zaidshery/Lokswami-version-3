@@ -5,12 +5,14 @@ const getAdminSessionFromReqMock = vi.fn();
 const connectDBMock = vi.fn();
 
 const findOneMock = vi.fn();
+const findByIdAndDeleteMock = vi.fn();
 const saveMock = vi.fn();
 const CategoryMock = vi.fn().mockImplementation(() => ({
   save: saveMock,
 }));
 
 Object.assign(CategoryMock, {
+  findByIdAndDelete: findByIdAndDeleteMock,
   findOne: findOneMock,
 });
 
@@ -60,5 +62,33 @@ describe('/api/admin/categories POST', () => {
     expect(findOneMock).not.toHaveBeenCalled();
     expect(CategoryMock).not.toHaveBeenCalled();
     expect(saveMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('/api/admin/categories mutation access parity', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.MONGODB_URI = 'mongodb://example.com/test';
+  });
+
+  it('prevents reporters from deleting categories', async () => {
+    getAdminSessionFromReqMock.mockResolvedValue({
+      id: 'reporter-1',
+      email: 'reporter@example.com',
+      name: 'Reporter',
+      role: 'reporter',
+    });
+
+    const { DELETE } = await import('@/app/api/admin/categories/[id]/route');
+    const response = await DELETE(
+      new Request('http://localhost/api/admin/categories/category-1', {
+        method: 'DELETE',
+      }) as unknown as NextRequest
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ success: false, error: 'Forbidden' });
+    expect(connectDBMock).not.toHaveBeenCalled();
+    expect(findByIdAndDeleteMock).not.toHaveBeenCalled();
   });
 });
