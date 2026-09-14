@@ -84,6 +84,10 @@ function provider(value: string, publicUrl: string): 'youtube' | 'spaces-mp4' {
     : 'spaces-mp4';
 }
 
+function truncateForSchema(value: string, maxLength: number) {
+  return value.length <= maxLength ? value : value.slice(0, maxLength).trimEnd();
+}
+
 function scenarioBaseName(name: string): DemoScenarioName {
   const normalized = name.trim().toLowerCase().replace(/^real-/, '');
   const supported: DemoScenarioName[] = [
@@ -148,7 +152,7 @@ function toArticleFixtures(
       reporterMeta: { reporterId: article.localId, reporterName: article.author },
       seo: {
         metaTitle: article.title,
-        metaDescription: article.summary,
+        metaDescription: truncateForSchema(article.summary, 320),
         focusKeyword: article.tags[0] || article.category,
       },
       breakingTts: expected

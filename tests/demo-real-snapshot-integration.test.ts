@@ -7,6 +7,7 @@ import {
   resolveHarnessOwnership,
   resolveHarnessScenarioPlan,
   summarizeScenarioComposition,
+  toMongoVideoFixture,
 } from '@/scripts/demo/engine';
 import {
   SNAPSHOT_SCHEMA_VERSION,
@@ -228,7 +229,9 @@ afterEach(() => {
 describe('real snapshot demo harness integration', () => {
   it('maps a full LokSwami manifest, omits orphan shorts, and reports 100% real content', () => {
     const directory = makeTemporarySnapshotDirectory();
-    writeManifest(directory);
+    const manifest = makeManifest();
+    manifest.articles[0].summary = 'वास्तविक लंबा सारांश '.repeat(30);
+    writeManifest(directory, manifest);
     process.env.LOKSWAMI_SNAPSHOT_DIR = directory;
 
     const plan = resolveHarnessScenarioPlan('real-full', { source: 'lokswami' });
@@ -239,6 +242,12 @@ describe('real snapshot demo harness integration', () => {
     expect(plan.shorts.map((short) => short.slug)).toEqual(['real-short-valid']);
     expect(plan.epapers).toHaveLength(1);
     expect(plan.magazines).toHaveLength(1);
+    expect(plan.articles[0].summary.length).toBeGreaterThan(320);
+    expect(plan.articles[0].seo.metaDescription.length).toBeLessThanOrEqual(320);
+    expect(toMongoVideoFixture(plan.videos[0])).toMatchObject({
+      isPublished: true,
+      workflow: { status: 'published', publishedAt: plan.videos[0].publishedAt },
+    });
     expect(composition).toEqual({ total: 6, real: 6, synthetic: 0, realPercent: 100 });
   });
 

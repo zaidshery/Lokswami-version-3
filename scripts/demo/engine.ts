@@ -350,14 +350,27 @@ async function seedArticlesFile(articles: DemoArticleFixture[]): Promise<number>
   return articles.length;
 }
 
+export function toMongoVideoFixture(
+  fixture: DemoVideoFixture | DemoShortFixture
+): Record<string, unknown> {
+  return {
+    ...fixture,
+    workflow: {
+      status: fixture.isPublished ? 'published' : 'draft',
+      publishedAt: fixture.isPublished ? fixture.publishedAt : null,
+    },
+  };
+}
+
 async function seedVideosMongo(videos: (DemoVideoFixture | DemoShortFixture)[]): Promise<number> {
   let count = 0;
   for (const fixture of videos) {
+    const mongoFixture = toMongoVideoFixture(fixture);
     const existing = await videoRepository.findById(fixture._id, 'mongo');
     if (!existing) {
-      await videoRepository.create(fixture as unknown as Record<string, unknown>, 'mongo');
+      await videoRepository.create(mongoFixture, 'mongo');
     } else {
-      await videoRepository.update(fixture._id, fixture as unknown as Record<string, unknown>, 'mongo');
+      await videoRepository.update(fixture._id, mongoFixture, 'mongo');
     }
     count += 1;
   }
