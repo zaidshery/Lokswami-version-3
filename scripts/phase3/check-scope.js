@@ -69,16 +69,21 @@ const SUSPICIOUS_PATTERNS = [
     name: 'Credentials / Service Account JSON',
     test: (filePath) => {
       const fileName = path.basename(filePath);
-      return /^(credentials|service-?account|client_secret.*)\.json$/i.test(fileName);
+      return /^(credentials.*|service-?account.*|client_secret.*)\.json$/i.test(fileName);
     },
   },
   {
     name: 'Build / Dev Server Runtime Artifact',
     test: (filePath) => {
       const normalized = filePath.replace(/\\/g, '/');
-      return normalized.startsWith('.next/') ||
+      return normalized === '.next' ||
+             normalized.startsWith('.next/') ||
+             normalized === '.next-dev' ||
              normalized.startsWith('.next-dev/') ||
              normalized === '.next-dev-server.json' ||
+             normalized.endsWith('.pid') ||
+             normalized.startsWith('test-results/') ||
+             normalized.startsWith('playwright-report/') ||
              normalized.startsWith('.hostinger/') ||
              normalized.startsWith('out/');
     },
@@ -253,4 +258,29 @@ function main() {
   console.log('PASS: Scope & secrets safety check passed. No dangerous or unexpected artifacts found.');
 }
 
-main();
+function inspectPaths(filePaths) {
+  const violations = [];
+  for (const filePath of filePaths) {
+    for (const rule of SUSPICIOUS_PATTERNS) {
+      if (rule.test(filePath)) {
+        violations.push({
+          rule: rule.name,
+          path: filePath,
+        });
+      }
+    }
+  }
+  return violations;
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  SUSPICIOUS_PATTERNS,
+  ALLOWED_ENV_PATTERNS,
+  inspectPaths,
+  checkFileForLargeBinary,
+  main,
+};
