@@ -43,6 +43,7 @@ git-output.txt
 test-results/
 playwright-report/
 .seo-audit/
+artifacts/phase3-qa/
 
 # OCR models & language packs
 *.traineddata

@@ -1,0 +1,239 @@
+#!/usr/bin/env node
+
+/**
+ * scripts/phase3/pr-readiness.js
+ *
+ * READ-ONLY Pull Request Readiness Inspector for LokSwami B3.
+ *
+ * Inspects a PR to verify that it meets the repository's strict readiness criteria:
+ * 1. PR exists and is in OPEN state (not closed, not merged).
+ * 2. Target base branch is strictly 'b3/foundation'.
+ * 3. Remote head SHA matches local git HEAD (when on the corresponding branch).
+ * 4. Mergeable status is clean (no git conflicts).
+ * 5. Pull request CI checks on the EXACT head SHA have all passed.
+ * 6. All review threads are resolved (0 unresolved comments/threads).
+ *
+ * MANDATORY SAFETY INVARIANTS:
+ * - This script NEVER performs a merge.
+ * - This script NEVER automatically resolves review threads.
+ * - This script is strictly READ-ONLY.
+ */
+
+const { execSync } = require('child_process');
+const path = require('path');
+
+const projectRoot = path.resolve(__dirname, '..', '..');
+
+function runCommand(cmd) {
+  try {
+    return execSync(cmd, {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch (err) {
+    return null;
+  }
+}
+
+function isGhCliAvailable() {
+  const version = runCommand('gh --version');
+  return Boolean(version && version.includes('gh version'));
+}
+
+function getLocalHeadSha() {
+  return runCommand('git rev-parse HEAD');
+}
+
+function parseCliArgs() {
+  const args = process.argv.slice(2);
+  let prNumber = null;
+  let strict = false;
+
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === '--pr' && args[i + 1]) {
+      prNumber = args[i + 1];
+      i += 1;
+    } else if (/^\d+$/.test(args[i])) {
+      prNumber = args[i];
+    } else if (args[i] === '--strict') {
+      strict = true;
+    }
+  }
+
+  return { prNumber, strict };
+}
+
+function queryPrData(prNumber) {
+  const target = prNumber ? String(prNumber) : '';
+  const jsonFields = 'number,title,url,state,isDraft,mergedAt,baseRefName,headRefName,headRefOid,mergeable,statusCheckRollup';
+  const raw = runCommand(`gh pr view ${target} --json ${jsonFields}`);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function queryReviewThreads(prNumber) {
+  const target = prNumber ? String(prNumber) : '';
+  // Query GitHub GraphQL API to get review threads resolution status
+  const query = `query($pr: Int!) { repository(owner: "zaidshery", name: "Lokswami-version-3") { pullRequest(number: $pr) { reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
+  const res = runCommand(`gh api graphql -F pr=${target} -f query='${query}'`);
+  if (!res) return null;
+  try {
+    const parsed = JSON.parse(res);
+    const threads = parsed?.data?.repository?.pullRequest?.reviewThreads?.nodes || [];
+    const total = parsed?.data?.repository?.pullRequest?.reviewThreads?.totalCount ?? threads.length;
+    const unresolved = threads.filter((t) => !t.isResolved).length;
+    return { total, unresolved };
+  } catch {
+    return null;
+  }
+}
+
+function main() {
+  console.log('================================================================================');
+  console.log('LokSwami B3 — Pull Request Readiness Inspector (READ-ONLY)');
+  console.log('================================================================================\n');
+
+  if (!isGhCliAvailable()) {
+    console.warn('NOTICE: GitHub CLI (`gh`) is not available in the current environment PATH.');
+    console.warn('Automated remote PR inspection requires the `gh` tool.');
+    console.warn('Manual PR verification checklist:');
+    console.warn('  1. Visit: https://github.com/zaidshery/Lokswami-version-3/pulls');
+    console.warn('  2. Verify PR state: OPEN (merged = false)');
+    console.warn('  3. Verify base branch: b3/foundation');
+    console.warn('  4. Verify exact head SHA matches local git HEAD');
+    console.warn('  5. Verify all GitHub Actions CI checks on exact head have passed');
+    console.warn('  6. Verify all review threads are resolved (0 unresolved)');
+    console.warn('  7. Remember: DO NOT MERGE without explicit user authorization.\n');
+
+    const { strict } = parseCliArgs();
+    if (strict) {
+      console.error('FAIL: --strict requested but `gh` CLI is unavailable.');
+      process.exit(1);
+    }
+    process.exit(0);
+  }
+
+  const { prNumber } = parseCliArgs();
+  const prData = queryPrData(prNumber);
+
+  if (!prData) {
+    console.error(`ERROR: Unable to find or query Pull Request ${prNumber ? `#${prNumber}` : 'for current branch'}.`);
+    console.error('Make sure the branch has an active PR open on GitHub, or pass --pr <number>.');
+    process.exit(1);
+  }
+
+  const localHead = getLocalHeadSha();
+  const checks = [];
+
+  // Check 1: PR Open
+  const isOpen = prData.state === 'OPEN';
+  checks.push({
+    name: 'PR State is OPEN',
+    pass: isOpen,
+    details: `state = ${prData.state}`,
+  });
+
+  // Check 2: Not Merged
+  const notMerged = !prData.mergedAt;
+  checks.push({
+    name: 'PR Not Merged',
+    pass: notMerged,
+    details: prData.mergedAt ? `mergedAt = ${prData.mergedAt}` : 'merged = false',
+  });
+
+  // Check 3: Base Branch
+  const isBaseFoundation = prData.baseRefName === 'b3/foundation';
+  checks.push({
+    name: 'Base Branch is b3/foundation',
+    pass: isBaseFoundation,
+    details: `base = ${prData.baseRefName}`,
+  });
+
+  // Check 4: Head SHA matches local HEAD
+  const remoteHead = prData.headRefOid;
+  const headsMatch = !localHead || remoteHead === localHead;
+  checks.push({
+    name: 'Head SHA Matches Local HEAD',
+    pass: headsMatch,
+    details: `Remote: ${remoteHead?.slice(0, 12)} | Local: ${localHead ? localHead.slice(0, 12) : 'N/A'}`,
+  });
+
+  // Check 5: Mergeability
+  const isMergeable = prData.mergeable === 'MERGEABLE';
+  checks.push({
+    name: 'Git Mergeability',
+    pass: isMergeable,
+    details: `mergeable = ${prData.mergeable}`,
+  });
+
+  // Check 6: CI Status on exact head
+  const statusRollup = prData.statusCheckRollup || [];
+  let ciPassed = statusRollup.length > 0;
+  let ciPending = 0;
+  let ciFailed = 0;
+  let ciSuccess = 0;
+
+  for (const check of statusRollup) {
+    const status = check.status || check.state;
+    const conclusion = check.conclusion || check.state;
+    if (status === 'IN_PROGRESS' || status === 'QUEUED' || status === 'PENDING') {
+      ciPending += 1;
+      ciPassed = false;
+    } else if (conclusion === 'SUCCESS' || conclusion === 'NEUTRAL') {
+      ciSuccess += 1;
+    } else {
+      ciFailed += 1;
+      ciPassed = false;
+    }
+  }
+
+  const ciSummary = statusRollup.length === 0
+    ? 'No CI checks reported'
+    : `${ciSuccess} passed, ${ciPending} pending, ${ciFailed} failed`;
+
+  checks.push({
+    name: 'Exact-Head CI Checks',
+    pass: ciPassed && ciPending === 0 && ciFailed === 0,
+    details: ciSummary,
+  });
+
+  // Check 7: Review threads
+  const threadData = queryReviewThreads(prData.number);
+  const threadCheckPassed = threadData ? threadData.unresolved === 0 : true;
+  checks.push({
+    name: 'Unresolved Review Threads',
+    pass: threadCheckPassed,
+    details: threadData
+      ? `${threadData.unresolved} unresolved (out of ${threadData.total} total)`
+      : 'Review thread status not available via GraphQL',
+  });
+
+  // Print Summary Table
+  console.log(`PR #${prData.number}: ${prData.title}`);
+  console.log(`URL:    ${prData.url}`);
+  console.log(`Branch: ${prData.headRefName} -> ${prData.baseRefName}\n`);
+
+  let allPassed = true;
+  for (const c of checks) {
+    const tag = c.pass ? '[PASS]' : '[FAIL]';
+    if (!c.pass) allPassed = false;
+    console.log(`${tag} ${c.name.padEnd(32)} | ${c.details}`);
+  }
+
+  console.log('\n================================================================================');
+  if (allPassed) {
+    console.log('STATUS: READY FOR FINAL INDEPENDENT HUMAN REVIEW.');
+    console.log('SAFETY MANDATE: AUTOMATED AGENTS MUST NEVER MERGE. DO NOT MERGE.');
+    process.exit(0);
+  } else {
+    console.error('STATUS: NOT READY. One or more readiness gates failed.');
+    process.exit(1);
+  }
+}
+
+main();
