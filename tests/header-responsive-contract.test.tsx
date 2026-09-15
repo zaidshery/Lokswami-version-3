@@ -75,18 +75,35 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(hiButton).toHaveAttribute('aria-pressed', 'true');
       expect(enButton).toHaveAttribute('aria-pressed', 'false');
 
+      // Segmented pill styling
+      expect(langGroup.className).toContain('h-11');
+      expect(langGroup.className).toContain('rounded-xl');
+
       // Clicking EN toggles language to English
       fireEvent.click(enButton);
       expect(useAppStore.getState().language).toBe('en');
     });
 
-    it('renders Search link with >=44px touch target pointing to /main/search', () => {
+    it('renders Search link with 44x44px standalone button pointing to /main/search', () => {
       render(<Header />);
       const searchLink = screen.getByRole('link', { name: /समाचार खोजें|Search news/i });
       expect(searchLink).toBeInTheDocument();
       expect(searchLink).toHaveAttribute('href', '/main/search');
+      expect(searchLink.className).toContain('h-11');
+      expect(searchLink.className).toContain('w-11');
       expect(searchLink.className).toContain('min-h-[44px]');
       expect(searchLink.className).toContain('min-w-[44px]');
+      expect(searchLink.className).toContain('rounded-xl');
+    });
+
+    it('ensures right-action wrapper is a clean flex container without decorative nested box card', () => {
+      render(<Header />);
+      const searchLink = screen.getByRole('link', { name: /समाचार खोजें|Search news/i });
+      const rightContainer = searchLink.parentElement;
+      expect(rightContainer).toBeInTheDocument();
+      expect(rightContainer?.className).toContain('flex');
+      expect(rightContainer?.className).not.toContain('border-zinc');
+      expect(rightContainer?.className).not.toContain('bg-gradient');
     });
 
     it('ensures E-Paper, Theme toggle, and Sign In are absent from top header on mobile', () => {
