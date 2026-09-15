@@ -19,30 +19,48 @@
  * - This script is strictly READ-ONLY.
  */
 
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
 
-function runCommand(cmd) {
+function runGh(args) {
   try {
-    return execSync(cmd, {
+    const result = spawnSync('gh', args, {
       cwd: projectRoot,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-  } catch (err) {
+      windowsHide: true,
+    });
+    if (result.status !== 0) return null;
+    return (result.stdout || '').trim();
+  } catch {
+    return null;
+  }
+}
+
+function runGit(args) {
+  try {
+    const result = spawnSync('git', args, {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    if (result.status !== 0) return null;
+    return (result.stdout || '').trim();
+  } catch {
     return null;
   }
 }
 
 function isGhCliAvailable() {
-  const version = runCommand('gh --version');
+  const version = runGh(['--version']);
   return Boolean(version && version.includes('gh version'));
 }
 
 function getLocalHeadSha() {
-  return runCommand('git rev-parse HEAD');
+  return runGit(['rev-parse', 'HEAD']);
 }
 
 function parseCliArgs() {
@@ -65,9 +83,11 @@ function parseCliArgs() {
 }
 
 function queryPrData(prNumber) {
-  const target = prNumber ? String(prNumber) : '';
   const jsonFields = 'number,title,url,state,isDraft,mergedAt,baseRefName,headRefName,headRefOid,mergeable,statusCheckRollup';
-  const raw = runCommand(`gh pr view ${target} --json ${jsonFields}`);
+  const args = prNumber
+    ? ['pr', 'view', String(prNumber), '--json', jsonFields]
+    : ['pr', 'view', '--json', jsonFields];
+  const raw = runGh(args);
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -77,13 +97,25 @@ function queryPrData(prNumber) {
 }
 
 function queryReviewThreads(prNumber) {
-  const target = prNumber ? String(prNumber) : '';
+  if (!prNumber) return null;
   // Query GitHub GraphQL API to get review threads resolution status
-  const query = `query($pr: Int!) { repository(owner: "zaidshery", name: "Lokswami-version-3") { pullRequest(number: $pr) { reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
-  const res = runCommand(`gh api graphql -F pr=${target} -f query='${query}'`);
-  if (!res) return null;
+  const query = `query($pr: Int!) {
+    repository(owner: "zaidshery", name: "Lokswami-version-3") {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          totalCount
+          nodes {
+            isResolved
+          }
+        }
+      }
+    }
+  }`;
+
+  const raw = runGh(['api', 'graphql', '-F', `pr=${prNumber}`, '-f', `query=${query}`]);
+  if (!raw) return null;
   try {
-    const parsed = JSON.parse(res);
+    const parsed = JSON.parse(raw);
     const threads = parsed?.data?.repository?.pullRequest?.reviewThreads?.nodes || [];
     const total = parsed?.data?.repository?.pullRequest?.reviewThreads?.totalCount ?? threads.length;
     const unresolved = threads.filter((t) => !t.isResolved).length;

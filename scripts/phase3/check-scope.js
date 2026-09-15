@@ -109,7 +109,7 @@ const SUSPICIOUS_PATTERNS = [
 const MAX_BINARY_SIZE_BYTES = 1024 * 1024; // 1 MB
 
 function getWorkingTreeFiles() {
-  const statusOutput = runGit('git status --porcelain=v1 -uall');
+  const statusOutput = runGit('git -c core.quotepath=false status --porcelain=v1 -uall');
   if (!statusOutput) return [];
 
   const files = [];
@@ -117,8 +117,21 @@ function getWorkingTreeFiles() {
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    // Format: XY PATH or XY "PATH"
-    const filePath = trimmed.slice(2).trim().replace(/^"|"$/g, '');
+    // Format: XY PATH or XY "PATH" or R  old -> new
+    let filePath = trimmed.slice(2).trim().replace(/^"|"$/g, '');
+    if (filePath.includes(' -> ')) {
+      const parts = filePath.split(' -> ');
+      for (const part of parts) {
+        const cleanPart = part.trim().replace(/^"|"$/g, '');
+        files.push({
+          path: cleanPart,
+          status: trimmed.slice(0, 2),
+          source: 'working-tree',
+        });
+      }
+      continue;
+    }
+
     files.push({
       path: filePath,
       status: trimmed.slice(0, 2),
@@ -136,7 +149,7 @@ function getBranchChangedFiles() {
     baseRef = 'b3/foundation';
   }
 
-  const diffOutput = runGit(`git diff --name-only ${baseRef}...HEAD`);
+  const diffOutput = runGit(`git -c core.quotepath=false diff --name-only ${baseRef}...HEAD`);
   if (!diffOutput) return [];
 
   return diffOutput.split('\n')

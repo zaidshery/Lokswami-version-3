@@ -65,9 +65,10 @@ function parseCliArgs() {
   };
 }
 
-async function checkServerAvailable(baseUrl) {
+async function checkServerAvailable(baseUrl, firstRoute = '/main') {
+  const testUrl = `${baseUrl}${firstRoute.startsWith('/') ? firstRoute : `/${firstRoute}`}`;
   try {
-    const res = await fetch(`${baseUrl}/main`, {
+    const res = await fetch(testUrl, {
       method: 'GET',
       signal: AbortSignal.timeout(4000),
     });
@@ -80,8 +81,37 @@ async function checkServerAvailable(baseUrl) {
       });
       return fallback.status < 500;
     } catch {
+      if (baseUrl.includes('127.0.0.1')) {
+        try {
+          const localhostUrl = baseUrl.replace('127.0.0.1', 'localhost');
+          const res = await fetch(`${localhostUrl}${firstRoute}`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(4000),
+          });
+          return res.status < 500;
+        } catch {
+          return false;
+        }
+      }
       return false;
     }
+  }
+}
+
+async function dismissOptionalPrompt(page) {
+  try {
+    const dismissButton = page.getByRole('button', { name: /^(?:Not now|अभी नहीं)$/ });
+    const appeared = await dismissButton
+      .waitFor({ state: 'visible', timeout: 1_000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (appeared) {
+      await dismissButton.click().catch(() => undefined);
+      await dismissButton.waitFor({ state: 'hidden', timeout: 1_000 }).catch(() => undefined);
+    }
+  } catch {
+    // Ignore prompt dismissal errors
   }
 }
 
@@ -107,7 +137,7 @@ async function runResponsiveQA() {
   console.log(`Screenshots: ${captureScreenshots ? 'ENABLED (artifacts/phase3-qa/)' : 'DISABLED'}`);
   console.log('================================================================================\n');
 
-  const isUp = await checkServerAvailable(baseUrl);
+  const isUp = await checkServerAvailable(baseUrl, routes[0] || '/main');
   if (!isUp) {
     console.error(`ERROR: Target server is not reachable at ${baseUrl}.`);
     console.error('Please ensure the canonical LokSwami development server is running:');
@@ -148,6 +178,7 @@ async function runResponsiveQA() {
           });
           httpStatus = response ? response.status() : 0;
           await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => undefined);
+          await dismissOptionalPrompt(page);
         } catch (err) {
           loadFailed = true;
           pageErrors.push(err.message);
