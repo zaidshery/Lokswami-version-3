@@ -154,7 +154,7 @@ export default function Header() {
             >
               <LogoWordmark
                 size="headerCompact"
-                className="max-w-[115px] min-[360px]:max-w-[125px] min-[390px]:max-w-[135px] sm:max-w-[150px]"
+                className="max-w-[110px] min-[360px]:max-w-[114px] min-[412px]:max-w-[122px] min-[430px]:max-w-[132px] sm:max-w-[150px]"
               />
             </Link>
           </div>
@@ -182,7 +182,7 @@ export default function Header() {
                   onClick={() => setLanguage('hi')}
                   aria-pressed={language === 'hi'}
                   aria-label="हिन्दी भाषा चुनें (Select Hindi)"
-                  className={`editorial-focus-ring relative flex min-h-[34px] min-w-[32px] sm:min-h-[36px] sm:min-w-[36px] items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-tight transition-all sm:rounded-lg sm:px-2.5 sm:text-xs ${
+                  className={`editorial-focus-ring relative flex min-h-[44px] min-w-[34px] min-[412px]:min-w-[38px] sm:min-w-[44px] items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-tight transition-all sm:rounded-lg sm:px-2.5 sm:text-xs ${
                     language === 'hi'
                       ? 'bg-white text-brand-600 shadow-sm font-black ring-1 ring-zinc-900/5 dark:bg-zinc-900 dark:text-brand-400 dark:ring-white/10'
                       : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -195,7 +195,7 @@ export default function Header() {
                   onClick={() => setLanguage('en')}
                   aria-pressed={language === 'en'}
                   aria-label="Select English language (अंग्रेज़ी चुनें)"
-                  className={`editorial-focus-ring relative flex min-h-[34px] min-w-[32px] sm:min-h-[36px] sm:min-w-[36px] items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-tight transition-all sm:rounded-lg sm:px-2.5 sm:text-xs ${
+                  className={`editorial-focus-ring relative flex min-h-[44px] min-w-[34px] min-[412px]:min-w-[38px] sm:min-w-[44px] items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-tight transition-all sm:rounded-lg sm:px-2.5 sm:text-xs ${
                     language === 'en'
                       ? 'bg-white text-brand-600 shadow-sm font-black ring-1 ring-zinc-900/5 dark:bg-zinc-900 dark:text-brand-400 dark:ring-white/10'
                       : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'

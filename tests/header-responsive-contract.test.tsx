@@ -63,6 +63,14 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(hiButton).toBeInTheDocument();
       expect(enButton).toBeInTheDocument();
 
+      // Touch target standards: effective vertical height >=44px
+      expect(hiButton.className).toContain('min-h-[44px]');
+      expect(enButton.className).toContain('min-h-[44px]');
+      expect(hiButton.className).toContain('min-w-[34px]');
+      expect(enButton.className).toContain('min-w-[34px]');
+      expect(hiButton.className).toContain('sm:min-w-[44px]');
+      expect(enButton.className).toContain('sm:min-w-[44px]');
+
       // Hindi is selected by default in state
       expect(hiButton).toHaveAttribute('aria-pressed', 'true');
       expect(enButton).toHaveAttribute('aria-pressed', 'false');
