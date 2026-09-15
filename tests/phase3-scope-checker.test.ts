@@ -2,12 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'child_process';
 import path from 'path';
 
-// Import exported rules and inspection helper from check-scope.js
-const {
-  inspectPaths,
-  SUSPICIOUS_PATTERNS,
-  ALLOWED_ENV_PATTERNS,
-} = require('../scripts/phase3/check-scope.js');
+// Import exported inspection helper from check-scope.js
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { inspectPaths } = require('../scripts/phase3/check-scope.js');
 
 const projectRoot = path.resolve(__dirname, '..');
 
