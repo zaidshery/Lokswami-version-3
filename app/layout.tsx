@@ -44,8 +44,13 @@ const THEME_INIT_SCRIPT = `
       return;
     }
     var parsed = JSON.parse(raw);
+    var storedPref = parsed && parsed.state && parsed.state.themePreference;
     var storedTheme = parsed && parsed.state && parsed.state.theme;
-    var finalTheme = (storedTheme === 'dark' || storedTheme === 'light') ? storedTheme : getSystemTheme();
+    var finalTheme = storedPref === 'auto'
+      ? getSystemTheme()
+      : ((storedPref === 'dark' || storedPref === 'light')
+          ? storedPref
+          : ((storedTheme === 'dark' || storedTheme === 'light') ? storedTheme : getSystemTheme()));
     applyTheme(finalTheme);
   } catch (error) {
     applyTheme(getSystemTheme());
