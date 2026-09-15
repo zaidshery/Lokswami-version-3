@@ -124,7 +124,7 @@ export default function Header() {
       <div className="relative w-full px-2 min-[380px]:px-3 sm:px-5 md:px-8">
         <div className="relative flex h-12 items-center justify-between gap-1 sm:h-[3.45rem] sm:gap-3">
           {/* Left: Hamburger (visible on mobile <768px & tablet 768px–1023px; hidden on desktop >=1024px) / Tablet Logo / Desktop Logo */}
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="relative z-20 flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={toggleMobileMenu}
@@ -145,8 +145,8 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Center: Hindi Written Logo "लोकस्वामी" on mobile (<768px) */}
-          <div className="flex min-w-0 flex-1 items-center justify-center px-1 md:hidden">
+          {/* Center: Hindi Written Logo "लोकस्वामी" on mobile (<768px) - True geometric viewport center */}
+          <div className="pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center md:hidden z-10">
             <Link
               href="/main"
               className="cnp-motion inline-flex h-12 max-w-full items-center justify-center transition-transform duration-200 active:scale-95"
@@ -159,7 +159,7 @@ export default function Header() {
             </Link>
           </div>
 
-          <div className="flex shrink-0 items-center justify-end sm:ml-2">
+          <div className="relative z-20 ml-auto flex shrink-0 items-center justify-end sm:ml-2">
             <div className="inline-flex max-w-full items-center gap-1 rounded-xl border border-zinc-200/90 bg-gradient-to-b from-white to-zinc-100/80 p-0.5 shadow-[0_8px_18px_rgba(15,23,42,0.08)] dark:border-zinc-700/80 dark:from-zinc-900 dark:to-zinc-900/75 sm:gap-1.5 sm:rounded-2xl sm:p-1">
               {/* E-Paper CTA - visible on tablet (768px+) and desktop; absent from mobile (<768px) */}
               <Link

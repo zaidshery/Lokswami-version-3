@@ -108,9 +108,12 @@ export const useAppStore = create<AppState>()(
           return { theme: nextTheme, themePreference: nextTheme };
         }),
       setTheme: (theme) =>
-        set(() => {
+        set((state) => {
           applyThemeToDom(theme);
-          return { theme, themePreference: theme };
+          return {
+            theme,
+            themePreference: state.themePreference === 'auto' ? 'auto' : theme,
+          };
         }),
       setThemePreference: (themePreference) =>
         set(() => {

@@ -44,11 +44,12 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(hamburger.className).toContain('lg:hidden');
     });
 
-    it('renders centered LokSwami wordmark for mobile screens', () => {
+    it('renders centered LokSwami wordmark for mobile screens with true geometric centering', () => {
       render(<Header />);
       const homeLink = screen.getByLabelText('Lokswami Home');
       expect(homeLink).toBeInTheDocument();
       expect(homeLink.parentElement?.className).toContain('md:hidden');
+      expect(homeLink.parentElement?.className).toContain('absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2');
     });
 
     it('renders compact segmented [ HI | EN ] control with min-[390px]:inline-flex', () => {
@@ -261,6 +262,23 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(useAppStore.getState().theme).toBe('light');
 
       setThemePreference('auto');
+      expect(useAppStore.getState().themePreference).toBe('auto');
+    });
+
+    it('preserves themePreference="auto" when setTheme is invoked by system media-query changes', () => {
+      const { setThemePreference, setTheme } = useAppStore.getState();
+
+      setThemePreference('auto');
+      expect(useAppStore.getState().themePreference).toBe('auto');
+
+      // Simulating system prefers-color-scheme event firing setTheme('dark')
+      setTheme('dark');
+      expect(useAppStore.getState().theme).toBe('dark');
+      expect(useAppStore.getState().themePreference).toBe('auto');
+
+      // Simulating system prefers-color-scheme event firing setTheme('light')
+      setTheme('light');
+      expect(useAppStore.getState().theme).toBe('light');
       expect(useAppStore.getState().themePreference).toBe('auto');
     });
   });
