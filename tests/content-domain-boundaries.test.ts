@@ -268,6 +268,14 @@ describe('Phase 2.1 Content Domain Boundaries', () => {
       listAllStoredArticlesMock.mockResolvedValue([
         {
           ...publishedArticle,
+          _id: 'ordinary-article',
+          id: 'ordinary-article',
+          title: 'Ordinary published article',
+          isBreaking: false,
+          publishedAt: '2026-03-01T17:00:00.000Z',
+        },
+        {
+          ...publishedArticle,
           _id: 'breaking-1',
           id: 'breaking-1',
           title: 'Breaking News 1',
@@ -288,6 +296,17 @@ describe('Phase 2.1 Content Domain Boundaries', () => {
       expect(breaking).toHaveLength(2);
       expect(breaking[0]?.id).toBe('breaking-2');
       expect(breaking[1]?.id).toBe('breaking-1');
+    });
+
+    it('returns an empty breaking feed when no published article is marked breaking', async () => {
+      listAllStoredArticlesMock.mockResolvedValue([
+        {
+          ...publishedArticle,
+          isBreaking: false,
+        },
+      ]);
+
+      await expect(publicArticleService.getBreakingArticles(5)).resolves.toEqual([]);
     });
 
     it('returns latest legacy feed with cursor metadata', async () => {

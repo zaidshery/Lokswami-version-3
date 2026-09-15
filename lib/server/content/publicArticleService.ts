@@ -419,6 +419,8 @@ function normalizeBreakingItem(source: unknown): PublicBreakingItem | null {
     input.city || input.cityName || input.locationTag || reporterMeta.locationTag || ''
   );
   const isBreaking = resolveArticleEditorialFlags(input).isBreaking;
+  if (!isBreaking) return null;
+
   const reusableTts = isBreaking
     ? resolveReusableBreakingTts({
         _id: id,

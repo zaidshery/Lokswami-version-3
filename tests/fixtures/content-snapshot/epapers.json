@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "items": [
+    {
+      "_id": "epaper-401",
+      "title": "Sanitized Indore edition",
+      "cityName": "Indore",
+      "citySlug": "indore",
+      "publishDate": "2026-09-10",
+      "pageCount": 2,
+      "thumbnailPath": "https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/epapers/2026-09-10/cover.webp",
+      "pdfPath": "https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/epapers/2026-09-10/edition.pdf",
+      "pages": [
+        { "pageNumber": 1, "imagePath": "https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/epapers/2026-09-10/page-1.webp" },
+        { "pageNumber": 2, "imagePath": "https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/epapers/2026-09-10/page-2.webp" }
+      ]
+    }
+  ]
+}

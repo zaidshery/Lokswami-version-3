@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "id": "short-301",
+      "slug": "linked-short",
+      "title": "Sanitized linked short",
+      "posterUrl": "https://i.ytimg.com/vi/lmnopqrstuv/hqdefault.jpg",
+      "playbackUrl": "https://www.youtube.com/shorts/lmnopqrstuv",
+      "articleId": "public-article-101",
+      "category": "Regional",
+      "durationSeconds": 34,
+      "publishedAt": "2026-09-10T08:10:00.000Z"
+    },
+    {
+      "id": "short-302",
+      "slug": "orphan-short",
+      "title": "Sanitized orphan short",
+      "posterUrl": "https://i.ytimg.com/vi/zyxwvutsrqp/hqdefault.jpg",
+      "playbackUrl": "https://www.youtube.com/shorts/zyxwvutsrqp",
+      "category": "Regional",
+      "durationSeconds": 28,
+      "publishedAt": "2026-09-10T08:12:00.000Z"
+    }
+  ]
+}
