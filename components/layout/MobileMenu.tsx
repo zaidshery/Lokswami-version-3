@@ -87,6 +87,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   useEffect(() => {
     if (!isOpen) return;
 
+    const previousFocusedElement = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -122,6 +123,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
+      previousFocusedElement?.focus();
     };
   }, [isOpen, onClose]);
 
@@ -159,8 +161,8 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 </div>
                 <button
                   onClick={onClose}
-                  className="cnp-motion reader-touch-button reader-focus-ring -mr-1 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                  aria-label={language === 'hi' ? '\u092e\u0947\u0928\u0942 \u092c\u0902\u0926 \u0915\u0930\u0947\u0902' : 'Close menu'}
+                  className="cnp-motion reader-touch-button editorial-focus-ring -mr-1 inline-flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-editorial-sm border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  aria-label={language === 'hi' ? 'मेनू बंद करें' : 'Close menu'}
                 >
                   <X size={20} />
                 </button>
@@ -179,9 +181,9 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     <button
                       type="button"
                       onClick={() => setLanguage('hi')}
-                      className={`reader-touch-button rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                      className={`reader-touch-button editorial-focus-ring flex min-h-[44px] items-center rounded-editorial-sm px-3.5 py-2 text-xs font-bold transition-all ${
                         language === 'hi'
-                          ? 'bg-white text-orange-600 shadow-sm dark:bg-zinc-800 dark:text-orange-400'
+                          ? 'bg-white text-brand-500 shadow-sm dark:bg-zinc-800 dark:text-brand-400'
                           : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
                       }`}
                       aria-pressed={language === 'hi'}
@@ -191,9 +193,9 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     <button
                       type="button"
                       onClick={() => setLanguage('en')}
-                      className={`reader-touch-button rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                      className={`reader-touch-button editorial-focus-ring flex min-h-[44px] items-center rounded-editorial-sm px-3.5 py-2 text-xs font-bold transition-all ${
                         language === 'en'
-                          ? 'bg-white text-orange-600 shadow-sm dark:bg-zinc-800 dark:text-orange-400'
+                          ? 'bg-white text-brand-500 shadow-sm dark:bg-zinc-800 dark:text-brand-400'
                           : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
                       }`}
                       aria-pressed={language === 'en'}

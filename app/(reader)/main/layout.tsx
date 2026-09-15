@@ -12,18 +12,6 @@ import BreakingNews from '@/components/ui/BreakingNews';
 import Container from '@/components/layout/Container';
 import DailyEpaperAlert from '@/components/ui/DailyEpaperAlert';
 import PopupOrchestrator from '@/components/ui/PopupOrchestrator';
-import MobileSwipeTabs, {
-  type MobileSwipeTabRoute,
-} from '@/components/layout/MobileSwipeTabs';
-
-const MOBILE_BOTTOM_TAB_ROUTES: MobileSwipeTabRoute[] = [
-  { path: '/main', name: 'Home' },
-  { path: '/main/epaper', name: 'E-Paper' },
-  { path: '/main/e-magazine', name: 'E-Magazine' },
-  { path: '/main/videos', name: 'Swipe' },
-  { path: '/main/ftaftaf', name: 'Quick' },
-  { path: '/main/account', name: 'Profile' },
-];
 
 export default function MainLayout({
   children,
@@ -95,49 +83,57 @@ function MainLayoutContent({
   }, [setIsMobile, setIsTablet]);
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-white transition-colors duration-500 dark:bg-slate-950">
-      {/* Breaking News Bar (Top) */}
-      {!isFullscreenReader ? <BreakingNews /> : null}
+    <div className="min-h-screen overflow-x-clip bg-white transition-colors duration-500 dark:bg-[#0e0e12]">
+      {/* Accessible Skip Link */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-editorial-md focus:bg-brand-500 focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:shadow-editorial-md focus:outline-none focus:ring-2 focus:ring-white"
+      >
+        मुख्य सामग्री पर जाएं / Skip to main content
+      </a>
 
-      {/* Header (below breaking bar) */}
-      {!isFullscreenReader ? <Header /> : null}
+      {/* Unified Sticky Shell Container (Breaking News + Header stack naturally) */}
+      {!isFullscreenReader ? (
+        <div className="sticky top-0 z-40 w-full">
+          <BreakingNews />
+          <Header />
+        </div>
+      ) : null}
 
       {/* Mobile Menu Drawer */}
       {!isElectionObsMode && !isSwipeRoute ? <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setMobileMenuOpen(false)} /> : null}
 
-      <MobileSwipeTabs
-        routes={MOBILE_BOTTOM_TAB_ROUTES}
-        onMenuSwipe={() => setMobileMenuOpen(true)}
+      <main
+        id="main-content"
+        tabIndex={-1}
+        role="main"
+        className={
+          isElectionObsMode || isSwipeRoute
+            ? 'pb-0 pt-0'
+            : isImmersiveVideoMode
+              ? 'pb-0 pt-0'
+              : isReaderImmersiveMode
+                ? 'pb-0 pt-0'
+                : isVideosRoute
+                  ? 'xl:pb-4'
+                  : 'reader-bottom-safe-pad xl:pb-4'
+        }
       >
-        <main
+        {!isFullscreenReader ? <SigninRoleBanner /> : null}
+        <Container
           className={
             isElectionObsMode || isSwipeRoute
-              ? 'pb-0 pt-0'
+              ? 'py-0 !max-w-none !px-0'
               : isImmersiveVideoMode
-                ? 'pb-0 pt-0'
-                : isReaderImmersiveMode
-                  ? 'pb-0 pt-0'
-                  : isVideosRoute
-                    ? 'pt-[8rem] sm:pt-[8.5rem] md:pt-[9rem] xl:pb-4'
-                    : 'reader-bottom-safe-pad pt-[8rem] sm:pt-[8.5rem] md:pt-[9rem] xl:pb-4'
+              ? 'py-0 !max-w-none !px-0'
+              : isReaderImmersiveMode
+                ? 'py-0 !max-w-none !px-0'
+                : 'py-4 md:py-5 !px-3 sm:!px-5 lg:!px-6'
           }
         >
-          {!isFullscreenReader ? <SigninRoleBanner /> : null}
-          <Container
-            className={
-              isElectionObsMode || isSwipeRoute
-                ? 'py-0 !max-w-none !px-0'
-                : isImmersiveVideoMode
-                ? 'py-0 !max-w-none !px-0'
-                : isReaderImmersiveMode
-                  ? 'py-0 !max-w-none !px-0'
-                  : 'py-4 md:py-5 !px-3 sm:!px-5 lg:!px-6'
-            }
-          >
-            {children}
-          </Container>
-        </main>
-      </MobileSwipeTabs>
+          {children}
+        </Container>
+      </main>
 
       {/* Footer */}
       {!isFullscreenReader ? (
