@@ -22,6 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('@playwright/test');
+const { getActiveDevServerState } = require('../dev-server-state');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
 const artifactsDir = path.join(projectRoot, 'artifacts', 'phase3-qa');
@@ -127,23 +128,44 @@ async function launchBrowser() {
   }
 }
 
-async function runResponsiveQA() {
-  const { baseUrl, routes, captureScreenshots } = parseCliArgs();
+async function runResponsiveQA(customOptions = {}) {
+  const cliOptions = parseCliArgs();
+  const options = {
+    baseUrl: customOptions.baseUrl || cliOptions.baseUrl,
+    routes: customOptions.routes || cliOptions.routes,
+    captureScreenshots: customOptions.captureScreenshots !== undefined
+      ? customOptions.captureScreenshots
+      : cliOptions.captureScreenshots,
+  };
+
+  const { baseUrl, routes, captureScreenshots } = options;
 
   console.log('================================================================================');
   console.log('LokSwami B3 — Standard Responsive QA Runner');
-  console.log(`Base URL: ${baseUrl}`);
-  console.log(`Routes:   ${routes.join(', ')}`);
+  console.log(`Base URL:    ${baseUrl}`);
+  console.log(`Routes:      ${routes.join(', ')}`);
   console.log(`Screenshots: ${captureScreenshots ? 'ENABLED (artifacts/phase3-qa/)' : 'DISABLED'}`);
+
+  const devServerState = getActiveDevServerState(projectRoot);
+  if (devServerState) {
+    console.log(`[DevServer]  Active canonical dev server detected (Launcher PID: ${devServerState.launcherPid}, Child PID: ${devServerState.childPid || 'active'})`);
+  }
   console.log('================================================================================\n');
 
   const isUp = await checkServerAvailable(baseUrl, routes[0] || '/main');
   if (!isUp) {
+    console.error('================================================================================');
     console.error(`ERROR: Target server is not reachable at ${baseUrl}.`);
+    console.error('================================================================================');
     console.error('Please ensure the canonical LokSwami development server is running:');
     console.error('  npm run dev');
-    console.error('Or provide a valid server URL using:');
+    console.error('\nOr specify a running server using the --base-url flag:');
     console.error('  npm run qa:responsive -- --base-url http://127.0.0.1:3000');
+    console.error('\nOr set the B3_QA_BASE_URL environment variable:');
+    console.error('  B3_QA_BASE_URL=http://127.0.0.1:3000 npm run qa:responsive\n');
+    if (customOptions.throwOnFailure) {
+      throw new Error(`Target server is not reachable at ${baseUrl}.`);
+    }
     process.exit(1);
   }
 
@@ -163,8 +185,16 @@ async function runResponsiveQA() {
 
       for (const vp of CANONICAL_VIEWPORTS) {
         const pageErrors = [];
-        const errorHandler = (err) => pageErrors.push(err.message);
-        page.on('pageerror', errorHandler);
+        const consoleErrors = [];
+        const pageErrorHandler = (err) => pageErrors.push(err.message);
+        const consoleHandler = (msg) => {
+          if (msg.type() === 'error') {
+            consoleErrors.push(msg.text());
+          }
+        };
+
+        page.on('pageerror', pageErrorHandler);
+        page.on('console', consoleHandler);
 
         await page.setViewportSize({ width: vp.width, height: vp.height });
 
@@ -205,7 +235,8 @@ async function runResponsiveQA() {
           overflowDelta: 0,
         }));
 
-        page.off('pageerror', errorHandler);
+        page.off('pageerror', pageErrorHandler);
+        page.off('console', consoleHandler);
 
         const hasErrors = pageErrors.length > 0 || loadFailed || httpStatus >= 400;
         const hasOverflow = metrics.overflow;
@@ -220,22 +251,29 @@ async function runResponsiveQA() {
           const filename = `${sanitizedRoute}-${vp.width}px.png`;
           const filePath = path.join(artifactsDir, filename);
           await page.screenshot({ path: filePath, fullPage: false }).catch(() => undefined);
+          console.log(`       [Screenshot] Saved: artifacts/phase3-qa/${filename}`);
         }
 
         const statusTag = passed ? '[PASS]' : '[FAIL]';
         const overflowText = hasOverflow ? `YES (+${metrics.overflowDelta}px)` : 'None';
-        const errorText = pageErrors.length > 0 ? `${pageErrors.length} errors` : '0';
+        const loadResultText = loadFailed ? 'FAILED' : `HTTP ${httpStatus}`;
+        const errorSummaryText = `console: ${consoleErrors.length}, page: ${pageErrors.length}`;
 
         console.log(
-          `${statusTag} ${String(vp.width).padStart(4)}px (${vp.label.padEnd(20)}) | ` +
-          `Status: ${httpStatus} | Errors: ${errorText} | ` +
-          `Scroll: ${metrics.scrollWidth}px vs Inner: ${metrics.innerWidth}px | ` +
+          `${statusTag} Route: ${route} | Viewport: ${String(vp.width).padStart(4)}px (${vp.label.padEnd(20)}) | ` +
+          `Load: ${loadResultText} | Errors (${errorSummaryText}) | ` +
+          `innerWidth: ${metrics.innerWidth}px | scrollWidth: ${metrics.scrollWidth}px | ` +
           `Overflow: ${overflowText}`
         );
 
         if (pageErrors.length > 0) {
           for (const err of pageErrors) {
-            console.error(`       -> ${err}`);
+            console.error(`       [PageError]    -> ${err}`);
+          }
+        }
+        if (consoleErrors.length > 0) {
+          for (const err of consoleErrors) {
+            console.error(`       [ConsoleError] -> ${err}`);
           }
         }
 
@@ -244,8 +282,10 @@ async function runResponsiveQA() {
           viewport: vp.width,
           label: vp.label,
           status: httpStatus,
+          loadResult: loadResultText,
           passed,
           pageErrors,
+          consoleErrors,
           metrics,
         });
       }
@@ -259,13 +299,28 @@ async function runResponsiveQA() {
   console.log(`LokSwami B3 Responsive QA Summary: ${results.length - totalFailures}/${results.length} PASSED`);
   if (totalFailures > 0) {
     console.error(`FAIL: ${totalFailures} viewport check(s) failed with overflow or errors.`);
+    if (customOptions.throwOnFailure) {
+      throw new Error(`${totalFailures} viewport check(s) failed.`);
+    }
     process.exit(1);
   } else {
     console.log('PASS: All canonical viewports validated with zero horizontal overflow.');
   }
+
+  return { results, totalFailures };
 }
 
-runResponsiveQA().catch((err) => {
-  console.error('Fatal error running responsive QA:', err);
-  process.exit(1);
-});
+module.exports = {
+  CANONICAL_VIEWPORTS,
+  artifactsDir,
+  checkServerAvailable,
+  parseCliArgs,
+  runResponsiveQA,
+};
+
+if (require.main === module) {
+  runResponsiveQA().catch((err) => {
+    console.error('Fatal error running responsive QA:', err);
+    process.exit(1);
+  });
+}
