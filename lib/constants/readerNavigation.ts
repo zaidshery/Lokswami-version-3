@@ -25,7 +25,11 @@ export function isReaderNavigationActive(pathname: string, href: string): boolea
     return cleanPath === '/main' || cleanPath === '/';
   }
 
-  if (cleanHref === READER_NAVIGATION.videos.href && cleanPath.startsWith('/main/shorts')) {
+  const shortsRoot = '/main/shorts';
+  if (
+    cleanHref === READER_NAVIGATION.videos.href &&
+    (cleanPath === shortsRoot || cleanPath.startsWith(`${shortsRoot}/`))
+  ) {
     return true;
   }
 

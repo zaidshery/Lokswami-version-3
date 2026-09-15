@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import fs from 'fs';
 import path from 'path';
 
-import { isReaderNavigationActive } from '@/lib/constants/readerNavigation';
+import { READER_NAVIGATION, isReaderNavigationActive } from '@/lib/constants/readerNavigation';
 import DesktopNav from '@/components/layout/DesktopNav';
 import BottomNav from '@/components/layout/BottomNav';
 import MobileMenu from '@/components/layout/MobileMenu';
@@ -75,6 +75,17 @@ describe('Phase 3.3: Reader Shell & Navigation Contracts', () => {
       expect(isReaderNavigationActive('/main/newsletter', '/main/news')).toBe(false);
       // /main/account should NOT activate /main/accounting
       expect(isReaderNavigationActive('/main/accounting', '/main/account')).toBe(false);
+    });
+
+    it('activates video navigation for shorts routes in a segment-safe manner', () => {
+      // /main/shorts => Video active
+      expect(isReaderNavigationActive('/main/shorts', READER_NAVIGATION.videos.href)).toBe(true);
+      // /main/shorts/example-story => Video active
+      expect(isReaderNavigationActive('/main/shorts/example-story', READER_NAVIGATION.videos.href)).toBe(true);
+      // /main/shortsfoo => Video NOT active
+      expect(isReaderNavigationActive('/main/shortsfoo', READER_NAVIGATION.videos.href)).toBe(false);
+      // /main/shorts-news => Video NOT active
+      expect(isReaderNavigationActive('/main/shorts-news', READER_NAVIGATION.videos.href)).toBe(false);
     });
   });
 
