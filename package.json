@@ -53,6 +53,7 @@
     "capture:baseline": "node scripts/capture-improvement-baseline.js",
     "load:test:public": "node scripts/load-test-public.js",
     "verify:prod-env": "node scripts/validate-production-env.js",
+    "verify:staging": "node scripts/verify-staging.js",
     "verify:dependency-security": "node scripts/validate-dependency-security.js",
     "verify:deploy": "node scripts/verify-deploy.js",
     "seed": "node scripts/seed.js",

@@ -153,6 +153,7 @@ describe('B3 Development Accelerator v1 — Scope & Secret Checker Deep Validati
       const allowedEnv = [
         '.env.example',
         '.env.template',
+        '.env.staging.example',
       ];
       const violations = inspectPaths(allowedEnv);
       expect(violations).toEqual([]);

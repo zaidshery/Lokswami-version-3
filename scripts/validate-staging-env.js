@@ -6,6 +6,16 @@ const projectRoot = path.resolve(__dirname, '..');
 const PRODUCTION_HOSTS = new Set(['lokswami.com', 'www.lokswami.com']);
 const NON_PROD_MARKER = /(staging|preview|test)/i;
 
+function isProductionHostname(hostname) {
+  if (!hostname) return false;
+  const lower = String(hostname).trim().toLowerCase();
+  if (PRODUCTION_HOSTS.has(lower)) return true;
+  if (lower.endsWith('.lokswami.com') && !NON_PROD_MARKER.test(lower)) {
+    return true;
+  }
+  return false;
+}
+
 function loadStagingEnvFiles() {
   let dotenv;
 
@@ -77,7 +87,7 @@ function validateRequiredGroup(label, names, env, errors) {
 function validateNoProductionOrigin(label, parsedUrl, errors) {
   if (!parsedUrl) return;
   const hostname = parsedUrl.hostname.toLowerCase();
-  if (PRODUCTION_HOSTS.has(hostname)) {
+  if (isProductionHostname(hostname)) {
     errors.push(`${label} must not point at the production LokSwami domain (${hostname}).`);
   }
 }
@@ -105,6 +115,18 @@ function validateStagingEnv(env = process.env) {
       errors.push(
         `MONGODB_URI database "${databaseName}" is not clearly non-production. Include staging, preview, or test in the database name.`
       );
+    }
+
+    try {
+      const uriMatch = mongodbUri.match(/@([^/?#]+)/);
+      if (uriMatch && uriMatch[1]) {
+        const mongoHost = uriMatch[1].toLowerCase();
+        if ((mongoHost.includes('prod') || mongoHost.includes('production')) && !NON_PROD_MARKER.test(mongoHost)) {
+          errors.push('MONGODB_URI cluster host appears to be production. Staging must use an isolated cluster or staging host.');
+        }
+      }
+    } catch {
+      // Ignore regex parsing error
     }
   }
 
@@ -186,8 +208,8 @@ function validateStagingEnv(env = process.env) {
   }
 
   const socialProvider = readEnv('SOCIAL_AUTOMATION_PROVIDER', env).toLowerCase();
-  if (socialProvider && socialProvider !== 'manual') {
-    errors.push('SOCIAL_AUTOMATION_PROVIDER must be "manual" (or empty) in Phase 3.4 staging.');
+  if (socialProvider !== 'manual') {
+    errors.push('SOCIAL_AUTOMATION_PROVIDER must be explicitly set to "manual" in Phase 3.4 staging.');
   }
 
   const forbiddenOutboundValues = [
@@ -209,10 +231,22 @@ function validateStagingEnv(env = process.env) {
     }
   }
 
-  if (readEnv('NEXT_PUBLIC_GTM_ID', env)) {
-    warnings.push(
-      'NEXT_PUBLIC_GTM_ID is configured. Confirm it is a dedicated staging container/property and not production analytics.'
-    );
+  const analyticsEnvNames = ['NEXT_PUBLIC_GTM_ID', 'NEXT_PUBLIC_GA4_MEASUREMENT_ID'];
+  const configuredAnalytics = analyticsEnvNames.filter((name) => Boolean(readEnv(name, env)));
+  if (configuredAnalytics.length > 0) {
+    const stagingAnalyticsPermitted = readEnv('ALLOW_STAGING_ANALYTICS', env).toLowerCase() === 'true';
+    if (!stagingAnalyticsPermitted) {
+      errors.push(
+        `Analytics IDs (${configuredAnalytics.join(', ')}) must remain empty in Phase 3.4 staging unless ALLOW_STAGING_ANALYTICS=true is explicitly configured with a dedicated non-production container.`
+      );
+    } else {
+      for (const name of configuredAnalytics) {
+        const val = readEnv(name, env).toUpperCase();
+        if ((val.includes('PROD') || val.includes('PRODUCTION')) && !NON_PROD_MARKER.test(val)) {
+          errors.push(`${name} appears to reference a production analytics container.`);
+        }
+      }
+    }
   }
 
   if (readEnv('GEMINI_API_KEY', env)) {
@@ -231,6 +265,30 @@ function validateStagingEnv(env = process.env) {
     env,
     warnings
   );
+
+  const googleClientId = readEnv('GOOGLE_CLIENT_ID', env);
+  const publicGoogleClientId = readEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID', env);
+  if (googleClientId && publicGoogleClientId && googleClientId !== publicGoogleClientId) {
+    errors.push('GOOGLE_CLIENT_ID and NEXT_PUBLIC_GOOGLE_CLIENT_ID must match in staging.');
+  }
+  if (googleClientId && (googleClientId.includes('production') || googleClientId.includes('lokswami-prod')) && !NON_PROD_MARKER.test(googleClientId)) {
+    errors.push('GOOGLE_CLIENT_ID appears to reference a production OAuth client.');
+  }
+
+  const oauthRedirectUrls = [
+    { label: 'GOOGLE_REDIRECT_URI', value: readEnv('GOOGLE_REDIRECT_URI', env) },
+    { label: 'GOOGLE_CALLBACK_URL', value: readEnv('GOOGLE_CALLBACK_URL', env) },
+  ];
+  for (const { label, value } of oauthRedirectUrls) {
+    if (value) {
+      const parsed = parseAbsoluteHttpUrl(value);
+      if (!parsed) {
+        errors.push(`${label} must be an absolute http(s) URL.`);
+      } else {
+        validateNoProductionOrigin(label, parsed, errors);
+      }
+    }
+  }
 
   if (readEnv('EPAPER_FORCE_STORAGE', env) !== '1') {
     warnings.push(
@@ -273,7 +331,9 @@ if (require.main === module) main();
 
 module.exports = {
   getMongoDatabaseName,
+  isProductionHostname,
   loadStagingEnvFiles,
+  parseAbsoluteHttpUrl,
   printValidationReport,
   validateStagingEnv,
 };
