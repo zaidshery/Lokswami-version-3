@@ -5,7 +5,7 @@
 > This document records a proposed architectural direction for LokSwami B3 Role-Based Access Control (RBAC).
 > **PROPOSED / DEFERRED / REQUIRES SEPARATE APPROVAL**
 > **DO NOT** modify `lib/auth/permissions.ts`, `lib/auth/roles.ts`, or any route guards in this PR.
-> This proposal is separate from the canonical Phase 3 Reader Experience workstreams in `docs/b3/ROADMAP.md` and does not alter canonical roadmap ownership or runtime permissions.
+> This proposal is separate from approved roadmap workstreams and does not alter canonical roadmap ownership or runtime permissions.
 
 ---
 
@@ -109,9 +109,9 @@ To prevent operational bottlenecks, clear distinctions are established between p
 
 > [!NOTE]
 > **PROPOSED / DEFERRED / REQUIRES SEPARATE APPROVAL**
-> The canonical `docs/b3/ROADMAP.md` dedicates Phase 3 exclusively to **Reader Experience 2.0** (Sub-Phases 3.1 through 3.18).
+> Product roadmap sub-phase assignment belongs strictly to the canonical, owner-approved `docs/b3/ROADMAP.md`.
 > RBAC runtime permissions and route guards are governed authoritatively by `lib/auth/permissions.ts`, `lib/auth/roles.ts`, and `tests/permissions-governance.test.ts`.
-> Any future structural changes to the four-role newsroom model are deferred, require separate architectural approval, and must not conflict with canonical Phase 3 reader workstreams.
+> Any future structural changes to the four-role newsroom model are deferred, require separate architectural approval, and must not be assigned to any product sub-phase by this Accelerator.
 
 | Milestone | Status | Scope |
 |---|---|---|

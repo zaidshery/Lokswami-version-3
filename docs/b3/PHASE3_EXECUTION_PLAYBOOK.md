@@ -2,7 +2,7 @@
 
 ## Purpose & Scope
 
-This execution playbook establishes the canonical engineering workflow, validation cycles, and quality gates for LokSwami B3 (Phases 3.4 through 3.18).
+This execution playbook establishes the canonical engineering workflow, validation cycles, and quality gates for LokSwami B3. This Accelerator applies to the remaining approved Phase 3 workstreams and subsequent controlled cutover work as defined by the canonical, owner-approved B3 roadmap.
 
 The goal of this system is to:
 - Standardize the implementation and verification loop across all engineering agents and developers.

@@ -224,4 +224,165 @@ describe('B3 Development Accelerator v1 — PR Readiness Review Thread Hardening
     expect(result.unresolved).toBe(1);
     expect(result.allResolved).toBe(false);
   });
+
+  it('fails closed when totalCount is missing or undefined', () => {
+    const mockRunGh = () =>
+      JSON.stringify({
+        data: {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [],
+              },
+            },
+          },
+        },
+      });
+
+    const result = queryReviewThreads(15, mockRunGh);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Invalid totalCount in reviewThreads response/i);
+  });
+
+  it('fails closed when totalCount is non-numeric or NaN', () => {
+    const mockRunGh = () =>
+      JSON.stringify({
+        data: {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                totalCount: 'three',
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [],
+              },
+            },
+          },
+        },
+      });
+
+    const result = queryReviewThreads(15, mockRunGh);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Invalid totalCount in reviewThreads response/i);
+  });
+
+  it('fails closed when totalCount is negative', () => {
+    const mockRunGh = () =>
+      JSON.stringify({
+        data: {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                totalCount: -1,
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [],
+              },
+            },
+          },
+        },
+      });
+
+    const result = queryReviewThreads(15, mockRunGh);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Invalid totalCount in reviewThreads response/i);
+  });
+
+  it('fails closed when fetched nodes exceeds totalCount', () => {
+    const mockRunGh = () =>
+      JSON.stringify({
+        data: {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                totalCount: 2,
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [{ isResolved: true }, { isResolved: true }, { isResolved: true }],
+              },
+            },
+          },
+        },
+      });
+
+    const result = queryReviewThreads(15, mockRunGh);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/exceeds totalCount|Thread retrieval mismatch/i);
+  });
+
+  it('fails closed when totalCount changes unexpectedly across pages', () => {
+    const mockRunGh = (args: string[]) => {
+      const isSecondPage = args.some((a) => a.includes('cursor=page2-cursor'));
+      if (!isSecondPage) {
+        return JSON.stringify({
+          data: {
+            repository: {
+              pullRequest: {
+                reviewThreads: {
+                  totalCount: 105,
+                  pageInfo: { hasNextPage: true, endCursor: 'page2-cursor' },
+                  nodes: Array.from({ length: 100 }, () => ({ isResolved: true })),
+                },
+              },
+            },
+          },
+        });
+      }
+      return JSON.stringify({
+        data: {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                totalCount: 110,
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: Array.from({ length: 5 }, () => ({ isResolved: true })),
+              },
+            },
+          },
+        },
+      });
+    };
+
+    const result = queryReviewThreads(15, mockRunGh);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/totalCount changed unexpectedly between pages/i);
+  });
+
+  it('succeeds when multi-page pagination achieves exact totalCount equality', () => {
+    const mockRunGh = (args: string[]) => {
+      const isSecondPage = args.some((a) => a.includes('cursor=page2'));
+      if (!isSecondPage) {
+        return JSON.stringify({
+          data: {
+            repository: {
+              pullRequest: {
+                reviewThreads: {
+                  totalCount: 115,
+                  pageInfo: { hasNextPage: true, endCursor: 'page2' },
+                  nodes: Array.from({ length: 100 }, () => ({ isResolved: true })),
+                },
+              },
+            },
+          },
+        });
+      }
+      return JSON.stringify({
+        data: {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                totalCount: 115,
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: Array.from({ length: 15 }, () => ({ isResolved: true })),
+              },
+            },
+          },
+        },
+      });
+    };
+
+    const result = queryReviewThreads(15, mockRunGh);
+    expect(result.success).toBe(true);
+    expect(result.total).toBe(115);
+    expect(result.unresolved).toBe(0);
+    expect(result.allResolved).toBe(true);
+  });
 });

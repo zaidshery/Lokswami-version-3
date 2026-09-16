@@ -15,7 +15,7 @@ This policy governs the separation of environments across LokSwami B3. Strict is
 +---------------------+     +--------------------------+     +---------------------+
 | .env.local          |     | Dedicated Staging DB     |     | Dedicated Prod DB   |
 | Local/Test Mongo    |     | Sandboxed Integrations   |     | Full Integrations   |
-| Offline Snapshots   |     | Mock Outbound Channels   |     | Phase 4 Cutover     |
+| Offline Snapshots   |     | Mock Outbound Channels   |     | Controlled Cutover  |
 | No Live Outbound    |     | Never Reuses Prod Secrets|     | Restricted Access   |
 +---------------------+     +--------------------------+     +---------------------+
 ```
@@ -78,8 +78,8 @@ The live, reader-facing platform serving news to real users.
 - **Scope**: Live production domain (`lokswami.com`).
 - **Credentials**: Production-only credentials, production database connection strings, and production CDN/storage keys.
 - **Phase Restriction**:
-  - Production deployments and domain cutovers occur **only during Phase 4 controlled production cutover**.
-  - No experimental code, incomplete migrations, or interim accelerator tooling may target production before formal Phase 3.18 sign-off and Phase 4 transition.
+  - Production deployment/cutover may occur only in the explicitly approved cutover phase defined by the canonical B3 roadmap. Accelerator tooling must never initiate production cutover.
+  - No experimental code, incomplete migrations, or interim accelerator tooling may target production before formal sign-off under the canonical B3 roadmap.
 
 ---
 

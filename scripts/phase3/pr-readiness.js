@@ -154,8 +154,28 @@ function queryReviewThreads(prNumber, runGhFn = runGh) {
       return { success: false, error: 'Invalid GraphQL response structure: reviewThreads field missing' };
     }
 
+    const rawTotal = threadConnection.totalCount;
+    if (
+      rawTotal === null ||
+      rawTotal === undefined ||
+      typeof rawTotal !== 'number' ||
+      !Number.isFinite(rawTotal) ||
+      !Number.isInteger(rawTotal) ||
+      rawTotal < 0
+    ) {
+      return {
+        success: false,
+        error: `Invalid totalCount in reviewThreads response: ${JSON.stringify(rawTotal)}`,
+      };
+    }
+
     if (totalCount === null) {
-      totalCount = threadConnection.totalCount;
+      totalCount = rawTotal;
+    } else if (rawTotal !== totalCount) {
+      return {
+        success: false,
+        error: `totalCount changed unexpectedly between pages: expected ${totalCount} but got ${rawTotal}`,
+      };
     }
 
     const nodes = threadConnection.nodes;
@@ -164,6 +184,13 @@ function queryReviewThreads(prNumber, runGhFn = runGh) {
     }
 
     allNodes.push(...nodes);
+
+    if (allNodes.length > totalCount) {
+      return {
+        success: false,
+        error: `Fetched nodes count (${allNodes.length}) exceeds totalCount (${totalCount})`,
+      };
+    }
 
     const pageInfo = threadConnection.pageInfo;
     hasNextPage = Boolean(pageInfo?.hasNextPage);
@@ -178,11 +205,16 @@ function queryReviewThreads(prNumber, runGhFn = runGh) {
     return { success: false, error: `Pagination exceeded maximum safety limit of ${MAX_PAGES} pages` };
   }
 
-  if (typeof totalCount === 'number' && allNodes.length < totalCount) {
-    return { success: false, error: `Partial thread retrieval: fetched ${allNodes.length} of ${totalCount} total threads` };
+  if (allNodes.length !== totalCount) {
+    return {
+      success: false,
+      error: allNodes.length < totalCount
+        ? `Partial thread retrieval: fetched ${allNodes.length} of ${totalCount} total threads`
+        : `Thread retrieval mismatch: fetched ${allNodes.length} nodes exceeding totalCount ${totalCount}`,
+    };
   }
 
-  const total = typeof totalCount === 'number' ? totalCount : allNodes.length;
+  const total = totalCount;
   const unresolved = allNodes.filter((t) => !t || !t.isResolved).length;
 
   return {

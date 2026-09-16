@@ -53,9 +53,13 @@ Every reader UI change must be evaluated against the following 11 dimensions:
    - Verify page renders correctly in Light mode, Dark mode, and Auto (system preference).
    - No flash of unstyled content or wrong theme on initial page render.
    - Contrast ratios must comply with WCAG AA (minimum 4.5:1 for normal text).
-5. **Touch Targets**:
-   - Primary interactive controls (buttons, links, search triggers, hamburger, language toggles) must maintain a minimum 44×44px effective interactive hit target size across all viewports.
-   - Even when a visible UI element or segment is rendered at a compact visual width (e.g., preserving header logo clearance), its effective accessible hit target (via padding, pseudo-elements, or wrapper hit bounds) must satisfy the >=44×44px requirement unless a separately approved accessibility decision explicitly amends the standard.
+5. **Touch Targets & Approved Responsive Exceptions**:
+   - **Default Target for Primary Controls**: Primary interactive controls (buttons, links, search triggers, hamburger menu) must maintain a minimum 44×44px effective interactive hit area across all viewports.
+   - **Current Approved Responsive-Header Exception**: In the currently approved responsive header (`components/layout/Header.tsx` on `b3/foundation`), the HI and EN language toggle segments at 390–639px use an intentional, compact approximately 34×44px geometry (`min-h-[44px] min-w-[34px]`) to preserve geometric centered-logo clearance. At 640px+, the segments expand to `>=44×44px` (`sm:min-w-[44px]`).
+   - **Vertical Target Invariant**: The vertical target strictly remains `>=44px` (`min-h-[44px]`) across all viewports.
+   - **Exception Isolation**: This exception must remain explicitly documented and regression-tested. New or unrelated controls must not copy this exception automatically.
+   - **Future Refinement**: A future accessibility/UI task may enlarge the horizontal hit area if it can do so without breaking geometric viewport centering of the mobile logo.
+   - Do not claim the current UI has a 44px effective horizontal hit area for language segments at 390–639px, as the approved DOM/CSS uses the compact ~34×44px bounds.
 6. **Keyboard Focus & Accessibility**:
    - Logical tab order across all interactive elements.
    - Clearly visible focus rings on focusable controls.
