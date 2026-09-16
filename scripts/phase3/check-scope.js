@@ -33,7 +33,7 @@ function runGit(command) {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
-  } catch (error) {
+  } catch {
     // If git command fails (e.g., base branch not found locally), return empty
     return '';
   }
@@ -123,7 +123,7 @@ function getWorkingTreeFiles() {
     const trimmed = line.trim();
     if (!trimmed) continue;
     // Format: XY PATH or XY "PATH" or R  old -> new
-    let filePath = trimmed.slice(2).trim().replace(/^"|"$/g, '');
+    const filePath = trimmed.slice(2).trim().replace(/^"|"$/g, '');
     if (filePath.includes(' -> ')) {
       const parts = filePath.split(' -> ');
       for (const part of parts) {

@@ -1,26 +1,78 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { spawnSync } from 'child_process';
+import { execFile, spawnSync, ExecFileException } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import http from 'http';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { CANONICAL_VIEWPORTS, artifactsDir, checkServerAvailable } = require('../scripts/phase3/responsive-qa.js');
+const { CANONICAL_VIEWPORTS, artifactsDir, checkServerAvailable, runResponsiveQA } = require('../scripts/phase3/responsive-qa.js');
 
 const projectRoot = path.resolve(__dirname, '..');
 const analyticsPath = path.join(projectRoot, 'data', 'analytics-events.json');
 
+function runScriptAsync(args: string[], env: NodeJS.ProcessEnv): Promise<{ status: number; stdout: string; stderr: string }> {
+  const runnerPath = path.join(projectRoot, 'scripts', 'phase3', 'responsive-qa.js');
+  return new Promise((resolve) => {
+    execFile(process.execPath, [runnerPath, ...args], { cwd: projectRoot, encoding: 'utf8', env }, (err: ExecFileException | null, stdout: string, stderr: string) => {
+      const exitCode = err ? (typeof err.code === 'number' ? err.code : 1) : 0;
+      resolve({
+        status: exitCode,
+        stdout: stdout || '',
+        stderr: stderr || '',
+      });
+    });
+  });
+}
+
 describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', () => {
   let initialAnalyticsContent: string | null = null;
+  let testServer: http.Server;
+  let testServerBaseUrl: string;
+  let closedPortUrl: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     if (fs.existsSync(analyticsPath)) {
       initialAnalyticsContent = fs.readFileSync(analyticsPath, 'utf8');
     }
+
+    // Start a lightweight ephemeral HTTP server for deterministic CI testing
+    testServer = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html><head><title>LokSwami QA</title></head><body style="margin:0;padding:0;"><main style="margin:0;padding:0;"><h1>LokSwami</h1></main></body></html>');
+    });
+
+    await new Promise<void>((resolve) => {
+      testServer.listen(0, '127.0.0.1', () => {
+        const addr = testServer.address();
+        if (addr && typeof addr === 'object') {
+          testServerBaseUrl = `http://127.0.0.1:${addr.port}`;
+        }
+        resolve();
+      });
+    });
+
+    // Allocate and immediately close a server to get a guaranteed unreachable ephemeral port
+    const closedServer = http.createServer();
+    await new Promise<void>((resolve) => {
+      closedServer.listen(0, '127.0.0.1', () => {
+        const addr = closedServer.address();
+        if (addr && typeof addr === 'object') {
+          closedPortUrl = `http://127.0.0.1:${addr.port}`;
+        }
+        closedServer.close(() => resolve());
+      });
+    });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     if (initialAnalyticsContent !== null && fs.existsSync(analyticsPath)) {
       fs.writeFileSync(analyticsPath, initialAnalyticsContent, 'utf8');
+    }
+
+    if (testServer) {
+      await new Promise<void>((resolve) => {
+        testServer.close(() => resolve());
+      });
     }
   });
 
@@ -43,22 +95,22 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
   });
 
   describe('Server Availability & Error Handling', () => {
-    it('detects live server on 127.0.0.1:3000', async () => {
-      const isUp = await checkServerAvailable('http://127.0.0.1:3000', '/main');
+    it('detects live server on active HTTP endpoint', async () => {
+      const isUp = await checkServerAvailable(testServerBaseUrl, '/main');
       expect(isUp).toBe(true);
     });
 
     it('returns false for unreachable port safely without throwing', async () => {
-      const isUp = await checkServerAvailable('http://127.0.0.1:59999', '/main');
+      const isUp = await checkServerAvailable(closedPortUrl, '/main');
       expect(isUp).toBe(false);
     });
 
     it('fails fast with exit code 1 and clear message when target server is unreachable', () => {
       const runnerPath = path.join(projectRoot, 'scripts', 'phase3', 'responsive-qa.js');
-      const result = spawnSync(process.execPath, [runnerPath, '--base-url', 'http://127.0.0.1:59999'], {
+      const result = spawnSync(process.execPath, [runnerPath, '--base-url', closedPortUrl], {
         cwd: projectRoot,
         encoding: 'utf8',
-        env: { ...process.env, B3_QA_BASE_URL: 'http://127.0.0.1:59999' },
+        env: { ...process.env, B3_QA_BASE_URL: closedPortUrl },
       });
 
       expect(result.status).toBe(1);
@@ -86,21 +138,19 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
       const result = spawnSync(process.execPath, [runnerPath], {
         cwd: projectRoot,
         encoding: 'utf8',
-        env: { ...process.env, B3_QA_BASE_URL: 'http://127.0.0.1:58888' },
+        env: { ...process.env, B3_QA_BASE_URL: closedPortUrl },
       });
 
       expect(result.status).toBe(1);
-      expect(result.stderr).toMatch(/http:\/\/127\.0\.0\.1:58888/);
+      expect(result.stderr).toContain(closedPortUrl);
     });
   });
 
   describe('Reporting Format & Metric Verification', () => {
-    it('executes against /main and reports all required metrics per viewport', () => {
-      const runnerPath = path.join(projectRoot, 'scripts', 'phase3', 'responsive-qa.js');
-      const result = spawnSync(process.execPath, [runnerPath, '--routes', '/main'], {
-        cwd: projectRoot,
-        encoding: 'utf8',
-        env: { ...process.env, B3_QA_BASE_URL: 'http://127.0.0.1:3000' },
+    it('executes against /main and reports all required metrics per viewport', async () => {
+      const result = await runScriptAsync(['--routes', '/main'], {
+        ...process.env,
+        B3_QA_BASE_URL: testServerBaseUrl,
       });
 
       expect(result.status).toBe(0);
@@ -108,7 +158,7 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
 
       // Header verification
       expect(stdout).toMatch(/LokSwami B3 — Standard Responsive QA Runner/i);
-      expect(stdout).toMatch(/Base URL:\s+http:\/\/127\.0\.0\.1:3000/i);
+      expect(stdout).toMatch(new RegExp(`Base URL:\\s+${testServerBaseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
       expect(stdout).toMatch(/Routes:\s+\/main/i);
 
       // Required reported items per specification:
@@ -131,6 +181,31 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
       // Summary verification
       expect(stdout).toMatch(/Responsive QA Summary:\s+9\/9 PASSED/i);
       expect(stdout).toMatch(/PASS: All canonical viewports validated with zero horizontal overflow/i);
+    }, 60000);
+
+    it('executes programmatically via runResponsiveQA and returns structured metrics', async () => {
+      const { results, totalFailures } = await runResponsiveQA({
+        baseUrl: testServerBaseUrl,
+        routes: ['/main'],
+        captureScreenshots: false,
+        throwOnFailure: false,
+      });
+
+      expect(totalFailures).toBe(0);
+      expect(results.length).toBe(9);
+
+      for (const item of results) {
+        expect(item.route).toBe('/main');
+        expect(typeof item.viewport).toBe('number');
+        expect(item.status).toBe(200);
+        expect(item.loadResult).toBe('HTTP 200');
+        expect(item.passed).toBe(true);
+        expect(Array.isArray(item.pageErrors)).toBe(true);
+        expect(Array.isArray(item.consoleErrors)).toBe(true);
+        expect(item.metrics.innerWidth).toBe(item.viewport);
+        expect(item.metrics.scrollWidth).toBeLessThanOrEqual(item.viewport);
+        expect(item.metrics.overflow).toBe(false);
+      }
     }, 60000);
   });
 });
