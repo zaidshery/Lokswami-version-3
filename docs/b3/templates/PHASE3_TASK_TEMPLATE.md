@@ -103,10 +103,10 @@
 ---
 
 ## 14. CMS Role QA (If Applicable)
-- [ ] `super_admin`: Full technical control plane access verified.
-- [ ] `admin`: Executive management actions verified.
-- [ ] `copy_editor`: Review and publish actions verified.
-- [ ] `reporter`: Draft authoring and restricted publishing verified.
+- [ ] `super_admin`: Platform and technical control plane access verified (38 of 39 pages; governance/diagnostics).
+- [ ] `admin`: Executive newsroom management, publishing, scheduling, and queue actions verified.
+- [ ] `copy_editor`: Scoped editorial review, copy editing, change requests, and approval-readiness verified (no publishing/scheduling authority).
+- [ ] `reporter`: Draft creation, authoring, and review submission verified (no publishing or review queues).
 
 ---
 

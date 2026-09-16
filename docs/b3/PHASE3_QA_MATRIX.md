@@ -54,8 +54,8 @@ Every reader UI change must be evaluated against the following 11 dimensions:
    - No flash of unstyled content or wrong theme on initial page render.
    - Contrast ratios must comply with WCAG AA (minimum 4.5:1 for normal text).
 5. **Touch Targets**:
-   - Primary interactive controls (buttons, links, search triggers, hamburger) must maintain minimum 44×44px effective touch target size.
-   - Any deliberate responsive exception (such as the compact 34×44px language toggle segment at 390–639px designed to preserve logo clearance) must be documented and deliberate.
+   - Primary interactive controls (buttons, links, search triggers, hamburger, language toggles) must maintain a minimum 44×44px effective interactive hit target size across all viewports.
+   - Even when a visible UI element or segment is rendered at a compact visual width (e.g., preserving header logo clearance), its effective accessible hit target (via padding, pseudo-elements, or wrapper hit bounds) must satisfy the >=44×44px requirement unless a separately approved accessibility decision explicitly amends the standard.
 6. **Keyboard Focus & Accessibility**:
    - Logical tab order across all interactive elements.
    - Clearly visible focus rings on focusable controls.
@@ -88,7 +88,10 @@ CMS changes must be validated against the editorial lifecycle across the four ne
 4. **Read Authority**: Editors can view permitted drafts, scheduled items, and historical revisions according to their role.
 5. **Create**: Authors can create new articles, drafts, and assign metadata (category, tags, authors).
 6. **Edit & Locking**: Multi-user editing controls, draft versioning, and article lock acquire/release mechanics.
-7. **Review Workflow**: Proper transition through states: `draft` → `in_review` → `approved`.
+7. **Review Workflow & Status Lifecycle**:
+   - The canonical editorial lifecycle defined in `lib/workflow/types.ts` encompasses 12 statuses: `draft`, `submitted`, `assigned`, `in_review`, `copy_edit`, `changes_requested`, `ready_for_approval`, `approved`, `scheduled`, `published`, `rejected`, and `archived`.
+   - Content does NOT follow a single naive straight-line path; valid state transitions depend on role, content type, current state, assignment, and permission helpers in `lib/auth/permissions.ts`.
+   - QA must verify role-appropriate transitions (e.g., reporters author and submit; copy editors review, copy edit, request changes, and mark ready for approval; admins/super admins approve, schedule, reject, or publish).
 8. **Publishing**: Publishing authority enforces due dates, scheduled release, and editorial flags (Breaking, Trending).
 9. **Delete & Archive**: Destructive actions (deletion, unpublishing) require appropriate authorization and confirmation dialogs.
 10. **Audit & Observability**: Sensitive actions (role changes, publish events, deletions) are logged to the security audit trail.
@@ -98,23 +101,34 @@ CMS changes must be validated against the editorial lifecycle across the four ne
 
 ## 4. The Four Canonical Newsroom Roles
 
-The newsroom permissions model consists of four canonical roles:
+The newsroom permissions model consists of four canonical roles, governed authoritatively by `lib/auth/permissions.ts`, `lib/auth/roles.ts`, and `tests/permissions-governance.test.ts`:
 
 1. **`super_admin`**:
-   - Technical control plane and system owner.
-   - Full access to all administrative, technical, operational, and editorial settings.
+   - Platform owner and technical control plane.
+   - Explicit access to 38 of 39 canonical page keys (`my_work` is explicitly denied in `PAGE_ACCESS`).
+   - Exclusive or privileged authority over platform settings, audit logs, operations diagnostics, permission reviews, business value analytics, revenue, and E-Paper deletion.
+   - Retains full editorial workflow transition authority (including archiving content).
 2. **`admin`**:
    - Executive newsroom manager.
-   - Full operational management of editorial staff, articles, and newsroom workflows.
+   - Operational management of editorial staff, articles, and newsroom workflows.
+   - Access to newsroom management routes (`assignments`, `content_queue`, `review_queue`, `push_alerts`, `polls`, `newsroom_settings`, `team`).
+   - Full publishing authority: can approve, reject, schedule, publish, and fast_publish articles; can create and publish E-Papers; can manage E-Paper assignments.
+   - Explicitly denied platform infrastructure routes (`audit_log`, `operations_diagnostics`, `permission_review`, `settings`, `business_value`, `revenue`).
 3. **`copy_editor`**:
-   - Senior editorial gatekeeper.
-   - Reviews, edits, approves, schedules, and publishes articles submitted by reporters.
+   - Scoped editorial reviewer and copy-desk gatekeeper.
+   - Access to `copy_desk`, `articles`, `stories`, `videos`, `social_posts`, `epapers`, `epaper_edit`, `epaper_page_edit`, `work_queue`, `my_work`, `media`.
+   - Can create direct `article` drafts and manage own drafts; can edit assigned review items; can prepare E-Paper pages/hotspots.
+   - Scoped transition authority: can `start_review`, `move_to_copy_edit`, `request_changes`, and `mark_ready_for_approval` on assigned content.
+   - **STRICTLY PROHIBITED** from `approve`, `reject`, `schedule`, `publish`, or `fast_publish`. Prohibited from creating, assigning, publishing, or deleting E-Papers. Denied review queue, assignments, content queue, push alerts, polls, team management, and system settings.
 4. **`reporter`**:
    - Content creator and author.
-   - Authors stories, submits drafts for review, and manages personal drafts.
+   - Access to `article_create`, `stories`, `story_create`, `story_edit`, `work_queue`, `my_work`, `media`, `dashboard`, `notifications`.
+   - Can create and edit own `article` and `story` drafts; can submit own drafts for review (`submit`).
+   - Cannot edit submitted/assigned content.
+   - **STRICTLY PROHIBITED** from reviewing, approving, scheduling, publishing, or fast-publishing. Prohibited from video creation, E-Paper access, copy desk, and editorial management queues.
 
 ### Source of Truth Notice
 
 > [!IMPORTANT]
-> The application's canonical permissions code in `lib/auth/permissions.ts` and `lib/auth/roles.ts` is the single source of truth for all role capabilities.
-> QA documentation and test cases must test against this canonical implementation rather than inventing parallel or diverging permission definitions.
+> The executable permission helpers and route tables in `lib/auth/permissions.ts`, the role definitions in `lib/auth/roles.ts`, and the governance assertions in `tests/permissions-governance.test.ts` are the single source of truth for all role capabilities.
+> QA documentation, checklists, and test suites must strictly conform to these canonical implementations rather than inventing parallel or diverging permission definitions.

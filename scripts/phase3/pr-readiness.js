@@ -96,33 +96,101 @@ function queryPrData(prNumber) {
   }
 }
 
-function queryReviewThreads(prNumber) {
-  if (!prNumber) return null;
-  // Query GitHub GraphQL API to get review threads resolution status
-  const query = `query($pr: Int!) {
-    repository(owner: "zaidshery", name: "Lokswami-version-3") {
-      pullRequest(number: $pr) {
-        reviewThreads(first: 100) {
-          totalCount
-          nodes {
-            isResolved
+function queryReviewThreads(prNumber, runGhFn = runGh) {
+  if (!prNumber) {
+    return { success: false, error: 'PR number is required' };
+  }
+
+  let hasNextPage = true;
+  let cursor = null;
+  let totalCount = null;
+  const allNodes = [];
+  let pageCount = 0;
+  const MAX_PAGES = 50; // Safety limit (up to 5000 threads)
+
+  while (hasNextPage && pageCount < MAX_PAGES) {
+    pageCount += 1;
+    const query = `query($pr: Int!, $cursor: String) {
+      repository(owner: "zaidshery", name: "Lokswami-version-3") {
+        pullRequest(number: $pr) {
+          reviewThreads(first: 100, after: $cursor) {
+            totalCount
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              isResolved
+            }
           }
         }
       }
-    }
-  }`;
+    }`;
 
-  const raw = runGh(['api', 'graphql', '-F', `pr=${prNumber}`, '-f', `query=${query}`]);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    const threads = parsed?.data?.repository?.pullRequest?.reviewThreads?.nodes || [];
-    const total = parsed?.data?.repository?.pullRequest?.reviewThreads?.totalCount ?? threads.length;
-    const unresolved = threads.filter((t) => !t.isResolved).length;
-    return { total, unresolved };
-  } catch {
-    return null;
+    const args = ['api', 'graphql', '-F', `pr=${prNumber}`];
+    if (cursor) {
+      args.push('-F', `cursor=${cursor}`);
+    }
+    args.push('-f', `query=${query}`);
+
+    const raw = runGhFn(args);
+    if (!raw) {
+      return { success: false, error: 'GraphQL query failed or returned no output' };
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return { success: false, error: 'Malformed JSON response from GitHub GraphQL API' };
+    }
+
+    if (parsed.errors && parsed.errors.length > 0) {
+      return { success: false, error: `GraphQL error: ${parsed.errors[0]?.message || 'Unknown error'}` };
+    }
+
+    const threadConnection = parsed?.data?.repository?.pullRequest?.reviewThreads;
+    if (!threadConnection) {
+      return { success: false, error: 'Invalid GraphQL response structure: reviewThreads field missing' };
+    }
+
+    if (totalCount === null) {
+      totalCount = threadConnection.totalCount;
+    }
+
+    const nodes = threadConnection.nodes;
+    if (!Array.isArray(nodes)) {
+      return { success: false, error: 'Invalid GraphQL response structure: reviewThreads.nodes is not an array' };
+    }
+
+    allNodes.push(...nodes);
+
+    const pageInfo = threadConnection.pageInfo;
+    hasNextPage = Boolean(pageInfo?.hasNextPage);
+    cursor = pageInfo?.endCursor || null;
+
+    if (hasNextPage && !cursor) {
+      return { success: false, error: 'Pagination error: hasNextPage is true but endCursor is missing' };
+    }
   }
+
+  if (hasNextPage) {
+    return { success: false, error: `Pagination exceeded maximum safety limit of ${MAX_PAGES} pages` };
+  }
+
+  if (typeof totalCount === 'number' && allNodes.length < totalCount) {
+    return { success: false, error: `Partial thread retrieval: fetched ${allNodes.length} of ${totalCount} total threads` };
+  }
+
+  const total = typeof totalCount === 'number' ? totalCount : allNodes.length;
+  const unresolved = allNodes.filter((t) => !t || !t.isResolved).length;
+
+  return {
+    success: true,
+    total,
+    unresolved,
+    allResolved: unresolved === 0,
+  };
 }
 
 function main() {
@@ -131,8 +199,9 @@ function main() {
   console.log('================================================================================\n');
 
   if (!isGhCliAvailable()) {
-    console.warn('NOTICE: GitHub CLI (`gh`) is not available in the current environment PATH.');
-    console.warn('Automated remote PR inspection requires the `gh` tool.');
+    console.error('ERROR: GitHub CLI (`gh`) is not available in current PATH.');
+    console.error('Automated PR readiness inspection requires `gh` to verify remote pull request state.');
+    console.error('Cannot prove PR readiness. Exiting with failure (fail-closed).\n');
     console.warn('Manual PR verification checklist:');
     console.warn('  1. Visit: https://github.com/zaidshery/Lokswami-version-3/pulls');
     console.warn('  2. Verify PR state: OPEN (merged = false)');
@@ -141,13 +210,7 @@ function main() {
     console.warn('  5. Verify all GitHub Actions CI checks on exact head have passed');
     console.warn('  6. Verify all review threads are resolved (0 unresolved)');
     console.warn('  7. Remember: DO NOT MERGE without explicit user authorization.\n');
-
-    const { strict } = parseCliArgs();
-    if (strict) {
-      console.error('FAIL: --strict requested but `gh` CLI is unavailable.');
-      process.exit(1);
-    }
-    process.exit(0);
+    process.exit(1);
   }
 
   const { prNumber } = parseCliArgs();
@@ -186,13 +249,17 @@ function main() {
     details: `base = ${prData.baseRefName}`,
   });
 
-  // Check 4: Head SHA matches local HEAD
+  // Check 4: Head SHA matches local HEAD (fail closed on unknown/missing)
   const remoteHead = prData.headRefOid;
-  const headsMatch = !localHead || remoteHead === localHead;
+  const headsMatch = Boolean(localHead && remoteHead && remoteHead.toLowerCase() === localHead.toLowerCase());
   checks.push({
     name: 'Head SHA Matches Local HEAD',
     pass: headsMatch,
-    details: `Remote: ${remoteHead?.slice(0, 12)} | Local: ${localHead ? localHead.slice(0, 12) : 'N/A'}`,
+    details: localHead && remoteHead
+      ? (headsMatch
+          ? `Remote: ${remoteHead.slice(0, 12)} | Local: ${localHead.slice(0, 12)}`
+          : `MISMATCH: Remote ${remoteHead.slice(0, 12)} !== Local ${localHead.slice(0, 12)}`)
+      : `FAIL: Cannot verify head match (Remote: ${remoteHead ? remoteHead.slice(0, 12) : 'MISSING'}, Local: ${localHead ? localHead.slice(0, 12) : 'MISSING'})`,
   });
 
   // Check 5: Mergeability
@@ -234,15 +301,17 @@ function main() {
     details: ciSummary,
   });
 
-  // Check 7: Review threads
-  const threadData = queryReviewThreads(prData.number);
-  const threadCheckPassed = threadData ? threadData.unresolved === 0 : true;
+  // Check 7: Review threads (strictly fail closed if cannot be proven to be zero)
+  const threadResult = queryReviewThreads(prData.number);
+  const threadCheckPassed = Boolean(threadResult && threadResult.success && threadResult.unresolved === 0);
+  const threadDetails = !threadResult || !threadResult.success
+    ? `FAIL: Review thread check failed (${threadResult?.error || 'Unable to retrieve review threads'})`
+    : `${threadResult.unresolved} unresolved (out of ${threadResult.total} total)`;
+
   checks.push({
     name: 'Unresolved Review Threads',
     pass: threadCheckPassed,
-    details: threadData
-      ? `${threadData.unresolved} unresolved (out of ${threadData.total} total)`
-      : 'Review thread status not available via GraphQL',
+    details: threadDetails,
   });
 
   // Print Summary Table
@@ -268,4 +337,17 @@ function main() {
   }
 }
 
-main();
+module.exports = {
+  runGh,
+  runGit,
+  isGhCliAvailable,
+  getLocalHeadSha,
+  parseCliArgs,
+  queryPrData,
+  queryReviewThreads,
+  main,
+};
+
+if (require.main === module) {
+  main();
+}
