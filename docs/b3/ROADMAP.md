@@ -120,7 +120,7 @@ To prevent governance confusion, the platform strictly distinguishes between cur
 - **Rules**: Executable permissions remain authoritative until modified by an approved implementation PR.
 
 ### B. Approved Future Direction (Owner-Control Plane Model)
-- **Architectural Proposal**: Detailed in `docs/b3/PHASE3_RBAC_POLICY.md`.
+- **Approved Architectural Direction**: Detailed in `docs/b3/PHASE3_RBAC_POLICY.md`.
 - **Core Principle**: Role-based Super-Admin control plane. High-stakes, system-wide, and revenue-impacting capabilities represent the approved future direction for Super-Admin-only control, scheduled for runtime implementation in Phase 3.5:
   - E-Paper complete lifecycle (creation, editing, hotspot mapping, preparation, publishing, deletion).
   - Identity & Staff Governance (team invitations, role assignment, subscriber management).
