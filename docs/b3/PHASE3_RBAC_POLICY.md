@@ -1,11 +1,11 @@
 # LokSwami B3 — RBAC Policy & Future Governance Model
 
 > [!IMPORTANT]
-> **POLICY DOCUMENTATION ONLY — NO IMPLEMENTATION IN THIS ACCELERATOR PR**
-> This document records a proposed architectural direction for LokSwami B3 Role-Based Access Control (RBAC).
-> **PROPOSED / DEFERRED / REQUIRES SEPARATE APPROVAL**
+> **POLICY DOCUMENTATION ONLY — NO RUNTIME IMPLEMENTATION IN THIS PR**
+> This document establishes the architectural direction for LokSwami B3 Role-Based Access Control (RBAC).
+> **OWNER-APPROVED DIRECTION / IMPLEMENTATION DEFERRED**
+> When this Roadmap Sync PR is explicitly approved and merged by the owner, the Super-Admin owner-control model becomes the approved Phase 3 architectural direction and is scheduled for implementation in Phase 3.5. Runtime permissions remain unchanged until the separate Phase 3.5 implementation PR is approved and merged.
 > **DO NOT** modify `lib/auth/permissions.ts`, `lib/auth/roles.ts`, or any route guards in this PR.
-> This proposal is separate from approved roadmap workstreams and does not alter canonical roadmap ownership or runtime permissions.
 
 ---
 
@@ -41,7 +41,7 @@ LokSwami operates with a four-tier newsroom access model designed to balance edi
 
 In the approved B3 architecture, **Super Admin** represents the platform owner and technical control plane. Standard day-to-day newsroom activities belong to `admin`, `copy_editor`, and `reporter`, while high-stakes, system-wide, and revenue-impacting controls belong exclusively to `super_admin`.
 
-The following capabilities are proposed for future Super-Admin-only control, subject to separate owner approval and implementation:
+The following capabilities represent the approved direction for future Super-Admin-only control, scheduled for runtime implementation in Phase 3.5:
 
 ### A. E-Paper Complete Lifecycle
 The daily E-Paper publication carries direct brand, commercial, and legal significance. The following actions will be restricted to Super Admin:
@@ -105,17 +105,20 @@ To prevent operational bottlenecks, clear distinctions are established between p
 
 ---
 
-## 4. Governance Status & Proposed Future Alignment
+## 4. Governance Status & Phased Implementation Alignment
 
 > [!NOTE]
-> **PROPOSED / DEFERRED / REQUIRES SEPARATE APPROVAL**
-> Product roadmap sub-phase assignment belongs strictly to the canonical, owner-approved `docs/b3/ROADMAP.md`.
-> RBAC runtime permissions and route guards are governed authoritatively by `lib/auth/permissions.ts`, `lib/auth/roles.ts`, and `tests/permissions-governance.test.ts`.
-> Any future structural changes to the four-role newsroom model are deferred, require separate architectural approval, and must not be assigned to any product sub-phase by this Accelerator.
+> **OWNER-APPROVED DIRECTION / IMPLEMENTATION DEFERRED**
+> When this Roadmap Sync PR is explicitly approved and merged by the owner, the Super-Admin owner-control model becomes the approved Phase 3 architectural direction and is scheduled for implementation in Phase 3.5. Runtime permissions remain unchanged until the separate Phase 3.5 implementation PR is approved and merged.
+>
+> - **Current Runtime Permissions**: Governed authoritatively today by executable code in `lib/auth/permissions.ts`, `lib/auth/roles.ts`, and verified by `tests/permissions-governance.test.ts`.
+> - **No Automatic Restriction**: No new Super-Admin restriction takes effect merely because the roadmap or direction is approved.
+> - **Dedicated Implementation Gate**: Actual permission changes require the dedicated Phase 3.5 implementation PR, comprehensive four-role tests, independent review, and explicit owner merge authorization.
+> - **Phase 3.4 Invariant**: Phase 3.4 is strictly limited to CMS inventory, RBAC gap discovery (e.g., Election and Ads controls), and staging/preview infrastructure. Zero runtime RBAC migrations occur in Phase 3.4.
+> - **Phase 3.5 Invariant**: Phase 3.5 executes the runtime implementation of the approved owner-control direction across menus, routes, APIs, and domain permission helpers.
 
 | Milestone | Status | Scope |
 |---|---|---|
-| **Accelerator v1 (Current)** | Tooling & Governance Baseline | Tooling and policy clarification only. Zero code edits in `lib/auth/permissions.ts` or `lib/auth/roles.ts`. |
-| **Proposed Newsroom Hardening** | PROPOSED / DEFERRED | Potential refinement of editorial review boundaries subject to separate governance approval. |
-| **Proposed E-Paper Control Plane** | PROPOSED / DEFERRED | Potential migration of E-Paper lifecycle controls subject to separate governance approval. |
-| **Proposed Infrastructure Lock** | PROPOSED / DEFERRED | Potential restriction of operational diagnostics and infrastructure controls subject to separate governance approval. |
+| **Accelerator v1 (Merged)** | Tooling & Governance Baseline | Tooling and policy clarification. Zero code edits in `lib/auth/permissions.ts` or `lib/auth/roles.ts`. |
+| **Phase 3.4 (Next)** | Discovery & Staging Foundation | CMS inventory, RBAC gap discovery, staging DB/auth/storage isolation. Runtime RBAC remains unchanged. |
+| **Phase 3.5** | Runtime Implementation | Execution of approved Super-Admin control plane: menu/sidebar permissions, route authorization, API authorization, domain helpers, and four-role tests. |

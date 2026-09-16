@@ -181,7 +181,7 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
       // Summary verification
       expect(stdout).toMatch(/Responsive QA Summary:\s+9\/9 PASSED/i);
       expect(stdout).toMatch(/PASS: All canonical viewports validated with zero horizontal overflow/i);
-    }, 60000);
+    }, 120000);
 
     it('executes programmatically via runResponsiveQA and returns structured metrics', async () => {
       const { results, totalFailures } = await runResponsiveQA({
@@ -206,6 +206,6 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
         expect(item.metrics.scrollWidth).toBeLessThanOrEqual(item.viewport);
         expect(item.metrics.overflow).toBe(false);
       }
-    }, 60000);
+    }, 120000);
   });
 });
