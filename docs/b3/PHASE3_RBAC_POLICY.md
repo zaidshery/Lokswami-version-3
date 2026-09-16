@@ -41,7 +41,7 @@ LokSwami operates with a four-tier newsroom access model designed to balance edi
 
 In the approved B3 architecture, **Super Admin** represents the platform owner and technical control plane. Standard day-to-day newsroom activities belong to `admin`, `copy_editor`, and `reporter`, while high-stakes, system-wide, and revenue-impacting controls belong exclusively to `super_admin`.
 
-The following capabilities are scheduled to become **Super-Admin-Only**:
+The following capabilities are proposed for future Super-Admin-only control, subject to separate owner approval and implementation:
 
 ### A. E-Paper Complete Lifecycle
 The daily E-Paper publication carries direct brand, commercial, and legal significance. The following actions will be restricted to Super Admin:
@@ -92,7 +92,7 @@ To prevent operational bottlenecks, clear distinctions are established between p
 - **Ordinary Election Journalism** (In Scope for Editorial):
   - Writing election stories, field reports, interviews, candidate profiles, and opinion pieces.
   - Adding "Election" category or tags to articles.
-  - Reporters and copy editors have standard rights to draft and publish election news.
+  - Ordinary election journalism uses the normal editorial workflow and the same role permissions as other newsroom content. Reporters may draft and submit eligible election stories; copy editors may perform their normal scoped editorial review; publishing authority remains with roles authorized by the canonical runtime permission helpers.
 - **Election Platform Controls** (Super-Admin-Only):
   - Configuring real-time election tally APIs, live result banners, constituency maps, and third-party feed connectors.
 
