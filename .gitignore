@@ -59,3 +59,7 @@ public/demo/lokswami/
 
 # Runtime logs
 storage/logs/
+.vercel
+.env*
+!.env*.example
+!.env.example
