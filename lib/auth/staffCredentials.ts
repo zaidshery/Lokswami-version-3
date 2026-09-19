@@ -4,6 +4,7 @@ import connectDB from '@/lib/db/mongoose';
 import User from '@/lib/models/User';
 import { hashPassword, verifyPassword } from '@/lib/auth/jwt';
 import { isAdminRole, type AdminRole } from '@/lib/auth/roles';
+import { isConfiguredBootstrapLoginId } from '@/lib/auth/adminCredentials';
 
 const DEFAULT_SETUP_TOKEN_HOURS = 48;
 
@@ -158,6 +159,11 @@ export async function reserveUniqueStaffLoginId(input: {
       suffix === 0
         ? base
         : `${base.slice(0, Math.max(1, 32 - String(suffix + 1).length - 1))}-${suffix + 1}`;
+
+    if (isConfiguredBootstrapLoginId(candidate)) {
+      suffix += 1;
+      continue;
+    }
 
     const query: Record<string, unknown> = { loginId: candidate };
     if (input.excludeUserId && isObjectId(input.excludeUserId)) {

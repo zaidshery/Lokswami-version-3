@@ -72,6 +72,32 @@ export function isAdminCredentialsAuthConfigured() {
   return Boolean(getConfiguredProfile());
 }
 
+export function isBootstrapAdminUserId(userId: unknown): boolean {
+  return typeof userId === 'string' && userId.trim().startsWith('env-admin:');
+}
+
+export function getConfiguredBootstrapLoginIds(): Set<string> {
+  const ids = new Set<string>();
+  const loginId = normalizeIdentifier(process.env.ADMIN_LOGIN_ID);
+  if (loginId) {
+    ids.add(loginId);
+  }
+  const username = normalizeIdentifier(process.env.ADMIN_USERNAME);
+  if (username) {
+    ids.add(username);
+  }
+  return ids;
+}
+
+export function isConfiguredBootstrapLoginId(value: string | null | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+  const normalized = normalizeIdentifier(value);
+  const configured = getConfiguredBootstrapLoginIds();
+  return configured.has(normalized);
+}
+
 export async function authorizeAdminCredentials(input: {
   loginId?: string;
   password?: string;

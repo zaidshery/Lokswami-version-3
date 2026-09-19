@@ -170,6 +170,22 @@ async function main() {
 
       expect(result?.userId === 'env-admin:admin', 'expected escaped hash normalization to work');
     });
+
+    await runCase('isBootstrapAdminUserId detects env-admin user IDs', () => {
+      expect(adminCredentials.isBootstrapAdminUserId('env-admin:admin'), 'expected env-admin:admin to match');
+      expect(adminCredentials.isBootstrapAdminUserId('env-admin:qa.superadmin'), 'expected env-admin:qa.superadmin to match');
+      expect(!adminCredentials.isBootstrapAdminUserId('66f1234567890abcdef12345'), 'expected DB user ID not to match');
+      expect(!adminCredentials.isBootstrapAdminUserId('admin'), 'expected bare username not to match');
+      expect(!adminCredentials.isBootstrapAdminUserId(null), 'expected null not to match');
+    });
+
+    await runCase('isConfiguredBootstrapLoginId detects configured bootstrap identifiers case-insensitively', () => {
+      expect(adminCredentials.isConfiguredBootstrapLoginId('admin'), 'expected admin to match');
+      expect(adminCredentials.isConfiguredBootstrapLoginId('ADMIN'), 'expected ADMIN to match');
+      expect(adminCredentials.isConfiguredBootstrapLoginId('AdMiN'), 'expected AdMiN to match');
+      expect(!adminCredentials.isConfiguredBootstrapLoginId('editor'), 'expected editor not to match');
+      expect(!adminCredentials.isConfiguredBootstrapLoginId(''), 'expected empty string not to match');
+    });
   } finally {
     restoreEnv(originalEnv);
   }
