@@ -6,6 +6,9 @@ const {
   releaseDevServerState,
   updateDevServerChildPid,
 } = require('./dev-server-state');
+const { loadStagingEnvFiles } = require('./validate-staging-env');
+
+loadStagingEnvFiles();
 
 const projectRoot = process.cwd();
 let claimedState;

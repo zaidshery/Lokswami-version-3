@@ -43,6 +43,8 @@ function runGit(command) {
 const ALLOWED_ENV_PATTERNS = [
   /^\.env\.example$/i,
   /^\.env\.template$/i,
+  /^\.env\..+\.example$/i,
+  /^\.env\..+\.template$/i,
 ];
 
 // Patterns strictly considered dangerous or unapproved for commits
