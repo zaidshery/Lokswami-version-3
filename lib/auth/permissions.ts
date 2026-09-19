@@ -244,7 +244,7 @@ export function canViewPage(
 }
 
 export function canManageTeam(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canManageTargetAdminRole(
@@ -285,11 +285,23 @@ export function canManageSettings(role: AdminRole | null | undefined): boolean {
 }
 
 export function canManageNewsroomSettings(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canRunGlobalAiOps(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
+}
+
+export function canManagePolls(role: AdminRole | null | undefined): boolean {
+  return isSuperAdminRole(role);
+}
+
+export function canManageUsers(role: AdminRole | null | undefined): boolean {
+  return isSuperAdminRole(role);
+}
+
+export function canDispatchSocialPosts(role: AdminRole | null | undefined): boolean {
+  return isSuperAdminRole(role);
 }
 
 export function canManageLeadershipReports(
@@ -421,11 +433,11 @@ export function canDeleteContent(
 }
 
 export function canCreateEpaper(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canEditEpaper(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || role === 'copy_editor' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canPrepareEpaperForPublish(
@@ -437,11 +449,11 @@ export function canPrepareEpaperForPublish(
 export function canManageEpaperAssignments(
   role: AdminRole | null | undefined
 ): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canPublishEpaper(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canDeleteEpaper(role: AdminRole | null | undefined): boolean {

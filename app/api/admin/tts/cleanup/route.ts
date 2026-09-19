@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
+import { canRunGlobalAiOps } from '@/lib/auth/permissions';
 import {
   ttsService,
   TtsValidationError,
@@ -21,6 +22,9 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
+    }
+    if (!canRunGlobalAiOps(admin.role)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;

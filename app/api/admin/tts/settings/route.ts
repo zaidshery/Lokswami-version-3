@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
+import { canRunGlobalAiOps } from '@/lib/auth/permissions';
 import {
   ttsService,
   TtsValidationError,
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
     const admin = await getAdminSessionFromReq(req);
     if (!admin) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!canRunGlobalAiOps(admin.role)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const data = await ttsService.getSettings(admin);
@@ -44,6 +48,9 @@ export async function PUT(req: NextRequest) {
     const admin = await getAdminSessionFromReq(req);
     if (!admin) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!canRunGlobalAiOps(admin.role)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     await ttsService.recordConfigAttempt(admin);

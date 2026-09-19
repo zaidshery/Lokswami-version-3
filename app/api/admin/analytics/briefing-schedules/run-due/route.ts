@@ -16,19 +16,25 @@ function hasValidCronSecret(req: NextRequest) {
   return bearer === configured || directHeader === configured || querySecret === configured;
 }
 
-async function isAuthorized(req: NextRequest) {
+async function authorize(req: NextRequest) {
   if (hasValidCronSecret(req)) {
-    return true;
+    return null;
   }
 
   const admin = await getAdminSession();
-  return Boolean(admin && canManageLeadershipReports(admin.role));
+  if (!admin) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!canManageLeadershipReports(admin.role)) {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+
+  return null;
 }
 
 async function handleRunDue(req: NextRequest) {
-  if (!(await isAuthorized(req))) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await authorize(req);
+  if (denied) return denied;
 
   try {
     const payload = await runDueLeadershipReportSchedules();

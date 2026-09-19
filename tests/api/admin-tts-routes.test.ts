@@ -105,8 +105,20 @@ describe('Admin TTS Routes', () => {
       expect(res.status).toBe(401);
     });
 
+    it.each(['admin', 'copy_editor', 'reporter'] as const)(
+      'returns 403 for %s before cleanup executes',
+      async (role) => {
+        getAdminSessionFromReqMock.mockResolvedValue({ id: `${role}-1`, role });
+        const { POST } = await import('@/app/api/admin/tts/cleanup/route');
+        const res = await POST(createPostRequest('http://localhost/api/admin/tts/cleanup'));
+
+        expect(res.status).toBe(403);
+        expect(cleanupAssetsMock).not.toHaveBeenCalled();
+      }
+    );
+
     it('delegates to ttsService.cleanupAssets and returns historical response shape', async () => {
-      getAdminSessionFromReqMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+      getAdminSessionFromReqMock.mockResolvedValue({ id: 'super-1', role: 'super_admin' });
       cleanupAssetsMock.mockResolvedValue({
         dryRun: false,
         retentionDays: 90,
@@ -143,12 +155,12 @@ describe('Admin TTS Routes', () => {
           status: 'stale',
           dryRun: false,
         }),
-        expect.objectContaining({ id: 'admin-1' })
+        expect.objectContaining({ id: 'super-1' })
       );
     });
 
     it('returns 500 with historical error string on unexpected service error', async () => {
-      getAdminSessionFromReqMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+      getAdminSessionFromReqMock.mockResolvedValue({ id: 'super-1', role: 'super_admin' });
       cleanupAssetsMock.mockRejectedValue(new Error('Database disk error'));
 
       const { POST } = await import('@/app/api/admin/tts/cleanup/route');
@@ -171,8 +183,20 @@ describe('Admin TTS Routes', () => {
       expect(res.status).toBe(401);
     });
 
+    it.each(['admin', 'copy_editor', 'reporter'] as const)(
+      'returns 403 for %s before revalidation executes',
+      async (role) => {
+        getAdminSessionFromReqMock.mockResolvedValue({ id: `${role}-1`, role });
+        const { POST } = await import('@/app/api/admin/tts/revalidate/route');
+        const res = await POST(createPostRequest('http://localhost/api/admin/tts/revalidate'));
+
+        expect(res.status).toBe(403);
+        expect(revalidateAssetsMock).not.toHaveBeenCalled();
+      }
+    );
+
     it('delegates to ttsService.revalidateAssets', async () => {
-      getAdminSessionFromReqMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+      getAdminSessionFromReqMock.mockResolvedValue({ id: 'super-1', role: 'super_admin' });
       revalidateAssetsMock.mockResolvedValue({
         processed: 5,
         ready: 5,
@@ -196,7 +220,7 @@ describe('Admin TTS Routes', () => {
           status: 'all',
           limit: 10,
         }),
-        expect.objectContaining({ id: 'admin-1' })
+        expect.objectContaining({ id: 'super-1' })
       );
     });
   });
@@ -220,8 +244,23 @@ describe('Admin TTS Routes', () => {
       expect(data.data.mode).toBe('manual-upload-only');
     });
 
-    it('PUT rejects auto-TTS configuration with 405 and records skipped audit event', async () => {
+    it('PUT rejects non-owner configuration attempts with 403', async () => {
       getAdminSessionFromReqMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+
+      const { PUT } = await import('@/app/api/admin/tts/settings/route');
+      const res = await PUT(
+        createPutRequest('http://localhost/api/admin/tts/settings', {
+          enabled: true,
+          provider: 'gemini',
+        })
+      );
+
+      expect(res.status).toBe(403);
+      expect(recordConfigAttemptMock).not.toHaveBeenCalled();
+    });
+
+    it('PUT preserves the removed-config 405 contract for super admin', async () => {
+      getAdminSessionFromReqMock.mockResolvedValue({ id: 'super-1', role: 'super_admin' });
 
       const { PUT } = await import('@/app/api/admin/tts/settings/route');
       const res = await PUT(
@@ -236,7 +275,7 @@ describe('Admin TTS Routes', () => {
       expect(data.success).toBe(false);
       expect(data.error).toContain('Auto-TTS configuration has been removed');
       expect(recordConfigAttemptMock).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'admin-1' })
+        expect.objectContaining({ id: 'super-1' })
       );
     });
   });
