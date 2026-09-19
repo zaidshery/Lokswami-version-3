@@ -23,7 +23,7 @@ export default async function RevenuePage() {
   }
 
   if (!canViewPage(admin.role, 'revenue')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const dashboard = await getAdminDashboardData();

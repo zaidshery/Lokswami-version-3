@@ -70,7 +70,7 @@ export default async function PermissionReviewPage() {
   }
 
   if (!canViewPage(admin.role, 'permission_review')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const review = await getPermissionReviewData();

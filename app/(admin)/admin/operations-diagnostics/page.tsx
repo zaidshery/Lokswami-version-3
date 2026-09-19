@@ -90,7 +90,7 @@ export default async function OperationsDiagnosticsPage() {
   }
 
   if (!canViewPage(admin.role, 'operations_diagnostics')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const [diagnostics, requestLogs] = await Promise.all([

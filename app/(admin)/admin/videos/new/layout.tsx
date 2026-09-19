@@ -11,7 +11,7 @@ export default async function NewVideoLayout({ children }: { children: ReactNode
     redirect('/signin?redirect=/admin/videos/new');
   }
   if (!canViewPage(admin.role, 'video_create')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
   return children;
 }

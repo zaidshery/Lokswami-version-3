@@ -12,7 +12,7 @@ export default async function NewArticlePage() {
   }
 
   if (!canViewPage(admin.role, 'article_create')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   if (admin.role === 'reporter') {

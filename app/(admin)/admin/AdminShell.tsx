@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import {
   Activity,
+  AlertTriangle,
   ClipboardList,
   BarChart3,
   BellRing,
@@ -160,7 +161,7 @@ const ADMIN_MOBILE_DOCK_HREFS = [
   '/admin/work',
   '/admin/copy-desk',
   '/admin/push-alerts',
-  '/admin/team',
+  '/admin/articles',
 ] as const;
 
 const COPY_EDITOR_MOBILE_DOCK_HREFS = [
@@ -382,6 +383,7 @@ export default function AdminShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isHydrated, setIsHydrated] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [toolSearch, setToolSearch] = useState('');
@@ -522,6 +524,14 @@ export default function AdminShell({
     : adminRoleLabel;
   const hasMobileDock = mobileDockItems.length > 0;
   const mobileHeaderLabel = headerLabel;
+  const showAccessDenied = searchParams.get('access') === 'denied';
+
+  const dismissAccessDenied = () => {
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    nextSearchParams.delete('access');
+    const query = nextSearchParams.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
 
   const handleLogout = async () => {
     try {
@@ -830,6 +840,32 @@ export default function AdminShell({
             hasMobileDock && 'pb-28 lg:pb-8'
           )}
         >
+          {showAccessDenied ? (
+            <div
+              role="alert"
+              className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-400/40 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm dark:bg-amber-500/10 dark:text-amber-100"
+            >
+              <AlertTriangle aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  {isHindi ? 'एक्सेस अस्वीकृत' : 'Access denied'}
+                </p>
+                <p className="mt-0.5 text-sm opacity-80">
+                  {isHindi
+                    ? 'आपकी भूमिका को उस पेज को देखने की अनुमति नहीं है।'
+                    : 'Your role does not have permission to view that page.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={dismissAccessDenied}
+                aria-label={isHindi ? 'संदेश बंद करें' : 'Dismiss access denied message'}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-amber-950/10 dark:hover:bg-white/10"
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
           {children}
         </div>
       </main>

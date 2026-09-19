@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   pathname: '/admin',
+  searchParams: new URLSearchParams(),
   push: vi.fn(),
+  replace: vi.fn(),
   refresh: vi.fn(),
   setTheme: vi.fn(),
   toggleLanguage: vi.fn(),
@@ -12,7 +14,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mocks.pathname,
-  useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }),
+  useRouter: () => ({ push: mocks.push, replace: mocks.replace, refresh: mocks.refresh }),
+  useSearchParams: () => mocks.searchParams,
 }));
 
 vi.mock('next-auth/react', () => ({ signOut: vi.fn() }));
@@ -59,12 +62,13 @@ function renderShell(role: 'super_admin' | 'admin' | 'copy_editor' | 'reporter')
 afterEach(() => {
   cleanup();
   mocks.pathname = '/admin';
+  mocks.searchParams = new URLSearchParams();
   vi.clearAllMocks();
 });
 
 describe('AdminShell role-aware navigation', () => {
   it('finds permitted tools in either language and recovers from an empty search', () => {
-    renderShell('admin');
+    renderShell('super_admin');
     const search = screen.getByRole('searchbox', { name: 'Find newsroom tools' });
     const tools = within(screen.getByRole('navigation', { name: 'Newsroom tools' }));
     fireEvent.change(search, { target: { value: 'ई-मैग' } });
@@ -85,12 +89,70 @@ describe('AdminShell role-aware navigation', () => {
     expect(tools.queryByRole('link')).not.toBeInTheDocument();
     expect(tools.getByRole('status')).toHaveTextContent('No matching tools.');
   });
-  it('exposes authorized tools to admins and keeps them hidden from reporters', () => {
+  it('shows control-plane links only to super admin', () => {
+    renderShell('super_admin');
+
+    for (const label of [
+      'Team',
+      'Operations Center',
+      'E-Papers',
+      'Polls',
+      'AI Ops',
+      'Users & Subscribers',
+      'Elections',
+      'Newsroom Settings',
+      'Settings',
+    ]) {
+      expect(screen.getAllByRole('link', { name: label }).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('shows and dismisses access-denied feedback without hiding permitted content', () => {
+    mocks.pathname = '/admin/work';
+    mocks.searchParams = new URLSearchParams('access=denied');
+    renderShell('reporter');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Access denied');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Your role does not have permission to view that page.'
+    );
+    expect(screen.getByRole('heading', { name: 'Content workspace' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss access denied message' }));
+    expect(mocks.replace).toHaveBeenCalledWith('/admin/work', { scroll: false });
+  });
+
+  it('preserves admin newsroom tools without exposing control-plane links', () => {
     renderShell('admin');
 
     expect(screen.getAllByRole('link', { name: /Categories/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /Contact Messages/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: /AI Ops/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /^Articles$/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /Social Posts/i }).length).toBeGreaterThan(0);
+
+    for (const label of [
+      'Team',
+      'Operations Center',
+      'E-Papers',
+      'Polls',
+      'AI Ops',
+      'Users & Subscribers',
+      'Elections',
+      'Newsroom Settings',
+      'Settings',
+    ]) {
+      expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
+    }
+  });
+
+  it('preserves copy-editor and reporter newsroom navigation', () => {
+    renderShell('copy_editor');
+
+    for (const label of ['Copy Desk', 'Articles', 'Social Posts', 'Media']) {
+      expect(screen.getAllByRole('link', { name: label }).length).toBeGreaterThan(0);
+    }
+    expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'AI Ops' })).not.toBeInTheDocument();
 
     cleanup();
     renderShell('reporter');
@@ -99,7 +161,34 @@ describe('AdminShell role-aware navigation', () => {
     expect(screen.queryByRole('link', { name: /^Articles$/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Article Create/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /My Stories/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /Media/i }).length).toBeGreaterThan(0);
   }, 15_000);
+
+  it.each([
+    ['super_admin', ['/admin', '/admin/work', '/admin/analytics', '/admin/operations', '/admin/settings']],
+    ['admin', ['/admin', '/admin/work', '/admin/copy-desk', '/admin/push-alerts', '/admin/articles']],
+    ['copy_editor', ['/admin', '/admin/work', '/admin/copy-desk', '/admin/articles', '/admin/media']],
+    ['reporter', ['/admin', '/admin/work', '/admin/articles/new', '/admin/stories', '/admin/media']],
+  ] as const)('keeps the %s mobile dock within permitted routes', (role, expectedHrefs) => {
+    renderShell(role);
+    const dock = within(screen.getByRole('navigation', { name: 'Quick newsroom navigation' }));
+    const hrefs = dock.getAllByRole('link').map((link) => link.getAttribute('href'));
+
+    expect(hrefs).toEqual(expectedHrefs);
+    if (role === 'admin') {
+      expect(hrefs).not.toContain('/admin/team');
+    }
+  });
+
+  it.each([
+    ['super_admin', 'Super Admin'],
+    ['admin', 'Admin'],
+    ['copy_editor', 'Copy Editor'],
+    ['reporter', 'Reporter'],
+  ] as const)('displays the canonical %s role as %s', (role, label) => {
+    renderShell(role);
+    expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+  });
 
   it('marks only the most specific nested route as current', () => {
     mocks.pathname = '/admin/analytics/business-value';

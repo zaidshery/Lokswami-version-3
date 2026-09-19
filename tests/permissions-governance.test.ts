@@ -76,12 +76,12 @@ describe('governance permission helpers', () => {
     expect(canViewPage(superAdmin.role, 'revenue')).toBe(true);
     expect(canViewPage(admin.role, 'analytics')).toBe(true);
     expect(canViewPage(admin.role, 'business_value')).toBe(false);
-    expect(canViewPage(admin.role, 'polls')).toBe(true);
+    expect(canViewPage(admin.role, 'polls')).toBe(false);
     expect(canViewPage(admin.role, 'settings')).toBe(false);
     expect(canViewPage(admin.role, 'revenue')).toBe(false);
     expect(canViewPage(copyEditor.role, 'polls')).toBe(false);
     expect(canViewPage(reporter.role, 'polls')).toBe(false);
-    expect(canViewPage(admin.role, 'newsroom_settings')).toBe(true);
+    expect(canViewPage(admin.role, 'newsroom_settings')).toBe(false);
     expect(canManageLeadershipReports(superAdmin.role)).toBe(true);
     expect(canManageLeadershipReports(admin.role)).toBe(false);
     expect(canManageSettings(superAdmin.role)).toBe(true);
@@ -90,7 +90,7 @@ describe('governance permission helpers', () => {
     expect(canManageTeam(admin.role)).toBe(false);
   });
 
-  it('restricts control-plane actions to super admin without changing shell visibility', () => {
+  it('restricts control-plane actions and page visibility to super admin', () => {
     const elevatedChecks = [
       canManageTeam,
       canManageSettings,
@@ -109,10 +109,25 @@ describe('governance permission helpers', () => {
       expect(check(reporter.role)).toBe(false);
     }
 
-    expect(canViewPage(admin.role, 'team')).toBe(true);
-    expect(canViewPage(admin.role, 'polls')).toBe(true);
-    expect(canViewPage(admin.role, 'newsroom_settings')).toBe(true);
-    expect(canViewPage(admin.role, 'ai_ops')).toBe(true);
+    const controlPlanePages = [
+      'epapers',
+      'epaper_create',
+      'epaper_edit',
+      'epaper_page_edit',
+      'team',
+      'polls',
+      'newsroom_settings',
+      'ai_ops',
+      'users',
+      'operations_center',
+    ] as const;
+
+    for (const page of controlPlanePages) {
+      expect(canViewPage(superAdmin.role, page)).toBe(true);
+      expect(canViewPage(admin.role, page)).toBe(false);
+      expect(canViewPage(copyEditor.role, page)).toBe(false);
+      expect(canViewPage(reporter.role, page)).toBe(false);
+    }
   });
 
   it('routes newsroom control panels to the correct desks', () => {

@@ -56,7 +56,7 @@ export default async function CopyDeskPage() {
   }
 
   if (!canViewPage(admin.role, 'copy_desk')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const control = await getNewsroomControlCenterData();
