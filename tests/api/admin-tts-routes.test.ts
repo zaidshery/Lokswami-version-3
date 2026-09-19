@@ -7,6 +7,7 @@ const cleanupAssetsMock = vi.fn();
 const revalidateAssetsMock = vi.fn();
 const getSettingsMock = vi.fn();
 const recordConfigAttemptMock = vi.fn();
+const processQueuedTtsAssetsMock = vi.fn();
 
 vi.mock('@/lib/auth/admin', () => ({
   getAdminSession: getAdminSessionFromReqMock,
@@ -34,6 +35,10 @@ vi.mock('@/lib/server/audio/ttsService', () => {
     },
   };
 });
+
+vi.mock('@/lib/server/ttsAssets', () => ({
+  processQueuedTtsAssets: processQueuedTtsAssetsMock,
+}));
 
 function createGetRequest(url: string) {
   return new Request(url, {
@@ -222,6 +227,46 @@ describe('Admin TTS Routes', () => {
         }),
         expect.objectContaining({ id: 'super-1' })
       );
+    });
+  });
+
+  describe('POST /api/admin/tts/jobs/run-due', () => {
+    it('returns 401 for guests before the worker executes', async () => {
+      getAdminSessionFromReqMock.mockResolvedValue(null);
+      const { POST } = await import('@/app/api/admin/tts/jobs/run-due/route');
+      const res = await POST(createPostRequest('http://localhost/api/admin/tts/jobs/run-due'));
+
+      expect(res.status).toBe(401);
+      expect(processQueuedTtsAssetsMock).not.toHaveBeenCalled();
+    });
+
+    it.each(['admin', 'copy_editor', 'reporter'] as const)(
+      'returns 403 for %s before the worker executes',
+      async (role) => {
+        getAdminSessionFromReqMock.mockResolvedValue({ id: `${role}-1`, role });
+        const { POST } = await import('@/app/api/admin/tts/jobs/run-due/route');
+        const res = await POST(createPostRequest('http://localhost/api/admin/tts/jobs/run-due'));
+
+        expect(res.status).toBe(403);
+        expect(processQueuedTtsAssetsMock).not.toHaveBeenCalled();
+      }
+    );
+
+    it('allows super admin and delegates to the worker', async () => {
+      getAdminSessionFromReqMock.mockResolvedValue({ id: 'super-1', role: 'super_admin' });
+      processQueuedTtsAssetsMock.mockResolvedValue({ processed: 2, errors: 0 });
+      const { POST } = await import('@/app/api/admin/tts/jobs/run-due/route');
+      const res = await POST(
+        createPostRequest('http://localhost/api/admin/tts/jobs/run-due', { limit: 2 })
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data).toEqual({
+        success: true,
+        data: { processed: 2, errors: 0 },
+      });
+      expect(processQueuedTtsAssetsMock).toHaveBeenCalledWith({ limit: 2 });
     });
   });
 
