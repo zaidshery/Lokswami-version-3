@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
 import connectDB from '@/lib/db/mongoose';
@@ -548,7 +549,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
+async function PATCHHandler(
   req: NextRequest,
   context: RouteContext
 ) {
@@ -847,7 +848,7 @@ export async function PATCH(
   }
 }
 
-export async function PUT(
+async function PUTHandler(
   req: NextRequest,
   context: RouteContext
 ) {
@@ -1109,7 +1110,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function DELETEHandler(
   req: NextRequest,
   context: RouteContext
 ) {
@@ -1171,3 +1172,7 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);
+export const PUT = withAdminMutation(PUTHandler);
+export const DELETE = withAdminMutation(DELETEHandler);

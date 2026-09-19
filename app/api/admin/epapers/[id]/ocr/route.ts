@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { epaperOcrService } from '@/lib/server/epaper/epaperOcrService';
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function POSTHandler(request: NextRequest, context: RouteContext) {
   const actor = await getAdminSessionFromReq(request);
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
@@ -31,3 +32,5 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Could not queue OCR. Please retry.' }, { status: 503 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canDispatchSocialPosts } from '@/lib/auth/permissions';
@@ -6,7 +7,7 @@ import { socialDistributionService } from '@/lib/server/distribution/socialDistr
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(req: NextRequest, context: RouteContext) {
+async function POSTHandler(req: NextRequest, context: RouteContext) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -44,3 +45,5 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

@@ -9,9 +9,17 @@ vi.mock('@/lib/server/epaperActivity', () => ({
 import { EpaperRevisionService } from '@/lib/server/epaper/epaperRevisionService';
 import type { EpaperRepository } from '@/lib/server/epaper/epaperRepository';
 import type { CreateEpaperTtsAssetInput } from '@/lib/server/epaper/epaperTypes';
+import { EpaperForbiddenError } from '@/lib/server/epaper/epaperTypes';
 import TtsAsset from '@/lib/models/TtsAsset';
 
 const actor = {
+  id: 'super-admin-1',
+  username: 'superadmin',
+  name: 'Super Admin',
+  email: 'owner@example.com',
+  role: 'super_admin' as const,
+};
+const adminActor = {
   id: 'admin-1',
   username: 'admin',
   name: 'Admin',
@@ -139,5 +147,15 @@ describe('EpaperRevisionService manual TTS clone compatibility', () => {
     }]);
     await expect(new TtsAsset(createdTtsAssets[0]).validate()).resolves.toBeUndefined();
     expect(sourceAsset).toEqual(originalAsset);
+  });
+
+  it('denies ordinary admins from creating e-paper revisions', async () => {
+    const repo = {
+      isValidId: vi.fn(() => true),
+      connect: vi.fn(),
+    } as unknown as EpaperRepository;
+
+    await expect(new EpaperRevisionService(repo).create(adminActor, sourceId))
+      .rejects.toBeInstanceOf(EpaperForbiddenError);
   });
 });

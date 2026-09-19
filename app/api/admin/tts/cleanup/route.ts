@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canRunGlobalAiOps } from '@/lib/auth/permissions';
@@ -14,7 +15,7 @@ function parseLimit(value: unknown, fallback: number) {
   return Math.min(500, Math.max(1, Math.floor(parsed)));
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const admin = await getAdminSessionFromReq(req);
     if (!admin) {
@@ -62,3 +63,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

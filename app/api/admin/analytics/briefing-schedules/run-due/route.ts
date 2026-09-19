@@ -1,6 +1,7 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { runDueLeadershipReportSchedules } from '@/lib/admin/leadershipReportRunner';
-import { getAdminSession } from '@/lib/auth/admin';
+import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canManageLeadershipReports } from '@/lib/auth/permissions';
 
 function hasValidCronSecret(req: NextRequest) {
@@ -21,7 +22,7 @@ async function authorize(req: NextRequest) {
     return null;
   }
 
-  const admin = await getAdminSession();
+  const admin = await getAdminSessionFromReq(req);
   if (!admin) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -63,10 +64,8 @@ async function handleRunDue(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   return handleRunDue(req);
 }
 
-export async function POST(req: NextRequest) {
-  return handleRunDue(req);
-}
+export const POST = withAdminMutation(POSTHandler, { machineRequest: hasValidCronSecret });

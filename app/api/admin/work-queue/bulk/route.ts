@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { canManageWorkflowAssignments, canViewPage } from '@/lib/auth/permissions';
@@ -7,7 +8,7 @@ import { isWorkflowPriority } from '@/lib/workflow/types';
 
 type BulkItem = { contentType?: unknown; id?: unknown; expectedVersion?: unknown };
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   const admin = await getAdminSession();
   if (!admin) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   if (!canViewPage(admin.role, 'work_queue') || !canManageWorkflowAssignments(admin.role)) {
@@ -54,3 +55,5 @@ export async function PATCH(request: Request) {
     data: { succeeded, failed: results.length - succeeded, results },
   }, { status: succeeded ? 200 : 400 });
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

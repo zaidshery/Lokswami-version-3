@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { EditorialRevisionService } from '@/lib/server/content/editorialRevisionService';
@@ -13,7 +14,7 @@ type RouteContext = {
   params: Promise<{ id: string; revisionId: string }>;
 };
 
-export async function POST(req: NextRequest, context: RouteContext) {
+async function POSTHandler(req: NextRequest, context: RouteContext) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -75,3 +76,5 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

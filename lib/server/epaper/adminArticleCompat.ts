@@ -120,14 +120,7 @@ function validateEpaperArticleInput(
   return null;
 }
 
-export async function getEpaperArticleDetail(id: string, actor: Pick<AdminSessionIdentity, 'role'>) {
-  if (!canEditEpaper(actor.role)) {
-    return {
-      status: 403,
-      payload: { success: false, error: 'Forbidden' },
-    };
-  }
-
+export async function getEpaperArticleDetail(id: string) {
   await connectDB();
   const epaperArticle = await findEpaperArticle(id);
   if (!epaperArticle) {

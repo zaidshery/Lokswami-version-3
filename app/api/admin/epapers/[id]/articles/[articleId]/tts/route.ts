@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { epaperTtsService } from '@/lib/server/epaper/epaperTtsService';
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   const actor = await getAdminSessionFromReq(req);
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -28,3 +29,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to handle story audio request.' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

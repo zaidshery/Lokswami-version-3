@@ -46,9 +46,47 @@ type AuditResourceType = IAuditLog['resourceType'];
 const MAX_AUDIT_STRING_LENGTH = 2000;
 const MAX_AUDIT_ARRAY_LENGTH = 25;
 const MAX_AUDIT_OBJECT_KEYS = 50;
+const SENSITIVE_AUDIT_FIELDS = [
+  'password',
+  'passwordHash',
+  'token',
+  'secret',
+  'apiKey',
+  'accessKey',
+  'authorization',
+  'cookie',
+  'credential',
+  'privateKey',
+  'sessionId',
+  'setupUrl',
+  'creditCard',
+  'ssn',
+  'pin',
+];
+
+function isSensitiveAuditField(key: string) {
+  const normalized = key.toLowerCase();
+  return SENSITIVE_AUDIT_FIELDS.some((field) =>
+    normalized.includes(field.toLowerCase())
+  );
+}
+
+function sanitizeAuditMessage(value: string) {
+  return value
+    .slice(0, MAX_AUDIT_STRING_LENGTH)
+    .replace(
+      /(password|token|secret|api[-_]?key|authorization|cookie|credential|private[-_]?key|session[-_]?id)(\s*[:=]\s*)([^\r\n,;]+)/gi,
+      '$1$2[REDACTED]'
+    );
+}
 
 function isAuditLoggingDisabled() {
-  return process.env.DISABLE_AUDIT_LOG === 'true' || process.env.DISABLE_AUDIT_LOG === '1';
+  return (
+    process.env.DISABLE_AUDIT_LOG === 'true' ||
+    process.env.DISABLE_AUDIT_LOG === '1' ||
+    (process.env.NODE_ENV === 'test' &&
+      process.env.ENABLE_AUDIT_LOG_IN_TESTS !== 'true')
+  );
 }
 
 /**
@@ -82,9 +120,15 @@ export async function logAuditAction(input: AuditLogInput): Promise<IAuditLog | 
       duration: input.duration,
       requestData: input.requestData ? sanitizeRequestData(input.requestData) : undefined,
       responseStatus: input.responseStatus,
-      errorMessage: input.errorMessage,
-      changesBefore: input.changesBefore,
-      changesAfter: input.changesAfter,
+      errorMessage: input.errorMessage
+        ? sanitizeAuditMessage(input.errorMessage)
+        : undefined,
+      changesBefore: input.changesBefore
+        ? sanitizeRequestData(input.changesBefore)
+        : undefined,
+      changesAfter: input.changesAfter
+        ? sanitizeRequestData(input.changesAfter)
+        : undefined,
       changedFields: input.changedFields,
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
@@ -106,24 +150,12 @@ export async function logAuditAction(input: AuditLogInput): Promise<IAuditLog | 
  * @returns Sanitized data
  */
 function sanitizeRequestData(data: Record<string, unknown>): Record<string, unknown> {
-  const sensitiveFields = [
-    'password',
-    'passwordHash',
-    'token',
-    'secret',
-    'apiKey',
-    'authorization',
-    'creditCard',
-    'ssn',
-    'pin',
-  ];
-
   const sanitized: Record<string, unknown> = {};
   const entries = Object.entries(data).slice(0, MAX_AUDIT_OBJECT_KEYS);
 
   for (const [key, value] of entries) {
     // Check if field is sensitive
-    if (sensitiveFields.some((field) => key.toLowerCase().includes(field.toLowerCase()))) {
+    if (isSensitiveAuditField(key)) {
       sanitized[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Recursively sanitize nested objects
@@ -198,10 +230,18 @@ export function buildAuditRequestContext(request: NextRequest) {
       }
     })();
 
+  const safeSearchParams = new URLSearchParams(requestUrl.searchParams);
+  for (const key of safeSearchParams.keys()) {
+    if (isSensitiveAuditField(key)) {
+      safeSearchParams.set(key, '[REDACTED]');
+    }
+  }
+  const safeSearch = safeSearchParams.toString();
+
   return {
     ipAddress: getClientIp(request),
     userAgent: request.headers.get('user-agent') || 'unknown',
-    endpoint: `${requestUrl.pathname}${requestUrl.search}`,
+    endpoint: `${requestUrl.pathname}${safeSearch ? `?${safeSearch}` : ''}`,
   };
 }
 

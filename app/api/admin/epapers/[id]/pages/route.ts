@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { epaperPageService } from '@/lib/server/epaper/epaperPageService';
@@ -5,7 +6,7 @@ import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function PUT(req: NextRequest, context: RouteContext) {
+async function PUTHandler(req: NextRequest, context: RouteContext) {
   const actor = await getAdminSessionFromReq(req);
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -27,3 +28,5 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: false, error: 'Failed to update page images' }, { status: 500 });
   }
 }
+
+export const PUT = withAdminMutation(PUTHandler);

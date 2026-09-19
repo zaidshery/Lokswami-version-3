@@ -13,6 +13,7 @@ import { LOKSWAMI_SESSION_COOKIE } from '@/lib/auth/cookies';
 import connectDB from '@/lib/db/mongoose';
 import User from '@/lib/models/User';
 import { Types } from 'mongoose';
+import { registerAdminMutationActor } from '@/lib/security/adminMutationContext';
 
 export type AdminSessionIdentity = {
   id: string;
@@ -32,13 +33,15 @@ export async function getAdminSession(): Promise<AdminSessionIdentity | null> {
     return null;
   }
 
-  return {
+  const identity = {
     id: sessionUser.userId || sessionUser.id || email,
     email,
     name: sessionUser.name?.trim() || email.split('@')[0] || 'Admin',
     username: email,
     role,
   };
+
+  return registerAdminMutationActor(identity) ? identity : null;
 }
 
 export async function getSuperAdminSession(): Promise<AdminSessionIdentity | null> {
@@ -79,13 +82,15 @@ export async function getAdminSessionFromReq(req: NextRequest): Promise<AdminSes
 
   // 1. Bootstrap super_admin identity bypasses MongoDB lookups entirely
   if (isBootstrapAdminUserId(tokenUserId)) {
-    return {
+    const identity = {
       id: tokenUserId,
       email,
       name: String(token.name || email.split('@')[0] || 'Admin'),
       username: email,
-      role: 'super_admin',
+      role: 'super_admin' as const,
     };
+
+    return registerAdminMutationActor(identity) ? identity : null;
   }
 
   // 2. DB-backed staff identity: re-hydrate fresh role and active status from MongoDB
@@ -123,13 +128,15 @@ export async function getAdminSessionFromReq(req: NextRequest): Promise<AdminSes
       'Admin';
     const username = (dbUser.loginId || '').trim() || freshEmail;
 
-    return {
+    const identity = {
       id: tokenUserId,
       email: freshEmail,
       name: freshName,
       username,
       role: freshRole,
     };
+
+    return registerAdminMutationActor(identity) ? identity : null;
   } catch (error) {
     console.error('Failed to rehydrate admin session from database:', error);
     return null;

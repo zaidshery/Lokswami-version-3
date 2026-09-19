@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { epaperUploadService } from '@/lib/server/epaper/epaperUploadService';
@@ -5,7 +6,7 @@ import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   const actor = await getAdminSessionFromReq(request);
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -17,3 +18,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to initialize e-paper upload.' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { epaperArticleService } from '@/lib/server/epaper/epaperArticleService';
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function POST(req: NextRequest, context: RouteContext) {
+async function POSTHandler(req: NextRequest, context: RouteContext) {
   const actor = await getAdminSession();
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -35,3 +36,5 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return errorResponse(error, 'Failed to create article');
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

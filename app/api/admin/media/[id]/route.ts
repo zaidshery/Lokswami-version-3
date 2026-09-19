@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { canViewPage } from '@/lib/auth/permissions';
@@ -6,7 +7,7 @@ import {
   MediaValidationError,
 } from '@/lib/server/media/mediaService';
 
-export async function DELETE(
+async function DELETEHandler(
   req: NextRequest,
   context?: { params?: Promise<{ id?: string }> | { id?: string } }
 ) {
@@ -36,3 +37,5 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: 'Failed to delete' }, { status: 500 });
   }
 }
+
+export const DELETE = withAdminMutation(DELETEHandler);

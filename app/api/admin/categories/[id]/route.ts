@@ -1,9 +1,10 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canViewPage } from '@/lib/auth/permissions';
 import { deleteAdminCategory } from '@/lib/server/content/adminTaxonomyService';
 
-export async function DELETE(req: NextRequest) {
+async function DELETEHandler(req: NextRequest) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -23,3 +24,5 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to delete' }, { status: 500 });
   }
 }
+
+export const DELETE = withAdminMutation(DELETEHandler);

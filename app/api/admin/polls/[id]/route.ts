@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import type { Document } from 'mongoose';
 import { Types } from 'mongoose';
@@ -31,7 +32,7 @@ function optionsChanged(current: PollDocument, nextQuestion: string, nextOptions
   return current.options.some((option, index) => option.text !== nextOptions[index]);
 }
 
-export async function PATCH(
+async function PATCHHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -151,3 +152,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

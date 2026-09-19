@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { EditorialService } from '@/lib/server/content/editorialService';
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
     const { id } = await context.params;
 
     if (isEpaperKind(req)) {
-      const epaperResult = await getEpaperArticleDetail(id, user);
+      const epaperResult = await getEpaperArticleDetail(id);
       return NextResponse.json(epaperResult.payload, { status: epaperResult.status });
     }
 
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
   }
 }
 
-export async function PUT(req: NextRequest, context: RouteContext): Promise<NextResponse> {
+async function PUTHandler(req: NextRequest, context: RouteContext): Promise<NextResponse> {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -118,7 +119,7 @@ export async function PUT(req: NextRequest, context: RouteContext): Promise<Next
   }
 }
 
-export async function PATCH(req: NextRequest, context: RouteContext): Promise<NextResponse> {
+async function PATCHHandler(req: NextRequest, context: RouteContext): Promise<NextResponse> {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -157,7 +158,7 @@ export async function PATCH(req: NextRequest, context: RouteContext): Promise<Ne
   }
 }
 
-export async function DELETE(req: NextRequest, context: RouteContext): Promise<NextResponse> {
+async function DELETEHandler(req: NextRequest, context: RouteContext): Promise<NextResponse> {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -182,3 +183,7 @@ export async function DELETE(req: NextRequest, context: RouteContext): Promise<N
     return handleEditorialError(error, 'Failed to delete article', 500);
   }
 }
+
+export const PUT = withAdminMutation(PUTHandler);
+export const PATCH = withAdminMutation(PATCHHandler);
+export const DELETE = withAdminMutation(DELETEHandler);

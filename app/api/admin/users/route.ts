@@ -278,5 +278,6 @@ export const PATCH = withAdminApi(
   },
   {
     authorize: (role) => canManageUsers(role),
+    mutation: true,
   }
 );

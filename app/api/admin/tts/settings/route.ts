@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canRunGlobalAiOps } from '@/lib/auth/permissions';
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
 }
 
 // PUT is no longer supported — auto-TTS configuration has been removed.
-export async function PUT(req: NextRequest) {
+async function PUTHandler(req: NextRequest) {
   try {
     const admin = await getAdminSessionFromReq(req);
     if (!admin) {
@@ -70,3 +71,5 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
+
+export const PUT = withAdminMutation(PUTHandler);

@@ -79,6 +79,12 @@ describe('GAP-008: E-Paper Release Snapshot Safety', () => {
     email: 'editor@lokswami.in',
     role: 'admin',
   };
+  const superAdminActor = {
+    id: 'super-admin-1',
+    name: 'Super Admin',
+    email: 'owner@lokswami.in',
+    role: 'super_admin',
+  };
 
   const initialReleasedSnapshot = {
     title: 'Approved Public Headline',
@@ -223,16 +229,26 @@ describe('GAP-008: E-Paper Release Snapshot Safety', () => {
       '@/app/api/admin/epapers/[id]/articles/[articleId]/release/route'
     );
 
-    const releaseReq = new NextRequest(
-      `http://localhost/api/admin/epapers/${epaperId}/articles/${storyId}/release`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expectedUpdatedAt: savedEditTimestamp.toISOString() }),
-      }
-    );
+    function createReleaseReq() {
+      return new NextRequest(
+        `http://localhost/api/admin/epapers/${epaperId}/articles/${storyId}/release`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expectedUpdatedAt: savedEditTimestamp.toISOString() }),
+        }
+      );
+    }
 
-    const releaseRes = await releasePost(releaseReq, {
+    // Verify ordinary admin cannot perform privileged release
+    const adminReleaseRes = await releasePost(createReleaseReq(), {
+      params: Promise.resolve({ id: epaperId, articleId: storyId }),
+    });
+    expect(adminReleaseRes.status).toBe(403);
+
+    // Switch to super_admin for authorized release
+    getAdminSessionMock.mockResolvedValue(superAdminActor);
+    const releaseRes = await releasePost(createReleaseReq(), {
       params: Promise.resolve({ id: epaperId, articleId: storyId }),
     });
     expect(releaseRes.status).toBe(200);

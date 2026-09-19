@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { epaperCropService } from '@/lib/server/epaper/epaperCropService';
@@ -6,7 +7,7 @@ import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
 export const runtime = 'nodejs';
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(req: NextRequest, context: RouteContext) {
+async function POSTHandler(req: NextRequest, context: RouteContext) {
   const actor = await getAdminSessionFromReq(req);
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -19,3 +20,5 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: false, error: message }, { status: /too small|invalid|required|missing|unsupported|inside/i.test(message) ? 400 : 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

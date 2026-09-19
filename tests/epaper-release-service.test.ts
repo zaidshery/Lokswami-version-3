@@ -16,9 +16,10 @@ vi.mock('@/lib/server/ttsAssets', () => ({
 import { recordEpaperActivity } from '@/lib/server/epaperActivity';
 import { EpaperArticleService } from '@/lib/server/epaper/epaperArticleService';
 import type { EpaperRepository } from '@/lib/server/epaper/epaperRepository';
-import { EpaperConflictError } from '@/lib/server/epaper/epaperTypes';
+import { EpaperConflictError, EpaperForbiddenError } from '@/lib/server/epaper/epaperTypes';
 
-const actor = { id: 'admin-1', username: 'admin', name: 'Admin', email: 'admin@example.com', role: 'admin' as const };
+const actor = { id: 'super-admin-1', username: 'superadmin', name: 'Super Admin', email: 'owner@example.com', role: 'super_admin' as const };
+const adminActor = { id: 'admin-1', username: 'admin', name: 'Admin', email: 'admin@example.com', role: 'admin' as const };
 const epaperId = '665000000000000000000001';
 const articleId = '665000000000000000000002';
 const expected = '2026-09-08T12:00:00.000Z';
@@ -91,5 +92,11 @@ describe('EpaperArticleService release concurrency contract', () => {
       { $set: { releasedSnapshot: expect.objectContaining({ version: 4, sourceUpdatedAt: expected }) } }
     );
     expect(recordEpaperActivity).not.toHaveBeenCalled();
+  });
+
+  it('rejects ordinary admins from releasing reader stories', async () => {
+    const repo = buildRepo();
+    await expect(new EpaperArticleService(repo).release(adminActor, epaperId, articleId, expected))
+      .rejects.toBeInstanceOf(EpaperForbiddenError);
   });
 });

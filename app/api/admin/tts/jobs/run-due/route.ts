@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canRunGlobalAiOps } from '@/lib/auth/permissions';
@@ -38,7 +39,7 @@ async function authorizeWorker(request: NextRequest) {
   return null;
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   const denied = await authorizeWorker(request);
   if (denied) return denied;
 
@@ -53,3 +54,4 @@ export async function POST(request: NextRequest) {
   });
 }
 
+export const POST = withAdminMutation(POSTHandler, { machineRequest: hasCronSecret });

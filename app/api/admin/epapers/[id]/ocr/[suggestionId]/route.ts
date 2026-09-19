@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { epaperOcrService } from '@/lib/server/epaper/epaperOcrService';
@@ -5,7 +6,7 @@ import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
 
 type RouteContext = { params: Promise<{ id: string; suggestionId: string }> };
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function PATCHHandler(request: NextRequest, context: RouteContext) {
   const actor = await getAdminSessionFromReq(request);
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -21,3 +22,5 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: false, error: 'Failed to review suggestion.' }, { status: 500 });
   }
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

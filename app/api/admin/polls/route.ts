@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import type { Document } from 'mongoose';
 import { Types } from 'mongoose';
@@ -49,7 +50,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const admin = await getAdminSession();
     if (!admin) {
@@ -136,3 +137,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);
