@@ -63,6 +63,7 @@ export type WorkQueueFilters = {
   sort?: WorkQueueSort;
   cursor?: string;
   limit?: number;
+  mineOnly?: boolean;
 };
 
 export type WorkQueueOverview = {
@@ -307,7 +308,8 @@ export async function getWorkQueueOverview(
   const filters = normalizeFilters(input);
   const all = (await getAllWorkflowDeskItems())
     .filter((item) => canReadQueueItem(user, item))
-    .map((item) => toWorkQueueItem(user, item));
+    .map((item) => toWorkQueueItem(user, item))
+    .filter((item) => !input.mineOnly || item.isMine);
 
   const viewCounts = Object.fromEntries(
     WORK_QUEUE_VIEWS.map((view) => [view, all.filter((item) => matchesView(item, view)).length])
@@ -317,7 +319,13 @@ export async function getWorkQueueOverview(
     all.filter((item) => {
       if (!matchesView(item, filters.view)) return false;
       if (filters.contentType !== 'all' && item.contentType !== filters.contentType) return false;
-      if (filters.status !== 'all' && item.status !== filters.status) return false;
+      if (filters.status !== 'all') {
+        if (filters.status === 'in_review') {
+          if (item.status !== 'in_review' && item.status !== 'submitted') return false;
+        } else if (item.status !== filters.status) {
+          return false;
+        }
+      }
       if (filters.priority !== 'all' && item.priority !== filters.priority) return false;
       if (
         filters.assignee &&

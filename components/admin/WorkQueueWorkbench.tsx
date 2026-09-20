@@ -49,6 +49,215 @@ const VIEW_LABELS: Record<WorkQueueView, { en: string; hi: string }> = {
   all: { en: 'All work', hi: '\u0938\u092d\u0940 \u0915\u093e\u0930\u094d\u092f' },
 };
 
+type QuickFilterOption = {
+  id: string;
+  view: WorkQueueView;
+  status?: string;
+  label: { en: string; hi: string };
+};
+
+const MY_WORK_QUICK_FILTERS: QuickFilterOption[] = [
+  { id: 'all', view: 'mine', status: 'all', label: { en: 'All My Work', hi: 'मेरा सारा काम' } },
+  { id: 'draft', view: 'mine', status: 'draft', label: { en: 'Drafts', hi: 'ड्राफ्ट्स' } },
+  { id: 'in_review', view: 'mine', status: 'in_review', label: { en: 'In Review', hi: 'समीक्षा में' } },
+  { id: 'changes_requested', view: 'mine', status: 'changes_requested', label: { en: 'Changes Requested', hi: 'संशोधन अपेक्षित' } },
+  { id: 'approved', view: 'mine', status: 'approved', label: { en: 'Approved', hi: 'स्वीकृत' } },
+  { id: 'overdue', view: 'overdue', label: { en: 'Overdue', hi: 'लंबित' } },
+];
+
+type EmptyStateContent = {
+  title: string;
+  description: string;
+  action?: {
+    label: string;
+    href: string;
+  };
+};
+
+function getEmptyState({
+  role,
+  view,
+  status,
+  search,
+  routePath,
+  language,
+}: {
+  role: AdminRole;
+  view: WorkQueueView;
+  status: string;
+  search: string;
+  routePath: string;
+  language: 'en' | 'hi';
+}): EmptyStateContent {
+  const isHi = language === 'hi';
+
+  if (search.trim()) {
+    return {
+      title: isHi ? 'कोई मेल नहीं मिला' : 'No matching work items',
+      description: isHi
+        ? `"${search}" से मेल खाने वाला कोई कार्य नहीं मिला। फ़िल्टर रीसेट करने का प्रयास करें।`
+        : `No work items matched "${search}". Try adjusting your keywords or filters.`,
+      action: {
+        label: isHi ? 'फ़िल्टर रीसेट करें' : 'Reset filters',
+        href: `${routePath}?view=${view}`,
+      },
+    };
+  }
+
+  if (status === 'draft') {
+    return {
+      title: isHi ? 'वर्तमान में कोई ड्राफ्ट लंबित नहीं है।' : 'No drafts waiting right now.',
+      description: isHi
+        ? 'आपके सभी ड्राफ्ट सबमिट हो चुके हैं या आपने कोई नया ड्राफ्ट शुरू नहीं किया है।'
+        : 'All drafts have been submitted or you have not started any new drafts.',
+      action:
+        role === 'reporter' || role === 'admin' || role === 'super_admin'
+          ? {
+              label: isHi ? 'नई स्टोरी बनाएं' : 'Create Story',
+              href: '/admin/stories/new',
+            }
+          : role === 'copy_editor'
+            ? {
+                label: isHi ? 'नया लेख बनाएं' : 'Create Article',
+                href: '/admin/articles/new',
+              }
+            : undefined,
+    };
+  }
+
+  if (status === 'changes_requested') {
+    return {
+      title: isHi
+        ? 'संशोधन के लिए कोई स्टोरी नहीं लौटाई गई है।'
+        : 'No stories have been returned for revision.',
+      description: isHi
+        ? 'आपके सबमिट किए गए कार्य पर वर्तमान में कोई संशोधन लंबित नहीं है।'
+        : 'None of your submitted stories are currently returned for revision.',
+    };
+  }
+
+  if (status === 'in_review') {
+    return {
+      title: isHi ? 'कोई समीक्षा कार्य लंबित नहीं है।' : 'No items currently in review.',
+      description: isHi
+        ? 'डेस्क समीक्षा के लिए सबमिट की गई स्टोरी यहाँ दिखाई देंगी।'
+        : 'Stories and articles submitted for desk review will appear here.',
+    };
+  }
+
+  if (status === 'approved') {
+    return {
+      title: isHi
+        ? 'प्रकाशन के लिए कोई स्वीकृत स्टोरी लंबित नहीं है।'
+        : 'No approved stories waiting for release.',
+      description: isHi
+        ? 'स्वीकृत स्टोरी जो रिलीज या शेड्यूलिंग के लिए तैयार हैं, यहाँ दिखाई देंगी।'
+        : 'Stories that have been approved and await scheduling or release will appear here.',
+    };
+  }
+
+  if (view === 'review') {
+    return {
+      title: isHi
+        ? 'डेस्क के लिए कोई समीक्षा कार्य लंबित नहीं है।'
+        : 'No review items are waiting for your desk.',
+      description: isHi
+        ? 'सभी आने वाली स्टोरी और लेखों की समीक्षा हो चुकी है।'
+        : 'All incoming stories and articles have been reviewed or are in good order.',
+      action:
+        role === 'copy_editor' || role === 'admin' || role === 'super_admin'
+          ? {
+              label: isHi ? 'कॉपी डेस्क खोलें' : 'Open Copy Desk',
+              href: '/admin/copy-desk',
+            }
+          : undefined,
+    };
+  }
+
+  if (view === 'unassigned') {
+    return {
+      title: isHi
+        ? 'ट्राइएज के लिए कोई बिना ओनर कार्य नहीं है।'
+        : 'No unassigned newsroom work is waiting for triage.',
+      description: isHi
+        ? 'न्यूज़रूम में सभी सक्रिय स्टोरी और लेखों को ओनर सौंपा जा चुका है।'
+        : 'All incoming newsroom work currently has an assigned reporter or editor.',
+      action:
+        role === 'admin' || role === 'super_admin'
+          ? {
+              label: isHi ? 'सभी कार्य देखें' : 'View All Work',
+              href: '/admin/work?view=all',
+            }
+          : undefined,
+    };
+  }
+
+  if (view === 'overdue') {
+    return {
+      title: isHi ? 'कोई कार्य समय सीमा पार नहीं है।' : 'No overdue deadlines.',
+      description: isHi
+        ? 'सभी सक्रिय कार्य समय पर हैं और उनकी संपादकीय समय सीमा सुरक्षित है।'
+        : 'All active items are on schedule and within their editorial deadlines.',
+    };
+  }
+
+  if (view === 'approval') {
+    return {
+      title: isHi
+        ? 'अनुमोदन के लिए कोई कार्य लंबित नहीं है।'
+        : 'No items awaiting leadership approval.',
+      description: isHi
+        ? 'अनुमोदन के लिए तैयार सभी कार्यों पर निर्णय लिया जा चुका है।'
+        : 'All items marked ready for approval have been decided.',
+    };
+  }
+
+  if (view === 'publishing') {
+    return {
+      title: isHi
+        ? 'प्रकाशन पाइपलाइन में कोई कार्य नहीं है।'
+        : 'No items waiting in publishing pipeline.',
+      description: isHi
+        ? 'प्रकाशन के लिए स्वीकृत और निर्धारित स्टोरी यहाँ दिखाई देंगी।'
+        : 'Stories and editions ready for release will appear here.',
+    };
+  }
+
+  if (view === 'mine' || routePath === '/admin/my-work') {
+    return {
+      title: isHi ? 'आपकी कार्य सूची पूरी तरह खाली है।' : 'Your personal queue is clear.',
+      description: isHi
+        ? 'वर्तमान में आपके पास कोई सक्रिय असाइनमेंट या प्रगति पर स्टोरी नहीं है।'
+        : 'You have no active assignments or in-progress stories requiring attention right now.',
+      action:
+        role === 'reporter'
+          ? {
+              label: isHi ? 'नई स्टोरी बनाएं' : 'Create Story',
+              href: '/admin/stories/new',
+            }
+          : role === 'copy_editor'
+            ? {
+                label: isHi ? 'कॉपी डेस्क खोलें' : 'Open Copy Desk',
+                href: '/admin/copy-desk',
+              }
+            : role === 'admin' || role === 'super_admin'
+              ? {
+                  label: isHi ? 'अनअसाइंड ट्राइएज देखें' : 'Check Unassigned',
+                  href: '/admin/work?view=unassigned',
+                }
+              : undefined,
+    };
+  }
+
+  const viewLabel = VIEW_LABELS[view][language];
+  return {
+    title: isHi ? `${viewLabel} में कोई कार्य लंबित नहीं है।` : `No work is waiting in ${viewLabel}.`,
+    description: isHi
+      ? 'वर्तमान फ़िल्टर्स से मेल खाने वाला कोई अनुमत न्यूज़रूम कार्य नहीं है।'
+      : 'No permitted newsroom items match the current filters for this view.',
+  };
+}
+
 const COPY = {
   en: {
     eyebrow: 'Action desk',
@@ -158,6 +367,18 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
     () => overview.items.find((item) => `${item.contentType}:${item.id}` === previewId) || null,
     [overview.items, previewId]
   );
+  const emptyState = useMemo(
+    () =>
+      getEmptyState({
+        role,
+        view: overview.filters.view,
+        status: overview.filters.status,
+        search: overview.filters.search,
+        routePath,
+        language,
+      }),
+    [role, overview.filters.view, overview.filters.status, overview.filters.search, routePath, language]
+  );
 
   useEffect(() => {
     if (!previewItem) return;
@@ -177,6 +398,31 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
     const params = new URLSearchParams();
     params.set('view', view);
     return `${routePath}?${params.toString()}`;
+  }
+
+  function quickFilterHref(targetView: WorkQueueView, targetStatus?: string) {
+    const params = new URLSearchParams();
+    params.set('view', targetView);
+    if (targetStatus && targetStatus !== 'all') {
+      params.set('status', targetStatus);
+    }
+    if (overview.filters.search) params.set('search', overview.filters.search);
+    if (overview.filters.contentType !== 'all') params.set('contentType', overview.filters.contentType);
+    if (overview.filters.priority !== 'all') params.set('priority', overview.filters.priority);
+    if (overview.filters.assignee) params.set('assignee', overview.filters.assignee);
+    if (overview.filters.sort !== 'updated_desc') params.set('sort', overview.filters.sort);
+    return `${routePath}?${params.toString()}`;
+  }
+
+  function isQuickFilterActive(option: QuickFilterOption) {
+    if (option.view === 'overdue') {
+      return overview.filters.view === 'overdue';
+    }
+    if (overview.filters.view !== 'mine') return false;
+    if (!option.status || option.status === 'all') {
+      return overview.filters.status === 'all' || !overview.filters.status;
+    }
+    return overview.filters.status === option.status;
   }
 
   function toggleSelection(item: WorkQueueItem) {
@@ -204,9 +450,19 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
       <section className="admin-shell-surface-strong overflow-hidden rounded-[24px] p-5 sm:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">{t.eyebrow}</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-[color:var(--admin-shell-text)]">{t.title}</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--admin-shell-text-muted)]">{t.description}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">
+              {routePath === '/admin/my-work' ? (language === 'hi' ? 'माई वर्क' : 'My Work') : t.eyebrow}
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[color:var(--admin-shell-text)]">
+              {routePath === '/admin/my-work' ? (language === 'hi' ? 'मेरा काम' : 'My Work') : t.title}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--admin-shell-text-muted)]">
+              {routePath === '/admin/my-work'
+                ? (language === 'hi'
+                    ? 'आपके द्वारा बनाई गई या आपको सौंपी गई व्यक्तिगत स्टोरी, ड्राफ्ट और असाइनमेंट।'
+                    : 'Personal stories, drafts, reviews, and assignments assigned to or created by you.')
+                : t.description}
+            </p>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 xl:min-w-[620px]">
             {WORK_QUEUE_VIEWS.filter((view) => view !== 'all').map((view) => (
@@ -227,6 +483,34 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
           </div>
         </div>
       </section>
+
+      {routePath === '/admin/my-work' || overview.filters.view === 'mine' ? (
+        <section aria-label={language === 'hi' ? 'त्वरित फ़िल्टर' : 'Quick filters'} className="admin-shell-surface rounded-[22px] p-4 sm:p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--admin-shell-text-muted)]">
+            {language === 'hi' ? 'त्वरित फ़िल्टर' : 'Quick Filters'}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {MY_WORK_QUICK_FILTERS.map((filter) => {
+              const active = isQuickFilterActive(filter);
+              return (
+                <Link
+                  key={filter.id}
+                  href={quickFilterHref(filter.view, filter.status)}
+                  aria-current={active ? 'page' : undefined}
+                  className={cx(
+                    'inline-flex items-center rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors',
+                    active
+                      ? 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-200'
+                      : 'border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface-muted)] text-[color:var(--admin-shell-text-muted)] hover:text-[color:var(--admin-shell-text)]'
+                  )}
+                >
+                  {filter.label[language]}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="admin-shell-surface rounded-[22px] p-4 sm:p-5">
         <form
@@ -258,7 +542,17 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
               <option value="all">{t.content}: All</option><option value="article">Articles</option><option value="story">Stories</option><option value="video">Videos</option><option value="epaper">Publications</option>
             </select>
             <select name="status" defaultValue={overview.filters.status} aria-label={t.status} className="h-11 rounded-xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface-muted)] px-3 text-sm text-[color:var(--admin-shell-text)]">
-              <option value="all">{t.status}: All</option><option value="submitted">Submitted</option><option value="assigned">Assigned</option><option value="in_review">In review</option><option value="copy_edit">Copy edit</option><option value="ready_for_approval">Ready for approval</option><option value="approved">Approved</option><option value="scheduled">Scheduled</option><option value="ready_to_publish">Ready to publish</option>
+              <option value="all">{t.status}: All</option>
+              <option value="draft">Draft</option>
+              <option value="submitted">Submitted</option>
+              <option value="assigned">Assigned</option>
+              <option value="in_review">In review</option>
+              <option value="copy_edit">Copy edit</option>
+              <option value="changes_requested">Changes requested</option>
+              <option value="ready_for_approval">Ready for approval</option>
+              <option value="approved">Approved</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="ready_to_publish">Ready to publish</option>
             </select>
             <select name="priority" defaultValue={overview.filters.priority} aria-label={t.priority} className="h-11 rounded-xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface-muted)] px-3 text-sm text-[color:var(--admin-shell-text)]">
               <option value="all">{t.priority}: All</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option>
@@ -315,7 +609,21 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
             })}
           </div>
         ) : (
-          <div className="px-6 py-16 text-center"><Inbox className="mx-auto h-10 w-10 text-emerald-500" /><h3 className="mt-4 text-lg font-black text-[color:var(--admin-shell-text)]">{t.emptyTitle}</h3><p className="mt-1 text-sm text-[color:var(--admin-shell-text-muted)]">{t.emptyText}</p></div>
+          <div className="px-6 py-16 text-center">
+            <Inbox className="mx-auto h-10 w-10 text-emerald-500" />
+            <h3 className="mt-4 text-lg font-black text-[color:var(--admin-shell-text)]">{emptyState.title}</h3>
+            <p className="mt-1 text-sm text-[color:var(--admin-shell-text-muted)]">{emptyState.description}</p>
+            {emptyState.action ? (
+              <div className="mt-5">
+                <Link
+                  href={emptyState.action.href}
+                  className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-rose-700"
+                >
+                  {emptyState.action.label}
+                </Link>
+              </div>
+            ) : null}
+          </div>
         )}
         {overview.filters.cursor > 0 || overview.nextCursor ? (
           <div className="flex items-center justify-between border-t border-[color:var(--admin-shell-border)] px-4 py-3 text-xs font-bold">
