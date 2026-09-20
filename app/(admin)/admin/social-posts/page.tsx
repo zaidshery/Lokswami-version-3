@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { Loader2, RefreshCw, Share2 } from 'lucide-react';
 import { getAuthHeader } from '@/lib/auth/clientToken';
-import { canViewPage } from '@/lib/auth/permissions';
+import { canDispatchSocialPosts, canViewPage } from '@/lib/auth/permissions';
 import { isAdminRole } from '@/lib/auth/roles';
 
 type SocialPost = {
@@ -72,6 +72,7 @@ export default function SocialPostsPage() {
   const adminRole = isAdminRole(session?.user?.role) ? session.user.role : null;
   const canAccess = canViewPage(adminRole, 'social_posts');
   const canManage = adminRole === 'admin' || adminRole === 'super_admin';
+  const canDispatch = canDispatchSocialPosts(adminRole);
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [platformFilter, setPlatformFilter] =
     useState<(typeof PLATFORM_OPTIONS)[number]>('all');
@@ -368,20 +369,22 @@ export default function SocialPostsPage() {
                     >
                       Approve
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDispatch(post._id)}
-                      disabled={
-                        busyId === post._id ||
-                        !automationMeta?.enabled ||
-                        (post.status !== 'approved' &&
-                          post.status !== 'scheduled' &&
-                          post.status !== 'failed')
-                      }
-                      className="admin-shell-toolbar-btn rounded-2xl px-3 py-2 text-xs font-semibold"
-                    >
-                      Send To Automation
-                    </button>
+                    {canDispatch ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleDispatch(post._id)}
+                        disabled={
+                          busyId === post._id ||
+                          !automationMeta?.enabled ||
+                          (post.status !== 'approved' &&
+                            post.status !== 'scheduled' &&
+                            post.status !== 'failed')
+                        }
+                        className="admin-shell-toolbar-btn rounded-2xl px-3 py-2 text-xs font-semibold"
+                      >
+                        Send To Automation
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void handleStatusUpdate(post._id, 'published')}

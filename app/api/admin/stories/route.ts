@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongoose';
 import Story from '@/lib/models/Story';
@@ -532,7 +533,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     // Read JSON body FIRST to avoid disturbed/locked body errors in Next.js 15
     const body = await req.json();
@@ -669,3 +670,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import {
@@ -8,7 +9,7 @@ import {
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -49,3 +50,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

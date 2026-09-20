@@ -1,5 +1,7 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
+import { canRunGlobalAiOps } from '@/lib/auth/permissions';
 import {
   ttsService,
   TtsValidationError,
@@ -13,7 +15,7 @@ function parseLimit(value: unknown, fallback: number) {
   return Math.min(500, Math.max(1, Math.floor(parsed)));
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const admin = await getAdminSessionFromReq(req);
     if (!admin) {
@@ -21,6 +23,9 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
+    }
+    if (!canRunGlobalAiOps(admin.role)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
@@ -58,3 +63,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

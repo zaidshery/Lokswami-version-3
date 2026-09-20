@@ -74,7 +74,10 @@ function toTeamMember(record: TeamMemberRecord) {
 export async function GET(req: NextRequest) {
   try {
     const admin = await getAdminSessionFromReq(req);
-    if (!admin || !canManageTeam(admin.role)) {
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!canManageTeam(admin.role)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

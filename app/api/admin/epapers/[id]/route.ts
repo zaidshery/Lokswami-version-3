@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { epaperEditorialService } from '@/lib/server/epaper/epaperEditorialService';
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PUT(req: NextRequest, context: RouteContext) {
+async function PUTHandler(req: NextRequest, context: RouteContext) {
   const actor = await actorOrUnauthorized();
   if (actor instanceof NextResponse) return actor;
   try {
@@ -46,7 +47,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PATCH(req: NextRequest, context: RouteContext) {
+async function PATCHHandler(req: NextRequest, context: RouteContext) {
   const actor = await actorOrUnauthorized();
   if (actor instanceof NextResponse) return actor;
   try {
@@ -58,7 +59,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(_req: NextRequest, context: RouteContext) {
+async function DELETEHandler(_req: NextRequest, context: RouteContext) {
   const actor = await actorOrUnauthorized();
   if (actor instanceof NextResponse) return actor;
   try {
@@ -69,3 +70,7 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     return errorResponse(error, 'Failed to delete e-paper');
   }
 }
+
+export const PUT = withAdminMutation(PUTHandler);
+export const PATCH = withAdminMutation(PATCHHandler);
+export const DELETE = withAdminMutation(DELETEHandler);

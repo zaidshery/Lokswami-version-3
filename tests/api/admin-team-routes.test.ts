@@ -70,7 +70,7 @@ describe('/api/admin/team role guardrails', () => {
     expect(response.status).toBe(403);
     expect(payload).toMatchObject({
       success: false,
-      error: 'You cannot assign that role',
+      error: 'Forbidden',
       code: 'FORBIDDEN',
     });
     expect(createMock).not.toHaveBeenCalled();
@@ -112,12 +112,12 @@ describe('/api/admin/team role guardrails', () => {
     expect(findByIdAndUpdateMock).not.toHaveBeenCalled();
   });
 
-  it('allows admin to create a copy editor account', async () => {
+  it('allows super admin to create a copy editor account', async () => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     findOneMock.mockResolvedValue(null);
     createMock.mockResolvedValue({

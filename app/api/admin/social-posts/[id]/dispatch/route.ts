@@ -1,20 +1,17 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
-import { isSuperAdminRole } from '@/lib/auth/roles';
+import { canDispatchSocialPosts } from '@/lib/auth/permissions';
 import { DistributionServiceError } from '@/lib/server/distribution/distributionTypes';
 import { socialDistributionService } from '@/lib/server/distribution/socialDistributionService';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-function canManageSocialPosts(role: string | null | undefined) {
-  return role === 'admin' || isSuperAdminRole(role);
-}
-
-export async function POST(req: NextRequest, context: RouteContext) {
+async function POSTHandler(req: NextRequest, context: RouteContext) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    if (!canManageSocialPosts(user.role)) {
+    if (!canDispatchSocialPosts(user.role)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -48,3 +45,5 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

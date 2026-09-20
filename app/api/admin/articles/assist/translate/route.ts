@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canViewPage } from '@/lib/auth/permissions';
@@ -66,7 +67,7 @@ function extractTranslation(payload: unknown) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -181,3 +182,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

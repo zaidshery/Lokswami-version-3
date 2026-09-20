@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { canManageContactInbox } from '@/lib/auth/permissions';
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function PATCH(req: NextRequest) {
+async function PATCHHandler(req: NextRequest) {
   try {
     const auth = await authorize();
     if (auth.response) return auth.response;
@@ -84,3 +85,5 @@ export async function PATCH(req: NextRequest) {
     return serviceError(error, 'Failed to update contact workflow');
   }
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

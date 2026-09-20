@@ -57,12 +57,14 @@ describe('/api/admin/polls routes', () => {
     });
   });
 
-  it('forbids reporters from creating polls', async () => {
+  it.each(['admin', 'copy_editor', 'reporter'] as const)(
+    'forbids %s from creating polls',
+    async (role) => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'reporter-1',
-      email: 'reporter@example.com',
-      name: 'Reporter',
-      role: 'reporter',
+      id: `${role}-1`,
+      email: `${role}@example.com`,
+      name: role,
+      role,
     });
 
     const { POST } = await import('@/app/api/admin/polls/route');
@@ -87,14 +89,15 @@ describe('/api/admin/polls routes', () => {
       error: 'Forbidden',
     });
     expect(pollCreateMock).not.toHaveBeenCalled();
-  });
+    }
+  );
 
   it('validates poll creation payloads before touching the database', async () => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
 
     const { POST } = await import('@/app/api/admin/polls/route');
@@ -127,10 +130,10 @@ describe('/api/admin/polls routes', () => {
     const createdPollId = new Types.ObjectId();
 
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     startSessionMock.mockResolvedValue(txSession);
     pollUpdateManyMock.mockResolvedValue({ acknowledged: true, modifiedCount: 1 });

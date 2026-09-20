@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { canManageLeadershipReports } from '@/lib/auth/permissions';
@@ -22,7 +23,7 @@ async function requireLeadershipAdmin() {
   return { ok: true as const, admin };
 }
 
-export async function POST(
+async function POSTHandler(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -65,3 +66,5 @@ export async function POST(
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

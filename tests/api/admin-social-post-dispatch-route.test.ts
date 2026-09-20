@@ -52,12 +52,33 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
     });
   });
 
+  it.each(['admin', 'copy_editor', 'reporter'] as const)(
+    'returns 403 for %s without invoking outbound automation',
+    async (role) => {
+      getAdminSessionMock.mockResolvedValue({
+        id: `${role}-1`,
+        email: `${role}@example.com`,
+        name: role,
+        role,
+      });
+
+      const { POST } = await import('@/app/api/admin/social-posts/[id]/dispatch/route');
+      const response = await POST(createRequest(), {
+        params: Promise.resolve({ id: 'social-1' }),
+      });
+
+      expect(response.status).toBe(403);
+      expect(dispatchSocialPostToAutomationMock).not.toHaveBeenCalled();
+      expect(updateStoredSocialPostMock).not.toHaveBeenCalled();
+    }
+  );
+
   it('blocks dispatch until the draft is approved', async () => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     getStoredSocialPostByIdMock.mockResolvedValue({
       _id: 'social-1',
@@ -85,10 +106,10 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
 
   it('sends approved drafts to automation and marks them publishing', async () => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     getStoredSocialPostByIdMock.mockResolvedValue({
       _id: 'social-1',
@@ -145,10 +166,10 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
 
   it('allows failed posts to retry and persists a provider failure state', async () => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     getStoredSocialPostByIdMock.mockResolvedValue({
       _id: 'social-1',

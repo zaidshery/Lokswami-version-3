@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { epaperTtsService } from '@/lib/server/epaper/epaperTtsService';
@@ -5,7 +6,7 @@ import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(req: NextRequest, context: RouteContext) {
+async function POSTHandler(req: NextRequest, context: RouteContext) {
   const actor = await getAdminSession();
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -18,3 +19,5 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: false, error: 'Failed to process e-paper audio request.' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

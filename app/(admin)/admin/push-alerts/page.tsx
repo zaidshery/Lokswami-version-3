@@ -20,7 +20,7 @@ export default async function PushAlertsPage() {
   }
 
   if (!canViewPage(admin.role, 'push_alerts')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const control = await getNewsroomControlCenterData();

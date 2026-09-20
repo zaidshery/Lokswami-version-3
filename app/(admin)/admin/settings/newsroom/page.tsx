@@ -23,7 +23,7 @@ export default async function NewsroomSettingsPage() {
   }
 
   if (!canViewPage(admin.role, 'newsroom_settings')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const control = await getNewsroomControlCenterData();

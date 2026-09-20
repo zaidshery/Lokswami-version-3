@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildLeadershipReportMarkdown, getLeadershipReportPreset } from '@/lib/admin/leadershipReports';
 import { getAdminSession } from '@/lib/auth/admin';
@@ -51,7 +52,7 @@ function cleanList(values: unknown, mode: 'email' | 'url') {
     .slice(0, mode === 'email' ? 20 : 10);
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   const admin = await getAdminSession();
   if (!admin) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -151,3 +152,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

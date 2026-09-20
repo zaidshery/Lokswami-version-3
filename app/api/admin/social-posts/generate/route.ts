@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { isSuperAdminRole } from '@/lib/auth/roles';
@@ -8,7 +9,7 @@ function canGenerate(role: string | null | undefined) {
   return role === 'admin' || isSuperAdminRole(role);
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const user = await getAdminSession();
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -39,3 +40,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

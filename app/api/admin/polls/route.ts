@@ -1,8 +1,9 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import type { Document } from 'mongoose';
 import { Types } from 'mongoose';
 import { getAdminSession } from '@/lib/auth/admin';
-import { canViewPage } from '@/lib/auth/permissions';
+import { canManagePolls } from '@/lib/auth/permissions';
 import connectDB from '@/lib/db/mongoose';
 import Poll from '@/lib/models/Poll';
 import { parseAdminPollPayload, toPollDTO } from '@/lib/server/poll';
@@ -28,7 +29,7 @@ export async function GET() {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!canViewPage(admin.role, 'polls')) {
+    if (!canManagePolls(admin.role)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -49,14 +50,14 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const admin = await getAdminSession();
     if (!admin) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!canViewPage(admin.role, 'polls')) {
+    if (!canManagePolls(admin.role)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -136,3 +137,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

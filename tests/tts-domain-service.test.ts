@@ -163,13 +163,18 @@ describe('TtsService domain boundaries', () => {
   });
 
   describe('cleanupAssets', () => {
+    it('denies normal admins before cleanup repository access', async () => {
+      await expect(service.cleanupAssets({}, adminUser)).rejects.toThrow('Forbidden');
+      expect(mockRepository.findAssetsForCleanup).not.toHaveBeenCalled();
+    });
+
     it('executes cleanup of expired assets beyond retention period', async () => {
       const result = await service.cleanupAssets(
         {
           status: 'all',
           dryRun: false,
         },
-        adminUser
+        superAdminUser
       );
 
       expect(result.processed).toBe(1);
@@ -208,7 +213,7 @@ describe('TtsService domain boundaries', () => {
         {
           dryRun: true,
         },
-        adminUser
+        superAdminUser
       );
 
       expect(result.dryRun).toBe(true);
@@ -220,12 +225,17 @@ describe('TtsService domain boundaries', () => {
   });
 
   describe('revalidateAssets', () => {
+    it('denies normal admins before revalidation repository access', async () => {
+      await expect(service.revalidateAssets({}, adminUser)).rejects.toThrow('Forbidden');
+      expect(mockRepository.findAssetsForRevalidation).not.toHaveBeenCalled();
+    });
+
     it('revalidates remote and local storage presence', async () => {
       const result = await service.revalidateAssets(
         {
           status: 'all',
         },
-        adminUser
+        superAdminUser
       );
 
       expect(result.processed).toBe(2);
@@ -251,13 +261,17 @@ describe('TtsService domain boundaries', () => {
     });
 
     it('records config_update skipped event on attempt', async () => {
-      await service.recordConfigAttempt(adminUser);
+      await service.recordConfigAttempt(superAdminUser);
       expect(mockRepository.recordAuditEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'config_update',
           result: 'skipped',
         })
       );
+    });
+
+    it('denies normal admins from recording a global config attempt', async () => {
+      await expect(service.recordConfigAttempt(adminUser)).rejects.toThrow('Forbidden');
     });
   });
 

@@ -52,25 +52,25 @@ The command refuses production, remote MongoDB, unnamed or ambiguously named dat
 | `video_create` | Create Video | YES | YES | NO | NO |
 | `video_edit` | Edit Video | YES | YES | YES | NO |
 | `social_posts` | Social Posts | YES | YES | YES | NO |
-| `epapers` | E-Papers | YES | YES | YES | NO |
-| `epaper_create` | Create E-Paper | YES | YES | NO | NO |
-| `epaper_edit` | Edit E-Paper | YES | YES | YES | NO |
-| `epaper_page_edit` | Edit E-Paper Page | YES | YES | YES | NO |
+| `epapers` | E-Papers | YES | NO | NO | NO |
+| `epaper_create` | Create E-Paper | YES | NO | NO | NO |
+| `epaper_edit` | Edit E-Paper | YES | NO | NO | NO |
+| `epaper_page_edit` | Edit E-Paper Page | YES | NO | NO | NO |
 | `media` | Media | YES | YES | YES | YES |
-| `polls` | Polls | YES | YES | NO | NO |
+| `polls` | Polls | YES | NO | NO | NO |
 | `categories` | Categories | YES | YES | NO | NO |
 | `contact_messages` | Contact Messages | YES | YES | NO | NO |
-| `ai_ops` | AI Ops | YES | YES | NO | NO |
+| `ai_ops` | AI Ops | YES | NO | NO | NO |
 | `settings` | Settings | YES | NO | NO | NO |
-| `newsroom_settings` | Newsroom Settings | YES | YES | NO | NO |
+| `newsroom_settings` | Newsroom Settings | YES | NO | NO | NO |
 | `revenue` | Revenue & Ads Control | YES | NO | NO | NO |
-| `team` | Team | YES | YES | NO | NO |
-| `users` | Users & Subscribers | YES | YES | NO | NO |
+| `team` | Team | YES | NO | NO | NO |
+| `users` | Users & Subscribers | YES | NO | NO | NO |
 | `analytics` | Analytics | YES | YES | NO | NO |
 | `business_value` | Business Value | YES | NO | NO | NO |
 | `audit_log` | Audit Log | YES | NO | NO | NO |
 | `permission_review` | Permission Review | YES | NO | NO | NO |
-| `operations_center` | Operations Center | YES | YES | NO | NO |
+| `operations_center` | Operations Center | YES | NO | NO | NO |
 | `operations_diagnostics` | Operations Diagnostics | YES | NO | NO | NO |
 
 Allowed/denied totals across the 39 page keys:
@@ -78,8 +78,8 @@ Allowed/denied totals across the 39 page keys:
 | Role | Allowed | Denied |
 | --- | ---: | ---: |
 | Super Admin | 38 | 1 |
-| Admin | 33 | 6 |
-| Copy Editor | 17 | 22 |
+| Admin | 23 | 16 |
+| Copy Editor | 14 | 25 |
 | Reporter | 9 | 30 |
 
 The Super Admin exception is `my_work`, which is intentionally absent from that role in the current frozen map.

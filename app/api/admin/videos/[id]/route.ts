@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { videoEditorialService } from '@/lib/server/video/videoEditorialService';
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PATCH(req: NextRequest, context: RouteContext) {
+async function PATCHHandler(req: NextRequest, context: RouteContext) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -103,7 +104,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PUT(req: NextRequest, context: RouteContext) {
+async function PUTHandler(req: NextRequest, context: RouteContext) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -127,7 +128,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(req: NextRequest, context: RouteContext) {
+async function DELETEHandler(req: NextRequest, context: RouteContext) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
@@ -145,3 +146,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     return handleVideoError(error, 'Failed to delete video');
   }
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);
+export const PUT = withAdminMutation(PUTHandler);
+export const DELETE = withAdminMutation(DELETEHandler);

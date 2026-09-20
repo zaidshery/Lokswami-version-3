@@ -4,15 +4,20 @@ import {
   canCreateContent,
   canCreateEpaper,
   canDeleteEpaper,
+  canDispatchSocialPosts,
   canEditContent,
   canEditEpaper,
   canManageEpaperAssignments,
   canManageLeadershipReports,
+  canManageNewsroomSettings,
+  canManagePolls,
   canManageSettings,
   canManageTeam,
+  canManageUsers,
   canPrepareEpaperForPublish,
   canPublishEpaper,
   canReadContent,
+  canRunGlobalAiOps,
   canTransitionContent,
   canViewPage,
 } from '@/lib/auth/permissions';
@@ -71,18 +76,58 @@ describe('governance permission helpers', () => {
     expect(canViewPage(superAdmin.role, 'revenue')).toBe(true);
     expect(canViewPage(admin.role, 'analytics')).toBe(true);
     expect(canViewPage(admin.role, 'business_value')).toBe(false);
-    expect(canViewPage(admin.role, 'polls')).toBe(true);
+    expect(canViewPage(admin.role, 'polls')).toBe(false);
     expect(canViewPage(admin.role, 'settings')).toBe(false);
     expect(canViewPage(admin.role, 'revenue')).toBe(false);
     expect(canViewPage(copyEditor.role, 'polls')).toBe(false);
     expect(canViewPage(reporter.role, 'polls')).toBe(false);
-    expect(canViewPage(admin.role, 'newsroom_settings')).toBe(true);
+    expect(canViewPage(admin.role, 'newsroom_settings')).toBe(false);
     expect(canManageLeadershipReports(superAdmin.role)).toBe(true);
     expect(canManageLeadershipReports(admin.role)).toBe(false);
     expect(canManageSettings(superAdmin.role)).toBe(true);
     expect(canManageSettings(admin.role)).toBe(false);
     expect(canManageTeam(superAdmin.role)).toBe(true);
-    expect(canManageTeam(admin.role)).toBe(true);
+    expect(canManageTeam(admin.role)).toBe(false);
+  });
+
+  it('restricts control-plane actions and page visibility to super admin', () => {
+    const elevatedChecks = [
+      canManageTeam,
+      canManageSettings,
+      canManageNewsroomSettings,
+      canRunGlobalAiOps,
+      canManagePolls,
+      canManageUsers,
+      canDispatchSocialPosts,
+      canManageLeadershipReports,
+    ];
+
+    for (const check of elevatedChecks) {
+      expect(check(superAdmin.role)).toBe(true);
+      expect(check(admin.role)).toBe(false);
+      expect(check(copyEditor.role)).toBe(false);
+      expect(check(reporter.role)).toBe(false);
+    }
+
+    const controlPlanePages = [
+      'epapers',
+      'epaper_create',
+      'epaper_edit',
+      'epaper_page_edit',
+      'team',
+      'polls',
+      'newsroom_settings',
+      'ai_ops',
+      'users',
+      'operations_center',
+    ] as const;
+
+    for (const page of controlPlanePages) {
+      expect(canViewPage(superAdmin.role, page)).toBe(true);
+      expect(canViewPage(admin.role, page)).toBe(false);
+      expect(canViewPage(copyEditor.role, page)).toBe(false);
+      expect(canViewPage(reporter.role, page)).toBe(false);
+    }
   });
 
   it('routes newsroom control panels to the correct desks', () => {
@@ -215,18 +260,21 @@ describe('governance permission helpers', () => {
     expect(canEditContent(superAdmin, baseContent)).toBe(true);
   });
 
-  it('separates e-paper preparation from publishing authority', () => {
-    expect(canCreateEpaper(copyEditor.role)).toBe(false);
-    expect(canEditEpaper(copyEditor.role)).toBe(true);
-    expect(canPrepareEpaperForPublish(copyEditor.role)).toBe(true);
-    expect(canManageEpaperAssignments(copyEditor.role)).toBe(false);
-    expect(canPublishEpaper(copyEditor.role)).toBe(false);
-    expect(canDeleteEpaper(copyEditor.role)).toBe(false);
+  it('restricts the complete e-paper lifecycle to super admin', () => {
+    const lifecycleChecks = [
+      canCreateEpaper,
+      canEditEpaper,
+      canPrepareEpaperForPublish,
+      canManageEpaperAssignments,
+      canPublishEpaper,
+      canDeleteEpaper,
+    ];
 
-    expect(canCreateEpaper(admin.role)).toBe(true);
-    expect(canManageEpaperAssignments(admin.role)).toBe(true);
-    expect(canManageEpaperAssignments(superAdmin.role)).toBe(true);
-    expect(canPublishEpaper(admin.role)).toBe(true);
-    expect(canDeleteEpaper(superAdmin.role)).toBe(true);
+    for (const check of lifecycleChecks) {
+      expect(check(superAdmin.role)).toBe(true);
+      expect(check(admin.role)).toBe(false);
+      expect(check(copyEditor.role)).toBe(false);
+      expect(check(reporter.role)).toBe(false);
+    }
   });
 });

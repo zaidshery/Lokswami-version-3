@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { epaperRevisionService } from '@/lib/server/epaper/epaperRevisionService';
@@ -5,7 +6,7 @@ import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function POSTHandler(request: NextRequest, context: RouteContext) {
   const actor = await getAdminSessionFromReq(request);
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -21,3 +22,5 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: false, error: 'Failed to create revision.' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

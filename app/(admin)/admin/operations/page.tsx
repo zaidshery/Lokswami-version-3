@@ -28,7 +28,7 @@ export default async function OperationsCenterPage() {
   }
 
   if (!canViewPage(admin.role, 'operations_center')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const data = await getSuperAdminDashboardData();

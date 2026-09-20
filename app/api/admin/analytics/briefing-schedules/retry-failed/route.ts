@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextResponse } from 'next/server';
 import { runFailedLeadershipReportSchedules } from '@/lib/admin/leadershipReportRunner';
 import { getAdminSession } from '@/lib/auth/admin';
@@ -22,7 +23,7 @@ async function requireLeadershipAdmin() {
   return { ok: true as const, admin };
 }
 
-export async function POST() {
+async function POSTHandler() {
   const adminResult = await requireLeadershipAdmin();
   if (!adminResult.ok) {
     return adminResult.response;
@@ -55,3 +56,5 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

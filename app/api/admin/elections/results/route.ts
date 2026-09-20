@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canManageNewsroomSettings } from '@/lib/auth/permissions';
@@ -18,9 +19,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(await electionAudienceService.readResults());
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   const denied = await authorize(req);
   if (denied) return denied;
   const data = await electionAudienceService.writeResults(await req.json());
   return NextResponse.json({ success: true, lastUpdated: data.lastUpdated });
 }
+
+export const POST = withAdminMutation(POSTHandler);

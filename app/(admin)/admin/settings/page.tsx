@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   }
 
   if (!canViewPage(admin.role, 'settings')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   return (

@@ -45,7 +45,7 @@ const GUIDES: Record<AdminRole, RoleWorkflowGuide> = {
       { label: 'Route clearly', detail: 'Request specific changes or mark the item ready for admin approval.' },
     ],
     primaryAction: { label: 'Open copy desk', href: '/admin/copy-desk', pageKey: 'copy_desk' },
-    secondaryAction: { label: 'Open publication desk', href: '/admin/epapers', pageKey: 'epapers' },
+    secondaryAction: { label: 'Open articles', href: '/admin/articles', pageKey: 'articles' },
   },
   admin: {
     eyebrow: 'Admin desk workflow',

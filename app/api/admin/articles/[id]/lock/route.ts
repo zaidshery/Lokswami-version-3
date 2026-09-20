@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import {
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  * POST /api/admin/articles/[id]/lock
  * Acquires, renews heartbeat, takes over, or releases a lock.
  */
-export async function POST(req: NextRequest, { params }: RouteParams) {
+async function POSTHandler(req: NextRequest, { params }: RouteParams) {
   const session = await getAdminSessionFromReq(req);
   if (!session) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
  * DELETE /api/admin/articles/[id]/lock
  * Releases lock held by current user or admin.
  */
-export async function DELETE(req: NextRequest, { params }: RouteParams) {
+async function DELETEHandler(req: NextRequest, { params }: RouteParams) {
   const session = await getAdminSessionFromReq(req);
   if (!session) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
@@ -101,3 +102,6 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   }
   return NextResponse.json({ success: true });
 }
+
+export const POST = withAdminMutation(POSTHandler);
+export const DELETE = withAdminMutation(DELETEHandler);

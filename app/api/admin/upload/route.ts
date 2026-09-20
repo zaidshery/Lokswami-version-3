@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import {
@@ -39,7 +40,7 @@ function parseFocalPoint(value: FormDataEntryValue | null): number {
   return Math.min(100, Math.max(0, parsed));
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     let formData: FormData;
     try {
@@ -105,3 +106,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

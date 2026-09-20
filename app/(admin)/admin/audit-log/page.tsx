@@ -193,7 +193,7 @@ export default async function AuditLogPage({
   }
 
   if (!canViewPage(admin.role, 'audit_log')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const params = await searchParams;

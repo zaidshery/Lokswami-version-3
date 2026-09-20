@@ -151,7 +151,7 @@ describe('high-value canonical CMS page access', () => {
     expect(canViewPage('admin', 'dashboard')).toBe(true);
     expect(canViewPage('admin', 'review_queue')).toBe(true);
     expect(canViewPage('admin', 'analytics')).toBe(true);
-    expect(canViewPage('admin', 'operations_center')).toBe(true);
+    expect(canViewPage('admin', 'operations_center')).toBe(false);
     expect(canViewPage('admin', 'settings')).toBe(false);
     expect(canViewPage('admin', 'audit_log')).toBe(false);
   });
@@ -162,7 +162,7 @@ describe('high-value canonical CMS page access', () => {
     expect(canViewPage('copy_editor', 'article_edit')).toBe(true);
     expect(canViewPage('copy_editor', 'videos')).toBe(true);
     expect(canViewPage('copy_editor', 'video_create')).toBe(false);
-    expect(canViewPage('copy_editor', 'epaper_edit')).toBe(true);
+    expect(canViewPage('copy_editor', 'epaper_edit')).toBe(false);
     expect(canViewPage('copy_editor', 'settings')).toBe(false);
   });
 

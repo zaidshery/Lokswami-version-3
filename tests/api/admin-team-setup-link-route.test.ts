@@ -85,10 +85,10 @@ describe('/api/admin/team/[id]/setup-link', () => {
 
   it('backfills login ID and returns a setup link for a copy editor account', async () => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     reserveUniqueStaffLoginIdMock.mockResolvedValue('copy.desk');
     findByIdMock.mockReturnValue({
@@ -137,10 +137,10 @@ describe('/api/admin/team/[id]/setup-link', () => {
   it('uses the configured public origin when the proxy forwards an internal host', async () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://lokswami.com';
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     findByIdMock.mockReturnValue({
       select: vi.fn().mockReturnValue({

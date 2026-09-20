@@ -1,8 +1,9 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import type { Document } from 'mongoose';
 import { Types } from 'mongoose';
 import { getAdminSession } from '@/lib/auth/admin';
-import { canViewPage } from '@/lib/auth/permissions';
+import { canManagePolls } from '@/lib/auth/permissions';
 import connectDB from '@/lib/db/mongoose';
 import Poll from '@/lib/models/Poll';
 import { parseAdminPollPayload, toPollDTO } from '@/lib/server/poll';
@@ -31,7 +32,7 @@ function optionsChanged(current: PollDocument, nextQuestion: string, nextOptions
   return current.options.some((option, index) => option.text !== nextOptions[index]);
 }
 
-export async function PATCH(
+async function PATCHHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -41,7 +42,7 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!canViewPage(admin.role, 'polls')) {
+    if (!canManagePolls(admin.role)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -151,3 +152,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

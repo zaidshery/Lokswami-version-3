@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdminApi } from '@/lib/api/adminRoute';
+import { canManageUsers } from '@/lib/auth/permissions';
 import connectDB from '@/lib/db/mongoose';
 import User from '@/lib/models/User';
 import { normalizeUserRole } from '@/lib/auth/roles';
@@ -146,6 +147,9 @@ export const GET = withAdminApi(
         { status: 500 }
       );
     }
+  },
+  {
+    authorize: (role) => canManageUsers(role),
   }
 );
 
@@ -271,5 +275,9 @@ export const PATCH = withAdminApi(
         { status: 500 }
       );
     }
+  },
+  {
+    authorize: (role) => canManageUsers(role),
+    mutation: true,
   }
 );

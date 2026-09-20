@@ -1,9 +1,10 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { epaperUploadService } from '@/lib/server/epaper/epaperUploadService';
 import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   const actor = await getAdminSession();
   if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   try {
@@ -17,3 +18,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: status === 500 ? 'Failed to import e-paper' : message }, { status });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

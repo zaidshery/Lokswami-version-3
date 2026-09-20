@@ -1,10 +1,11 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canCreateEpaper } from '@/lib/auth/permissions';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   const admin = await getAdminSessionFromReq(req);
   if (!admin) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -22,3 +23,5 @@ export async function POST(req: NextRequest) {
     { status: 400 }
   );
 }
+
+export const POST = withAdminMutation(POSTHandler);

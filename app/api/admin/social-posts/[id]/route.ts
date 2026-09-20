@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { isSuperAdminRole } from '@/lib/auth/roles';
@@ -12,7 +13,7 @@ function canManageSocialPosts(role: string | null | undefined) {
   return role === 'admin' || isSuperAdminRole(role);
 }
 
-export async function PATCH(req: NextRequest, context: RouteContext) {
+async function PATCHHandler(req: NextRequest, context: RouteContext) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -37,3 +38,5 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

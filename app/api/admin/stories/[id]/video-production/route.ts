@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
 import connectDB from '@/lib/db/mongoose';
@@ -135,7 +136,7 @@ function normalizeVideoProductionUpdate(body: unknown) {
   return updates;
 }
 
-export async function POST(req: NextRequest, context: RouteContext) {
+async function POSTHandler(req: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const user = await getAdminSession();
@@ -207,7 +208,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PATCH(req: NextRequest, context: RouteContext) {
+async function PATCHHandler(req: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const user = await getAdminSession();
@@ -299,3 +300,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);
+export const PATCH = withAdminMutation(PATCHHandler);

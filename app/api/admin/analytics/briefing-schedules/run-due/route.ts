@@ -1,6 +1,7 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { runDueLeadershipReportSchedules } from '@/lib/admin/leadershipReportRunner';
-import { getAdminSession } from '@/lib/auth/admin';
+import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canManageLeadershipReports } from '@/lib/auth/permissions';
 
 function hasValidCronSecret(req: NextRequest) {
@@ -16,19 +17,25 @@ function hasValidCronSecret(req: NextRequest) {
   return bearer === configured || directHeader === configured || querySecret === configured;
 }
 
-async function isAuthorized(req: NextRequest) {
+async function authorize(req: NextRequest) {
   if (hasValidCronSecret(req)) {
-    return true;
+    return null;
   }
 
-  const admin = await getAdminSession();
-  return Boolean(admin && canManageLeadershipReports(admin.role));
+  const admin = await getAdminSessionFromReq(req);
+  if (!admin) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!canManageLeadershipReports(admin.role)) {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+
+  return null;
 }
 
 async function handleRunDue(req: NextRequest) {
-  if (!(await isAuthorized(req))) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await authorize(req);
+  if (denied) return denied;
 
   try {
     const payload = await runDueLeadershipReportSchedules();
@@ -57,10 +64,8 @@ async function handleRunDue(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   return handleRunDue(req);
 }
 
-export async function POST(req: NextRequest) {
-  return handleRunDue(req);
-}
+export const POST = withAdminMutation(POSTHandler, { machineRequest: hasValidCronSecret });

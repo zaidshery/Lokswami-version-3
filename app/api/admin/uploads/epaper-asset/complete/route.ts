@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
@@ -101,7 +102,7 @@ async function loadStorySource(paperId: string, storyId: string): Promise<StoryS
   };
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const admin = await getAdminSessionFromReq(req);
     if (!admin) {
@@ -202,3 +203,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

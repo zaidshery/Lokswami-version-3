@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canDeleteContent, canViewPage } from '@/lib/auth/permissions';
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -77,3 +78,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to create media' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

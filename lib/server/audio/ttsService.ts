@@ -342,6 +342,10 @@ export class TtsService {
   }
 
   async recordConfigAttempt(user: AdminSessionIdentity): Promise<void> {
+    if (!canRunGlobalAiOps(user.role)) {
+      throw new TtsValidationError('Forbidden', 403);
+    }
+
     await this.repository.recordAuditEvent({
       action: 'config_update',
       result: 'skipped',
