@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import connectDB from '@/lib/db/mongoose';
 import Story from '@/lib/models/Story';
 import User from '@/lib/models/User';
+import { normalizeAdminRole } from '@/lib/auth/roles';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import {
   createEmptyCopyEditorMeta,
@@ -444,8 +445,11 @@ async function resolveAssignee(assignedToId: string) {
   const query = Types.ObjectId.isValid(normalized)
     ? { _id: normalized }
     : { email: normalized.toLowerCase() };
-  const assignee = await User.findOne(query).select('_id name email role').lean();
-  if (!assignee || typeof assignee.role !== 'string' || assignee.role === 'reader') {
+  const assignee = await User.findOne({ ...query, isActive: { $ne: false } })
+    .select('_id name email role isActive')
+    .lean();
+  const role = normalizeAdminRole(assignee?.role);
+  if (!assignee || !role || assignee.isActive === false) {
     return null;
   }
 
@@ -453,7 +457,7 @@ async function resolveAssignee(assignedToId: string) {
     id: String(assignee._id || ''),
     name: String(assignee.name || '').trim() || String(assignee.email || '').trim(),
     email: String(assignee.email || '').trim(),
-    role: assignee.role,
+    role,
   };
 }
 

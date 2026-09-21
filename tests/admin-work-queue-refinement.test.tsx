@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import WorkQueueWorkbench from '@/components/admin/WorkQueueWorkbench';
 import WorkQueuePage from '@/components/admin/WorkQueuePage';
@@ -10,7 +10,7 @@ const pushMock = vi.fn();
 const redirectMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: vi.fn(), push: pushMock }),
+  useRouter: () => ({ push: pushMock }),
   redirect: (target: string) => {
     redirectMock(target);
     throw new Error(`REDIRECT:${target}`);
@@ -582,6 +582,161 @@ describe('Phase 3.6B: Work Queue + My Work Refinement', () => {
       expect(screen.getByText('Approval')).toBeInTheDocument();
       expect(screen.getByText('Publishing')).toBeInTheDocument();
       expect(screen.getAllByText('Overdue').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('G. Phase 3.6C Assignment Triage', () => {
+    function assignmentItem(overrides: Partial<WorkQueueItem> = {}): WorkQueueItem {
+      return {
+        ...baseDeskItem,
+        contentType: 'story',
+        id: 'story-assignment-1',
+        title: 'Assignment test story',
+        status: 'assigned',
+        updatedAt: '2026-09-20T10:00:00Z',
+        isMine: false,
+        isUnassigned: false,
+        isOverdue: false,
+        availableActions: ['assign'],
+        nextAction: 'assign',
+        nextActionLabel: 'Review assignment',
+        ...overrides,
+      };
+    }
+
+    it.each(['reporter', 'copy_editor'] as const)(
+      'does not expose assignment-management controls to %s',
+      async (role) => {
+        const item = assignmentItem();
+        render(
+          <WorkQueueWorkbench
+            role={role}
+            overview={createWorkbenchOverview({}, [item])}
+            routePath={role === 'reporter' ? '/admin/my-work' : '/admin/work'}
+          />
+        );
+
+        expect(screen.queryByLabelText(`Select ${item.title}`)).not.toBeInTheDocument();
+        fireEvent.click(screen.getAllByRole('button', { name: /Assignment test story|Review assignment/ })[0]);
+        expect(await screen.findByRole('dialog')).toBeInTheDocument();
+        expect(screen.queryByText('Assignment triage')).not.toBeInTheDocument();
+      }
+    );
+
+    it('shows an Admin reassignment immediately and reconciles workload without a refresh', async () => {
+      const item = assignmentItem();
+      const fetchMock = vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+        const url = String(input);
+        if (url.includes('assignee-suggestions')) {
+          return Response.json({
+            success: true,
+            data: [
+              {
+                id: 'copy-2',
+                name: 'Copy Two',
+                role: 'copy_editor',
+                isActive: true,
+                activeWorkload: 3,
+                overdueWorkload: 1,
+              },
+              {
+                id: 'reporter-1',
+                name: 'Reporter One',
+                role: 'reporter',
+                isActive: true,
+                activeWorkload: 1,
+                overdueWorkload: 0,
+              },
+            ],
+          });
+        }
+        expect(url).toBe('/api/admin/work-queue/actions');
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          contentType: 'story',
+          id: item.id,
+          action: 'assign',
+          assignedToId: 'copy-2',
+        });
+        return Response.json({ success: true });
+      });
+
+      render(
+        <WorkQueueWorkbench
+          role="admin"
+          overview={createWorkbenchOverview({}, [item])}
+          routePath="/admin/assignments"
+        />
+      );
+      fireEvent.click(screen.getAllByRole('button', { name: /Assignment test story|Review assignment/ })[0]);
+
+      expect(await screen.findByText('Current owner:')).toBeInTheDocument();
+      expect(screen.getAllByText('Reporter One').length).toBeGreaterThan(0);
+      const assignee = await screen.findByRole('combobox', { name: 'Eligible staff' });
+      fireEvent.change(assignee, { target: { value: 'copy-2' } });
+      expect(screen.getByText(/3 active assigned items · 1 overdue/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Reassign owner' }));
+
+      await waitFor(() =>
+        expect(screen.getByText('Current owner:').parentElement).toHaveTextContent(
+          'Current owner: Copy Two'
+        )
+      );
+      expect(screen.getByRole('status')).toHaveTextContent('is now assigned to Copy Two');
+      expect(screen.getByText(/4 active assigned items · 1 overdue/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Reassign owner' })).toBeDisabled();
+      expect(screen.getAllByText('Copy Two').length).toBeGreaterThan(1);
+      fetchMock.mockRestore();
+    });
+
+    it('shows an unassigned item assignment immediately without a refresh', async () => {
+      const fetchMock = vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+        if (String(input).includes('assignee-suggestions')) {
+          return Response.json({
+            success: true,
+            data: [{
+              id: 'reporter-2',
+              name: 'Reporter Two',
+              role: 'reporter',
+              isActive: true,
+              activeWorkload: 0,
+              overdueWorkload: 0,
+            }],
+          });
+        }
+        return Response.json({ success: true });
+      });
+      const item = assignmentItem({
+        status: 'submitted',
+        assignedToId: '',
+        assignedToEmail: '',
+        assignedToName: '',
+        isUnassigned: true,
+      });
+      render(
+        <WorkQueueWorkbench
+          role="super_admin"
+          overview={createWorkbenchOverview({}, [item])}
+          routePath="/admin/assignments"
+        />
+      );
+      fireEvent.click(screen.getAllByRole('button', { name: /Assignment test story|Review assignment/ })[0]);
+      const assignee = await screen.findByRole('combobox', { name: 'Eligible staff' });
+      fireEvent.change(assignee, { target: { value: 'reporter-2' } });
+
+      expect(screen.getAllByText('Unassigned').length).toBeGreaterThan(0);
+      expect(screen.getByRole('button', { name: 'Assign owner' })).toBeEnabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Assign owner' }));
+
+      await waitFor(() =>
+        expect(screen.getByText('Current owner:').parentElement).toHaveTextContent(
+          'Current owner: Reporter Two'
+        )
+      );
+      expect(screen.getByRole('status')).toHaveTextContent('is now assigned to Reporter Two');
+      expect(screen.getByText(/1 active assigned item · 0 overdue/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Reassign owner' })).toBeDisabled();
+      expect(screen.getAllByText('Reporter Two').length).toBeGreaterThan(1);
+      fetchMock.mockRestore();
     });
   });
 });

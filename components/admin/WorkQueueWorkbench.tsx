@@ -18,6 +18,9 @@ import {
   X,
 } from 'lucide-react';
 import DeskWorkflowActions from '@/app/(admin)/admin/DeskWorkflowActions';
+import AssignmentTriageControl, {
+  type AssignmentChange,
+} from '@/components/admin/AssignmentTriageControl';
 import { CmsWorkflowPriorityBadge, CmsWorkflowStatusBadge } from '@/components/admin/CmsWorkflowStatusBadge';
 import type { AdminRole } from '@/lib/auth/roles';
 import type { WorkQueueItem, WorkQueueOverview, WorkQueueView } from '@/lib/admin/workQueue';
@@ -357,15 +360,17 @@ function readinessTone(item: WorkQueueItem) {
 
 export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQueueWorkbenchProps) {
   const router = useRouter();
+  const canManageAssignments = role === 'admin' || role === 'super_admin';
   const language = useAppStore((state) => state.language) === 'hi' ? 'hi' : 'en';
   const t = COPY[language];
+  const [items, setItems] = useState(overview.items);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const previewItem = useMemo(
-    () => overview.items.find((item) => `${item.contentType}:${item.id}` === previewId) || null,
-    [overview.items, previewId]
+    () => items.find((item) => `${item.contentType}:${item.id}` === previewId) || null,
+    [items, previewId]
   );
   const emptyState = useMemo(
     () =>
@@ -379,6 +384,10 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
       }),
     [role, overview.filters.view, overview.filters.status, overview.filters.search, routePath, language]
   );
+
+  useEffect(() => {
+    setItems(overview.items);
+  }, [overview.items]);
 
   useEffect(() => {
     if (!previewItem) return;
@@ -429,6 +438,22 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
     const key = `${item.contentType}:${item.id}`;
     setSelectedIds((current) =>
       current.includes(key) ? current.filter((id) => id !== key) : [...current, key]
+    );
+  }
+
+  function reconcileAssignment(change: AssignmentChange) {
+    setItems((current) =>
+      current.map((item) =>
+        item.contentType === change.contentType && item.id === change.id
+          ? {
+              ...item,
+              assignedToId: change.assignedToId,
+              assignedToName: change.assignedToName,
+              isUnassigned: false,
+              ...(typeof change.version === 'number' ? { version: change.version } : {}),
+            }
+          : item
+      )
     );
   }
 
@@ -568,7 +593,7 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
         </form>
       </section>
 
-      {selectedIds.length ? (
+      {canManageAssignments && selectedIds.length ? (
         <section className="sticky top-[76px] z-20 flex flex-col gap-3 rounded-2xl border border-blue-500/25 bg-blue-600 px-4 py-3 text-white shadow-xl sm:flex-row sm:items-center sm:justify-between">
           <div><p className="text-sm font-bold">{selectedIds.length} {t.selected}</p><p className="text-xs text-blue-100">{t.bulkHint}</p></div>
           <div className="flex items-center gap-2">
@@ -583,16 +608,26 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
           <div><h2 className="text-lg font-black text-[color:var(--admin-shell-text)]">{VIEW_LABELS[overview.filters.view][language]}</h2><p className="text-xs text-[color:var(--admin-shell-text-muted)]">{overview.total} work item{overview.total === 1 ? '' : 's'}</p></div>
           <ListChecks className="h-5 w-5 text-rose-500" />
         </div>
-        <div className="hidden grid-cols-[36px_minmax(260px,1.55fr)_0.55fr_0.75fr_0.65fr_0.65fr_160px] gap-3 border-b border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface-muted)] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--admin-shell-text-muted)] lg:grid">
-          <span /><span>{t.item}</span><span>{t.status}</span><span>{t.owner}</span><span>{t.due}</span><span>{t.readiness}</span><span>{t.next}</span>
+        <div className={cx(
+          'hidden gap-3 border-b border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface-muted)] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--admin-shell-text-muted)] lg:grid',
+          canManageAssignments
+            ? 'grid-cols-[36px_minmax(260px,1.55fr)_0.55fr_0.75fr_0.65fr_0.65fr_160px]'
+            : 'grid-cols-[minmax(260px,1.55fr)_0.55fr_0.75fr_0.65fr_0.65fr_160px]'
+        )}>
+          {canManageAssignments ? <span /> : null}<span>{t.item}</span><span>{t.status}</span><span>{t.owner}</span><span>{t.due}</span><span>{t.readiness}</span><span>{t.next}</span>
         </div>
-        {overview.items.length ? (
+        {items.length ? (
           <div className="divide-y divide-[color:var(--admin-shell-border)]">
-            {overview.items.map((item) => {
+            {items.map((item) => {
               const key = `${item.contentType}:${item.id}`;
               return (
-                <article key={key} className="group grid gap-3 px-4 py-4 transition-colors hover:bg-[color:var(--admin-shell-surface-muted)] lg:grid-cols-[36px_minmax(260px,1.55fr)_0.55fr_0.75fr_0.65fr_0.65fr_160px] lg:items-center">
-                  <label className="hidden lg:block"><span className="sr-only">Select {item.title}</span><input type="checkbox" checked={selectedIds.includes(key)} onChange={() => toggleSelection(item)} className="h-4 w-4 rounded border-zinc-400 accent-rose-600" /></label>
+                <article key={key} className={cx(
+                  'group grid gap-3 px-4 py-4 transition-colors hover:bg-[color:var(--admin-shell-surface-muted)] lg:items-center',
+                  canManageAssignments
+                    ? 'lg:grid-cols-[36px_minmax(260px,1.55fr)_0.55fr_0.75fr_0.65fr_0.65fr_160px]'
+                    : 'lg:grid-cols-[minmax(260px,1.55fr)_0.55fr_0.75fr_0.65fr_0.65fr_160px]'
+                )}>
+                  {canManageAssignments ? <label className="hidden lg:block"><span className="sr-only">Select {item.title}</span><input type="checkbox" checked={selectedIds.includes(key)} onChange={() => toggleSelection(item)} className="h-4 w-4 rounded border-zinc-400 accent-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500" /></label> : null}
                   <button type="button" onClick={() => setPreviewId(key)} className="min-w-0 text-left">
                     <div className="flex flex-wrap items-center gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-rose-600">{itemTypeLabel(item)}</span>{item.isOverdue ? <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-600">{t.overdue}</span> : null}{item.isUnassigned ? <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">{t.unassigned}</span> : null}</div>
                     <h3 className="mt-1 line-clamp-2 text-sm font-bold text-[color:var(--admin-shell-text)]">{item.title}</h3>
@@ -603,7 +638,7 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
                   <div className={cx('flex items-center gap-2 text-xs', item.isOverdue ? 'font-bold text-rose-600' : 'text-[color:var(--admin-shell-text-muted)]')}><CalendarClock className="h-4 w-4 shrink-0" />{formatDate(item.dueAt || item.scheduledFor, language)}</div>
                   <div><span className={cx('inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em]', readinessTone(item))}>{item.readiness.score}% · {item.readiness.state === 'ready' ? t.ready : item.readiness.state === 'blocked' ? t.blocked : t.needsAttention}</span></div>
                   <button type="button" onClick={() => setPreviewId(key)} className="inline-flex h-9 items-center justify-between gap-2 rounded-xl border border-[color:var(--admin-shell-border)] px-3 text-xs font-bold text-[color:var(--admin-shell-text)] hover:border-rose-500/35">{item.nextActionLabel}<ChevronRight className="h-4 w-4" /></button>
-                  <label className="flex items-center gap-2 lg:hidden"><input type="checkbox" checked={selectedIds.includes(key)} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-rose-600" /><span className="text-xs text-[color:var(--admin-shell-text-muted)]">Select for triage</span></label>
+                  {canManageAssignments ? <label className="flex items-center gap-2 lg:hidden"><input type="checkbox" checked={selectedIds.includes(key)} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500" /><span className="text-xs text-[color:var(--admin-shell-text-muted)]">Select for triage</span></label> : null}
                 </article>
               );
             })}
@@ -640,6 +675,9 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
             <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-rose-600">{t.details}</p><h2 id="work-item-title" className="mt-2 text-2xl font-black text-[color:var(--admin-shell-text)]">{previewItem.title}</h2><p className="mt-2 text-sm text-[color:var(--admin-shell-text-muted)]">{itemTypeLabel(previewItem)} · {previewItem.category}</p></div><button ref={closeButtonRef} type="button" onClick={() => setPreviewId(null)} aria-label={language === 'hi' ? '\u0935\u093f\u0935\u0930\u0923 \u092c\u0902\u0926 \u0915\u0930\u0947\u0902' : 'Close work item details'} className="rounded-xl border border-[color:var(--admin-shell-border)] p-2 text-[color:var(--admin-shell-text)]"><X className="h-5 w-5" /></button></div>
             <div className="mt-5 flex flex-wrap gap-2"><CmsWorkflowStatusBadge status={previewItem.status} />{previewItem.priority ? <CmsWorkflowPriorityBadge priority={previewItem.priority} /> : null}{previewItem.isOverdue ? <span className="rounded-full bg-rose-500/10 px-3 py-1 text-xs font-bold text-rose-600">{t.overdue}</span> : null}</div>
             <div className="mt-6 grid grid-cols-2 gap-3"><div className="admin-shell-surface-muted rounded-2xl p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-[color:var(--admin-shell-text-muted)]">{t.owner}</p><p className="mt-1 text-sm font-bold text-[color:var(--admin-shell-text)]">{previewItem.assignedToName || t.unassigned}</p></div><div className="admin-shell-surface-muted rounded-2xl p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-[color:var(--admin-shell-text-muted)]">{t.due}</p><p className="mt-1 text-sm font-bold text-[color:var(--admin-shell-text)]">{formatDate(previewItem.dueAt || previewItem.scheduledFor, language)}</p></div></div>
+            {canManageAssignments ? (
+              <AssignmentTriageControl item={previewItem} onAssigned={reconcileAssignment} />
+            ) : null}
             <section className="mt-6"><h3 className="flex items-center gap-2 text-sm font-black text-[color:var(--admin-shell-text)]"><CheckCircle2 className="h-4 w-4 text-emerald-500" />{t.checks}</h3><div className="mt-3 space-y-2">{previewItem.readiness.checks.map((check) => <div key={check.id} className="admin-shell-surface-muted flex gap-3 rounded-2xl p-3">{check.status === 'complete' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" /> : check.status === 'blocked' ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" /> : <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />}<div><p className="text-sm font-bold text-[color:var(--admin-shell-text)]">{check.label}</p><p className="mt-0.5 text-xs leading-5 text-[color:var(--admin-shell-text-muted)]">{check.detail}</p></div></div>)}</div></section>
             {previewItem.contentType !== 'epaper' ? <div className="mt-6"><DeskWorkflowActions role={role} contentType={previewItem.contentType} contentId={previewItem.id} version={previewItem.version} status={previewItem.status} editHref={previewItem.editHref} hasAssignment={!previewItem.isUnassigned} assignedToName={previewItem.assignedToName} isAssignedToCurrentUser={previewItem.isMine} canFastPublish={previewItem.availableActions.includes('fast_publish')} /></div> : <Link href={previewItem.editHref} className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white">Open publication production</Link>}
           </aside>

@@ -361,7 +361,9 @@ export class EpaperRepository {
   async resolveAssignee(idOrEmail: string) {
     const normalized = idOrEmail.trim();
     const query = this.isValidId(normalized) ? { _id: normalized } : { email: normalized.toLowerCase() };
-    return User.findOne(query).select('_id name email role').lean();
+    return User.findOne({ ...query, isActive: { $ne: false } })
+      .select('_id name email role isActive')
+      .lean();
   }
 
   async publishEdition(id: string, familyId: string, updates: EpaperRecord) {

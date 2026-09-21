@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import connectDB from '@/lib/db/mongoose';
 import Article from '@/lib/models/Article';
 import User from '@/lib/models/User';
-import { isAdminRole } from '@/lib/auth/roles';
+import { normalizeAdminRole } from '@/lib/auth/roles';
 import {
   createStoredArticle,
   deleteStoredArticle,
@@ -496,13 +496,17 @@ export async function resolveAssignee(assignedToId: string): Promise<AssigneeRef
     ? { _id: normalized }
     : { email: normalized.toLowerCase() };
 
-  const assignee = (await User.findOne(query).select('_id name email role').lean()) as {
+  const assignee = (await User.findOne({ ...query, isActive: { $ne: false } })
+    .select('_id name email role isActive')
+    .lean()) as {
     _id?: unknown;
     name?: unknown;
     email?: unknown;
     role?: unknown;
+    isActive?: unknown;
   } | null;
-  if (!assignee || typeof assignee.role !== 'string' || assignee.role === 'reader' || !isAdminRole(assignee.role)) {
+  const role = normalizeAdminRole(assignee?.role);
+  if (!assignee || !role || assignee.isActive === false) {
     return null;
   }
 
@@ -510,6 +514,6 @@ export async function resolveAssignee(assignedToId: string): Promise<AssigneeRef
     id: String(assignee._id || ''),
     name: String(assignee.name || '').trim() || String(assignee.email || '').trim(),
     email: String(assignee.email || '').trim(),
-    role: assignee.role,
+    role,
   };
 }

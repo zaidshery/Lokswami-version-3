@@ -1,6 +1,7 @@
 import 'server-only';
 
 import crypto from 'crypto';
+import { normalizeAdminRole } from '@/lib/auth/roles';
 import {
   canCreateEpaper,
   canDeleteEpaper,
@@ -414,9 +415,10 @@ export class EpaperEditorialService {
 
   private async resolveAssignee(id: string) {
     const user = await this.repo.resolveAssignee(id);
-    if (!user || typeof user.role !== 'string' || user.role === 'reader') return null;
+    const role = normalizeAdminRole(user?.role);
+    if (!user || !role || user.isActive === false) return null;
     return { id: String(user._id || ''), name: String(user.name || '').trim() || String(user.email || '').trim(),
-      email: String(user.email || '').trim(), role: user.role as AdminSessionIdentity['role'] };
+      email: String(user.email || '').trim(), role };
   }
 
   private enrich(mapped: ReturnType<typeof mapAdminEpaper>, edition: EpaperRecord, articleRows: unknown[]) {

@@ -1,7 +1,7 @@
 import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
-import { canViewPage } from '@/lib/auth/permissions';
+import { canManageWorkflowAssignments, canViewPage } from '@/lib/auth/permissions';
 import { dispatchWorkQueueCommand, type WorkQueueCommandInput } from '@/lib/server/workQueueCommands';
 
 async function POSTHandler(request: Request) {
@@ -12,6 +12,9 @@ async function POSTHandler(request: Request) {
   const body = (await request.json().catch(() => null)) as WorkQueueCommandInput | null;
   if (!body || !['article', 'story', 'video', 'epaper'].includes(body.contentType) || !body.action) {
     return NextResponse.json({ success: false, error: 'Invalid work queue action.' }, { status: 400 });
+  }
+  if (body.action === 'assign' && !canManageWorkflowAssignments(admin.role)) {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
   }
   return dispatchWorkQueueCommand(request, body);
 }
