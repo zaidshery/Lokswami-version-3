@@ -68,6 +68,94 @@ const MY_WORK_QUICK_FILTERS: QuickFilterOption[] = [
   { id: 'overdue', view: 'overdue', label: { en: 'Overdue', hi: 'लंबित' } },
 ];
 
+type QueueRouteContext = {
+  eyebrow: { en: string; hi: string };
+  title: { en: string; hi: string };
+  description: { en: string; hi: string };
+};
+
+const QUEUE_ROUTE_HEADERS: Record<string, QueueRouteContext> = {
+  '/admin/review-queue': {
+    eyebrow: { en: 'Review desk', hi: 'रिव्यू डेस्क' },
+    title: { en: 'Review Queue', hi: 'रिव्यू क्यू' },
+    description: {
+      en: 'Editorial review, fact-checking, copy editing, and pre-approval triage across all desks.',
+      hi: 'संपादकीय समीक्षा, तथ्य-जांच, कॉपी संपादन और अनुमोदन-पूर्व ट्राइएज।',
+    },
+  },
+  '/admin/content-queue': {
+    eyebrow: { en: 'Publishing desk', hi: 'प्रकाशन डेस्क' },
+    title: { en: 'Content Queue', hi: 'कंटेंट क्यू' },
+    description: {
+      en: 'Approved articles, stories, videos, and editions waiting for schedule and publication release.',
+      hi: 'स्वीकृत लेख, स्टोरी, वीडियो और संस्करण जो शेड्यूलिंग और अंतिम प्रकाशन के लिए तैयार हैं।',
+    },
+  },
+  '/admin/my-work': {
+    eyebrow: { en: 'My Work', hi: 'माई वर्क' },
+    title: { en: 'My Work', hi: 'मेरा काम' },
+    description: {
+      en: 'Personal stories, drafts, reviews, and assignments assigned to or created by you.',
+      hi: 'आपके द्वारा बनाई गई या आपको सौंपी गई व्यक्तिगत स्टोरी, ड्राफ्ट और असाइनमेंट।',
+    },
+  },
+  '/admin/assignments': {
+    eyebrow: { en: 'Assignment desk', hi: 'असाइनमेंट डेस्क' },
+    title: { en: 'Assignments', hi: 'असाइनमेंट्स' },
+    description: {
+      en: 'Unassigned newsroom items waiting for triage, reporter assignment, and editorial prioritization.',
+      hi: 'न्यूज़रूम के बिना ओनर वाले कार्य जिन्हें ट्राइएज, रिपोर्टर असाइनमेंट और संपादकीय प्राथमिकता की आवश्यकता है।',
+    },
+  },
+};
+
+const DEFAULT_ROUTE_HEADER: QueueRouteContext = {
+  eyebrow: { en: 'Action desk', hi: 'एक्शन डेस्क' },
+  title: { en: 'Work Queue', hi: 'वर्क क्यू' },
+  description: {
+    en: 'One role-aware workspace for reporting, review, assignments, production, approval, and release.',
+    hi: 'रिपोर्टिंग, रिव्यू, असाइनमेंट, प्रोडक्शन, अनुमोदन और प्रकाशन के लिए एक वर्कस्पेस।',
+  },
+};
+
+type StatusFilterOption = {
+  value: string;
+  label: { en: string; hi: string };
+};
+
+const ALL_STATUS_OPTIONS: StatusFilterOption[] = [
+  { value: 'all', label: { en: 'Status: All', hi: 'स्टेटस: सभी' } },
+  { value: 'draft', label: { en: 'Draft', hi: 'ड्राफ्ट' } },
+  { value: 'submitted', label: { en: 'Submitted', hi: 'सबमिट' } },
+  { value: 'assigned', label: { en: 'Assigned', hi: 'असाइन किया गया' } },
+  { value: 'in_review', label: { en: 'In review', hi: 'समीक्षा में' } },
+  { value: 'copy_edit', label: { en: 'Copy edit', hi: 'कॉपी संपादन' } },
+  { value: 'changes_requested', label: { en: 'Changes requested', hi: 'संशोधन अपेक्षित' } },
+  { value: 'ready_for_approval', label: { en: 'Ready for approval', hi: 'अनुमोदन के लिए तैयार' } },
+  { value: 'approved', label: { en: 'Approved', hi: 'स्वीकृत' } },
+  { value: 'scheduled', label: { en: 'Scheduled', hi: 'शेड्यूल किया गया' } },
+  { value: 'ready_to_publish', label: { en: 'Ready to publish', hi: 'प्रकाशन के लिए तैयार' } },
+];
+
+const CONTENT_QUEUE_STATUS_OPTIONS: StatusFilterOption[] = [
+  { value: 'all', label: { en: 'All publishing statuses', hi: 'सभी प्रकाशन स्टेटस' } },
+  { value: 'approved', label: { en: 'Approved', hi: 'स्वीकृत' } },
+  { value: 'scheduled', label: { en: 'Scheduled', hi: 'शेड्यूल किया गया' } },
+  { value: 'ready_to_publish', label: { en: 'Ready to publish', hi: 'प्रकाशन के लिए तैयार' } },
+];
+
+const REVIEW_QUEUE_STATUS_OPTIONS: StatusFilterOption[] = [
+  { value: 'all', label: { en: 'All review statuses', hi: 'सभी समीक्षा स्टेटस' } },
+  { value: 'submitted', label: { en: 'Submitted', hi: 'सबमिट' } },
+  { value: 'assigned', label: { en: 'Assigned', hi: 'असाइन किया गया' } },
+  { value: 'in_review', label: { en: 'In review', hi: 'समीक्षा में' } },
+  { value: 'copy_edit', label: { en: 'Copy edit', hi: 'कॉपी संपादन' } },
+  { value: 'changes_requested', label: { en: 'Changes requested', hi: 'संशोधन अपेक्षित' } },
+  { value: 'pages_ready', label: { en: 'Pages ready', hi: 'पृष्ठ तैयार' } },
+  { value: 'ocr_review', label: { en: 'OCR review', hi: 'ओसीआर समीक्षा' } },
+  { value: 'hotspot_mapping', label: { en: 'Hotspot mapping', hi: 'हॉटस्पॉट मैपिंग' } },
+];
+
 type EmptyStateContent = {
   title: string;
   description: string;
@@ -403,10 +491,21 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
     };
   }, [previewItem]);
 
-  function viewHref(view: WorkQueueView) {
+  function viewHref(targetView: WorkQueueView) {
+    const isCurrentDedicatedReview = routePath === '/admin/review-queue' && targetView === 'review';
+    const isCurrentDedicatedContent = routePath === '/admin/content-queue' && targetView === 'publishing';
+    const isCurrentDedicatedMyWork = routePath === '/admin/my-work' && targetView === 'mine';
+    const isCurrentDedicatedAssignments = routePath === '/admin/assignments' && targetView === 'unassigned';
+
+    let basePath = '/admin/work';
+    if (isCurrentDedicatedReview) basePath = '/admin/review-queue';
+    else if (isCurrentDedicatedContent) basePath = '/admin/content-queue';
+    else if (isCurrentDedicatedMyWork) basePath = '/admin/my-work';
+    else if (isCurrentDedicatedAssignments) basePath = '/admin/assignments';
+
     const params = new URLSearchParams();
-    params.set('view', view);
-    return `${routePath}?${params.toString()}`;
+    params.set('view', targetView);
+    return `${basePath}?${params.toString()}`;
   }
 
   function quickFilterHref(targetView: WorkQueueView, targetStatus?: string) {
@@ -470,23 +569,27 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
     return `${routePath}?${params.toString()}`;
   }
 
+  const routeHeader = QUEUE_ROUTE_HEADERS[routePath] || DEFAULT_ROUTE_HEADER;
+  const statusOptions =
+    routePath === '/admin/content-queue'
+      ? CONTENT_QUEUE_STATUS_OPTIONS
+      : routePath === '/admin/review-queue'
+        ? REVIEW_QUEUE_STATUS_OPTIONS
+        : ALL_STATUS_OPTIONS;
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5 px-3 pb-10 sm:px-5 lg:px-6">
       <section className="admin-shell-surface-strong overflow-hidden rounded-[24px] p-5 sm:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">
-              {routePath === '/admin/my-work' ? (language === 'hi' ? 'माई वर्क' : 'My Work') : t.eyebrow}
+              {routeHeader.eyebrow[language]}
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-[color:var(--admin-shell-text)]">
-              {routePath === '/admin/my-work' ? (language === 'hi' ? 'मेरा काम' : 'My Work') : t.title}
+              {routeHeader.title[language]}
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--admin-shell-text-muted)]">
-              {routePath === '/admin/my-work'
-                ? (language === 'hi'
-                    ? 'आपके द्वारा बनाई गई या आपको सौंपी गई व्यक्तिगत स्टोरी, ड्राफ्ट और असाइनमेंट।'
-                    : 'Personal stories, drafts, reviews, and assignments assigned to or created by you.')
-                : t.description}
+              {routeHeader.description[language]}
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 xl:min-w-[620px]">
@@ -567,17 +670,11 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
               <option value="all">{t.content}: All</option><option value="article">Articles</option><option value="story">Stories</option><option value="video">Videos</option><option value="epaper">Publications</option>
             </select>
             <select name="status" defaultValue={overview.filters.status} aria-label={t.status} className="h-11 rounded-xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface-muted)] px-3 text-sm text-[color:var(--admin-shell-text)]">
-              <option value="all">{t.status}: All</option>
-              <option value="draft">Draft</option>
-              <option value="submitted">Submitted</option>
-              <option value="assigned">Assigned</option>
-              <option value="in_review">In review</option>
-              <option value="copy_edit">Copy edit</option>
-              <option value="changes_requested">Changes requested</option>
-              <option value="ready_for_approval">Ready for approval</option>
-              <option value="approved">Approved</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="ready_to_publish">Ready to publish</option>
+              {statusOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label[language]}
+                </option>
+              ))}
             </select>
             <select name="priority" defaultValue={overview.filters.priority} aria-label={t.priority} className="h-11 rounded-xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface-muted)] px-3 text-sm text-[color:var(--admin-shell-text)]">
               <option value="all">{t.priority}: All</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option>
