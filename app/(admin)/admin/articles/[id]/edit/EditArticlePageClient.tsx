@@ -2233,6 +2233,11 @@ export default function EditArticle() {
       return;
     }
 
+    if (action === 'schedule' && scheduledFor && new Date(scheduledFor).getTime() <= Date.now()) {
+      setError('Scheduled time must be set to a future date and time.');
+      return;
+    }
+
     if (workflowDueAt && !dueAt) {
       setError('Due date is invalid.');
       return;
@@ -2403,7 +2408,14 @@ export default function EditArticle() {
         dueAt={workflow.dueAt}
         hasUnsavedChanges={hasUnsavedChanges}
         blockerCount={hasUnsavedChanges ? 1 : 0}
-        primaryAction={availableWorkflowActions[0] ? ACTION_LABELS[availableWorkflowActions[0]] : 'Review workflow'}
+        primaryAction={
+          availableWorkflowActions[0]
+            ? availableWorkflowActions[0] === 'submit' &&
+              (workflow.status === 'changes_requested' || workflow.status === 'rejected')
+              ? 'Resubmit for Review'
+              : ACTION_LABELS[availableWorkflowActions[0]]
+            : 'Review workflow'
+        }
       />
 
       <motion.div
@@ -2426,6 +2438,119 @@ export default function EditArticle() {
               <p className="mt-2 text-gray-600">Update your article details, workflow, and desk status</p>
             </div>
           </div>
+
+          {/* Editorial Lifecycle & Recovery Banner for changes_requested and rejected */}
+          {workflow.status === 'changes_requested' ? (
+            <div className="mb-6 rounded-2xl border border-amber-300/80 bg-amber-50/90 p-5 shadow-xs dark:border-amber-500/20 dark:bg-amber-500/10">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <h2 className="text-base font-bold text-amber-900 dark:text-amber-200">
+                      Desk Changes Requested
+                    </h2>
+                    <span className="rounded-full bg-amber-200/70 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                      Action Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                    {workflow.reviewedBy?.name ? `Returned by ${workflow.reviewedBy.name}` : 'Returned by the editorial desk'}
+                  </p>
+                </div>
+                {availableWorkflowActions.includes('submit') ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleWorkflowAction('submit')}
+                    disabled={Boolean(runningWorkflowAction) || hasUnsavedChanges}
+                    className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {runningWorkflowAction === 'submit' ? <Loader className="h-4 w-4 animate-spin" /> : null}
+                    Resubmit for Review
+                  </button>
+                ) : null}
+              </div>
+
+              {(workflow.rejectionReason || formData.returnForChangesReason || formData.copyEditorNotes) ? (
+                <div className="mt-3 rounded-xl border border-amber-300/60 bg-white/90 p-3.5 text-sm text-zinc-800 dark:border-amber-500/30 dark:bg-zinc-900/90 dark:text-zinc-200">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    Feedback / Change Notes:
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">
+                    {workflow.rejectionReason || formData.returnForChangesReason || formData.copyEditorNotes}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900/80 dark:text-amber-300/80">
+                <p>
+                  <span className="font-semibold">Editable Fields:</span> Headline, summary, body content, category, author info, and images.
+                </p>
+                <p>
+                  {hasUnsavedChanges
+                    ? '⚠️ Save changes below before resubmitting.'
+                    : '✅ Changes are saved. Ready to resubmit.'}
+                </p>
+              </div>
+              <p className="mt-2 text-[11px] text-amber-700/80 dark:text-amber-400/80">
+                What happens next: Resubmitting moves this article back to the newsroom Review Queue for the copy desk.
+              </p>
+            </div>
+          ) : null}
+
+          {workflow.status === 'rejected' ? (
+            <div className="mb-6 rounded-2xl border border-red-300/80 bg-red-50/90 p-5 shadow-xs dark:border-red-500/20 dark:bg-red-500/10">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+                    <h2 className="text-base font-bold text-red-900 dark:text-red-200">
+                      Article Rejected
+                    </h2>
+                    <span className="rounded-full bg-red-200/70 px-2.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-500/20 dark:text-red-300">
+                      {availableWorkflowActions.includes('submit') ? 'Recovery Available' : 'Terminal State'}
+                    </span>
+                  </div>
+                  {workflow.reviewedBy?.name ? (
+                    <p className="text-xs text-red-800/80 dark:text-red-300/80">
+                      Reviewed by {workflow.reviewedBy.name}
+                    </p>
+                  ) : null}
+                </div>
+                {availableWorkflowActions.includes('submit') ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleWorkflowAction('submit')}
+                    disabled={Boolean(runningWorkflowAction) || hasUnsavedChanges}
+                    className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {runningWorkflowAction === 'submit' ? <Loader className="h-4 w-4 animate-spin" /> : null}
+                    Resubmit for Review
+                  </button>
+                ) : null}
+              </div>
+
+              {workflow.rejectionReason ? (
+                <div className="mt-3 rounded-xl border border-red-300/60 bg-white/90 p-3.5 text-sm text-zinc-800 dark:border-red-500/30 dark:bg-zinc-900/90 dark:text-zinc-200">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400">
+                    Rejection Reason:
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">{workflow.rejectionReason}</p>
+                </div>
+              ) : null}
+
+              <div className="mt-3 text-xs text-red-900/80 dark:text-red-300/80">
+                {availableWorkflowActions.includes('submit') ? (
+                  <p>
+                    You may correct the issues described above, save your changes, and click <strong>Resubmit for Review</strong> to send this article back for desk evaluation.
+                  </p>
+                ) : (
+                  <p>
+                    This article was rejected and cannot be modified or resubmitted by your current role. Contact an editorial administrator if this decision needs to be reconsidered.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           {error ? (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 flex gap-2">
@@ -3048,7 +3173,7 @@ export default function EditArticle() {
                           className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 focus:border-spanish-red focus:outline-none"
                         />
                         <p className="text-xs text-gray-500">
-                          Only required when using the schedule action.
+                          Must be a future date and time. Scheduling queues content for release and does not publish immediately.
                         </p>
                       </div>
                     </div>
@@ -3120,7 +3245,9 @@ export default function EditArticle() {
                             className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${toneClass}`}
                           >
                             {isRunning ? <Loader className="h-4 w-4 animate-spin" /> : null}
-                            {ACTION_LABELS[action]}
+                            {action === 'submit' && (workflow.status === 'changes_requested' || workflow.status === 'rejected')
+                              ? 'Resubmit for Review'
+                              : ACTION_LABELS[action]}
                           </button>
                         );
                       })}

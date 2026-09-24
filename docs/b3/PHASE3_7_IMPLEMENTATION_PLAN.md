@@ -431,6 +431,23 @@ No route is removed in Phase 3.7. A future redirect/deprecation may be proposed 
 - **Risk:** client capability logic drifts from server policy. **Control:** expose/derive capabilities from shared policy inputs and keep negative API tests.
 - **Rollback:** revert presentation changes independently; do not revert server invariants or CAS.
 
+### 8.8 Phase 3.7D Completion Note
+
+- **Status:** Complete ✅
+- **Newsroom Surfaces Classified:**
+  - `/admin/work?view=review`: **CANONICAL** unified workbench for personal, desk, and approval items with server-side role filtering.
+  - `/admin/copy-desk`: **SPECIALIZED** copy-editor workspace for language refinement, headline verification, fact-checking, and asset inspection. Preserved route permissions: `super_admin`, `admin`, `copy_editor` ALLOW; `reporter` DENY. Added quick filter tabs (`mine`, `ready_for_review`, `needs_changes`, `ready_for_approval`) and Content Type filters (`all`, `article`, `story`) with contextual deep links to Work Workbench, Content Queue, and My Work.
+  - `/admin/review-queue`: **SPECIALIZED / COMPATIBILITY** admin review queue for review-stage oversight.
+  - `/admin/content-queue`: **SPECIALIZED** staging queue for admin publishing, scheduling, and urgent release.
+- **Reporter Return & Resubmit UX:** In `changes_requested`, Article and Story editors render an `EditorialFeedbackBanner` displaying the desk return reason, reviewer identity, list of editable fields, save status, and a prominent "Resubmit for Review" primary action. Privileged controls (`approve`, `publish`, `schedule`, `assign`, `fast_publish`) are strictly hidden from reporters.
+- **Rejected Content Recovery UX:** In `rejected`, Article and Story editors render rejection banners displaying the reason and recovery policy. Author-owned content offers "Resubmit for Review" after modifications; unauthorized viewers receive terminal guidance without dead-end actions.
+- **Story Collaboration UX Integration:** Integrated `StoryCollaborationBar` into Story editor enforcing strict save confidence: priority is `conflict/error > recovery > saving/unsaved > saved`. "All changes saved" is never displayed when pending, in conflict, on autosave failure, or when a recovered local draft exists. Save status has `role="status"` and `aria-live="polite"`.
+- **Story Lease & Takeover UX:** Non-holders see locked status ("Locked by [Name] ([Role])") and disabled save button ("Locked by Editor"). Authorized Admins get an accessible modal confirmation step before executing lease takeover.
+- **Story Revision History UX:** `StoryRevisionsDrawer` provides accessible dialog semantics (`role="dialog"`, `aria-modal="true"`, `aria-labelledby`, Escape key handling, focus trap). Revision restore requires confirmation explaining that current draft is captured as a recoverable snapshot and workflow/publication status is kept. Deterministic HTTP 409 conflict errors are surfaced actionably.
+- **Schedule Guidance & Validation:** Future date requirement enforced across `DeskWorkflowActions` and editors with immediate feedback ("Scheduled time must be set to a future date and time.") and descriptive help text ("Must be a future date and time. Scheduling queues content for release and does not publish immediately.").
+- **Responsive Layout & Accessibility:** Responsive containers (`flex-wrap`, `minmax(0,1fr)`) verified across desktop (1440x900), tablet (768x1024), and mobile (390x844) viewports without horizontal page overflow. Accessible names, ARIA attributes (`aria-controls`, `aria-expanded`), and keyboard interactions verified.
+- **Verification:** 100% test pass rate across 271 test files (1,709 tests, +17 new tests in `tests/copy-desk-lifecycle-ux.test.tsx`), zero regressions across four-role newsroom RBAC, security mutation suite, auth guards, strict linting, typecheck, Next.js CI production build, and scope checks.
+
 ---
 
 ## 9. 3.7E — Activity, Notifications, Parity and Final Acceptance

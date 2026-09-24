@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   CheckCircle,
   Clock,
@@ -43,12 +43,18 @@ export function StoryCollaborationBar({
   onOpenRevisions,
   revisionCount = 0,
 }: StoryCollaborationBarProps) {
+  const [showTakeOverConfirm, setShowTakeOverConfirm] = useState(false);
+
+  // Strict visual precedence: conflict/error > recovery > saving/unsaved > saved
+  const hasConflict = saveStatus === 'version_conflict' || saveStatus === 'lease_conflict' || saveStatus === 'autosave_failed';
+  const hasRecovery = Boolean(recoveredDraft) || saveStatus === 'recovery_available';
+
   return (
     <div className="flex flex-col gap-2 p-3 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-neutral-200 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Save / Sync Status Indicator */}
-        <div className="flex items-center gap-2">
-          {saveStatus === 'saved' && (
+        {/* Save / Sync Status Indicator with Live Region */}
+        <div role="status" aria-live="polite" className="flex items-center gap-2">
+          {saveStatus === 'saved' && !hasConflict && !hasRecovery && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
               <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
               <span>{statusMessage || 'All changes saved'}</span>
@@ -62,7 +68,7 @@ export function StoryCollaborationBar({
             </span>
           )}
 
-          {saveStatus === 'unsaved' && (
+          {saveStatus === 'unsaved' && !hasConflict && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-950/80 text-amber-300 border border-amber-800/60">
               <Clock className="w-3.5 h-3.5 text-amber-400" />
               <span>{statusMessage || 'Unsaved changes'}</span>
@@ -90,10 +96,10 @@ export function StoryCollaborationBar({
             </span>
           )}
 
-          {saveStatus === 'recovery_available' && (
+          {(saveStatus === 'recovery_available' || (recoveredDraft && !hasConflict)) && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-950/80 text-cyan-300 border border-cyan-800/60">
               <RotateCcw className="w-3.5 h-3.5 text-cyan-400" />
-              <span>{statusMessage || 'Recovery draft available'}</span>
+              <span>Recovery draft available</span>
             </span>
           )}
 
@@ -107,21 +113,51 @@ export function StoryCollaborationBar({
         </div>
 
         {/* Action Controls: Lock Takeover & Revisions History */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isLockedByOther && lockHolder && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-amber-300 flex items-center gap-1">
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 Locked by {lockHolder.name || lockHolder.email} ({lockHolder.role})
               </span>
-              {canTakeOver && (
-                <button
-                  type="button"
-                  onClick={onTakeOver}
-                  className="px-2.5 py-1 text-xs font-medium bg-amber-600 hover:bg-amber-500 text-neutral-950 rounded transition-colors"
+
+              {showTakeOverConfirm ? (
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Confirm Lease Takeover"
+                  className="flex flex-wrap items-center gap-1.5 rounded border border-amber-600/80 bg-amber-950/90 p-1 text-xs text-amber-200"
                 >
-                  Take Over
-                </button>
+                  <span>Take over lock? Current editor's uncommitted draft will not be saved.</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTakeOverConfirm(false);
+                      onTakeOver();
+                    }}
+                    className="rounded bg-amber-500 px-2 py-0.5 font-bold text-neutral-950 hover:bg-amber-400 transition-colors"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowTakeOverConfirm(false)}
+                    className="rounded bg-neutral-800 px-2 py-0.5 text-neutral-300 hover:bg-neutral-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                canTakeOver && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTakeOverConfirm(true)}
+                    aria-haspopup="dialog"
+                    className="rounded bg-amber-600 px-2.5 py-1 text-xs font-medium text-neutral-950 hover:bg-amber-500 transition-colors"
+                  >
+                    Take Over
+                  </button>
+                )
               )}
             </div>
           )}
@@ -129,6 +165,7 @@ export function StoryCollaborationBar({
           <button
             type="button"
             onClick={onOpenRevisions}
+            aria-haspopup="dialog"
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition-colors"
           >
             <History className="w-3.5 h-3.5 text-neutral-400" />
@@ -144,7 +181,11 @@ export function StoryCollaborationBar({
 
       {/* Recovery Banner */}
       {recoveredDraft && (
-        <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded bg-cyan-950/60 border border-cyan-800/80 text-cyan-200 text-xs">
+        <div
+          role="region"
+          aria-label="Unsaved draft recovery"
+          className="flex flex-wrap items-center justify-between gap-2 p-2 rounded bg-cyan-950/60 border border-cyan-800/80 text-cyan-200 text-xs"
+        >
           <div className="flex items-center gap-2">
             <RotateCcw className="w-4 h-4 text-cyan-400 shrink-0" />
             <span>

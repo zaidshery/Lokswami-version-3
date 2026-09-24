@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { FileSearch, Type } from 'lucide-react';
+import { FileSearch, Type, UserRound, Layers, ExternalLink } from 'lucide-react';
 import { getAdminSession } from '@/lib/auth/admin';
 import { canViewPage } from '@/lib/auth/permissions';
 import { formatUserRoleLabel, isCopyEditorRole } from '@/lib/auth/roles';
@@ -9,6 +9,7 @@ import { formatUiDate } from '@/lib/utils/dateFormat';
 import formatNumber from '@/lib/utils/formatNumber';
 import DeskWorkflowActions from '@/app/(admin)/admin/DeskWorkflowActions';
 import StoryAssetDownloadActions from '@/app/(admin)/admin/copy-desk/StoryAssetDownloadActions';
+import { CmsWorkflowPriorityBadge, CmsWorkflowStatusBadge } from '@/components/admin/CmsWorkflowStatusBadge';
 import {
   CmsCollectionHero,
   CmsCollectionPage,
@@ -16,6 +17,16 @@ import {
   CMS_COLLECTION_PANEL_CLASS as PANEL_CLASS,
   CMS_COLLECTION_SOFT_CARD_CLASS as SOFT_CARD_CLASS,
 } from '@/components/admin/CmsCollectionLayout';
+
+/**
+ * Route Classification: SPECIALIZED (Phase 3.7D)
+ * Accessible by: super_admin, admin, copy_editor. Denied to: reporter.
+ * Purpose: Dedicated workspace for copy editing, headline approval, fact checking, and asset inspection.
+ * Handoffs:
+ * - Reporters submit items -> Appear in Copy Desk / Review Queue.
+ * - Copy editors claim / edit / verify headline / facts / image.
+ * - Copy editors return for changes (back to reporter) or mark ready for approval (forward to admin).
+ */
 
 function formatStatusLabel(status: string) {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -49,7 +60,11 @@ function matchesCurrentUser(
   );
 }
 
-export default async function CopyDeskPage() {
+export default async function CopyDeskPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const admin = await getAdminSession();
   if (!admin) {
     redirect('/signin?redirect=/admin/copy-desk');
@@ -61,6 +76,28 @@ export default async function CopyDeskPage() {
 
   const control = await getNewsroomControlCenterData();
   const showReviewQueueLink = canViewPage(admin.role, 'work_queue');
+  const showContentQueueLink = canViewPage(admin.role, 'content_queue');
+  const showMyWorkLink = canViewPage(admin.role, 'my_work');
+
+  const resolvedParams = searchParams ? await searchParams : {};
+  const activeTab = typeof resolvedParams.tab === 'string' ? resolvedParams.tab : 'all';
+  const activeType = typeof resolvedParams.type === 'string' ? resolvedParams.type : 'all';
+
+  const countMine = control.copyDesk.filter((i) => matchesCurrentUser(i, admin)).length;
+  const countReady = control.copyDesk.filter((i) => i.status === 'copy_edit' || i.status === 'in_review').length;
+  const countChanges = control.copyDesk.filter((i) => i.status === 'changes_requested').length;
+  const countApproval = control.copyDesk.filter((i) => i.status === 'ready_for_approval').length;
+
+  const filteredItems = control.copyDesk.filter((item) => {
+    if (activeType === 'article' && item.contentType !== 'article') return false;
+    if (activeType === 'story' && item.contentType !== 'story') return false;
+
+    if (activeTab === 'mine') return matchesCurrentUser(item, admin);
+    if (activeTab === 'ready_for_review') return item.status === 'copy_edit' || item.status === 'in_review';
+    if (activeTab === 'needs_changes') return item.status === 'changes_requested';
+    if (activeTab === 'ready_for_approval') return item.status === 'ready_for_approval';
+    return true;
+  });
 
   return (
     <CmsCollectionPage>
@@ -79,34 +116,147 @@ export default async function CopyDeskPage() {
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr,0.95fr]">
         <section className={PANEL_CLASS}>
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Copy Desk Queue</h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-            Submitted stories and active review work available to your desk.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Copy Desk Queue</h2>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+                Submitted content and active review work available to your desk.
+              </p>
+            </div>
+            {/* Content Type Filter */}
+            <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-white/10 dark:bg-white/[0.04]">
+              <Link
+                href={`/admin/copy-desk?tab=${activeTab}&type=all`}
+                className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${
+                  activeType === 'all'
+                    ? 'bg-white text-zinc-900 shadow-xs dark:bg-white/20 dark:text-white'
+                    : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+                }`}
+              >
+                All
+              </Link>
+              <Link
+                href={`/admin/copy-desk?tab=${activeTab}&type=article`}
+                className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${
+                  activeType === 'article'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+                }`}
+              >
+                Articles
+              </Link>
+              <Link
+                href={`/admin/copy-desk?tab=${activeTab}&type=story`}
+                className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${
+                  activeType === 'story'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+                }`}
+              >
+                Stories
+              </Link>
+            </div>
+          </div>
+
+          {/* Quick Filter Tabs */}
+          <div className="mt-4 flex flex-wrap gap-2 border-b border-zinc-200/80 pb-3 dark:border-white/10">
+            <Link
+              href={`/admin/copy-desk?tab=all&type=${activeType}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                activeTab === 'all'
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/[0.06] dark:text-zinc-300 dark:hover:bg-white/[0.1]'
+              }`}
+            >
+              All ({control.copyDesk.length})
+            </Link>
+            <Link
+              href={`/admin/copy-desk?tab=mine&type=${activeType}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                activeTab === 'mine'
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/[0.06] dark:text-zinc-300 dark:hover:bg-white/[0.1]'
+              }`}
+            >
+              Assigned to Me ({countMine})
+            </Link>
+            <Link
+              href={`/admin/copy-desk?tab=ready_for_review&type=${activeType}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                activeTab === 'ready_for_review'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/[0.06] dark:text-zinc-300 dark:hover:bg-white/[0.1]'
+              }`}
+            >
+              Ready for Copy Edit ({countReady})
+            </Link>
+            <Link
+              href={`/admin/copy-desk?tab=needs_changes&type=${activeType}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                activeTab === 'needs_changes'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/[0.06] dark:text-zinc-300 dark:hover:bg-white/[0.1]'
+              }`}
+            >
+              Needs Changes ({countChanges})
+            </Link>
+            <Link
+              href={`/admin/copy-desk?tab=ready_for_approval&type=${activeType}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                activeTab === 'ready_for_approval'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/[0.06] dark:text-zinc-300 dark:hover:bg-white/[0.1]'
+              }`}
+            >
+              Ready for Approval ({countApproval})
+            </Link>
+          </div>
+
           <div className="mt-6 space-y-3">
-            {control.copyDesk.length ? (
-              control.copyDesk.map((item) => (
+            {filteredItems.length ? (
+              filteredItems.map((item) => (
                 <div
                   key={`${item.contentType}-${item.id}`}
                   className={`${SOFT_CARD_CLASS} transition-colors hover:border-zinc-300/80 dark:hover:border-white/20`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {item.contentType === 'story' ? (
+                          <span className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:border-purple-500/20 dark:bg-purple-500/10 dark:text-purple-300">
+                            Story
+                          </span>
+                        ) : (
+                          <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
+                            Article
+                          </span>
+                        )}
+                        {item.priority ? (
+                          <CmsWorkflowPriorityBadge priority={item.priority} />
+                        ) : null}
+                        <CmsWorkflowStatusBadge status={item.status} />
+                      </div>
                       <Link
                         href={item.editHref}
                         className="text-sm font-semibold text-zinc-900 transition-colors hover:text-red-600 dark:text-zinc-100 dark:hover:text-red-300"
                       >
                         {item.title}
                       </Link>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        {item.category} / {item.author} / {item.assignedToName || 'Desk'}
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {item.category} / {item.author}
                       </p>
                     </div>
-                    <span className={META_CHIP_CLASS}>{formatStatusLabel(item.status)}</span>
+                    <div className="flex flex-col items-end gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className="inline-flex items-center gap-1">
+                        <UserRound className="h-3 w-3 text-zinc-400" />
+                        {item.assignedToName ? `Assigned: ${item.assignedToName}` : 'Unassigned'}
+                      </span>
+                      <span>Updated {formatUiDate(item.updatedAt, item.updatedAt)}</span>
+                    </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                     <span>{item.queueLabel}</span>
-                    <span>Updated {formatUiDate(item.updatedAt, item.updatedAt)}</span>
+                    {item.dueAt ? <span>Due: {formatUiDate(item.dueAt, item.dueAt)}</span> : null}
                   </div>
                   <div className="mt-4 space-y-3">
                     {hasReporterSummary(item) ? (
@@ -195,7 +345,18 @@ export default async function CopyDeskPage() {
                 </div>
               ))
             ) : (
-              <div className={SOFT_CARD_CLASS}>No submitted stories are waiting right now.</div>
+              <div className={`${SOFT_CARD_CLASS} text-center py-8 text-zinc-500 dark:text-zinc-400`}>
+                <p className="font-semibold text-zinc-700 dark:text-zinc-200">No items found</p>
+                <p className="mt-1 text-xs">
+                  {activeTab === 'mine'
+                    ? 'No items currently assigned to you.'
+                    : activeTab === 'needs_changes'
+                      ? 'No items currently waiting on reporter changes.'
+                      : activeTab === 'ready_for_approval'
+                        ? 'No items currently marked ready for approval.'
+                        : 'No editorial items are waiting in this queue.'}
+                </p>
+              </div>
             )}
           </div>
         </section>
@@ -213,7 +374,7 @@ export default async function CopyDeskPage() {
             </div>
             <div className="mt-6 space-y-3">
               <div className={SOFT_CARD_CLASS}>Proofread the story body and ensure names, numbers, and references are consistent.</div>
-              <div className={SOFT_CARD_CLASS}>Run fact-check notes and return `changes requested` where the reporting needs another pass.</div>
+              <div className={SOFT_CARD_CLASS}>Run fact-check notes and return `changes requested` where reporting needs another pass.</div>
               <div className={SOFT_CARD_CLASS}>Rewrite the headline if clarity, urgency, or readability is weak.</div>
               <div className={SOFT_CARD_CLASS}>Confirm image quality and optimization before content returns to admin approval.</div>
             </div>
@@ -225,19 +386,35 @@ export default async function CopyDeskPage() {
                 <Type className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Return Path</h2>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">How work should leave the copy desk.</p>
+                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Newsroom Handoffs</h2>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">How editorial work moves through desks.</p>
               </div>
             </div>
             <div className="mt-6 space-y-3">
-              <div className={SOFT_CARD_CLASS}>Return incomplete or weak work to the reporter with clear change notes.</div>
-              <div className={SOFT_CARD_CLASS}>Move clean stories back to the admin approval flow for scheduling or publication.</div>
-            </div>
-            {showReviewQueueLink ? (
-              <div className="mt-6">
-                <Link href="/admin/work?view=review" className={META_CHIP_CLASS}>Back To Review Queue</Link>
+              <div className={SOFT_CARD_CLASS}>
+                <span className="font-semibold text-zinc-800 dark:text-zinc-200">Return for Changes:</span> Sends the item back to the reporter with clear revision notes.
               </div>
-            ) : null}
+              <div className={SOFT_CARD_CLASS}>
+                <span className="font-semibold text-zinc-800 dark:text-zinc-200">Ready for Approval:</span> Advances polished content to the Content Queue for admin scheduling and release.
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2 pt-2 border-t border-zinc-200/80 dark:border-white/10">
+              {showReviewQueueLink ? (
+                <Link href="/admin/work?view=review" className={META_CHIP_CLASS}>
+                  Work Workbench (Review)
+                </Link>
+              ) : null}
+              {showContentQueueLink ? (
+                <Link href="/admin/content-queue" className={META_CHIP_CLASS}>
+                  Content Queue (Publishing)
+                </Link>
+              ) : null}
+              {showMyWorkLink ? (
+                <Link href="/admin/my-work" className={META_CHIP_CLASS}>
+                  My Work
+                </Link>
+              ) : null}
+            </div>
           </div>
         </section>
       </section>

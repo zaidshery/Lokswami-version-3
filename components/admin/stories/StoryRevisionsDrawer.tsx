@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, RotateCcw, Clock, User, AlertTriangle, Loader2 } from 'lucide-react';
 import { getAuthHeader } from '@/lib/auth/clientToken';
 
@@ -39,6 +39,27 @@ export function StoryRevisionsDrawer({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Focus drawer on open
+  useEffect(() => {
+    if (isOpen && drawerRef.current) {
+      drawerRef.current.focus();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !storyId) return;
@@ -77,7 +98,7 @@ export function StoryRevisionsDrawer({
     if (!revId) return;
 
     const confirmed = window.confirm(
-      `Are you sure you want to restore revision v${rev.version}? Your current state will be saved as a revision.`
+      `Are you sure you want to restore revision v${rev.version}? Your current editor state will be captured as a recoverable revision before restoring. Publication and workflow status will remain unchanged.`
     );
     if (!confirmed) return;
 
@@ -118,12 +139,21 @@ export function StoryRevisionsDrawer({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-xs">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="story-revisions-title"
+      ref={drawerRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-xs outline-none"
+    >
       <div className="w-full max-w-md h-full bg-neutral-900 border-l border-neutral-800 shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-neutral-800">
           <div>
-            <h2 className="text-base font-semibold text-neutral-100">Revision History</h2>
+            <h2 id="story-revisions-title" className="text-base font-semibold text-neutral-100">
+              Revision History
+            </h2>
             <p className="text-xs text-neutral-400">
               Current version: v{currentVersion} (Max 30 retained)
             </p>
@@ -131,7 +161,8 @@ export function StoryRevisionsDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800"
+            aria-label="Close revision history"
+            className="p-1 rounded text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -192,6 +223,7 @@ export function StoryRevisionsDrawer({
                       type="button"
                       disabled={isRestoring || (rev._id || rev.id) === restoringId}
                       onClick={() => handleRestore(rev)}
+                      aria-label={`Restore revision v${rev.version}`}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-colors disabled:opacity-50"
                     >
                       {isRestoring ? (
