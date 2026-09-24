@@ -432,6 +432,7 @@ export class VideoEditorialService {
         action,
         workflow: nextWorkflow,
         actor: user,
+        previousAssignee: currentVideoWorkflow.assignedTo,
       });
 
       return {

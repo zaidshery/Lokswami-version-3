@@ -655,10 +655,12 @@ export class EditorialService {
       }
     }
 
+    const currentWorkflow = resolveArticleWorkflow(current);
+    const previousAssignee = currentWorkflow.assignedTo;
     const { fromStatus, toStatus, nextWorkflow } = applyArticleWorkflowAction({
       action,
       actor,
-      currentWorkflow: resolveArticleWorkflow(current),
+      currentWorkflow,
       assignedTo,
       scheduledFor: parseOptionalDate(actionBody.scheduledFor),
       dueAt: parseOptionalDate(actionBody.dueAt),
@@ -716,6 +718,7 @@ export class EditorialService {
       action,
       workflow: nextWorkflow,
       actor,
+      previousAssignee,
     });
 
     if (updated.sourceStoryId) {

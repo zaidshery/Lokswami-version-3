@@ -104,6 +104,7 @@ export default function DeskWorkflowActions({
   const [assignPanelOpen, setAssignPanelOpen] = useState(false);
   const [reasonPanelOpen, setReasonPanelOpen] = useState(false);
   const [urgentPanelOpen, setUrgentPanelOpen] = useState(false);
+  const [schedulePanelOpen, setSchedulePanelOpen] = useState(false);
   const [teamOptions, setTeamOptions] = useState<AssignableTeamMember[]>([]);
   const [teamOptionsLoaded, setTeamOptionsLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -230,6 +231,7 @@ export default function DeskWorkflowActions({
       }
       if (action === 'schedule') {
         setScheduledFor('');
+        setSchedulePanelOpen(false);
       }
 
       setFeedback({
@@ -323,6 +325,7 @@ export default function DeskWorkflowActions({
             onClick={() => void openAssignPanel()}
             disabled={isSubmitting}
             className={cx(ACTION_BUTTON_CLASS, SECONDARY_ACTION_CLASS)}
+            aria-expanded={assignPanelOpen}
           >
             <UserRoundCheck className="h-4 w-4" />
             {assignedToName ? 'Reassign' : 'Assign'}
@@ -386,6 +389,19 @@ export default function DeskWorkflowActions({
           >
             <CheckCheck className="h-4 w-4" />
             Approve
+          </button>
+        ) : null}
+
+        {canSchedule ? (
+          <button
+            type="button"
+            onClick={() => setSchedulePanelOpen((current) => !current)}
+            disabled={isSubmitting}
+            className={cx(ACTION_BUTTON_CLASS, SECONDARY_ACTION_CLASS)}
+            aria-expanded={schedulePanelOpen}
+          >
+            <CalendarClock className="h-4 w-4" />
+            Schedule
           </button>
         ) : null}
 
@@ -517,7 +533,7 @@ export default function DeskWorkflowActions({
         </div>
       ) : null}
 
-      {canSchedule ? (
+      {schedulePanelOpen && canSchedule ? (
         <div className="rounded-[22px] border border-zinc-200/80 bg-zinc-50/78 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr),auto]">
             <label className="space-y-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
@@ -544,6 +560,8 @@ export default function DeskWorkflowActions({
 
       {feedback ? (
         <div
+          role={feedback.kind === 'error' ? 'alert' : 'status'}
+          aria-live={feedback.kind === 'error' ? 'assertive' : 'polite'}
           className={cx(
             'rounded-2xl border px-4 py-3 text-sm',
             feedback.kind === 'success'
@@ -556,7 +574,11 @@ export default function DeskWorkflowActions({
       ) : null}
 
       {isSubmitting ? (
-        <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
+        <div
+          role="status"
+          aria-live="polite"
+          className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400"
+        >
           <Loader2 className="h-4 w-4 animate-spin" />
           Updating {formatStatusLabel(status)}
         </div>

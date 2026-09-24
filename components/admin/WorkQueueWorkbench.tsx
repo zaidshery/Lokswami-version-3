@@ -455,6 +455,8 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const previewItem = useMemo(
     () => items.find((item) => `${item.contentType}:${item.id}` === previewId) || null,
@@ -481,12 +483,69 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
     if (!previewItem) return;
     previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
+
+    const mainNode = mainContentRef.current;
+    if (mainNode) {
+      mainNode.setAttribute('inert', '');
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPreviewId(null);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPreviewId(null);
+        return;
+      }
+
+      if (event.key === 'Tab' && drawerRef.current) {
+        const focusable = Array.from(
+          drawerRef.current.querySelectorAll<HTMLElement>(
+            'a[href]:not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((element) => {
+          const style = typeof window !== 'undefined' ? window.getComputedStyle(element) : null;
+          if (style && (style.display === 'none' || style.visibility === 'hidden')) {
+            return false;
+          }
+          return (
+            element.getClientRects().length > 0 ||
+            element.offsetParent !== null ||
+            element === closeButtonRef.current ||
+            Boolean(element.offsetWidth || element.offsetHeight) ||
+            // Fallback for jsdom environments where geometry is uncalculated
+            typeof (element as { offsetParent?: Element | null }).offsetParent === 'object'
+          );
+        });
+
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (event.shiftKey) {
+          if (
+            document.activeElement === first ||
+            !drawerRef.current.contains(document.activeElement)
+          ) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (
+            document.activeElement === last ||
+            !drawerRef.current.contains(document.activeElement)
+          ) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+      }
     };
+
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      if (mainNode) {
+        mainNode.removeAttribute('inert');
+      }
       previouslyFocusedRef.current?.focus();
     };
   }, [previewItem]);
@@ -579,7 +638,8 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5 px-3 pb-10 sm:px-5 lg:px-6">
-      <section className="admin-shell-surface-strong overflow-hidden rounded-[24px] p-5 sm:p-6">
+      <div ref={mainContentRef} className="space-y-5">
+        <section className="admin-shell-surface-strong overflow-hidden rounded-[24px] p-5 sm:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">
@@ -764,9 +824,16 @@ export default function WorkQueueWorkbench({ role, overview, routePath }: WorkQu
           </div>
         ) : null}
       </section>
+      </div>
 
       {previewItem ? (
-        <div className="fixed inset-0 z-[90] flex justify-end bg-black/45 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="work-item-title">
+        <div
+          ref={drawerRef}
+          className="fixed inset-0 z-[90] flex justify-end bg-black/45 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="work-item-title"
+        >
           <button type="button" tabIndex={-1} aria-hidden="true" className="absolute inset-0 cursor-default" onClick={() => setPreviewId(null)} />
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell)] p-5 shadow-2xl sm:p-6">
             <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-rose-600">{t.details}</p><h2 id="work-item-title" className="mt-2 text-2xl font-black text-[color:var(--admin-shell-text)]">{previewItem.title}</h2><p className="mt-2 text-sm text-[color:var(--admin-shell-text-muted)]">{itemTypeLabel(previewItem)} · {previewItem.category}</p></div><button ref={closeButtonRef} type="button" onClick={() => setPreviewId(null)} aria-label={language === 'hi' ? '\u0935\u093f\u0935\u0930\u0923 \u092c\u0902\u0926 \u0915\u0930\u0947\u0902' : 'Close work item details'} className="rounded-xl border border-[color:var(--admin-shell-border)] p-2 text-[color:var(--admin-shell-text)]"><X className="h-5 w-5" /></button></div>

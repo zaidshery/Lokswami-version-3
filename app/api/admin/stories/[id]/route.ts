@@ -690,6 +690,7 @@ async function PATCHHandler(
           action,
           workflow: nextWorkflow,
           actor: user,
+          previousAssignee: currentStoryWorkflow.assignedTo,
         });
 
         return NextResponse.json({
@@ -823,6 +824,7 @@ async function PATCHHandler(
         action,
         workflow: nextWorkflow,
         actor: user,
+        previousAssignee: currentStoryWorkflow.assignedTo,
       });
 
       return NextResponse.json({
