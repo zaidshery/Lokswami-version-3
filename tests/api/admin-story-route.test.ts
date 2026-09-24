@@ -150,7 +150,7 @@ describe('/api/admin/stories/[id] route', () => {
           }),
         }),
       }),
-      { expectedVersion: 1 }
+      expect.objectContaining({ expectedVersion: 1 })
     );
     expect(recordStoryActivityMock).toHaveBeenCalledWith(
       expect.objectContaining({

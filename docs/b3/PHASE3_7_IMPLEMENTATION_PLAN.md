@@ -350,6 +350,16 @@ Add collaboration and recovery protection to the Story editor after the version 
 - **Risk:** autosave creates excessive writes. **Control:** debounce, dirty-field detection and one in-flight save policy.
 - **Rollback:** disable Story autosave/lease UI while retaining versions and revisions; additive data remains readable.
 
+### 7.7 Phase 3.7C Completion Note
+
+- **Status:** Complete ✅
+- **Bounded Story Revisions:** Added `IStoryRevision` / `StoredStoryRevision` schema snapshots (capturing title, caption, thumbnail, mediaType, mediaKey, mediaSizeBytes, mediaMimeType, storageProvider, mediaAssets, videoProduction, category, author, duration, priority, reporterMeta, copyEditorMeta, workflow summary, actor, and savedAt). Bounded to max 30 revisions pruned deterministically via MongoDB `$slice: -30` and file store `.slice(-MAX_STORED_STORY_REVISIONS)`.
+- **CAS-Protected Restore:** Implemented `StoryEditorialService.restoreStoryRevision` requiring matching `expectedVersion`. Preserves pre-restore state as a recoverable revision snapshot, restores editorial and media references without wiping video/asset metadata, protects publication/workflow invariants, increments version by 1, and records audited activity. Stale restore requests receive deterministic HTTP 409 `STORY_VERSION_CONFLICT`.
+- **Edit Lease / Lock Ownership:** Implemented `StoryLock` model (`lib/models/StoryLock.ts`) with MongoDB TTL index (`expireAfterSeconds: 0`) and file store parity (`lib/storage/storyLocksFile.ts`). Service (`lib/server/storyLockService.ts`) supports acquire, renew/heartbeat (60s TTL), release, and authorized Admin takeover. Competing editors receive deterministic HTTP 409 `STORY_EDIT_LEASE_CONFLICT`. Mutations by non-holders are rejected with lease conflict while active lease exists.
+- **Server-Aware Autosave & Local Recovery:** Integrated debounced autosave (`components/admin/stories/useStoryAutosave.ts`) sending `autosave: true` and `expectedVersion`. Autosave increments version once, skips revision explosion (`skipRevision: true`), suppresses activity spam, and rejects privileged field mutations. Local browser draft disaster recovery (`story-draft-${id}`) surfaces recovery banner on interrupted sessions.
+- **Collaboration UI:** Added `StoryCollaborationBar` and `StoryRevisionsDrawer` to `app/(admin)/admin/stories/[id]/edit/page.tsx` displaying distinct states: `SAVED`, `SAVING`, `UNSAVED`, `VERSION CONFLICT`, `LEASE CONFLICT`, `AUTOSAVE FAILED`, and `RECOVERY AVAILABLE`.
+- **Verification:** 100% test pass rate across 270 test files (1,692 tests), zero regression across newsroom four-role RBAC, security mutation inventory, auth guards, strict linting, typecheck, and Next.js CI production build.
+
 ---
 
 ## 8. 3.7D — Copy Desk and Editor Lifecycle UX

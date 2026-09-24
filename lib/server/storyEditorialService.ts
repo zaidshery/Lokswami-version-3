@@ -49,15 +49,21 @@ import {
 import { notifyWorkflowEvent } from '@/lib/server/workflowNotificationEvents';
 import { getStoryVideoMonthlyUsageSummary } from '@/lib/server/storyVideoUsage';
 import {
+  assertStoryLeaseNotHeldByOther,
+  deleteStoryLock,
+  StoryEditLeaseConflictError,
+} from '@/lib/server/storyLockService';
+import {
   deleteStoredStory,
   getStoredStoryById,
   isStoryVersionConflictError,
   StoryVersionConflictError,
   updateStoredStory,
   type CreateStoryInput,
+  type StoredStoryRevision,
 } from '@/lib/storage/storiesFile';
 
-export { StoryVersionConflictError, isStoryVersionConflictError };
+export { StoryVersionConflictError, isStoryVersionConflictError, StoryEditLeaseConflictError };
 
 export type StoryStore = 'file' | 'mongo';
 export type StoryRecord = Record<string, unknown>;
@@ -531,17 +537,78 @@ export function resolveStoryResponse(story: StoryRecord): StoryRecord {
 
 type StoryUpdates = Record<string, unknown>;
 
+export interface UpdateStoryCasOptions {
+  skipRevision?: boolean;
+  revisionSnapshot?: StoredStoryRevision | Record<string, unknown> | null;
+}
+
+export function buildStoryRevisionSnapshot(
+  story: StoryRecord,
+  actor?: AdminSessionIdentity,
+  changeReason?: string
+): StoredStoryRevision {
+  const storyWorkflow = resolveStoryWorkflow(story);
+  const mediaAssets = normalizeStoryMediaAssets(story.mediaAssets);
+
+  return {
+    _id: new Types.ObjectId().toString(),
+    version: resolveStoryVersion(story.version),
+    title: String(story.title || ''),
+    caption: String(story.caption || ''),
+    thumbnail: String(story.thumbnail || ''),
+    mediaType: story.mediaType === 'video' ? 'video' : 'image',
+    mediaUrl: String(story.mediaUrl || ''),
+    mediaKey: String(story.mediaKey || ''),
+    mediaSizeBytes: typeof story.mediaSizeBytes === 'number' ? story.mediaSizeBytes : 0,
+    mediaMimeType: String(story.mediaMimeType || ''),
+    storageProvider: String(story.storageProvider || ''),
+    mediaAssets,
+    videoProduction:
+      story.videoProduction !== undefined
+        ? normalizeStoryVideoProduction(story.videoProduction)
+        : createEmptyStoryVideoProduction(),
+    linkUrl: String(story.linkUrl || ''),
+    linkLabel: String(story.linkLabel || ''),
+    category: String(story.category || ''),
+    author: String(story.author || ''),
+    durationSeconds:
+      typeof story.durationSeconds === 'number' ? story.durationSeconds : 0,
+    priority: typeof story.priority === 'number' ? story.priority : 0,
+    reporterMeta: normalizeReporterMeta(story.reporterMeta),
+    copyEditorMeta: normalizeCopyEditorMeta(story.copyEditorMeta),
+    workflow: {
+      status: storyWorkflow.status,
+      priority: storyWorkflow.priority,
+    },
+    savedAt: new Date().toISOString(),
+    savedBy: actor
+      ? {
+          id: actor.id,
+          name: actor.name,
+          email: actor.email,
+          role: actor.role,
+        }
+      : null,
+    changeReason: changeReason || 'Manual edit',
+  };
+}
+
 export async function updateStoryWithCas(
   id: string,
   updates: StoryUpdates,
   expectedVersion: number,
-  store: StoryStore
+  store: StoryStore,
+  options?: UpdateStoryCasOptions
 ): Promise<StoryRecord> {
   if (store === 'file') {
     const updated = await updateStoredStory(
       id,
       updates as Partial<CreateStoryInput>,
-      { expectedVersion }
+      {
+        expectedVersion,
+        skipRevision: options?.skipRevision,
+        revisionSnapshot: options?.revisionSnapshot as StoredStoryRevision | null,
+      }
     );
     if (!updated) throw new StoryNotFoundError();
     return updated as unknown as StoryRecord;
@@ -553,13 +620,23 @@ export async function updateStoryWithCas(
 
   await connectDB();
   const initializesLegacyVersion = expectedVersion === 1;
-  const update = {
+  const update: Record<string, unknown> = {
     $set: {
       ...updates,
       updatedAt: new Date(),
       ...(initializesLegacyVersion ? { version: 2 } : {}),
     },
     ...(!initializesLegacyVersion ? { $inc: { version: 1 } } : {}),
+    ...(!options?.skipRevision && options?.revisionSnapshot
+      ? {
+          $push: {
+            revisions: {
+              $each: [options.revisionSnapshot],
+              $slice: -30,
+            },
+          },
+        }
+      : {}),
   };
   const updated = await Story.findOneAndUpdate(
     { _id: id, ...buildStoryVersionMatch(expectedVersion) },
@@ -659,6 +736,8 @@ export class StoryEditorialService {
       throw new StoryForbiddenError();
     }
 
+    await assertStoryLeaseNotHeldByOther(id, actor);
+
     const { updates, error: normalizationError } = normalizeStoryUpdate(body, actor);
     if (normalizationError) {
       throw new StoryValidationError(normalizationError, 400);
@@ -668,6 +747,7 @@ export class StoryEditorialService {
     }
 
     const bodyRecord = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
+    const isAutosave = bodyRecord.autosave === true;
     const versionCheck = extractExpectedStoryVersion(bodyRecord.expectedVersion);
     if (!versionCheck.provided || versionCheck.version === null) {
       throw new StoryExpectedVersionError();
@@ -769,18 +849,37 @@ export class StoryEditorialService {
       }
     }
 
-    const updated = await updateStoryWithCas(id, normalizedForStore, expectedVersion, effectiveStore);
+    const snapshot = isAutosave
+      ? null
+      : buildStoryRevisionSnapshot(
+          current,
+          actor,
+          typeof bodyRecord.changeReason === 'string' ? bodyRecord.changeReason : undefined
+        );
 
-    await recordStoryActivity({
-      storyId: id,
-      actor,
-      action: 'saved',
-      toStatus: resolveStoryWorkflow(updated).status,
-      message: buildStoryActivityMessage({ action: 'saved' }),
-      metadata: {
-        changedFields: Object.keys(updates),
-      },
-    });
+    const updated = await updateStoryWithCas(
+      id,
+      normalizedForStore,
+      expectedVersion,
+      effectiveStore,
+      {
+        skipRevision: isAutosave,
+        revisionSnapshot: snapshot,
+      }
+    );
+
+    if (!isAutosave) {
+      await recordStoryActivity({
+        storyId: id,
+        actor,
+        action: 'saved',
+        toStatus: resolveStoryWorkflow(updated).status,
+        message: buildStoryActivityMessage({ action: 'saved' }),
+        metadata: {
+          changedFields: Object.keys(updates),
+        },
+      });
+    }
 
     const usage = await getStoryVideoMonthlyUsageSummary();
 
@@ -894,7 +993,7 @@ export class StoryEditorialService {
       ...(toStatus === 'published' ? { publishedAt: new Date().toISOString() } : {}),
     };
 
-    const updated = await updateStoryWithCas(id, updates, expectedVersion, effectiveStore);
+    const updated = await updateStoryWithCas(id, updates, expectedVersion, effectiveStore, { skipRevision: true });
 
     await recordStoryActivity({
       storyId: id,
@@ -948,7 +1047,161 @@ export class StoryEditorialService {
       throw new StoryForbiddenError();
     }
 
+    await assertStoryLeaseNotHeldByOther(id, actor);
+
     const effectiveStore = store ?? (await resolveStoryStore());
-    return deleteStoryWithCas(id, expectedVersion, effectiveStore);
+    const deleted = await deleteStoryWithCas(id, expectedVersion, effectiveStore);
+    if (deleted) {
+      await deleteStoryLock(id).catch(() => undefined);
+    }
+    return deleted;
+  }
+
+  static async getStoryRevisions(
+    id: string,
+    actor: AdminSessionIdentity,
+    store?: StoryStore
+  ): Promise<Array<Record<string, unknown>>> {
+    if (!canViewPage(actor.role, 'stories') && !canViewPage(actor.role, 'story_edit')) {
+      throw new StoryForbiddenError();
+    }
+
+    const effectiveStore = store ?? (await resolveStoryStore());
+    if (effectiveStore === 'mongo' && !Types.ObjectId.isValid(id)) {
+      throw new StoryInvalidIdError('Invalid story ID');
+    }
+
+    const story = await getStoryForMutation(id, effectiveStore);
+    if (!story) {
+      throw new StoryNotFoundError();
+    }
+
+    if (!canReadContent(actor, buildStoryPermissionRecord(story), { allowViewerRead: true })) {
+      throw new StoryForbiddenError();
+    }
+
+    const revisions = Array.isArray(story.revisions)
+      ? ([...story.revisions] as Array<Record<string, unknown>>)
+      : [];
+
+    revisions.sort((a, b) => {
+      const timeA = new Date(String(a.savedAt || 0)).getTime();
+      const timeB = new Date(String(b.savedAt || 0)).getTime();
+      return timeB - timeA;
+    });
+
+    return revisions;
+  }
+
+  static async restoreStoryRevision(
+    id: string,
+    revisionId: string,
+    expectedVersion: number,
+    actor: AdminSessionIdentity,
+    store?: StoryStore
+  ): Promise<{ story: StoryRecord }> {
+    if (!canViewPage(actor.role, 'story_edit')) {
+      throw new StoryForbiddenError();
+    }
+
+    const effectiveStore = store ?? (await resolveStoryStore());
+    if (effectiveStore === 'mongo' && !Types.ObjectId.isValid(id)) {
+      throw new StoryInvalidIdError('Invalid story ID');
+    }
+
+    const current = await getStoryForMutation(id, effectiveStore);
+    if (!current) {
+      throw new StoryNotFoundError();
+    }
+
+    const permissionRecord = buildStoryPermissionRecord(current);
+    if (!canEditContent(actor, permissionRecord)) {
+      throw new StoryForbiddenError();
+    }
+
+    await assertStoryLeaseNotHeldByOther(id, actor);
+
+    const currentVersion = resolveStoryVersion(current.version);
+    if (expectedVersion !== currentVersion) {
+      throw new StoryVersionConflictError(currentVersion);
+    }
+
+    const revisions = Array.isArray(current.revisions)
+      ? (current.revisions as Array<Record<string, unknown>>)
+      : [];
+    const targetRevision = revisions.find(
+      (r) =>
+        String(r._id || '') === revisionId ||
+        String(r.id || '') === revisionId
+    );
+
+    if (!targetRevision) {
+      throw new StoryNotFoundError('Revision not found');
+    }
+
+    const preRestoreSnapshot = buildStoryRevisionSnapshot(
+      current,
+      actor,
+      `Pre-restore snapshot before reverting to revision ${revisionId}`
+    );
+
+    const currentWorkflow = resolveStoryWorkflow(current);
+    const restoredMediaAssets = Array.isArray(targetRevision.mediaAssets)
+      ? JSON.parse(JSON.stringify(targetRevision.mediaAssets))
+      : [];
+
+    const restoredUpdates: Record<string, unknown> = {
+      title: String(targetRevision.title || ''),
+      caption: String(targetRevision.caption || ''),
+      thumbnail: String(targetRevision.thumbnail || ''),
+      mediaType: targetRevision.mediaType === 'video' ? 'video' : 'image',
+      mediaUrl: String(targetRevision.mediaUrl || ''),
+      mediaKey: String(targetRevision.mediaKey || ''),
+      mediaSizeBytes:
+        typeof targetRevision.mediaSizeBytes === 'number' ? targetRevision.mediaSizeBytes : 0,
+      mediaMimeType: String(targetRevision.mediaMimeType || ''),
+      storageProvider: String(targetRevision.storageProvider || ''),
+      mediaAssets: restoredMediaAssets,
+      videoProduction: targetRevision.videoProduction
+        ? normalizeStoryVideoProduction(targetRevision.videoProduction)
+        : createEmptyStoryVideoProduction(),
+      linkUrl: String(targetRevision.linkUrl || ''),
+      linkLabel: String(targetRevision.linkLabel || ''),
+      category: String(targetRevision.category || ''),
+      author: String(targetRevision.author || ''),
+      durationSeconds:
+        typeof targetRevision.durationSeconds === 'number' ? targetRevision.durationSeconds : 0,
+      priority: typeof targetRevision.priority === 'number' ? targetRevision.priority : 0,
+      reporterMeta: normalizeReporterMeta(targetRevision.reporterMeta),
+      copyEditorMeta: normalizeCopyEditorMeta(targetRevision.copyEditorMeta),
+      workflow: toStoredWorkflowUpdate(currentWorkflow),
+      isPublished: currentWorkflow.status === 'published',
+      ...(current.publishedAt ? { publishedAt: current.publishedAt } : {}),
+    };
+
+    const updated = await updateStoryWithCas(
+      id,
+      restoredUpdates,
+      expectedVersion,
+      effectiveStore,
+      {
+        skipRevision: false,
+        revisionSnapshot: preRestoreSnapshot,
+      }
+    );
+
+    await recordStoryActivity({
+      storyId: id,
+      actor,
+      action: 'saved',
+      toStatus: resolveStoryWorkflow(updated).status,
+      message: `Restored story content from revision saved at ${targetRevision.savedAt || 'unknown'}.`,
+      metadata: {
+        revisionId,
+        revisionVersion: targetRevision.version,
+      },
+    });
+
+    return { story: resolveStoryResponse(updated) };
   }
 }

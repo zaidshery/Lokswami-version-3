@@ -83,7 +83,42 @@ export interface StoredStory {
   linkedArticleId: string;
   linkedArticleStatus: LinkedArticleStatus;
   videoProduction: StoryVideoProduction;
+  revisions: StoredStoryRevision[];
 }
+
+export interface StoredStoryRevision {
+  _id: string;
+  version: number;
+  title: string;
+  caption: string;
+  thumbnail: string;
+  mediaType: 'image' | 'video';
+  mediaUrl: string;
+  mediaKey: string;
+  mediaSizeBytes: number;
+  mediaMimeType: string;
+  storageProvider: string;
+  mediaAssets: StoryMediaAsset[];
+  videoProduction: StoryVideoProduction;
+  linkUrl: string;
+  linkLabel: string;
+  category: string;
+  author: string;
+  durationSeconds: number;
+  priority: number;
+  reporterMeta: ReporterMeta;
+  copyEditorMeta: CopyEditorMeta;
+  workflow?: Partial<StoredWorkflowMeta>;
+  savedAt: string;
+  savedBy?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+  changeReason?: string;
+}
+
 
 export interface CreateStoryInput {
   title: string;
@@ -115,7 +150,11 @@ export interface CreateStoryInput {
 
 export type UpdateStoredStoryOptions = {
   expectedVersion?: number;
+  skipRevision?: boolean;
+  revisionSnapshot?: StoredStoryRevision | null;
 };
+
+export const MAX_STORED_STORY_REVISIONS = 30;
 
 export class StoryVersionConflictError extends Error {
   readonly currentVersion: number;
@@ -292,6 +331,9 @@ function normalizeStoredStory(input: unknown): StoredStory | null {
       typeof source.linkedArticleId === 'string' ? source.linkedArticleId.trim() : '',
     linkedArticleStatus: normalizeLinkedArticleStatus(source.linkedArticleStatus),
     videoProduction: normalizeStoryVideoProduction(source.videoProduction),
+    revisions: Array.isArray(source.revisions)
+      ? (source.revisions as StoredStoryRevision[])
+      : [],
   };
 }
 
@@ -425,6 +467,7 @@ async function createStoredStoryUnlocked(input: CreateStoryInput) {
       input.videoProduction !== undefined
         ? normalizeStoryVideoProduction(input.videoProduction)
         : createEmptyStoryVideoProduction(),
+    revisions: [],
   };
 
   all.push(story);
@@ -536,6 +579,10 @@ async function updateStoredStoryUnlocked(
             ...updates.videoProduction,
           })
         : current.videoProduction,
+    revisions:
+      !options?.skipRevision && options?.revisionSnapshot
+        ? [...(Array.isArray(current.revisions) ? current.revisions : []), options.revisionSnapshot].slice(-MAX_STORED_STORY_REVISIONS)
+        : (Array.isArray(current.revisions) ? current.revisions : []),
   };
 
   all[index] = next;
@@ -574,4 +621,94 @@ async function deleteStoredStoryUnlocked(
 
 export function deleteStoredStory(id: string, options?: DeleteStoredStoryOptions) {
   return runStoryMutation(() => deleteStoredStoryUnlocked(id, options));
+}
+
+async function restoreStoredStoryRevisionUnlocked(
+  id: string,
+  revisionId: string,
+  options?: { expectedVersion?: number }
+) {
+  const all = await readAllStories();
+  const index = all.findIndex((item) => item._id === id);
+  if (index === -1) return null;
+
+  const current = all[index];
+  if (
+    options?.expectedVersion !== undefined &&
+    current.version !== options.expectedVersion
+  ) {
+    throw new StoryVersionConflictError(current.version);
+  }
+
+  const revisions = Array.isArray(current.revisions) ? current.revisions : [];
+  const revision = revisions.find((r) => r._id === revisionId);
+  if (!revision) return null;
+
+  const snapshot: StoredStoryRevision = {
+    _id: createId(),
+    version: current.version,
+    title: current.title,
+    caption: current.caption,
+    thumbnail: current.thumbnail,
+    mediaType: current.mediaType,
+    mediaUrl: current.mediaUrl,
+    mediaKey: current.mediaKey,
+    mediaSizeBytes: current.mediaSizeBytes,
+    mediaMimeType: current.mediaMimeType,
+    storageProvider: current.storageProvider,
+    mediaAssets: current.mediaAssets,
+    videoProduction: current.videoProduction,
+    linkUrl: current.linkUrl,
+    linkLabel: current.linkLabel,
+    category: current.category,
+    author: current.author,
+    durationSeconds: current.durationSeconds,
+    priority: current.priority,
+    reporterMeta: current.reporterMeta,
+    copyEditorMeta: current.copyEditorMeta,
+    workflow: current.workflow,
+    savedAt: new Date().toISOString(),
+    changeReason: 'pre_restore',
+  };
+
+  const now = new Date().toISOString();
+  const restored: StoredStory = {
+    ...current,
+    version: current.version + 1,
+    title: revision.title,
+    caption: revision.caption,
+    thumbnail: revision.thumbnail,
+    mediaType: revision.mediaType,
+    mediaUrl: revision.mediaUrl,
+    mediaKey: revision.mediaKey,
+    mediaSizeBytes: revision.mediaSizeBytes,
+    mediaMimeType: revision.mediaMimeType,
+    storageProvider: revision.storageProvider,
+    mediaAssets: revision.mediaAssets,
+    videoProduction: revision.videoProduction,
+    linkUrl: revision.linkUrl,
+    linkLabel: revision.linkLabel,
+    category: revision.category,
+    author: revision.author,
+    durationSeconds: revision.durationSeconds,
+    priority: revision.priority,
+    reporterMeta: revision.reporterMeta,
+    copyEditorMeta: revision.copyEditorMeta,
+    updatedAt: now,
+    revisions: [...revisions, snapshot].slice(-MAX_STORED_STORY_REVISIONS),
+  };
+
+  all[index] = restored;
+  await writeAllStories(all);
+  return restored;
+}
+
+export function restoreStoredStoryRevision(
+  id: string,
+  revisionId: string,
+  options?: { expectedVersion?: number }
+) {
+  return runStoryMutation(() =>
+    restoreStoredStoryRevisionUnlocked(id, revisionId, options)
+  );
 }

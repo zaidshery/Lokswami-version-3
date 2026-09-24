@@ -9,6 +9,7 @@ import {
   StoryValidationError,
   StoryNotFoundError,
   StoryInvalidIdError,
+  StoryEditLeaseConflictError,
   parseExpectedStoryVersion,
   type WorkflowActionBody,
 } from '@/lib/server/storyEditorialService';
@@ -30,6 +31,17 @@ function storyVersionConflictResponse(error: StoryVersionConflictError) {
 }
 
 function handleStoryRouteError(error: unknown, fallbackMessage: string): NextResponse {
+  if (error instanceof StoryEditLeaseConflictError) {
+    return NextResponse.json(
+      {
+        success: false,
+        code: error.code || 'STORY_EDIT_LEASE_CONFLICT',
+        error: error.message,
+        lease: error.lease,
+      },
+      { status: 409 }
+    );
+  }
   if (error instanceof StoryVersionConflictError) {
     return storyVersionConflictResponse(error);
   }

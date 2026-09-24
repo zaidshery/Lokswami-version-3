@@ -69,8 +69,13 @@ import { CmsWorkflowStatusBadge } from '@/components/admin/CmsWorkflowStatusBadg
 import ArticleEditorStudio, {
   type ArticleEditorStudioMode,
 } from '@/components/forms/ArticleEditorStudio';
+import { useStoryLease } from '@/components/admin/stories/useStoryLease';
+import { useStoryAutosave } from '@/components/admin/stories/useStoryAutosave';
+import { StoryCollaborationBar } from '@/components/admin/stories/StoryCollaborationBar';
+import { StoryRevisionsDrawer } from '@/components/admin/stories/StoryRevisionsDrawer';
 
 interface StoryFormData {
+  [key: string]: unknown;
   title: string;
   caption: string;
   thumbnail: string;
@@ -603,6 +608,66 @@ export default function EditStoryPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [storyVersion, setStoryVersion] = useState(1);
+  const [revisionCount, setRevisionCount] = useState(0);
+  const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
+  const [loadedAt] = useState(() => Date.now());
+
+  const {
+    hasLease,
+    isLockedByOther,
+    holder: lockHolder,
+    takeOver: takeOverLock,
+  } = useStoryLease({
+    storyId,
+    enabled: Boolean(storyId && !isLoading),
+  });
+
+  const {
+    saveStatus,
+    statusMessage,
+    recoveredDraft,
+    discardRecovery,
+    setSaveStatus,
+    clearDraftStorage,
+  } = useStoryAutosave({
+    storyId,
+    storyVersion,
+    formData,
+    hasLease,
+    isLockedByOther,
+    loadedAt,
+    onVersionAdvanced: (newVer) => setStoryVersion(newVer),
+  });
+
+  const handleRevisionRestored = (restoredStory: Record<string, unknown>) => {
+    const loadedVersion = Number(restoredStory.version);
+    setFormData((prev) => ({
+      ...prev,
+      title: String(restoredStory.title || ''),
+      caption: String(restoredStory.caption || ''),
+      thumbnail: String(restoredStory.thumbnail || ''),
+      mediaType: restoredStory.mediaType === 'video' ? 'video' : 'image',
+      mediaUrl: String(restoredStory.mediaUrl || ''),
+      mediaKey: String(restoredStory.mediaKey || ''),
+      mediaSizeBytes: Number(restoredStory.mediaSizeBytes || 0),
+      mediaMimeType: String(restoredStory.mediaMimeType || ''),
+      storageProvider: String(restoredStory.storageProvider || ''),
+      linkUrl: String(restoredStory.linkUrl || ''),
+      linkLabel: String(restoredStory.linkLabel || ''),
+      category: String(restoredStory.category || ''),
+      author: String(restoredStory.author || ''),
+      durationSeconds: String(restoredStory.durationSeconds || ''),
+      priority: String(restoredStory.priority || ''),
+    }));
+    if (Array.isArray(restoredStory.mediaAssets)) {
+      setMediaAssets(restoredStory.mediaAssets as StoryMediaAsset[]);
+    }
+    setStoryVersion(
+      Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : storyVersion + 1
+    );
+    setSuccess('Story restored from revision successfully');
+    setRevisionCount((prev) => prev + 1);
+  };
   const [workflow, setWorkflow] = useState<WorkflowState>(EMPTY_WORKFLOW);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUserOption[]>([]);
   const [isLoadingAssignableUsers, setIsLoadingAssignableUsers] = useState(false);
@@ -852,6 +917,7 @@ export default function EditStoryPage() {
       setStoryVersion(
         Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : 1
       );
+      setRevisionCount(Array.isArray(story.revisions) ? story.revisions.length : 0);
       setMediaAssets(nextMediaAssets);
       setUsesMediaCollection(nextMediaAssets.length > 0);
       setThumbnailFile(null);
@@ -1567,16 +1633,22 @@ export default function EditStoryPage() {
 
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(
-          response.status === 409 && data.code === 'STORY_VERSION_CONFLICT'
-            ? 'This story was updated elsewhere. Refresh before saving again.'
-            : data.error || 'Failed to update story'
-        );
+        if (response.status === 409 && data.code === 'STORY_VERSION_CONFLICT') {
+          setSaveStatus('version_conflict');
+          throw new Error('This story was updated elsewhere. Refresh before saving again.');
+        }
+        if (response.status === 409 && data.code === 'STORY_EDIT_LEASE_CONFLICT') {
+          setSaveStatus('lease_conflict');
+          throw new Error('Story is currently locked by another editor.');
+        }
+        throw new Error(data.error || 'Failed to update story');
       }
 
       if (Number.isInteger(data.data?.version) && data.data.version > 0) {
         setStoryVersion(data.data.version);
       }
+      clearDraftStorage();
+      setSaveStatus('saved');
 
       setSuccess(
         [
@@ -1822,6 +1894,27 @@ export default function EditStoryPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <CmsEditorCanvas>
+        <div className="mb-6">
+          <StoryCollaborationBar
+            saveStatus={saveStatus}
+            statusMessage={statusMessage}
+            hasLease={hasLease}
+            isLockedByOther={isLockedByOther}
+            lockHolder={lockHolder}
+            canTakeOver={Boolean(permissionUser && (permissionUser.role === 'admin' || permissionUser.role === 'super_admin'))}
+            onTakeOver={takeOverLock}
+            recoveredDraft={recoveredDraft}
+            onRestoreDraft={() => {
+              if (recoveredDraft?.data) {
+                setFormData(recoveredDraft.data as StoryFormData);
+                discardRecovery();
+              }
+            }}
+            onDiscardDraft={discardRecovery}
+            onOpenRevisions={() => setIsRevisionsOpen(true)}
+            revisionCount={revisionCount}
+          />
+        </div>
         <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
           <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
             <div>

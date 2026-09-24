@@ -278,7 +278,7 @@ describe('Story Version & CAS Concurrency (Phase 3.7B)', () => {
       expect(updateStoredStoryMock).toHaveBeenCalledWith(
         storyId,
         { title: 'Updated in File' },
-        { expectedVersion: 1 }
+        expect.objectContaining({ expectedVersion: 1 })
       );
       expect(result.version).toBe(2);
     });
@@ -534,7 +534,7 @@ describe('Story Version & CAS Concurrency (Phase 3.7B)', () => {
         expect.objectContaining({
           title: 'New Story Title',
         }),
-        { expectedVersion: 1 }
+        expect.objectContaining({ expectedVersion: 1 })
       );
       // Untouched media and video fields must not be overwritten or cleared
       expect(result.story.title).toBe('New Story Title');
