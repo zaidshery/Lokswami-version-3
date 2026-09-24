@@ -269,6 +269,16 @@ Move protected Story mutations behind a canonical service/repository boundary an
 - **Risk:** media update workflows perform multiple mutations. **Control:** define one authoritative metadata commit and adopt its returned version before subsequent actions.
 - **Rollback:** service routing can be reverted with schema field left harmlessly additive; never decrement persisted versions.
 
+### 6.7 Phase 3.7B Completion Note
+
+- **Status:** Complete ✅
+- **Canonical Service Boundary:** Established `StoryEditorialService` (`lib/server/storyEditorialService.ts`) managing all protected mutations, validation, authorization, atomic CAS persistence, and side-effect coordination.
+- **Versioning & CAS:** Deterministic integer `version` field added to `Story` schema and `storiesFile.ts` initialized to 1. MongoDB uses atomic `findOneAndUpdate` with `{ _id, ...buildStoryVersionMatch(expectedVersion) }` and `$inc: { version: 1 }`. File store uses serialized mutex and expectedVersion matching.
+- **Legacy Compatibility:** Unversioned legacy records match version 1 predicate (`$or: [{ version: 1 }, { version: { $exists: false } }]`) and upgrade to version 2 on first mutation.
+- **Conflict Contract:** Stale versions return deterministic HTTP 409 Conflict with code `STORY_VERSION_CONFLICT` and `currentVersion`. Conflicts produce 0 activity, 0 notifications, and 0 partial writes.
+- **Routes & Clients:** Protected routes (`app/api/admin/stories/[id]/route.ts`) delegate all editorial mutations to `StoryEditorialService`. Story edit client (`app/(admin)/admin/stories/[id]/edit/page.tsx`) tracks version, supplies `expectedVersion`, adopts returned version, and surfaces conflict notification without silent overwrite.
+- **Verification:** 100% test pass rate across 265 test files (1,655 tests), full typecheck, strict linting, security, four-role, and production build checks passing cleanly.
+
 ---
 
 ## 7. 3.7C — Story Revisions, Autosave and Edit-Lease Safety

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getAdminSessionMock = vi.fn();
 const getStoredStoryByIdMock = vi.fn();
 const updateStoredStoryMock = vi.fn();
+const deleteStoredStoryMock = vi.fn();
 const recordStoryActivityMock = vi.fn();
 const getStoryVideoMonthlyUsageSummaryMock = vi.fn();
 const connectDBMock = vi.fn();
@@ -19,8 +20,15 @@ vi.mock('@/lib/db/mongoose', () => ({
 }));
 
 vi.mock('@/lib/storage/storiesFile', () => ({
+  StoryVersionConflictError: class StoryVersionConflictError extends Error {
+    currentVersion: number;
+    constructor(currentVersion: number) {
+      super('This story was updated elsewhere. Refresh before saving again.');
+      this.currentVersion = currentVersion;
+    }
+  },
   createStoredStory: vi.fn(),
-  deleteStoredStory: vi.fn(),
+  deleteStoredStory: deleteStoredStoryMock,
   getStoredStoryById: getStoredStoryByIdMock,
   listStoredStories: vi.fn(),
   updateStoredStory: updateStoredStoryMock,
@@ -44,6 +52,7 @@ vi.mock('@/lib/models/Story', () => ({
     findById: vi.fn(),
     findByIdAndDelete: vi.fn(),
     findByIdAndUpdate: vi.fn(),
+    findOneAndUpdate: vi.fn(),
   },
 }));
 
@@ -57,7 +66,7 @@ function createPatchRequest(body: Record<string, unknown>) {
   return new Request('http://localhost/api/admin/stories/story-1', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ expectedVersion: 1, ...body }),
   }) as unknown as NextRequest;
 }
 
@@ -65,7 +74,7 @@ function createPutRequest(body: Record<string, unknown>) {
   return new Request('http://localhost/api/admin/stories/story-1', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ expectedVersion: 1, ...body }),
   }) as unknown as NextRequest;
 }
 
@@ -140,7 +149,8 @@ describe('/api/admin/stories/[id] route', () => {
             id: copyEditor.id,
           }),
         }),
-      })
+      }),
+      { expectedVersion: 1 }
     );
     expect(recordStoryActivityMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -274,12 +284,15 @@ describe('/api/admin/stories/[id] route', () => {
     const StoryModel = (await import('@/lib/models/Story')).default as unknown as {
       findById: ReturnType<typeof vi.fn>;
       findByIdAndUpdate: ReturnType<typeof vi.fn>;
+      findOneAndUpdate: ReturnType<typeof vi.fn>;
     };
     const UserModel = (await import('@/lib/models/User')).default as unknown as {
       findOne: ReturnType<typeof vi.fn>;
     };
     StoryModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(currentStory) });
-    StoryModel.findByIdAndUpdate.mockResolvedValue(updatedStory);
+    StoryModel.findOneAndUpdate.mockReturnValue({
+      lean: vi.fn().mockResolvedValue(updatedStory),
+    });
     UserModel.findOne.mockReturnValue({
       select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(nextAssignee) }),
     });
@@ -464,5 +477,132 @@ describe('/api/admin/stories/[id] route', () => {
     expect(payload.data.isPublished).toBe(false);
     expect(recordStoryActivityMock).toHaveBeenCalledTimes(1);
     expect(notifyWorkflowEventMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects PUT request when expectedVersion is missing', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'admin',
+    });
+
+    const { PUT } = await import('@/app/api/admin/stories/[id]/route');
+    const req = new Request('http://localhost/api/admin/stories/story-1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'No expected version' }),
+    }) as unknown as NextRequest;
+
+    const response = await PUT(req, {
+      params: Promise.resolve({ id: 'story-1' }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('A valid expectedVersion is required.');
+  });
+
+  it('returns HTTP 409 Conflict with STORY_VERSION_CONFLICT code on stale expectedVersion', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'admin',
+    });
+    const current = {
+      _id: 'story-1',
+      title: 'Current Story',
+      version: 5,
+      workflow: { status: 'draft' },
+    };
+    getStoredStoryByIdMock.mockResolvedValue(current);
+
+    const { PUT } = await import('@/app/api/admin/stories/[id]/route');
+    const req = new Request('http://localhost/api/admin/stories/story-1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Stale Edit', expectedVersion: 4 }),
+    }) as unknown as NextRequest;
+
+    const response = await PUT(req, {
+      params: Promise.resolve({ id: 'story-1' }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload).toEqual({
+      success: false,
+      code: 'STORY_VERSION_CONFLICT',
+      error: 'This story was updated elsewhere. Refresh before saving again.',
+      currentVersion: 5,
+    });
+    expect(updateStoredStoryMock).not.toHaveBeenCalled();
+    expect(recordStoryActivityMock).not.toHaveBeenCalled();
+  });
+
+  it('increments version on successful PUT and returns new version', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'admin',
+    });
+    const current = {
+      _id: 'story-1',
+      title: 'Current Story',
+      version: 1,
+      thumbnail: 'https://example.com/thumb.jpg',
+      workflow: { status: 'draft' },
+    };
+    getStoredStoryByIdMock.mockResolvedValue(current);
+    updateStoredStoryMock.mockImplementation(async (_id, updates) => ({
+      ...current,
+      ...updates,
+      version: 2,
+    }));
+
+    const { PUT } = await import('@/app/api/admin/stories/[id]/route');
+    const req = new Request('http://localhost/api/admin/stories/story-1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Updated Story', expectedVersion: 1 }),
+    }) as unknown as NextRequest;
+
+    const response = await PUT(req, {
+      params: Promise.resolve({ id: 'story-1' }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.success).toBe(true);
+    expect(payload.data.version).toBe(2);
+    expect(payload.data.title).toBe('Updated Story');
+  });
+
+  it('supports DELETE with expectedVersion and returns 409 on version mismatch', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'admin',
+    });
+    const { StoryVersionConflictError } = await import('@/lib/storage/storiesFile');
+    deleteStoredStoryMock.mockRejectedValue(new StoryVersionConflictError(3));
+
+    const { DELETE } = await import('@/app/api/admin/stories/[id]/route');
+    const req = new Request('http://localhost/api/admin/stories/story-1?expectedVersion=2', {
+      method: 'DELETE',
+    }) as unknown as NextRequest;
+
+    const response = await DELETE(req, {
+      params: Promise.resolve({ id: 'story-1' }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload.code).toBe('STORY_VERSION_CONFLICT');
+    expect(payload.currentVersion).toBe(3);
   });
 });

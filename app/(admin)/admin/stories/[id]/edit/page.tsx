@@ -602,6 +602,7 @@ export default function EditStoryPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [storyVersion, setStoryVersion] = useState(1);
   const [workflow, setWorkflow] = useState<WorkflowState>(EMPTY_WORKFLOW);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUserOption[]>([]);
   const [isLoadingAssignableUsers, setIsLoadingAssignableUsers] = useState(false);
@@ -790,6 +791,7 @@ export default function EditStoryPage() {
       }
 
       const story = data.data as Record<string, unknown>;
+      const loadedVersion = Number(story.version);
       const nextForm = {
         title: String(story.title || ''),
         caption: String(story.caption || ''),
@@ -847,6 +849,9 @@ export default function EditStoryPage() {
       ) as LinkedArticleStatus;
 
       setFormData(nextForm);
+      setStoryVersion(
+        Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : 1
+      );
       setMediaAssets(nextMediaAssets);
       setUsesMediaCollection(nextMediaAssets.length > 0);
       setThumbnailFile(null);
@@ -1497,7 +1502,7 @@ export default function EditStoryPage() {
         return;
       }
 
-      const payload: Record<string, unknown> = {};
+      const payload: Record<string, unknown> = { expectedVersion: storyVersion };
 
       if (canEditCommonFields) {
         payload.title = formData.title.trim();
@@ -1562,7 +1567,15 @@ export default function EditStoryPage() {
 
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to update story');
+        throw new Error(
+          response.status === 409 && data.code === 'STORY_VERSION_CONFLICT'
+            ? 'This story was updated elsewhere. Refresh before saving again.'
+            : data.error || 'Failed to update story'
+        );
+      }
+
+      if (Number.isInteger(data.data?.version) && data.data.version > 0) {
+        setStoryVersion(data.data.version);
       }
 
       setSuccess(
@@ -1731,6 +1744,7 @@ export default function EditStoryPage() {
         },
         body: JSON.stringify({
           action,
+          expectedVersion: storyVersion,
           assignedToId: workflowAssigneeId || undefined,
           scheduledFor: scheduledFor || undefined,
           dueAt: dueAt || undefined,
@@ -1742,12 +1756,22 @@ export default function EditStoryPage() {
       const data = (await response.json().catch(() => ({}))) as {
         success?: boolean;
         error?: string;
+        code?: string;
         message?: string;
+        data?: { version?: number };
       };
 
       if (!response.ok || !data.success) {
-        setError(data.error || 'Failed to update workflow');
+        setError(
+          response.status === 409 && data.code === 'STORY_VERSION_CONFLICT'
+            ? 'This story was updated elsewhere. Refresh before saving again.'
+            : data.error || 'Failed to update workflow'
+        );
         return;
+      }
+
+      if (Number.isInteger(data.data?.version) && Number(data.data?.version) > 0) {
+        setStoryVersion(Number(data.data?.version));
       }
 
       setWorkflowComment('');

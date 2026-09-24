@@ -18,6 +18,7 @@ import type { WorkflowMeta } from '@/lib/workflow/types';
 
 export interface IStory {
   _id?: string;
+  version: number;
   title: string;
   caption: string;
   thumbnail: string;
@@ -82,6 +83,7 @@ const StoryVideoProductionSchema = new mongoose.Schema<StoryVideoProduction>(
 );
 
 const StorySchema = new mongoose.Schema<IStory>({
+  version: { type: Number, default: 1, min: 1 },
   title: { type: String, required: true, maxlength: 140 },
   caption: { type: String, default: '' },
   thumbnail: { type: String, required: true },

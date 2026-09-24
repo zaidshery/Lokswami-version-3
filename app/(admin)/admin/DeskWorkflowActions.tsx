@@ -199,6 +199,7 @@ export default function DeskWorkflowActions({
         body: JSON.stringify({
           action,
           ...(contentType === 'article' ? { expectedVersion: articleVersion } : {}),
+          ...(contentType === 'story' ? { expectedVersion: articleVersion } : {}),
           ...extra,
         }),
       });
@@ -211,11 +212,11 @@ export default function DeskWorkflowActions({
       };
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || `Failed to ${action.replace(/_/g, ' ')}.`);
+        throw new Error(response.status === 409 ? 'This content was updated elsewhere. Refresh before saving again.' : payload.error || `Failed to ${action.replace(/_/g, ' ')}.`);
       }
 
       if (
-        contentType === 'article' &&
+        (contentType === 'article' || contentType === 'story') &&
         typeof payload.data?.version === 'number' &&
         payload.data.version > 0
       ) {

@@ -45,6 +45,7 @@ import {
   toWorkflowActorRef,
 } from '@/lib/workflow/story';
 import { isWorkflowStatus } from '@/lib/workflow/types';
+import { resolveStoryVersion } from '@/lib/server/storyEditorialService';
 
 const FILE_STORE_UNBOUNDED_LIMIT = Number.MAX_SAFE_INTEGER;
 
@@ -335,6 +336,7 @@ function resolveStoryRecord(story: StoryLike, createdBy?: ReturnType<typeof toWo
 
   return {
     ...story,
+    version: resolveStoryVersion((story as { version?: unknown }).version),
     isPublished: workflow.status === 'published',
     linkedArticleId:
       typeof story.linkedArticleId === 'string' ? story.linkedArticleId.trim() : '',
@@ -645,6 +647,7 @@ async function POSTHandler(req: NextRequest) {
 
     const story = new Story({
       ...input,
+      version: 1,
       isPublished: workflow.status === 'published',
       updatedAt: new Date(),
       workflow,
