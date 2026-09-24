@@ -2,6 +2,7 @@ import { createElement, type ChangeEvent, type ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import ArticleCreatePageClient from '@/app/(admin)/admin/articles/new/ArticleCreatePageClient';
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -192,11 +193,7 @@ function createFetchMock() {
   });
 }
 
-async function renderCreatePage() {
-  const ArticleCreatePageClient = (
-    await import('@/app/(admin)/admin/articles/new/ArticleCreatePageClient')
-  ).default;
-
+function renderCreatePage() {
   return render(createElement(ArticleCreatePageClient));
 }
 

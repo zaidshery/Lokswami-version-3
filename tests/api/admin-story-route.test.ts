@@ -7,6 +7,7 @@ const updateStoredStoryMock = vi.fn();
 const recordStoryActivityMock = vi.fn();
 const getStoryVideoMonthlyUsageSummaryMock = vi.fn();
 const connectDBMock = vi.fn();
+const notifyWorkflowEventMock = vi.fn();
 
 vi.mock('@/lib/auth/admin', () => ({
   getAdminSession: getAdminSessionMock,
@@ -32,6 +33,10 @@ vi.mock('@/lib/server/storyActivity', () => ({
 
 vi.mock('@/lib/server/storyVideoUsage', () => ({
   getStoryVideoMonthlyUsageSummary: getStoryVideoMonthlyUsageSummaryMock,
+}));
+
+vi.mock('@/lib/server/workflowNotificationEvents', () => ({
+  notifyWorkflowEvent: notifyWorkflowEventMock,
 }));
 
 vi.mock('@/lib/models/Story', () => ({
@@ -201,6 +206,100 @@ describe('/api/admin/stories/[id] route', () => {
       error: 'Forbidden',
     });
     expect(updateStoredStoryMock).not.toHaveBeenCalled();
+  });
+
+  it('passes the displaced Mongo story assignee to reassignment notifications', async () => {
+    const previousAssignee = {
+      id: 'copy-editor-1',
+      name: 'Copy Editor',
+      email: 'copy@example.com',
+      role: 'copy_editor',
+    };
+    const nextAssignee = {
+      _id: 'reporter-1',
+      name: 'Reporter One',
+      email: 'reporter@example.com',
+      role: 'reporter',
+      isActive: true,
+    };
+    const currentStory = {
+      _id: '507f1f77bcf86cd799439011',
+      title: 'Mongo Story',
+      author: 'Reporter One',
+      isPublished: false,
+      workflow: {
+        status: 'submitted',
+        priority: 'normal',
+        createdBy: {
+          id: 'reporter-2',
+          name: 'Reporter Two',
+          email: 'reporter2@example.com',
+          role: 'reporter',
+        },
+        assignedTo: previousAssignee,
+        reviewedBy: null,
+        submittedAt: '2026-04-24T09:55:00.000Z',
+        approvedAt: null,
+        rejectedAt: null,
+        publishedAt: null,
+        scheduledFor: null,
+        dueAt: null,
+        rejectionReason: '',
+        comments: [],
+      },
+    };
+    const updatedStory = {
+      ...currentStory,
+      workflow: {
+        ...currentStory.workflow,
+        status: 'assigned',
+        assignedTo: {
+          id: 'reporter-1',
+          name: nextAssignee.name,
+          email: nextAssignee.email,
+          role: nextAssignee.role,
+        },
+      },
+      toObject: () => updatedStory,
+    };
+
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'admin',
+    });
+    process.env.MONGODB_URI = 'mongodb://test.invalid/lokswami';
+    connectDBMock.mockResolvedValue(undefined);
+    const StoryModel = (await import('@/lib/models/Story')).default as unknown as {
+      findById: ReturnType<typeof vi.fn>;
+      findByIdAndUpdate: ReturnType<typeof vi.fn>;
+    };
+    const UserModel = (await import('@/lib/models/User')).default as unknown as {
+      findOne: ReturnType<typeof vi.fn>;
+    };
+    StoryModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(currentStory) });
+    StoryModel.findByIdAndUpdate.mockResolvedValue(updatedStory);
+    UserModel.findOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(nextAssignee) }),
+    });
+
+    const { PATCH } = await import('@/app/api/admin/stories/[id]/route');
+    const response = await PATCH(createPatchRequest({
+      action: 'assign',
+      assignedToId: 'reporter-1',
+    }), {
+      params: Promise.resolve({ id: '507f1f77bcf86cd799439011' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(notifyWorkflowEventMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'assign',
+      workflow: expect.objectContaining({
+        assignedTo: expect.objectContaining({ id: 'reporter-1' }),
+      }),
+      previousAssignee,
+    }));
   });
 
   it('allows reporters to submit and update story captions without any length restrictions', async () => {

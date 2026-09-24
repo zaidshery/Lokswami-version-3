@@ -21,7 +21,21 @@ async function PATCHHandler(request: Request) {
     priority?: unknown;
     dueAt?: unknown;
   };
-  const items = Array.isArray(body.items) ? body.items.slice(0, 25) : [];
+  const submittedItems = Array.isArray(body.items) ? body.items : [];
+  if (submittedItems.length > 25) {
+    return NextResponse.json(
+      { success: false, error: 'Bulk triage is limited to 25 selected items.' },
+      { status: 400 }
+    );
+  }
+  const items = Array.from(
+    new Map(
+      submittedItems.map((item) => [
+        `${String(item.contentType || '')}:${String(item.id || '').trim()}`,
+        item,
+      ])
+    ).values()
+  );
   const assignedToId = String(body.assignedToId || '').trim();
   if (!items.length || !assignedToId) {
     return NextResponse.json({ success: false, error: 'Choose work items and an assignee.' }, { status: 400 });

@@ -60,7 +60,7 @@ export default async function CopyDeskPage() {
   }
 
   const control = await getNewsroomControlCenterData();
-  const showReviewQueueLink = canViewPage(admin.role, 'review_queue') && !isCopyEditorRole(admin.role);
+  const showReviewQueueLink = canViewPage(admin.role, 'work_queue');
 
   return (
     <CmsCollectionPage>
@@ -235,7 +235,7 @@ export default async function CopyDeskPage() {
             </div>
             {showReviewQueueLink ? (
               <div className="mt-6">
-                <Link href="/admin/review-queue" className={META_CHIP_CLASS}>Back To Review Queue</Link>
+                <Link href="/admin/work?view=review" className={META_CHIP_CLASS}>Back To Review Queue</Link>
               </div>
             ) : null}
           </div>

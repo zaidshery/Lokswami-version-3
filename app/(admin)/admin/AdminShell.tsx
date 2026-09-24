@@ -693,7 +693,7 @@ export default function AdminShell({
         <header
           className={cx(
             'admin-shell-surface fixed left-0 right-0 top-0 flex h-[68px] flex-nowrap items-center justify-between gap-3 border-b border-[color:var(--admin-shell-border)] px-4 sm:px-6 lg:left-[248px]',
-            mobileToolsOpen ? 'z-50' : 'z-20'
+            mobileToolsOpen ? 'z-50' : 'z-30'
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -719,7 +719,7 @@ export default function AdminShell({
             </div>
           </div>
 
-          <div className="relative ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <div className="relative ml-auto flex shrink-0 items-center justify-end gap-2 sm:gap-3">
             <WorkflowNotificationBell />
             <button
               onClick={toggleLanguage}
@@ -754,11 +754,11 @@ export default function AdminShell({
             </div>
             <Link
               href="/main"
-              className="admin-shell-toolbar-btn hidden rounded-xl px-3 py-2 text-sm font-medium md:inline-flex"
+              className="admin-shell-toolbar-btn hidden rounded-xl px-3 py-2 text-sm font-medium xl:inline-flex"
             >
               {isHindi ? HI.viewSite : 'View Site'}
             </Link>
-            <div className="admin-shell-surface hidden rounded-2xl px-3 py-2 text-right sm:block">
+            <div className="admin-shell-surface hidden rounded-2xl px-3 py-2 text-right lg:block">
               <p className="text-sm font-semibold text-[color:var(--admin-shell-text)]">
                 {adminName}
               </p>
