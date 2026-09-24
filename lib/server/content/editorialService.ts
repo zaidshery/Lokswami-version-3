@@ -77,6 +77,7 @@ import {
   resolveBreakingAudioUrl,
   resolveNextBreakingTts,
   sanitizeReporterArticleInput,
+  restrictReporterArticleUpdates,
   toStoredWorkflowUpdate,
   validateArticleCreationReadiness,
   validateLengths,
@@ -94,7 +95,10 @@ export class EditorialService {
     id: string,
     actor: AdminSessionIdentity
   ): Promise<{ kind: 'article'; data: Record<string, unknown> } | { kind: 'epaper'; data: Record<string, unknown> }> {
-    if (!canViewPage(actor.role, 'articles')) {
+    if (
+      !canViewPage(actor.role, 'articles') &&
+      !canViewPage(actor.role, 'article_edit')
+    ) {
       throw new EditorialForbiddenError();
     }
 
@@ -197,9 +201,16 @@ export class EditorialService {
     const useFileStore = store === 'file';
 
     const bodyRecord = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
-    const intentRaw = String(bodyRecord.intent || 'draft').toLowerCase();
-    const intent: 'draft' | 'submit' | 'publish' =
-      intentRaw === 'draft' || intentRaw === 'submit' ? intentRaw : 'publish';
+    const intentValue = bodyRecord.intent;
+    if (
+      intentValue !== undefined &&
+      intentValue !== 'draft' &&
+      intentValue !== 'submit' &&
+      intentValue !== 'publish'
+    ) {
+      throw new EditorialValidationError('Invalid article intent', 400);
+    }
+    const intent: 'draft' | 'submit' | 'publish' = intentValue ?? 'draft';
 
     const normalizedInput = normalizeFullInput(body);
     const input = isReporterDeskRole(actor.role)
@@ -376,51 +387,59 @@ export class EditorialService {
     const bodyRecord = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
     const expectedVersion = parseExpectedVersion(bodyRecord.expectedVersion);
     const input = normalizeFullInput(body);
+    const isReporterUpdate = isReporterDeskRole(actor.role);
+    const updates: Record<string, unknown> = isReporterUpdate
+      ? restrictReporterArticleUpdates(input as unknown as Record<string, unknown>)
+      : { ...input };
 
-    const validationError = validateRequired(input);
+    const validationInput = isReporterUpdate
+      ? normalizeFullInput({ ...current, ...updates })
+      : input;
+    const validationError = validateRequired(validationInput);
     if (validationError) {
       throw new EditorialValidationError(validationError, 400);
     }
 
-    const currentCanonicalUrl = normalizeSeo(current.seo).canonicalUrl;
-    const canonicalEdit = readArticleCanonicalEdit(bodyRecord.seo);
-    const canonicalError = validateEditedArticleCanonicalOverride(
-      canonicalEdit,
-      currentCanonicalUrl,
-      { id, slug: input.slug || normalizeArticleSlug(current.slug) }
-    );
-    if (canonicalError) {
-      throw new EditorialValidationError(canonicalError, 400);
-    }
-    if (canonicalEdit.kind === 'omitted') {
-      input.seo.canonicalUrl = currentCanonicalUrl;
-    }
+    if (!isReporterUpdate) {
+      const currentCanonicalUrl = normalizeSeo(current.seo).canonicalUrl;
+      const canonicalEdit = readArticleCanonicalEdit(bodyRecord.seo);
+      const canonicalError = validateEditedArticleCanonicalOverride(
+        canonicalEdit,
+        currentCanonicalUrl,
+        { id, slug: input.slug || normalizeArticleSlug(current.slug) }
+      );
+      if (canonicalError) {
+        throw new EditorialValidationError(canonicalError, 400);
+      }
+      if (canonicalEdit.kind === 'omitted') {
+        input.seo.canonicalUrl = currentCanonicalUrl;
+        updates.seo = input.seo;
+      }
 
-    const updates: Record<string, unknown> = { ...input };
+      const currentSlug = normalizeArticleSlug(String(current.slug || ''));
+      const nextSlugSource = input.slug || currentSlug || input.title;
+      const requestedSlug = normalizeArticleSlug(nextSlugSource);
+
+      if (requestedSlug && requestedSlug !== currentSlug) {
+        const resolvedSlug = await resolveUniqueArticleSlug(
+          requestedSlug,
+          (candidate) => checkSlugConflict(candidate, id, store)
+        );
+        updates.slug = resolvedSlug;
+
+        const previousSlugsSet = new Set(
+          Array.isArray(current.previousSlugs)
+            ? current.previousSlugs.map((item) => normalizeArticleSlug(String(item || ''))).filter(Boolean)
+            : []
+        );
+        if (currentSlug) previousSlugsSet.add(currentSlug);
+        previousSlugsSet.delete(resolvedSlug);
+        updates.previousSlugs = Array.from(previousSlugsSet);
+      } else {
+        updates.slug = currentSlug;
+      }
+    }
     applyEditorialFlagApproval(updates, current, actor.name || actor.email);
-
-    const currentSlug = normalizeArticleSlug(String(current.slug || ''));
-    const nextSlugSource = input.slug || currentSlug || input.title;
-    const requestedSlug = normalizeArticleSlug(nextSlugSource);
-
-    if (requestedSlug && requestedSlug !== currentSlug) {
-      const resolvedSlug = await resolveUniqueArticleSlug(
-        requestedSlug,
-        (candidate) => checkSlugConflict(candidate, id, store)
-      );
-      updates.slug = resolvedSlug;
-
-      const previousSlugsSet = new Set(
-        Array.isArray(current.previousSlugs)
-          ? current.previousSlugs.map((item) => normalizeArticleSlug(String(item || ''))).filter(Boolean)
-          : []
-      );
-      if (currentSlug) previousSlugsSet.add(currentSlug);
-      previousSlugsSet.delete(resolvedSlug);
-      updates.previousSlugs = Array.from(previousSlugsSet);
-    } else {
-      updates.slug = currentSlug;
-    }
 
     const previousBreakingAudioUrl = resolveBreakingAudioUrl(
       current as Record<string, unknown>
@@ -493,7 +512,10 @@ export class EditorialService {
     const bodyRecord = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
     const expectedVersion = parseExpectedVersion(bodyRecord.expectedVersion);
     const isAutosave = bodyRecord.autosave === true;
-    const updates = normalizePartialInput(body);
+    const normalizedUpdates = normalizePartialInput(body);
+    const updates = isReporterDeskRole(actor.role)
+      ? restrictReporterArticleUpdates(normalizedUpdates)
+      : normalizedUpdates;
 
     const lengthError = validateLengths(updates);
     if (lengthError) {
@@ -657,12 +679,22 @@ export class EditorialService {
 
     const currentWorkflow = resolveArticleWorkflow(current);
     const previousAssignee = currentWorkflow.assignedTo;
+    const scheduledFor = parseOptionalDate(actionBody.scheduledFor);
+    if (
+      action === 'schedule' &&
+      (!scheduledFor || scheduledFor.getTime() <= Date.now())
+    ) {
+      throw new EditorialValidationError(
+        'scheduledFor must be a valid future date.',
+        400
+      );
+    }
     const { fromStatus, toStatus, nextWorkflow } = applyArticleWorkflowAction({
       action,
       actor,
       currentWorkflow,
       assignedTo,
-      scheduledFor: parseOptionalDate(actionBody.scheduledFor),
+      scheduledFor,
       dueAt: parseOptionalDate(actionBody.dueAt),
       priority: isWorkflowPriority(actionBody.priority) ? actionBody.priority : undefined,
       comment: actionBody.comment,

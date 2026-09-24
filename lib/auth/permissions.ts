@@ -95,7 +95,7 @@ export const PAGE_ACCESS: Record<AdminPageKey, readonly AdminRole[]> = {
   copy_desk: ['super_admin', 'admin', 'copy_editor'],
   articles: ['super_admin', 'admin', 'copy_editor'],
   article_create: ['super_admin', 'admin', 'reporter', 'copy_editor'],
-  article_edit: ['super_admin', 'admin', 'copy_editor'],
+  article_edit: ['super_admin', 'admin', 'reporter', 'copy_editor'],
   stories: ['super_admin', 'admin', 'reporter', 'copy_editor'],
   story_create: ['super_admin', 'admin', 'reporter'],
   story_edit: ['super_admin', 'admin', 'reporter', 'copy_editor'],
@@ -167,7 +167,11 @@ export const PAGE_LABELS: Record<AdminPageKey, string> = {
   operations_diagnostics: 'Operations Diagnostics',
 };
 
-const REPORTER_EDITABLE_WORKFLOW_STATUSES: WorkflowStatus[] = ['draft', 'changes_requested'];
+const REPORTER_EDITABLE_WORKFLOW_STATUSES: WorkflowStatus[] = [
+  'draft',
+  'changes_requested',
+  'rejected',
+];
 const COPY_EDITOR_EDITABLE_WORKFLOW_STATUSES: WorkflowStatus[] = [
   'assigned',
   'in_review',

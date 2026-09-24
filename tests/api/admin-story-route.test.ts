@@ -346,4 +346,123 @@ describe('/api/admin/stories/[id] route', () => {
     expect(response.status).toBe(200);
     expect(payload.success).toBe(true);
   });
+
+  it.each([
+    { isPublished: true },
+    { publishedAt: '2099-01-01T00:00:00.000Z' },
+    { scheduledFor: '2099-01-01T00:00:00.000Z' },
+    { workflow: { status: 'published' } },
+  ])('rejects publication state in an ordinary Story update: %o', async (forgedFields) => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'desk@example.com',
+      name: 'Desk',
+      role: 'admin',
+    });
+
+    const { PUT } = await import('@/app/api/admin/stories/[id]/route');
+    const response = await PUT(
+      createPutRequest({ title: 'Legitimate edit', ...forgedFields }),
+      { params: Promise.resolve({ id: 'story-1' }) }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe(
+      'Publication state can only be changed through workflow actions.'
+    );
+    expect(getStoredStoryByIdMock).not.toHaveBeenCalled();
+    expect(updateStoredStoryMock).not.toHaveBeenCalled();
+    expect(recordStoryActivityMock).not.toHaveBeenCalled();
+    expect(notifyWorkflowEventMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['not-a-date', '2000-01-01T00:00:00.000Z'])(
+    'rejects an invalid or past Story schedule without side effects: %s',
+    async (scheduledFor) => {
+      getAdminSessionMock.mockResolvedValue({
+        id: 'admin-1',
+        email: 'desk@example.com',
+        name: 'Desk',
+        role: 'admin',
+      });
+      getStoredStoryByIdMock.mockResolvedValue({
+        _id: 'story-1',
+        title: 'Ready Story',
+        category: 'General',
+        thumbnail: 'https://cdn.example.com/story.jpg',
+        isPublished: false,
+        workflow: {
+          status: 'approved',
+          priority: 'normal',
+          createdBy: {
+            id: 'reporter-1',
+            email: 'reporter@example.com',
+            name: 'Reporter',
+            role: 'reporter',
+          },
+        },
+      });
+
+      const { PATCH } = await import('@/app/api/admin/stories/[id]/route');
+      const response = await PATCH(
+        createPatchRequest({ action: 'schedule', scheduledFor }),
+        { params: Promise.resolve({ id: 'story-1' }) }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(payload.error).toBe('scheduledFor must be a valid future date.');
+      expect(updateStoredStoryMock).not.toHaveBeenCalled();
+      expect(recordStoryActivityMock).not.toHaveBeenCalled();
+      expect(notifyWorkflowEventMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it('accepts a valid future Story schedule through the workflow action', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'desk@example.com',
+      name: 'Desk',
+      role: 'admin',
+    });
+    const current = {
+      _id: 'story-1',
+      title: 'Ready Story',
+      category: 'General',
+      thumbnail: 'https://cdn.example.com/story.jpg',
+      isPublished: false,
+      workflow: {
+        status: 'approved',
+        priority: 'normal',
+        createdBy: {
+          id: 'reporter-1',
+          email: 'reporter@example.com',
+          name: 'Reporter',
+          role: 'reporter',
+        },
+      },
+    };
+    getStoredStoryByIdMock.mockResolvedValue(current);
+    updateStoredStoryMock.mockImplementation(async (_id, updates) => ({
+      ...current,
+      ...updates,
+    }));
+
+    const { PATCH } = await import('@/app/api/admin/stories/[id]/route');
+    const response = await PATCH(
+      createPatchRequest({
+        action: 'schedule',
+        scheduledFor: '2099-01-01T00:00:00.000Z',
+      }),
+      { params: Promise.resolve({ id: 'story-1' }) }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data.workflow.status).toBe('scheduled');
+    expect(payload.data.isPublished).toBe(false);
+    expect(recordStoryActivityMock).toHaveBeenCalledTimes(1);
+    expect(notifyWorkflowEventMock).toHaveBeenCalledTimes(1);
+  });
 });

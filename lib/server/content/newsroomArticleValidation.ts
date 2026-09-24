@@ -467,6 +467,24 @@ export function normalizePartialInput(body: unknown): Record<string, unknown> {
   };
 }
 
+const REPORTER_ARTICLE_UPDATE_FIELDS = new Set([
+  'title',
+  'summary',
+  'content',
+  'contentJson',
+  'image',
+  'reporterMeta',
+  'media',
+]);
+
+export function restrictReporterArticleUpdates(
+  updates: Record<string, unknown>
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(updates).filter(([field]) => REPORTER_ARTICLE_UPDATE_FIELDS.has(field))
+  );
+}
+
 export function validateRequired(input: NormalizedArticleInput): string | null {
   if (
     !input.title ||

@@ -114,12 +114,16 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : '';
 }
 
-function normalizeCreateIntent(value: unknown, legacyPublished: boolean): CreateIntent {
+const DIRECT_PUBLICATION_FIELDS = ['isPublished', 'publishedAt', 'scheduledFor', 'workflow'] as const;
+
+function normalizeCreateIntent(value: unknown): CreateIntent | null {
+  if (value === undefined) return 'draft';
+
   if (value === 'draft' || value === 'submit' || value === 'publish') {
     return value;
   }
 
-  return legacyPublished ? 'publish' : 'draft';
+  return null;
 }
 
 function normalizeMediaSizeBytes(value: unknown) {
@@ -151,13 +155,7 @@ function normalizeStoryInput(body: unknown) {
   const priority = Number.parseInt(String(source.priority ?? 0), 10);
   const views = Number.parseInt(String(source.views ?? 0), 10);
   const durationSeconds = toBoundedDuration(source.durationSeconds, 6);
-  const isPublished =
-    typeof source.isPublished === 'boolean' ? source.isPublished : true;
-
-  const publishedAt =
-    typeof source.publishedAt === 'string' || source.publishedAt instanceof Date
-      ? new Date(source.publishedAt)
-      : new Date();
+  const publishedAt = new Date();
 
   return {
     title,
@@ -177,8 +175,8 @@ function normalizeStoryInput(body: unknown) {
     priority: Number.isFinite(priority) ? priority : 0,
     views: Number.isFinite(views) ? Math.max(0, views) : 0,
     durationSeconds,
-    isPublished,
-    publishedAt: Number.isNaN(publishedAt.getTime()) ? new Date() : publishedAt,
+    isPublished: false,
+    publishedAt,
     reporterMeta: normalizeReporterMeta(source.reporterMeta),
     copyEditorMeta: normalizeCopyEditorMeta(source.copyEditorMeta),
   };
@@ -552,12 +550,31 @@ async function POSTHandler(req: NextRequest) {
       );
     }
 
+    const bodyRecord =
+      typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
+    if (DIRECT_PUBLICATION_FIELDS.some((field) => field in bodyRecord)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Publication state can only be changed through workflow actions.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const intent = normalizeCreateIntent(bodyRecord.intent);
+    if (!intent) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid story intent' },
+        { status: 400 }
+      );
+    }
+
     const rawInput = normalizeStoryInput(body);
     const input = sanitizeCreateInputForUser(user, rawInput);
     const validationError = validateStoryInput(input, {
       allowLongCaption: user.role === 'reporter',
     });
-    const intent = normalizeCreateIntent((body as Record<string, unknown>)?.intent, input.isPublished);
     const workflow = buildInitialWorkflow(intent, user);
 
     if (

@@ -192,7 +192,14 @@ export function applyArticleWorkflowAction(params: WorkflowActionParams) {
     throw new Error('assignedTo is required for this transition.');
   }
   if (requirements.includes('scheduledFor') && !params.scheduledFor) {
-    throw new Error('scheduledFor is required for this transition.');
+    throw new Error('scheduledFor must be a valid future date.');
+  }
+  if (
+    requirements.includes('scheduledFor') &&
+    params.scheduledFor &&
+    params.scheduledFor.getTime() <= Date.now()
+  ) {
+    throw new Error('scheduledFor must be a valid future date.');
   }
   if (requirements.includes('rejectionReason') && !params.rejectionReason?.trim()) {
     throw new Error('rejectionReason is required for this transition.');

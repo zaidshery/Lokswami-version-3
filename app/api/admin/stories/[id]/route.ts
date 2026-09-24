@@ -158,6 +158,18 @@ function normalizeStoryUpdate(
   const source = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
   const updates: Record<string, unknown> = {};
 
+  if (
+    'isPublished' in source ||
+    'publishedAt' in source ||
+    'scheduledFor' in source ||
+    'workflow' in source
+  ) {
+    return {
+      updates: null,
+      error: 'Publication state can only be changed through workflow actions.',
+    };
+  }
+
   if (typeof source.title === 'string') updates.title = source.title.trim();
   if (typeof source.caption === 'string') updates.caption = source.caption.trim();
   if (typeof source.thumbnail === 'string') updates.thumbnail = source.thumbnail.trim();
@@ -215,18 +227,6 @@ function normalizeStoryUpdate(
       return { updates: null, error: 'Invalid views count' };
     }
     updates.views = views;
-  }
-
-  if (typeof source.isPublished === 'boolean') {
-    updates.isPublished = source.isPublished;
-  }
-
-  if (source.publishedAt !== undefined) {
-    const publishedAt = new Date(String(source.publishedAt));
-    if (Number.isNaN(publishedAt.getTime())) {
-      return { updates: null, error: 'Invalid published date' };
-    }
-    updates.publishedAt = publishedAt;
   }
 
   if (typeof updates.title === 'string' && updates.title.length > 140) {
