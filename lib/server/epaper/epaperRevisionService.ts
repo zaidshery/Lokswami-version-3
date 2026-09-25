@@ -30,19 +30,66 @@ export class EpaperRevisionService {
     }
     const latest = await this.repo.findLatestRevision({ publicationType, familyId }, 'revisionNumber');
     const revisionNumber = Number(latest?.revisionNumber || source.revisionNumber || 1) + 1;
-    const pages = Array.isArray(source.pages) ? source.pages.map(asObject).map((page) => ({ ...page, reviewStatus: 'pending', reviewNote: '', reviewedAt: null, reviewedBy: null })) : [];
-    const revision = await this.repo.createEdition({ publicationType, citySlug: scope.citySlug, cityName: scope.cityName,
-      title: source.title, publishDate: source.publishDate, pdfPath: source.pdfPath, pdfPublicId: source.pdfPublicId,
-      pdfFormat: source.pdfFormat, thumbnailPath: source.thumbnailPath, pdfUrl: source.pdfUrl, thumbnail: source.thumbnail,
-      pageCount: source.pageCount, pages, status: 'draft', familyId, revisionNumber, isCurrentRevision: false,
-      supersedesId: source._id, productionStatus: 'hotspot_mapping', productionAssignee: source.productionAssignee,
-      productionNotes: [], qaCompletedAt: null, sourceType: source.sourceType, sourceLabel: source.sourceLabel, sourceUrl: source.sourceUrl });
+    const pages = Array.isArray(source.pages)
+      ? source.pages.map(asObject).map((page) => ({
+          pageNumber: Number(page.pageNumber || 0),
+          imagePath: String(page.imagePath || ''),
+          width: typeof page.width === 'number' ? page.width : undefined,
+          height: typeof page.height === 'number' ? page.height : undefined,
+          pageType: page.pageType || 'editorial',
+          classificationNote: String(page.classificationNote || ''),
+          processingStatus: page.processingStatus || 'ready',
+          processingError: '',
+          reviewStatus: 'pending',
+          reviewNote: '',
+          reviewedAt: null,
+          reviewedBy: null,
+        }))
+      : [];
+    const revision = await this.repo.createEdition({
+      publicationType,
+      citySlug: scope.citySlug,
+      cityName: scope.cityName,
+      title: source.title,
+      publishDate: source.publishDate,
+      pdfPath: source.pdfPath,
+      pdfPublicId: source.pdfPublicId,
+      pdfFormat: source.pdfFormat,
+      thumbnailPath: source.thumbnailPath,
+      pdfUrl: source.pdfUrl,
+      thumbnail: source.thumbnail,
+      pageCount: source.pageCount,
+      pages,
+      status: 'draft',
+      familyId,
+      revisionNumber,
+      isCurrentRevision: false,
+      supersedesId: source._id,
+      productionStatus: 'hotspot_mapping',
+      productionAssignee: source.productionAssignee,
+      productionNotes: [],
+      qaCompletedAt: null,
+      sourceType: source.sourceType,
+      sourceLabel: source.sourceLabel,
+      sourceUrl: source.sourceUrl,
+      processingGeneration: '',
+      version: 1,
+    });
     const articles = await this.repo.listArticles(String(source._id));
     const ids = new Map<string, string>();
     for (const article of articles) {
-      const clone = await this.repo.createArticle({ epaperId: revision._id, pageNumber: article.pageNumber, title: article.title,
-        slug: article.slug, excerpt: article.excerpt, contentHtml: article.contentHtml, coverImagePath: article.coverImagePath,
-        videoUrl: article.videoUrl, hotspot: article.hotspot, workflow: article.workflow });
+      const clone = await this.repo.createArticle({
+        epaperId: revision._id,
+        pageNumber: article.pageNumber,
+        title: article.title,
+        slug: article.slug,
+        excerpt: article.excerpt,
+        contentHtml: article.contentHtml,
+        coverImagePath: article.coverImagePath,
+        videoUrl: article.videoUrl,
+        hotspot: article.hotspot ? JSON.parse(JSON.stringify(article.hotspot)) : { x: 0, y: 0, w: 0, h: 0 },
+        workflow: article.workflow ? JSON.parse(JSON.stringify(article.workflow)) : undefined,
+      });
       ids.set(String(article._id), String(clone._id));
     }
     const assets = await this.repo.listReadyTtsAssets({ sourceParentId: String(source._id), sourceType: 'epaperArticle', provider: 'manual', status: 'ready' });

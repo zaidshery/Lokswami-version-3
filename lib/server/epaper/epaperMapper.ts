@@ -89,6 +89,8 @@ export function mapAdminEpaper(value: unknown) {
     familyId: firstNonEmptyString(source.familyId, source._id),
     revisionNumber: toPositiveInt(source.revisionNumber, 1),
     isCurrentRevision: source.isCurrentRevision !== false,
+    version: toPositiveInt(source.version, 1),
+    processingGeneration: firstNonEmptyString(source.processingGeneration),
     supersedesId: firstNonEmptyString(source.supersedesId),
     publishedAt: source.publishedAt instanceof Date ? source.publishedAt.toISOString() : firstNonEmptyString(source.publishedAt) || null,
     productionStatus: production.productionStatus,

@@ -569,6 +569,7 @@ export default function AdminEPaperDetailPage() {
       pageCount: epaper.pageCount,
       pages: epaper.pages,
       articles,
+      epaper,
     });
   }, [articles, epaper]);
 
@@ -588,6 +589,7 @@ export default function AdminEPaperDetailPage() {
         body: JSON.stringify({
           title: title.trim(),
           publishDate: normalizePublicationIssueDate(publishDate, publicationType),
+          expectedVersion: epaper.version || 1,
         }),
       });
       const payload = await response.json().catch(() => ({}));

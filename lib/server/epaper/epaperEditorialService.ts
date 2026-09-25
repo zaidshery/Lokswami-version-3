@@ -52,6 +52,7 @@ import {
   EpaperForbiddenError,
   EpaperNotFoundError,
   EpaperValidationError,
+  EpaperVersionConflictError,
   InvalidEpaperIdError,
   type AdminSessionIdentity,
   type EpaperPageDTO,
@@ -286,6 +287,17 @@ export class EpaperEditorialService {
     if (!current) throw new EpaperNotFoundError();
     assertEpaperDraftEditable(current);
     const source = asObject(body);
+    const currentVersion = Number(current.version || 1);
+    let expectedVersion: number | undefined;
+    if (source.expectedVersion !== undefined && source.expectedVersion !== null) {
+      expectedVersion = Number(source.expectedVersion);
+      if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new EpaperValidationError('expectedVersion must be a positive integer.');
+      }
+      if (expectedVersion !== currentVersion) {
+        throw new EpaperVersionConflictError(currentVersion, expectedVersion);
+      }
+    }
     const updates: EpaperRecord = {};
     const previous = mapAdminEpaper(current);
     const publicationType = resolveEPaperPublicationType(current.publicationType);
@@ -327,7 +339,9 @@ export class EpaperEditorialService {
         ? `${labels.singular} for this ${labels.issueFilterLabel.toLowerCase()} already exists`
         : `${labels.singular} for this city/${labels.issueFilterLabel.toLowerCase()} already exists`);
     }
-    const updated = await this.repo.updateEdition(id, updates);
+    const updated = typeof this.repo.updateEditionWithCas === 'function'
+      ? await this.repo.updateEditionWithCas(id, updates, expectedVersion)
+      : await this.repo.updateEdition(id, updates);
     if (!updated) throw new EpaperNotFoundError();
     await recordEpaperActivity({ epaperId: id, actor, action: 'metadata_update',
       fromStatus: previous.productionStatus as never, toStatus: mapAdminEpaper(updated).productionStatus as never,
@@ -351,7 +365,13 @@ export class EpaperEditorialService {
     const mapped = mapAdminEpaper(current);
     const articles = normalizeQualityArticles(articleRows);
     const readiness = buildEpaperReadiness({ epaper: mapped, articles });
-    const quality = buildEpaperEditionQualitySummary({ pageCount: mapped.pageCount, pages: mapped.pages, articles });
+    const quality = buildEpaperEditionQualitySummary({
+      pageCount: mapped.pageCount,
+      pages: mapped.pages,
+      articles,
+      epaper: mapped,
+      readinessBlockers: readiness.blockers,
+    });
     const currentProduction = resolveEpaperProduction({ ...current, readiness });
     const nextStatus = typeof source.productionStatus === 'string' && isEpaperProductionStatus(source.productionStatus) ? source.productionStatus : undefined;
     const note = typeof source.note === 'string' ? source.note.trim() : typeof source.productionNote === 'string' ? source.productionNote.trim() : '';
@@ -363,9 +383,41 @@ export class EpaperEditorialService {
       throw new EpaperForbiddenError('Only admins can publish or archive an edition.');
     }
     const blockers = [...new Set([...readiness.blockers, ...quality.publishBlockers])];
-    if ((nextStatus === 'ready_to_publish' || nextStatus === 'published') && blockers.length) {
+    if ((nextStatus === 'ready_to_publish' || nextStatus === 'published') && blockers.length > 0) {
       logEpaperMetric('publishing_blocked', { epaperId: id, targetStatus: nextStatus, blockerCount: blockers.length, blockers });
       throw new EpaperValidationError(`This edition still has blockers: ${blockers.join(' ')}`);
+    }
+    if (nextStatus === 'published') {
+      const canonical = await this.repo.findEditionById(id);
+      if (!canonical) throw new EpaperNotFoundError();
+      if (canonical.status === 'published') {
+        throw new EpaperConflictError('EPAPER_IMMUTABLE: Edition is already published.');
+      }
+      if (canonical.status === 'archived' || canonical.productionStatus === 'archived') {
+        throw new EpaperConflictError('EPAPER_IMMUTABLE: Archived editions cannot be published.');
+      }
+      if (canonical.status !== 'draft') {
+        throw new EpaperValidationError('Only draft editions can be published.');
+      }
+      const latestJob = await this.repo.findLatestProcessingJob(id);
+      if (latestJob && (latestJob.status === 'processing' || latestJob.status === 'queued')) {
+        throw new EpaperValidationError('Background processing job is still active.');
+      }
+      if (
+        latestJob &&
+        latestJob.generation &&
+        canonical.processingGeneration &&
+        latestJob.generation !== canonical.processingGeneration
+      ) {
+        throw new EpaperValidationError('Processing generation is stale.');
+      }
+      if (source.expectedVersion !== undefined && source.expectedVersion !== null) {
+        const expectedVersion = Number(source.expectedVersion);
+        const canonicalVersion = Number(canonical.version || 1);
+        if (expectedVersion !== canonicalVersion) {
+          throw new EpaperVersionConflictError(canonicalVersion, expectedVersion);
+        }
+      }
     }
     let assignedTo: Awaited<ReturnType<typeof this.resolveAssignee>> | undefined;
     if (hasAssignee) {

@@ -159,6 +159,7 @@ export async function getEpaperInsights(
       pageCount: Number(epaper.pageCount || 0),
       pages: Array.isArray(epaper.pages) ? (epaper.pages as EPaperPageData[]) : [],
       articles: (groupedArticles.get(epaperId) || []) as EPaperArticleRecord[],
+      epaper: epaper as any,
     });
 
     summaryCounts.good += editionSummary.counts.good;

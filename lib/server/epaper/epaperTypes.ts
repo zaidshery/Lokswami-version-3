@@ -163,6 +163,20 @@ export class EpaperConflictError extends EpaperDomainError {
   }
 }
 
+export class EpaperVersionConflictError extends EpaperConflictError {
+  constructor(
+    readonly currentVersion: number,
+    readonly expectedVersion?: number
+  ) {
+    super(
+      `EPAPER_VERSION_CONFLICT: Edition metadata was modified concurrently. Current version is ${currentVersion}${
+        expectedVersion !== undefined ? `, but expected version was ${expectedVersion}` : ''
+      }. Please reload and retry.`
+    );
+    this.name = 'EpaperVersionConflictError';
+  }
+}
+
 export class EpaperStoreUnavailableError extends EpaperDomainError {
   constructor(message: string) {
     super(message, 503);

@@ -135,6 +135,8 @@ export interface EPaperRecord {
   familyId?: string;
   revisionNumber?: number;
   isCurrentRevision?: boolean;
+  version?: number;
+  processingGeneration?: string;
   supersedesId?: string;
   publishedAt?: string | null;
   productionStatus?: EPaperProductionStatus;

@@ -565,3 +565,25 @@ Phase 3.9 cannot be considered complete until all 49 gates pass:
   - Total tests: 1,916 (up from 1,887 baseline, +29 new tests)
   - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, scope check, and production Next.js build (`build:ci`).
 - **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.
+
+---
+
+## 29. Phase 3.9C Implementation Completion Record
+
+- **Subphase:** Phase 3.9C — Edition Workflow, Quality Signals & Publication Integrity
+- **Status:** COMPLETE
+- **Deliverables Completed:**
+  - **Authoritative Blocker Alignment:** `buildEpaperEditionQualitySummary` in `lib/utils/epaperQualitySignals.ts` derives `publishBlockers` directly from `buildEpaperReadiness` blockers, eliminating divergence between admin quality summaries and server-side publication gates.
+  - **Publication Blocker Contract:** Enforced canonical publication readiness invariants: thumbnail presence, verified trusted PDF, zero missing page images, complete page sequence without gaps, blank page explicit classification notes, no failed pages, no in-progress pages, and complete/current processing generation.
+  - **Workflow Transition Gates:** In `epaperEditorialService.updateWorkflow`, reloaded canonical edition and rejected transitions to `ready_to_publish` or `published` if any publish blocker exists. Client-supplied fake readiness state is ignored.
+  - **Atomic Current Revision Switching:** `epaperRepository.publishEdition` atomically updates target revision (`status: 'published'`, `isCurrentRevision: true`, `publishedAt: new Date()`) while demoting all other family revisions (`isCurrentRevision: false`) via MongoDB transaction with safe serialized fallback for standalone/mock environments. Exactly one revision remains current per family.
+  - **Revision Asset Cloning & Draft Isolation:** `epaperRevisionService.create` deep-clones pages, article records (including independent deep copies of `hotspot` and `workflow`), and manual TTS assets. Resets review status, clears `processingGeneration`, sets `version: 1`, and keeps `isCurrentRevision: false` on drafts without mutating published source assets or metadata.
+  - **Optimistic Concurrency Control (CAS):** Added document `version` tracking on `EPaper` and `expectedVersion` checking on `PUT /api/admin/epapers/[id]`. Concurrent modifications return HTTP 409 `EpaperVersionConflictError` (`code: 'EPAPER_VERSION_CONFLICT'`), preventing silent lost updates.
+- **Automated Tests Added:**
+  - `tests/epaper-publication-invariants.test.ts` (17 tests)
+  - `tests/epaper-revision-atomicity.test.ts` (10 tests)
+- **CI Regression Verification:**
+  - Total test files: 297 (up from 295)
+  - Total tests: 1,943 (up from 1,916 baseline, +27 new tests)
+  - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, scope check, and production Next.js build (`build:ci`).
+- **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.

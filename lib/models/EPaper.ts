@@ -61,6 +61,7 @@ export interface IEPaper {
   productionNotes: WorkflowComment[];
   qaCompletedAt: Date | null;
   processingGeneration?: string;
+  version?: number;
   sourceType?: 'manual-upload' | 'drive-import' | 'remote-import' | 'legacy' | 'unknown';
   sourceLabel?: string;
   sourceUrl?: string;
@@ -137,6 +138,7 @@ const EPaperSchema = new mongoose.Schema<IEPaper>(
     productionNotes: { type: [WorkflowCommentSchema], default: [] },
     qaCompletedAt: { type: Date, default: null },
     processingGeneration: { type: String, trim: true, default: '' },
+    version: { type: Number, default: 1, min: 1 },
     sourceType: {
       type: String,
       enum: ['manual-upload', 'drive-import', 'remote-import', 'legacy', 'unknown'],
