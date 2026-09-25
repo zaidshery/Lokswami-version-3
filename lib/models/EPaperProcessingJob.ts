@@ -11,6 +11,8 @@ export interface IEPaperProcessingJob {
   kind: EPaperProcessingJobKind;
   sourceKey: string;
   sourceImagePath: string;
+  generation?: string;
+  revisionNumber?: number;
   checkpoint: unknown[];
   status: EPaperProcessingJobStatus;
   pageNumbers: number[];
@@ -41,6 +43,8 @@ const EPaperProcessingJobSchema = new mongoose.Schema<IEPaperProcessingJob>(
     kind: { type: String, enum: ['pdf_pages', 'ocr'], default: 'pdf_pages' },
     sourceKey: { type: String },
     sourceImagePath: { type: String, default: '' },
+    generation: { type: String, trim: true, default: '' },
+    revisionNumber: { type: Number, min: 1, default: 1 },
     checkpoint: { type: [mongoose.Schema.Types.Mixed], default: [] },
     status: {
       type: String,
@@ -67,6 +71,7 @@ const EPaperProcessingJobSchema = new mongoose.Schema<IEPaperProcessingJob>(
 
 EPaperProcessingJobSchema.index({ status: 1, nextAttemptAt: 1, createdAt: 1 });
 EPaperProcessingJobSchema.index({ epaperId: 1, createdAt: -1 });
+EPaperProcessingJobSchema.index({ epaperId: 1, generation: 1 });
 EPaperProcessingJobSchema.index({ sourceKey: 1 }, { unique: true, partialFilterExpression: { kind: 'ocr' } });
 
 const EPaperProcessingJob: Model<IEPaperProcessingJob> =

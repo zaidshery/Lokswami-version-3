@@ -22,9 +22,10 @@ import { buildEpaperImageAutomationUpdates } from '@/lib/server/epaperImageAutom
 import { buildEpaperActivityMessage, listEpaperActivity, recordEpaperActivity } from '@/lib/server/epaperActivity';
 import { logEpaperMetric } from '@/lib/server/epaperObservability';
 import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
+import { withDistributedLock } from '@/lib/security/distributedLock';
 import { createWorkflowNotification } from '@/lib/storage/workflowNotifications';
 import { verifyEpaperAssetUpload, type EpaperUploadedAsset } from '@/lib/storage/epaperAssetUpload';
-import { deleteAssetFile, parsePublishDate } from '@/lib/utils/epaperStorage';
+import { deleteAssetFile, isAllowedAssetPath, isTrustedEpaperAssetPath, parsePublishDate } from '@/lib/utils/epaperStorage';
 import { buildEpaperAutomationInfo, buildEpaperReadiness } from '@/lib/utils/epaperAdminReadiness';
 import { buildEpaperEditionQualitySummary } from '@/lib/utils/epaperQualitySignals';
 import {
@@ -51,6 +52,7 @@ import {
   EpaperForbiddenError,
   EpaperNotFoundError,
   EpaperValidationError,
+  EpaperVersionConflictError,
   InvalidEpaperIdError,
   type AdminSessionIdentity,
   type EpaperPageDTO,
@@ -239,26 +241,29 @@ export class EpaperEditorialService {
     const pageCount = Math.max(requestedCount, ...pageAssets.map((item) => item.pageNumber));
     if (pageCount < 1) throw new EpaperValidationError('pageCount is required when page images are not included in the create request');
     await this.repo.connect();
-    const duplicate = await this.repo.findEdition({
-      ...buildPublicationTypeMongoFilter(publicationType), citySlug: scope.citySlug,
-      publishDate: getPublicationIssueDateRange(normalizedDate, publicationType) || publishDate, isCurrentRevision: true,
-    }, '_id');
-    if (duplicate) throw new EpaperConflictError(scope.isGlobal
-      ? `${labels.singular} already exists for ${labels.issueFilterLabel.toLowerCase()} ${normalizedDate}`
-      : `${labels.singular} already exists for ${scope.citySlug} in ${labels.issueFilterLabel.toLowerCase()} ${normalizedDate}`);
-    const pages: Array<{ pageNumber: number; imagePath: string; width?: number; height?: number; pageType: 'editorial'; processingStatus: 'pending' | 'ready'; reviewStatus: 'pending' }> = Array.from({ length: pageCount }, (_, index) => ({ pageNumber: index + 1, imagePath: '', width: undefined, height: undefined,
-      pageType: 'editorial', processingStatus: 'pending', reviewStatus: 'pending' }));
-    for (const item of pageAssets) pages[item.pageNumber - 1] = { pageNumber: item.pageNumber, imagePath: item.asset.mediaUrl,
-      width: item.width, height: item.height, pageType: 'editorial', processingStatus: 'ready', reviewStatus: 'pending' };
-    const automation = buildEpaperImageAutomationUpdates({ pageCount, pages, currentThumbnailPath: thumbnail.mediaUrl,
-      currentProductionStatus: 'draft_upload', currentStatus: 'draft' });
-    const created = await this.repo.createEdition({ publicationType, citySlug: scope.citySlug, cityName: scope.cityName,
-      title, publishDate, pdfPath: pdf.mediaUrl, pdfPublicId: pdf.mediaKey,
-      pdfFormat: pdf.mediaKey.split('.').pop()?.toLowerCase() || 'pdf', thumbnailPath: thumbnail.mediaUrl,
-      pageCount, pages, status: 'draft', familyId: crypto.randomUUID(), revisionNumber: 1, isCurrentRevision: true,
-      productionStatus: automation.productionStatus || 'draft_upload', sourceType: 'manual-upload',
-      sourceLabel: `Direct Spaces upload (${labels.singular})`, sourceUrl: pdf.mediaUrl });
-    return { message: `${labels.singular} created successfully`, data: mapAdminEpaper(created) };
+    const lockKey = `epaper:draft:create:${publicationType}:${scope.citySlug}:${normalizedDate}`;
+    return withDistributedLock(lockKey, async () => {
+      const duplicate = await this.repo.findEdition({
+        ...buildPublicationTypeMongoFilter(publicationType), citySlug: scope.citySlug,
+        publishDate: getPublicationIssueDateRange(normalizedDate, publicationType) || publishDate, isCurrentRevision: true,
+      }, '_id');
+      if (duplicate) throw new EpaperConflictError(scope.isGlobal
+        ? `${labels.singular} already exists for ${labels.issueFilterLabel.toLowerCase()} ${normalizedDate}`
+        : `${labels.singular} already exists for ${scope.citySlug} in ${labels.issueFilterLabel.toLowerCase()} ${normalizedDate}`);
+      const pages: Array<{ pageNumber: number; imagePath: string; width?: number; height?: number; pageType: 'editorial'; processingStatus: 'pending' | 'ready'; reviewStatus: 'pending' }> = Array.from({ length: pageCount }, (_, index) => ({ pageNumber: index + 1, imagePath: '', width: undefined, height: undefined,
+        pageType: 'editorial', processingStatus: 'pending', reviewStatus: 'pending' }));
+      for (const item of pageAssets) pages[item.pageNumber - 1] = { pageNumber: item.pageNumber, imagePath: item.asset.mediaUrl,
+        width: item.width, height: item.height, pageType: 'editorial', processingStatus: 'ready', reviewStatus: 'pending' };
+      const automation = buildEpaperImageAutomationUpdates({ pageCount, pages, currentThumbnailPath: thumbnail.mediaUrl,
+        currentProductionStatus: 'draft_upload', currentStatus: 'draft' });
+      const created = await this.repo.createEdition({ publicationType, citySlug: scope.citySlug, cityName: scope.cityName,
+        title, publishDate, pdfPath: pdf.mediaUrl, pdfPublicId: pdf.mediaKey,
+        pdfFormat: pdf.mediaKey.split('.').pop()?.toLowerCase() || 'pdf', thumbnailPath: thumbnail.mediaUrl,
+        pageCount, pages, status: 'draft', familyId: crypto.randomUUID(), revisionNumber: 1, isCurrentRevision: true,
+        productionStatus: automation.productionStatus || 'draft_upload', sourceType: 'manual-upload',
+        sourceLabel: `Direct Spaces upload (${labels.singular})`, sourceUrl: pdf.mediaUrl });
+      return { message: `${labels.singular} created successfully`, data: mapAdminEpaper(created) };
+    });
   }
 
   async get(actor: AdminSessionIdentity, id: string, publicationTypeParam?: string | null) {
@@ -280,7 +285,19 @@ export class EpaperEditorialService {
     this.assertId(id); await this.repo.connect();
     const current = await this.repo.findEditionById(id);
     if (!current) throw new EpaperNotFoundError();
+    assertEpaperDraftEditable(current);
     const source = asObject(body);
+    const currentVersion = Number(current.version || 1);
+    let expectedVersion: number | undefined;
+    if (source.expectedVersion !== undefined && source.expectedVersion !== null) {
+      expectedVersion = Number(source.expectedVersion);
+      if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new EpaperValidationError('expectedVersion must be a positive integer.');
+      }
+      if (expectedVersion !== currentVersion) {
+        throw new EpaperVersionConflictError(currentVersion, expectedVersion);
+      }
+    }
     const updates: EpaperRecord = {};
     const previous = mapAdminEpaper(current);
     const publicationType = resolveEPaperPublicationType(current.publicationType);
@@ -322,7 +339,9 @@ export class EpaperEditorialService {
         ? `${labels.singular} for this ${labels.issueFilterLabel.toLowerCase()} already exists`
         : `${labels.singular} for this city/${labels.issueFilterLabel.toLowerCase()} already exists`);
     }
-    const updated = await this.repo.updateEdition(id, updates);
+    const updated = typeof this.repo.updateEditionWithCas === 'function'
+      ? await this.repo.updateEditionWithCas(id, updates, expectedVersion)
+      : await this.repo.updateEdition(id, updates);
     if (!updated) throw new EpaperNotFoundError();
     await recordEpaperActivity({ epaperId: id, actor, action: 'metadata_update',
       fromStatus: previous.productionStatus as never, toStatus: mapAdminEpaper(updated).productionStatus as never,
@@ -346,7 +365,13 @@ export class EpaperEditorialService {
     const mapped = mapAdminEpaper(current);
     const articles = normalizeQualityArticles(articleRows);
     const readiness = buildEpaperReadiness({ epaper: mapped, articles });
-    const quality = buildEpaperEditionQualitySummary({ pageCount: mapped.pageCount, pages: mapped.pages, articles });
+    const quality = buildEpaperEditionQualitySummary({
+      pageCount: mapped.pageCount,
+      pages: mapped.pages,
+      articles,
+      epaper: mapped,
+      readinessBlockers: readiness.blockers,
+    });
     const currentProduction = resolveEpaperProduction({ ...current, readiness });
     const nextStatus = typeof source.productionStatus === 'string' && isEpaperProductionStatus(source.productionStatus) ? source.productionStatus : undefined;
     const note = typeof source.note === 'string' ? source.note.trim() : typeof source.productionNote === 'string' ? source.productionNote.trim() : '';
@@ -358,9 +383,41 @@ export class EpaperEditorialService {
       throw new EpaperForbiddenError('Only admins can publish or archive an edition.');
     }
     const blockers = [...new Set([...readiness.blockers, ...quality.publishBlockers])];
-    if ((nextStatus === 'ready_to_publish' || nextStatus === 'published') && blockers.length) {
+    if ((nextStatus === 'ready_to_publish' || nextStatus === 'published') && blockers.length > 0) {
       logEpaperMetric('publishing_blocked', { epaperId: id, targetStatus: nextStatus, blockerCount: blockers.length, blockers });
       throw new EpaperValidationError(`This edition still has blockers: ${blockers.join(' ')}`);
+    }
+    if (nextStatus === 'published') {
+      const canonical = await this.repo.findEditionById(id);
+      if (!canonical) throw new EpaperNotFoundError();
+      if (canonical.status === 'published') {
+        throw new EpaperConflictError('EPAPER_IMMUTABLE: Edition is already published.');
+      }
+      if (canonical.status === 'archived' || canonical.productionStatus === 'archived') {
+        throw new EpaperConflictError('EPAPER_IMMUTABLE: Archived editions cannot be published.');
+      }
+      if (canonical.status !== 'draft') {
+        throw new EpaperValidationError('Only draft editions can be published.');
+      }
+      const latestJob = await this.repo.findLatestProcessingJob(id);
+      if (latestJob && (latestJob.status === 'processing' || latestJob.status === 'queued')) {
+        throw new EpaperValidationError('Background processing job is still active.');
+      }
+      if (
+        latestJob &&
+        latestJob.generation &&
+        canonical.processingGeneration &&
+        latestJob.generation !== canonical.processingGeneration
+      ) {
+        throw new EpaperValidationError('Processing generation is stale.');
+      }
+      if (source.expectedVersion !== undefined && source.expectedVersion !== null) {
+        const expectedVersion = Number(source.expectedVersion);
+        const canonicalVersion = Number(canonical.version || 1);
+        if (expectedVersion !== canonicalVersion) {
+          throw new EpaperVersionConflictError(canonicalVersion, expectedVersion);
+        }
+      }
     }
     let assignedTo: Awaited<ReturnType<typeof this.resolveAssignee>> | undefined;
     if (hasAssignee) {
@@ -385,19 +442,104 @@ export class EpaperEditorialService {
       message, metadata: compactMetadata({ assignedToId: transition.nextProduction.productionAssignee?.id || '', assignedToName: transition.nextProduction.productionAssignee?.name || '',
         note, readinessStatus: readiness.status, blockers, allowedNextStatuses: getAllowedEpaperProductionTransitions(transition.toStatus) }) });
     await this.notifyAssignee(actor, updated, action, transition.toStatus, transition.nextProduction.productionAssignee, resolveEPaperPublicationType(current.publicationType));
-    if (transition.toStatus === 'published') logEpaperMetric('publishing_completed', { epaperId: id, familyId: String(updated.familyId || updated._id), revisionNumber: Number(updated.revisionNumber || 1) });
+    if (transition.toStatus === 'published') {
+      logEpaperMetric('epaper_published', { epaperId: id, familyId: String(updated.familyId || updated._id), revisionNumber: Number(updated.revisionNumber || 1) });
+      logEpaperMetric('publishing_completed', { epaperId: id, familyId: String(updated.familyId || updated._id), revisionNumber: Number(updated.revisionNumber || 1) });
+    } else if (transition.toStatus === 'archived') {
+      logEpaperMetric('epaper_archived', { epaperId: id, familyId: String(updated.familyId || updated._id), revisionNumber: Number(updated.revisionNumber || 1) });
+    }
     return { message, data: this.enrich(mapAdminEpaper(updated), updated, articleRows) };
   }
 
   async delete(actor: AdminSessionIdentity, id: string) {
     if (!canDeleteEpaper(actor.role)) throw new EpaperForbiddenError();
-    this.assertId(id); await this.repo.connect();
-    const edition = await this.repo.deleteEditionCascade(id);
+    this.assertId(id);
+    await this.repo.connect();
+
+    const edition = await this.repo.findEditionById(id);
     if (!edition) throw new EpaperNotFoundError();
-    const assets = [firstNonEmptyString(edition.pdfPath, edition.pdfUrl), firstNonEmptyString(edition.thumbnailPath, edition.thumbnail),
-      ...normalizeEpaperPages(edition.pages).map((page) => page.imagePath)].filter(Boolean);
-    await Promise.all(assets.map((asset) => deleteAssetFile(asset).catch(() => undefined)));
-    return { message: 'E-paper and associated assets deleted' };
+
+    // Draft immutability & protection: published editions or current revisions cannot be deleted
+    assertEpaperDraftEditable(edition);
+    if (edition.isCurrentRevision) {
+      throw new EpaperConflictError('Current published revision cannot be deleted.');
+    }
+
+    const candidateAssets = [
+      firstNonEmptyString(edition.pdfPath, edition.pdfUrl),
+      firstNonEmptyString(edition.thumbnailPath, edition.thumbnail),
+      ...normalizeEpaperPages(edition.pages).map((page) => page.imagePath),
+    ].filter(Boolean) as string[];
+
+    const unreferencedAssets: string[] = [];
+    const retainedAssets: string[] = [];
+
+    for (const asset of candidateAssets) {
+      if (!isTrustedEpaperAssetPath(asset) && !isAllowedAssetPath(asset)) {
+        continue;
+      }
+      const isReferenced = await this.repo.isAssetReferencedElsewhere(asset, id);
+      if (isReferenced) {
+        retainedAssets.push(asset);
+      } else {
+        unreferencedAssets.push(asset);
+      }
+    }
+
+    // Delete DB records first (failure-safe ordering)
+    await this.repo.deleteEditionCascade(id);
+
+    logEpaperMetric('epaper_cleanup_started', {
+      epaperId: id,
+      unreferencedCount: unreferencedAssets.length,
+      retainedCount: retainedAssets.length,
+    });
+
+    const failedAssets: Array<{ asset: string; error: string }> = [];
+    const deletedAssets: string[] = [];
+
+    for (const asset of unreferencedAssets) {
+      try {
+        await deleteAssetFile(asset);
+        deletedAssets.push(asset);
+      } catch (err) {
+        failedAssets.push({
+          asset,
+          error: err instanceof Error ? err.message : 'Delete failed',
+        });
+      }
+    }
+
+    if (failedAssets.length > 0) {
+      logEpaperMetric('epaper_cleanup_failed', {
+        epaperId: id,
+        failedCount: failedAssets.length,
+        error: failedAssets[0]?.error,
+      });
+    } else {
+      logEpaperMetric('epaper_cleanup_completed', {
+        epaperId: id,
+        deletedCount: deletedAssets.length,
+        retainedCount: retainedAssets.length,
+      });
+    }
+
+    await recordEpaperActivity({
+      epaperId: id,
+      actor,
+      action: 'edition_deleted',
+      message: buildEpaperActivityMessage({ action: 'edition_deleted' }),
+      metadata: {
+        deletedAssets: deletedAssets.length,
+        retainedAssets: retainedAssets.length,
+        failedAssets: failedAssets.length,
+      },
+    });
+
+    return {
+      message: 'E-paper and associated assets deleted',
+      data: { deletedAssets, retainedAssets, failedAssets },
+    };
   }
 
   async activity(actor: AdminSessionIdentity, id: string) {

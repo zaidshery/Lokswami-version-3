@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { Types } from 'mongoose';
+import { Types, type ClientSession } from 'mongoose';
 import connectDB from '@/lib/db/mongoose';
 import { isMongoAvailable, reportMongoUnavailable } from '@/lib/db/mongoAvailability';
 import EPaper from '@/lib/models/EPaper';
@@ -28,14 +28,15 @@ import {
   mapPublicFeedMongo,
   toDateLabel,
 } from './epaperMapper';
-import type {
-  EpaperRecord,
-  EpaperStore,
-  EpaperTtsAssetCloneSource,
-  CreateEpaperTtsAssetInput,
-  PublicEpaperFeedInput,
-  PublicEpaperFeedItem,
-  PublicEpaperListInput,
+import {
+  EpaperVersionConflictError,
+  type EpaperRecord,
+  type EpaperStore,
+  type EpaperTtsAssetCloneSource,
+  type CreateEpaperTtsAssetInput,
+  type PublicEpaperFeedInput,
+  type PublicEpaperFeedItem,
+  type PublicEpaperListInput,
 } from './epaperTypes';
 
 const PUBLIC_PROJECTION =
@@ -195,18 +196,19 @@ export class EpaperRepository {
     if ((await this.resolveAdminStore('public e-paper detail route')) === 'file') {
       return { store: 'file' as const, edition: publicationType === 'epaper' ? await getStoredEPaperById(id) : null, articles: [] };
     }
-    let edition = this.isValidId(id)
-      ? await EPaper.findById(id).lean()
+    const edition = this.isValidId(id)
+      ? await EPaper.findOne({
+          _id: id,
+          status: 'published',
+          isCurrentRevision: { $ne: false },
+          ...buildPublicationTypeMongoFilter(publicationType),
+        }).lean()
       : await EPaper.findOne({
-          ...buildPublicationTypeMongoFilter(publicationType), familyId: id,
-          status: 'published', isCurrentRevision: true,
+          familyId: id,
+          status: 'published',
+          isCurrentRevision: { $ne: false },
+          ...buildPublicationTypeMongoFilter(publicationType),
         }).lean();
-    if (edition && (edition.status !== 'published' || edition.isCurrentRevision === false)) {
-      edition = await EPaper.findOne({
-        ...buildPublicationTypeMongoFilter(publicationType),
-        familyId: String(edition.familyId || edition._id), status: 'published', isCurrentRevision: true,
-      }).lean();
-    }
     const articles = edition
       ? await EPaperArticle.find({ epaperId: edition._id }).sort({ pageNumber: 1, createdAt: 1 }).lean()
       : [];
@@ -214,9 +216,24 @@ export class EpaperRepository {
   }
 
   async findPdfRecord(id: string) {
+    if ((await this.resolveAdminStore('public e-paper pdf route')) === 'file') {
+      const stored = await getStoredEPaperById(id);
+      if (!stored) return null;
+      return {
+        _id: stored._id,
+        pdfPath: stored.pdfUrl,
+        pdfUrl: stored.pdfUrl,
+        status: 'published',
+        isCurrentRevision: true,
+      };
+    }
     if (!this.isValidId(id)) return null;
     await connectDB();
-    return EPaper.findById(id).select('_id pdfPublicId pdfFormat pdfPath pdfUrl').lean();
+    return EPaper.findOne({
+      _id: id,
+      status: 'published',
+      isCurrentRevision: { $ne: false },
+    }).select('_id pdfPublicId pdfFormat pdfPath pdfUrl status isCurrentRevision').lean();
   }
 
   async getHomeFeedEditions(store: EpaperStore) {
@@ -323,8 +340,55 @@ export class EpaperRepository {
     return asObject(created.toObject());
   }
 
-  async updateEdition(id: string, updates: EpaperRecord): Promise<EpaperRecord | null> {
-    return EPaper.findByIdAndUpdate(id, updates, { new: true, runValidators: true }).lean() as Promise<EpaperRecord | null>;
+  async updateEdition(
+    id: string,
+    updates: EpaperRecord,
+    expectedVersion?: number
+  ): Promise<EpaperRecord | null> {
+    if (expectedVersion !== undefined) {
+      return this.updateEditionWithCas(id, updates, expectedVersion);
+    }
+    return EPaper.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    }).lean() as Promise<EpaperRecord | null>;
+  }
+
+  async updateEditionWithCas(
+    id: string,
+    updates: EpaperRecord,
+    expectedVersion?: number
+  ): Promise<EpaperRecord | null> {
+    const query: Record<string, unknown> = { _id: id };
+    if (expectedVersion !== undefined) {
+      query.version = expectedVersion;
+    }
+    const { $set, $inc, ...directFields } = updates;
+    const finalSet = { ...directFields, ...(asObject($set)) };
+    const finalInc = { version: 1, ...(asObject($inc)) };
+    const mongoUpdate: Record<string, unknown> = {
+      $inc: finalInc,
+    };
+    if (Object.keys(finalSet).length > 0) {
+      mongoUpdate.$set = finalSet;
+    }
+
+    const updated = (await EPaper.findOneAndUpdate(query, mongoUpdate, {
+      new: true,
+      runValidators: true,
+    }).lean()) as EpaperRecord | null;
+
+    if (!updated && expectedVersion !== undefined) {
+      const currentDoc = await EPaper.findById(id).select('version').lean();
+      if (currentDoc) {
+        throw new EpaperVersionConflictError(
+          Number(currentDoc.version || 1),
+          expectedVersion
+        );
+      }
+    }
+
+    return updated;
   }
 
   async updateEditionWhere(query: EpaperRecord, updates: EpaperRecord) {
@@ -351,10 +415,63 @@ export class EpaperRepository {
     );
   }
 
+  async isAssetReferencedElsewhere(
+    assetPath: string,
+    excludeEditionId: string
+  ): Promise<boolean> {
+    const normalized = assetPath.trim();
+    if (!normalized) return false;
+
+    await this.connect();
+
+    const otherEdition = await EPaper.findOne({
+      _id: { $ne: excludeEditionId },
+      $or: [
+        { pdfPath: normalized },
+        { pdfUrl: normalized },
+        { thumbnailPath: normalized },
+        { thumbnail: normalized },
+        { 'pages.imagePath': normalized },
+      ],
+    })
+      .select('_id')
+      .lean();
+
+    if (otherEdition) return true;
+
+    const otherArticle = await EPaperArticle.findOne({
+      epaperId: { $ne: excludeEditionId },
+      $or: [
+        { coverImagePath: normalized },
+        { pageImagePath: normalized },
+      ],
+    })
+      .select('_id')
+      .lean();
+
+    if (otherArticle) return true;
+
+    const otherTts = await TtsAsset.findOne({
+      epaperId: { $ne: excludeEditionId },
+      $or: [{ audioUrl: normalized }, { storageKey: normalized }],
+    })
+      .select('_id')
+      .lean();
+
+    if (otherTts) return true;
+
+    return false;
+  }
+
   async deleteEditionCascade(id: string) {
     const edition = await this.findEditionById(id);
     if (!edition) return null;
-    await Promise.all([EPaper.deleteOne({ _id: id }), EPaperArticle.deleteMany({ epaperId: id })]);
+    await Promise.all([
+      EPaper.deleteOne({ _id: id }),
+      EPaperArticle.deleteMany({ epaperId: id }),
+      EPaperProcessingJob.deleteMany({ epaperId: id }),
+      EPaperOcrSuggestion.deleteMany({ epaperId: id }),
+    ]);
     return edition;
   }
 
@@ -367,19 +484,65 @@ export class EpaperRepository {
   }
 
   async publishEdition(id: string, familyId: string, updates: EpaperRecord) {
-    const session = await EPaper.startSession();
-    let result: EpaperRecord | null = null;
+    let session: ClientSession | null = null;
+    let supportsTransactions = true;
     try {
-      await session.withTransaction(async () => {
-        await EPaper.updateMany({ familyId, _id: { $ne: id }, status: 'published', isCurrentRevision: true }, {
-          status: 'draft', productionStatus: 'archived', isCurrentRevision: false,
-        }, { session });
-        result = await EPaper.findByIdAndUpdate(id, updates, { new: true, runValidators: true, session }).lean() as EpaperRecord | null;
-      });
-    } finally {
-      await session.endSession();
+      if (typeof EPaper.startSession === 'function') {
+        session = await EPaper.startSession();
+      } else {
+        supportsTransactions = false;
+      }
+    } catch {
+      session = null;
+      supportsTransactions = false;
     }
-    return result;
+
+    const publishUpdates = {
+      ...updates,
+      status: 'published',
+      isCurrentRevision: true,
+      publishedAt: updates.publishedAt || new Date(),
+    };
+
+    if (session && supportsTransactions) {
+      try {
+        let result: EpaperRecord | null = null;
+        await session.withTransaction(async () => {
+          await EPaper.updateMany(
+            { familyId, _id: { $ne: id }, isCurrentRevision: true },
+            { $set: { isCurrentRevision: false } },
+            { session }
+          );
+          result = (await EPaper.findByIdAndUpdate(id, publishUpdates, {
+            new: true,
+            runValidators: true,
+            session,
+          }).lean()) as EpaperRecord | null;
+        });
+        return result;
+      } catch (txError: unknown) {
+        const msg = txError instanceof Error ? txError.message : String(txError || '');
+        if (
+          msg.includes('Transaction numbers are only allowed on a replica set member') ||
+          msg.includes('replica set')
+        ) {
+          // Fall back to serialized non-transaction execution
+        } else {
+          throw txError;
+        }
+      } finally {
+        await session.endSession().catch(() => {});
+      }
+    }
+
+    await EPaper.updateMany(
+      { familyId, _id: { $ne: id }, isCurrentRevision: true },
+      { $set: { isCurrentRevision: false } }
+    );
+    return EPaper.findByIdAndUpdate(id, publishUpdates, {
+      new: true,
+      runValidators: true,
+    }).lean() as Promise<EpaperRecord | null>;
   }
 
   async listOcrSuggestions(query: EpaperRecord) {

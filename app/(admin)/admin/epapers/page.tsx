@@ -229,6 +229,7 @@ export default function AdminEPaperListPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={isMonthlyPublication ? 'Search by title' : 'Search by title or city'}
+              aria-label={isMonthlyPublication ? 'Search by title' : 'Search by title or city'}
               className="w-full rounded-2xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface)] py-2 pl-9 pr-3 text-sm text-[color:var(--admin-shell-text)] outline-none focus:border-red-500"
             />
           </span>
@@ -240,6 +241,7 @@ export default function AdminEPaperListPage() {
             <select
               value={cityFilter}
               onChange={(event) => setCityFilter(event.target.value)}
+              aria-label="Filter by city"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary-600"
             >
               <option value="all">All cities</option>
@@ -257,6 +259,7 @@ export default function AdminEPaperListPage() {
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
+            aria-label="Filter by status"
             className="w-full rounded-2xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface)] px-3 py-2 text-sm text-[color:var(--admin-shell-text)] outline-none focus:border-red-500"
           >
             <option value="all">All</option>
@@ -270,6 +273,7 @@ export default function AdminEPaperListPage() {
           <select
             value={productionFilter}
             onChange={(event) => setProductionFilter(event.target.value)}
+            aria-label="Filter by production stage"
             className="w-full rounded-2xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface)] px-3 py-2 text-sm text-[color:var(--admin-shell-text)] outline-none focus:border-red-500"
           >
             <option value="all">All stages</option>
@@ -290,6 +294,7 @@ export default function AdminEPaperListPage() {
               type="month"
               value={dateFilter}
               onChange={(event) => setDateFilter(event.target.value)}
+              aria-label={labels.issueFilterLabel}
               className="w-full rounded-2xl border border-[color:var(--admin-shell-border)] bg-[color:var(--admin-shell-surface)] px-3 py-2 text-sm text-[color:var(--admin-shell-text)] outline-none focus:border-red-500"
             />
           ) : (
@@ -303,14 +308,15 @@ export default function AdminEPaperListPage() {
       </div>
 
       {error ? (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" aria-live="assertive" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="flex items-center justify-center py-16">
+        <div role="status" aria-live="polite" className="flex items-center justify-center py-16">
           <Loader2 className="h-7 w-7 animate-spin text-primary-600" />
+          <span className="sr-only">Loading {labels.plural.toLowerCase()}...</span>
         </div>
       ) : filtered.length === 0 ? (
         <div className="admin-shell-surface-strong rounded-[24px] px-5 py-12 text-center text-[color:var(--admin-shell-text-muted)]">
@@ -381,6 +387,16 @@ export default function AdminEPaperListPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    {epaper.revisionNumber && epaper.revisionNumber > 1 ? (
+                      <div className="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">
+                        Rev {epaper.revisionNumber}
+                      </div>
+                    ) : null}
+                    {epaper.isCurrentRevision === false ? (
+                      <div className="rounded-full bg-zinc-200 px-2.5 py-1 text-xs font-semibold text-zinc-700">
+                        Historical
+                      </div>
+                    ) : null}
                     <div
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                         epaper.status === 'published'

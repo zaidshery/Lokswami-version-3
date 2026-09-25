@@ -60,6 +60,14 @@ export interface IEPaper {
   productionAssignee: WorkflowActorRef | null;
   productionNotes: WorkflowComment[];
   qaCompletedAt: Date | null;
+  processingGeneration?: string;
+  version?: number;
+  cleanupPending?: boolean;
+  cleanupReason?: string;
+  cleanupKeys?: string[];
+  lastCleanupError?: string;
+  cleanupAttemptCount?: number;
+  nextCleanupAt?: Date | null;
   sourceType?: 'manual-upload' | 'drive-import' | 'remote-import' | 'legacy' | 'unknown';
   sourceLabel?: string;
   sourceUrl?: string;
@@ -135,6 +143,14 @@ const EPaperSchema = new mongoose.Schema<IEPaper>(
     productionAssignee: { type: WorkflowActorRefSchema, default: null },
     productionNotes: { type: [WorkflowCommentSchema], default: [] },
     qaCompletedAt: { type: Date, default: null },
+    processingGeneration: { type: String, trim: true, default: '' },
+    version: { type: Number, default: 1, min: 1 },
+    cleanupPending: { type: Boolean, default: false },
+    cleanupReason: { type: String, trim: true, default: '' },
+    cleanupKeys: { type: [String], default: [] },
+    lastCleanupError: { type: String, trim: true, default: '' },
+    cleanupAttemptCount: { type: Number, default: 0 },
+    nextCleanupAt: { type: Date, default: null },
     sourceType: {
       type: String,
       enum: ['manual-upload', 'drive-import', 'remote-import', 'legacy', 'unknown'],

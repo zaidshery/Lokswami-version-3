@@ -8,16 +8,33 @@ import {
 import { logEpaperMetric } from '@/lib/server/epaperObservability';
 import type { AdminSessionIdentity } from '@/lib/auth/admin';
 
+import { EpaperConflictError } from '@/lib/server/epaper/epaperTypes';
+
 type Actor = Pick<AdminSessionIdentity, 'id' | 'name' | 'email' | 'role'>;
 
 export function assertEpaperDraftEditable(epaper: {
   status?: unknown;
   productionStatus?: unknown;
 }) {
-  void epaper;
-  // Published editions are no longer strictly immutable
-  // to allow the team to map remaining pages easily without draft revisions.
-  return;
+  if (!epaper) {
+    throw new EpaperConflictError('EPAPER_IMMUTABLE: Edition is immutable.');
+  }
+
+  const status = typeof epaper.status === 'string' ? epaper.status.trim().toLowerCase() : '';
+  const productionStatus =
+    typeof epaper.productionStatus === 'string'
+      ? epaper.productionStatus.trim().toLowerCase()
+      : '';
+
+  if (status === 'published' || productionStatus === 'published') {
+    throw new EpaperConflictError(
+      'EPAPER_IMMUTABLE: Published editions are immutable. Create a new revision to make changes.'
+    );
+  }
+
+  if (status === 'archived' || productionStatus === 'archived') {
+    throw new EpaperConflictError('EPAPER_IMMUTABLE: Archived editions are immutable.');
+  }
 }
 
 export async function invalidateEpaperQa(input: {

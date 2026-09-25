@@ -135,6 +135,14 @@ export interface EPaperRecord {
   familyId?: string;
   revisionNumber?: number;
   isCurrentRevision?: boolean;
+  version?: number;
+  processingGeneration?: string;
+  cleanupPending?: boolean;
+  cleanupReason?: string;
+  cleanupKeys?: string[];
+  lastCleanupError?: string;
+  cleanupAttemptCount?: number;
+  nextCleanupAt?: string | null;
   supersedesId?: string;
   publishedAt?: string | null;
   productionStatus?: EPaperProductionStatus;

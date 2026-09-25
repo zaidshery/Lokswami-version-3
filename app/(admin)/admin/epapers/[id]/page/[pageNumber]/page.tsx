@@ -385,6 +385,7 @@ export default function EPaperPageHotspotEditor() {
   const unreadableArticleCount = Math.max(0, articles.length - readableArticleCount);
   const readiness = epaper?.readiness;
   const productionStatus = epaper?.productionStatus || 'draft_upload';
+  const isImmutable = epaper?.status === 'published' || epaper?.productionStatus === 'archived';
   const pageQuality = useMemo(
     () =>
       buildEpaperPageQualitySignal({
@@ -551,7 +552,7 @@ export default function EPaperPageHotspotEditor() {
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!pageImagePath) return;
+    if (!pageImagePath || isImmutable) return;
     if ((event.target as HTMLElement).closest('[data-hotspot-id]')) return;
 
     const point = toNormalizedPoint(event);
@@ -628,6 +629,10 @@ export default function EPaperPageHotspotEditor() {
   };
 
   const createArticle = async () => {
+    if (isImmutable) {
+      setError('This edition is published and immutable. Stories cannot be created.');
+      return;
+    }
     if (!draftHotspot) {
       setError('Draw a hotspot first');
       return;
@@ -1084,6 +1089,10 @@ export default function EPaperPageHotspotEditor() {
   };
 
   const saveArticle = async (article: EPaperArticleRecord) => {
+    if (isImmutable) {
+      setError('This edition is published and immutable. Stories cannot be modified.');
+      return;
+    }
     setSavingId(article._id);
     setError('');
     setNotice('');
@@ -1119,6 +1128,10 @@ export default function EPaperPageHotspotEditor() {
   };
 
   const savePageClassification = async () => {
+    if (isImmutable) {
+      setError('This edition is published and immutable. Page classification cannot be changed.');
+      return;
+    }
     if (pageType === 'blank' && !classificationNote.trim()) {
       setError('Add a classification note explaining why this page is blank.');
       return;
@@ -1242,6 +1255,10 @@ export default function EPaperPageHotspotEditor() {
   };
 
   const deleteArticle = async (articleId: string) => {
+    if (isImmutable) {
+      setError('This edition is published and immutable. Stories cannot be deleted.');
+      return;
+    }
     setDeletingId(articleId);
     setError('');
     setNotice('');
@@ -1450,7 +1467,7 @@ export default function EPaperPageHotspotEditor() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link
           href={`${labels.adminBasePath}/${epaperId}`}
           className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
@@ -1458,18 +1475,44 @@ export default function EPaperPageHotspotEditor() {
           <ArrowLeft className="h-4 w-4" />
           Back to {labels.singular}
         </Link>
-        <p className="text-sm text-gray-700">
-          {epaper.title} | Page {pageNumber}
-        </p>
+        <div className="flex items-center gap-2">
+          {pageNumber > 1 ? (
+            <Link
+              href={`${labels.adminBasePath}/${epaperId}/page/${pageNumber - 1}`}
+              className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+              aria-label={`Go to previous page ${pageNumber - 1}`}
+            >
+              Prev Page
+            </Link>
+          ) : null}
+          <p className="text-sm font-medium text-gray-700">
+            {epaper.title} | Page {pageNumber} of {epaper.pageCount}
+          </p>
+          {pageNumber < (epaper.pageCount || 1) ? (
+            <Link
+              href={`${labels.adminBasePath}/${epaperId}/page/${pageNumber + 1}`}
+              className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+              aria-label={`Go to next page ${pageNumber + 1}`}
+            >
+              Next Page
+            </Link>
+          ) : null}
+        </div>
       </div>
 
+      {isImmutable ? (
+        <div role="status" aria-live="polite" className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          This edition is {epaper.status === 'published' ? 'published' : 'archived'} and immutable. Hotspots and page annotations cannot be modified.
+        </div>
+      ) : null}
+
       {error ? (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" aria-live="assertive" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
       {notice ? (
-        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div role="status" aria-live="polite" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           {notice}
         </div>
       ) : null}

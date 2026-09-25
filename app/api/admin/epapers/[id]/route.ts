@@ -2,13 +2,29 @@ import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { epaperEditorialService } from '@/lib/server/epaper/epaperEditorialService';
-import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
+import {
+  EpaperDomainError,
+  EpaperVersionConflictError,
+} from '@/lib/server/epaper/epaperTypes';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 function errorResponse(error: unknown, fallback: string) {
   if (error instanceof EpaperDomainError) {
-    return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    const extra =
+      error instanceof EpaperVersionConflictError
+        ? {
+            code: 'EPAPER_VERSION_CONFLICT',
+            currentVersion: error.currentVersion,
+            expectedVersion: error.expectedVersion,
+          }
+        : 'data' in error
+          ? { data: (error as { data?: unknown }).data }
+          : {};
+    return NextResponse.json(
+      { success: false, error: error.message, ...extra },
+      { status: error.status }
+    );
   }
   const duplicate = typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === 11000;
   if (duplicate) {

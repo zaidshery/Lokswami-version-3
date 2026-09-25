@@ -6,6 +6,7 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   Loader2,
@@ -53,6 +54,7 @@ import type { EPaperProductionStatus } from '@/lib/workflow/types';
 type EpaperResponse = {
   success: boolean;
   error?: string;
+  code?: string;
   data?: EPaperRecord & { articleCount?: number };
 };
 
@@ -254,6 +256,7 @@ export default function AdminEPaperDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [conflictNotice, setConflictNotice] = useState('');
   const [pageImageWarning, setPageImageWarning] = useState('');
   const [savingMeta, setSavingMeta] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -569,6 +572,7 @@ export default function AdminEPaperDetailPage() {
       pageCount: epaper.pageCount,
       pages: epaper.pages,
       articles,
+      epaper,
     });
   }, [articles, epaper]);
 
@@ -588,10 +592,21 @@ export default function AdminEPaperDetailPage() {
         body: JSON.stringify({
           title: title.trim(),
           publishDate: normalizePublicationIssueDate(publishDate, publicationType),
+          expectedVersion: epaper.version || 1,
         }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (
+          response.status === 409 ||
+          payload?.code === 'EPAPER_VERSION_CONFLICT' ||
+          String(payload?.error || '').includes('EPAPER_VERSION_CONFLICT')
+        ) {
+          setConflictNotice(
+            'This edition was modified by another editor or process. Reload is recommended to review the latest changes.'
+          );
+          throw new Error('EPAPER_VERSION_CONFLICT: Edition changed elsewhere. Please reload to preserve server truth.');
+        }
         throw new Error(payload?.error || 'Failed to save metadata');
       }
 
@@ -680,6 +695,7 @@ export default function AdminEPaperDetailPage() {
         },
         body: JSON.stringify({
           kind: 'epaper_pdf',
+          epaperId: epaper._id,
           publicationType,
           fileName: file.name,
           fileType: file.type || 'application/pdf',
@@ -727,6 +743,7 @@ export default function AdminEPaperDetailPage() {
             expectedSize: file.size,
             expectedFileType: file.type || 'application/pdf',
             expectedFileName: file.name,
+            uploadReceipt: (target as { uploadReceipt?: string }).uploadReceipt,
           }),
         }
       );
@@ -902,6 +919,16 @@ export default function AdminEPaperDetailPage() {
       };
 
       if (!response.ok || !payload.success || !payload.data) {
+        if (
+          response.status === 409 ||
+          payload?.code === 'EPAPER_VERSION_CONFLICT' ||
+          String(payload?.error || '').includes('EPAPER_VERSION_CONFLICT')
+        ) {
+          setConflictNotice(
+            'This edition was modified by another editor or process. Reload is recommended to review the latest changes.'
+          );
+          throw new Error('EPAPER_VERSION_CONFLICT: Edition changed elsewhere. Please reload to preserve server truth.');
+        }
         throw new Error(payload.error || 'Failed to update e-paper production');
       }
 
@@ -1140,13 +1167,36 @@ export default function AdminEPaperDetailPage() {
           </div>
         </div>
 
+        {conflictNotice ? (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-600" />
+              <span>{conflictNotice}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setConflictNotice('');
+                void fetchData();
+              }}
+              className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+            >
+              Reload Edition
+            </button>
+          </div>
+        ) : null}
+
         {error ? (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" aria-live="assertive" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         ) : null}
         {notice ? (
-          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div role="status" aria-live="polite" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             {notice}
           </div>
         ) : null}
@@ -1174,6 +1224,16 @@ export default function AdminEPaperDetailPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {epaper.revisionNumber && epaper.revisionNumber > 1 ? (
+                    <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+                      Rev {epaper.revisionNumber}
+                    </span>
+                  ) : null}
+                  {epaper.isCurrentRevision === false ? (
+                    <span className="rounded-full bg-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700">
+                      Historical
+                    </span>
+                  ) : null}
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold ${editionStatusTone(
                       epaper.status

@@ -52,8 +52,21 @@ export class EpaperOcrService {
     }
     const pages = Array.isArray(paper.pages) ? paper.pages.map(asObject) : [];
     const page = pages.find((entry) => Number(entry.pageNumber) === Number(suggestion.pageNumber));
-    if (suggestion.sourceKey && (!page || epaperOcrSourceKey(id, Number(paper.revisionNumber || 1), page as never) !== suggestion.sourceKey)) {
-      throw new EpaperConflictError('This page image was replaced. Run OCR for the current page before accepting suggestions.');
+    if (
+      suggestion.sourceKey &&
+      (!page ||
+        epaperOcrSourceKey(
+          id,
+          Number(paper.revisionNumber || 1),
+          page as never,
+          typeof paper.processingGeneration === 'string'
+            ? paper.processingGeneration
+            : undefined
+        ) !== suggestion.sourceKey)
+    ) {
+      throw new EpaperConflictError(
+        'This page image was replaced. Run OCR for the current page before accepting suggestions.'
+      );
     }
     if (suggestion.status === 'suppressed') throw new EpaperConflictError('Suppressed duplicate suggestions cannot be accepted.');
     if (suggestion.createdArticleId) throw new EpaperConflictError('This suggestion has already been accepted.');

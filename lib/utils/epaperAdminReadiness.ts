@@ -5,17 +5,33 @@ import type {
   EPaperRecord,
 } from '@/lib/types/epaper';
 
-type MinimalEpaperRecord = {
-  _id: string;
-  cityName: string;
-  citySlug: string;
+export type MinimalEpaperRecord = {
+  _id?: string;
+  cityName?: string;
+  citySlug?: string;
   pageCount: number;
-  pages: EPaperRecord['pages'];
-  pdfPath: string;
-  thumbnailPath: string;
+  pages?: Array<{
+    pageNumber?: number;
+    imagePath?: string;
+    width?: number;
+    height?: number;
+    pageType?: string;
+    classificationNote?: string;
+    processingStatus?: string;
+    processingError?: string;
+    reviewStatus?: string;
+    reviewNote?: string;
+    [key: string]: unknown;
+  }> | EPaperRecord['pages'];
+  pdfPath?: string;
+  thumbnailPath?: string;
   sourceType?: string;
   sourceLabel?: string;
   sourceUrl?: string;
+  status?: string;
+  productionStatus?: string;
+  processingGeneration?: string;
+  isStaleGeneration?: boolean;
 };
 
 type MinimalArticleRecord = Pick<
@@ -73,6 +89,35 @@ function getSourceHost(value: string) {
   }
 }
 
+export function isTrustedPdfAsset(pdfPath: string): boolean {
+  const trimmed = nonEmptyString(pdfPath);
+  if (!trimmed) return false;
+  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('/api/public/uploads/')) {
+    return true;
+  }
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return false;
+    }
+    const hostname = url.hostname.toLowerCase();
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.endsWith('.digitaloceanspaces.com') ||
+      hostname.endsWith('.cdn.digitaloceanspaces.com')
+    ) {
+      return true;
+    }
+    if (url.pathname.includes('/epapers/') || url.pathname.includes('/emagazines/')) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function buildEpaperAutomationInfo(epaper: MinimalEpaperRecord): EPaperAutomationInfo {
   const sourceType = resolveSourceType(epaper);
   const sourceUrl = nonEmptyString(epaper.sourceUrl) || nonEmptyString(epaper.pdfPath);
@@ -111,7 +156,7 @@ export function buildEpaperReadiness(params: {
   articles: MinimalArticleRecord[];
 }): EPaperReadiness {
   const { epaper, articles } = params;
-  const pageCount = Math.max(1, Number(epaper.pageCount || 0) || epaper.pages.length || 1);
+  const pageCount = Math.max(1, Number(epaper.pageCount || 0) || (epaper.pages || []).length || 1);
   const pageNumbers = Array.from({ length: pageCount }, (_, index) => index + 1);
   const pageByNumber = new Map(
     (epaper.pages || []).map((page) => [Number(page.pageNumber || 0), page])
@@ -157,19 +202,57 @@ export function buildEpaperReadiness(params: {
   const pagesWithImage = imagePages.length;
   const articlesMissingReadableText = Math.max(0, mappedArticles - articlesWithReadableText);
 
+  const existingPageNumbers = new Set(
+    (epaper.pages || []).map((page) => Number(page.pageNumber || 0))
+  );
+  const missingPageEntries = pageNumbers.filter(
+    (pageNumber) => !existingPageNumbers.has(pageNumber)
+  );
+  const failedPages = pageNumbers.filter((pageNumber) => {
+    const page = pageByNumber.get(pageNumber);
+    return page?.processingStatus === 'failed';
+  });
+  const processingPages = pageNumbers.filter((pageNumber) => {
+    const page = pageByNumber.get(pageNumber);
+    return page?.processingStatus === 'processing';
+  });
+
   const blockers: string[] = [];
   const warnings: string[] = [];
 
-  if (!nonEmptyString(epaper.thumbnailPath) && !imagePages.includes(1)) {
+  if (!nonEmptyString(epaper.thumbnailPath)) {
     blockers.push('Thumbnail is missing.');
   }
   if (!nonEmptyString(epaper.pdfPath)) {
     blockers.push('PDF file is missing.');
+  } else if (!isTrustedPdfAsset(epaper.pdfPath || '')) {
+    blockers.push('PDF asset is unverified or from an untrusted source.');
   }
   if (pagesMissingImage > 0) {
     blockers.push(
       `${pagesMissingImage} page image${pagesMissingImage === 1 ? ' is' : 's are'} missing.`
     );
+  }
+  if (missingPageEntries.length > 0) {
+    blockers.push(
+      `Page set has gaps or is incomplete (missing page ${missingPageEntries.join(', ')}).`
+    );
+  }
+  if (failedPages.length > 0) {
+    blockers.push(
+      `Page${failedPages.length === 1 ? '' : 's'} ${failedPages.join(', ')} failed processing.`
+    );
+  }
+  if (processingPages.length > 0) {
+    blockers.push(
+      `Page${processingPages.length === 1 ? '' : 's'} ${processingPages.join(', ')} still processing.`
+    );
+  }
+  if (epaper.isStaleGeneration) {
+    blockers.push('Processing generation is stale.');
+  }
+  if (epaper.productionStatus === 'processing') {
+    blockers.push('Edition is currently processing.');
   }
   if (editorialPageNumbers.length > 0 && mappedArticles === 0) {
     warnings.push('No mapped stories have been added to editorial pages yet.');

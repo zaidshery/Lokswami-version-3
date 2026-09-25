@@ -2,8 +2,12 @@ import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canEditEpaper } from '@/lib/auth/permissions';
+import connectDB from '@/lib/db/mongoose';
+import EPaper from '@/lib/models/EPaper';
+import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
 import {
   createEpaperAssetUploadTarget,
+  createEpaperUploadReceipt,
   type EpaperAssetKind,
   EPAPER_ASSET_KINDS,
   parseEpaperAssetSize,
@@ -56,11 +60,47 @@ async function POSTHandler(req: NextRequest) {
     }
 
     const target = createEpaperAssetUploadTarget(input);
+
+    let uploadReceipt: string | undefined;
+    if (kind === 'epaper_pdf' && typeof body.epaperId === 'string' && body.epaperId.trim()) {
+      await connectDB();
+      const epaperId = body.epaperId.trim();
+      const paper = await EPaper.findById(epaperId)
+        .select('_id status productionStatus familyId revisionNumber')
+        .lean();
+      if (!paper) {
+        return NextResponse.json({ success: false, error: 'E-paper not found' }, { status: 404 });
+      }
+      assertEpaperDraftEditable(paper);
+      if (paper.status !== 'draft' || paper.productionStatus !== 'draft_upload') {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'EPAPER_IMMUTABLE: Only draft editions in upload state can initialize PDF uploads.',
+          },
+          { status: 409 }
+        );
+      }
+      const receipt = createEpaperUploadReceipt({
+        epaperId,
+        familyId: String(paper.familyId || ''),
+        revisionNumber: Number(paper.revisionNumber || 1),
+        actorId: admin.id,
+        mediaKey: target.mediaKey,
+        expectedFileType: input.fileType || 'application/pdf',
+      });
+      uploadReceipt = receipt.receiptToken;
+    }
+
     return NextResponse.json(
       {
         success: true,
         message: 'E-paper asset upload initialized successfully',
-        data: target,
+        data: {
+          ...target,
+          ...(uploadReceipt ? { uploadReceipt } : {}),
+        },
       },
       { status: 201 }
     );
