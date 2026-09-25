@@ -3,6 +3,7 @@ import {
   normalizeSocialPlatform,
   normalizeSocialPostStatus,
 } from '@/lib/content/newsroomPublishing';
+import { canDispatchSocialPosts } from '@/lib/auth/permissions';
 import { getSocialDraftContentSources } from '@/lib/server/content/socialDistributionContentQueryService';
 import {
   dispatchSocialPostToAutomation,
@@ -23,6 +24,17 @@ import {
   socialPostRepository,
   type SocialPostRepository,
 } from './socialPostRepository';
+import {
+  socialDeliveryRepository,
+  type SocialDeliveryRepository,
+} from './socialDeliveryRepository';
+import {
+  sourceAuthorizationService,
+  type SourceAuthorizationService,
+} from './sourceAuthorizationService';
+import type {
+  SocialDeliveryFilters,
+} from './socialDeliveryTypes';
 
 function normalizeOptionalDateString(value: unknown) {
   if (!value) return null;
@@ -97,7 +109,11 @@ function normalizeDispatchPost(value: unknown) {
 }
 
 export class SocialDistributionService {
-  constructor(private readonly repo: SocialPostRepository = socialPostRepository) {}
+  constructor(
+    private readonly repo: SocialPostRepository = socialPostRepository,
+    private readonly deliveryRepo: SocialDeliveryRepository = socialDeliveryRepository,
+    private readonly sourceAuthService: SourceAuthorizationService = sourceAuthorizationService
+  ) {}
 
   async list(url: URL) {
     return {
@@ -169,6 +185,13 @@ export class SocialDistributionService {
   }
 
   async dispatch(id: string, actor: DistributionActor) {
+    if (!actor || !canDispatchSocialPosts(actor.role)) {
+      throw new DistributionServiceError(
+        'You do not have permission to dispatch social automation.',
+        403
+      );
+    }
+
     const config = getSocialAutomationConfig();
     if (!config.enabled) {
       throw new DistributionServiceError(
@@ -189,8 +212,84 @@ export class SocialDistributionService {
       );
     }
 
+    // Source Authorization pre-dispatch check
+    const auth = await this.sourceAuthService.validateSourceEligibility({
+      sourceStoryId: record.sourceStoryId,
+      actor,
+      payloadSnapshot: {
+        caption: record.caption,
+        hashtags: record.hashtags,
+        thumbnailUrl: record.thumbnailUrl,
+        videoUrl: record.videoUrl,
+        scheduledAt: record.scheduledAt,
+      },
+    });
+
+    if (!auth.eligible) {
+      await this.repo.update(
+        id,
+        {
+          status: 'failed',
+          lastError: auth.reason,
+        },
+        store
+      );
+      throw new DistributionServiceError(auth.reason, 400);
+    }
+
+    // Create or locate canonical SocialDelivery
+    const delivery = await this.deliveryRepo.findOrCreateDelivery(
+      {
+        socialPostId: record._id,
+        sourceStoryId: record.sourceStoryId,
+        sourceArticleId: record.sourceArticleId,
+        sourceRevision: auth.sourceRevision,
+        platform: record.platform,
+        providerMode: config.provider,
+        payloadSnapshot: {
+          caption: record.caption,
+          hashtags: record.hashtags,
+          thumbnailUrl: record.thumbnailUrl,
+          videoUrl: record.videoUrl,
+          scheduledAt: record.scheduledAt,
+        },
+        requestedBy: actor,
+      },
+      store
+    );
+
+    // Atomic Claim: ensure only one worker dispatches
+    const claim = await this.deliveryRepo.atomicClaim(delivery._id, actor.id, store);
+    if (!claim.claimed) {
+      // If delivery already succeeded or dispatching, return current state without re-invoking provider
+      const currentPost = await this.repo.getById(id, store);
+      return {
+        data: currentPost,
+        delivery: claim.delivery,
+        automation: getSocialAutomationPublicConfig(),
+        alreadyClaimed: true,
+      };
+    }
+
     try {
-      const dispatch = await dispatchSocialPostToAutomation({ post: record, actor });
+      const dispatch = await dispatchSocialPostToAutomation({
+        post: record,
+        actor,
+        deliveryId: delivery._id,
+        idempotencyKey: delivery.idempotencyKey,
+      });
+
+      await this.deliveryRepo.recordSuccess(
+        delivery._id,
+        claim.claimId,
+        {
+          executionId: dispatch.executionId,
+          executionUrl: dispatch.executionUrl,
+          externalUrl: dispatch.externalUrl,
+        },
+        store
+      );
+
       const data = await this.repo.update(
         id,
         {
@@ -204,9 +303,39 @@ export class SocialDistributionService {
         },
         store
       );
-      return { data, automation: getSocialAutomationPublicConfig() };
+      return {
+        data,
+        delivery: await this.deliveryRepo.getById(delivery._id, store),
+        automation: getSocialAutomationPublicConfig(),
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Automation dispatch failed';
+      const isTimeout = message.toLowerCase().includes('timeout');
+
+      if (isTimeout) {
+        await this.deliveryRepo.recordReconciliationRequired(
+          delivery._id,
+          claim.claimId,
+          {
+            category: 'timeout_unknown',
+            message,
+          },
+          store
+        );
+      } else {
+        const shouldRetry = (delivery.attempts + 1) < delivery.maxAttempts;
+        await this.deliveryRepo.recordFailure(
+          delivery._id,
+          claim.claimId,
+          {
+            category: 'provider_rejected',
+            message,
+          },
+          shouldRetry,
+          store
+        );
+      }
+
       const data = await this.repo.update(
         id,
         {
@@ -218,6 +347,83 @@ export class SocialDistributionService {
       );
       throw new DistributionServiceError(message, 502, data);
     }
+  }
+
+  async retryDelivery(deliveryId: string, actor: DistributionActor) {
+    if (!actor || !canDispatchSocialPosts(actor.role)) {
+      throw new DistributionServiceError('Forbidden', 403);
+    }
+
+    const store = await this.deliveryRepo.resolveStore();
+    const delivery = await this.deliveryRepo.getById(deliveryId, store);
+    if (!delivery) {
+      throw new DistributionServiceError('Delivery record not found', 404);
+    }
+
+    // Verify retry eligibility
+    const retried = await this.deliveryRepo.retry(deliveryId, store);
+    if (!retried) {
+      throw new DistributionServiceError('Failed to reset delivery for retry', 400);
+    }
+
+    // Dispatch the linked post
+    return this.dispatch(delivery.socialPostId, actor);
+  }
+
+  async reconcileDelivery(
+    deliveryId: string,
+    resolution: {
+      outcome: 'succeeded' | 'failed';
+      externalUrl?: string;
+      externalPostId?: string;
+      note?: string;
+    },
+    actor: DistributionActor
+  ) {
+    if (!actor || !canDispatchSocialPosts(actor.role)) {
+      throw new DistributionServiceError('Forbidden', 403);
+    }
+
+    const store = await this.deliveryRepo.resolveStore();
+    const delivery = await this.deliveryRepo.getById(deliveryId, store);
+    if (!delivery) {
+      throw new DistributionServiceError('Delivery record not found', 404);
+    }
+
+    const reconciled = await this.deliveryRepo.reconcile(deliveryId, resolution, store);
+
+    if (resolution.outcome === 'succeeded') {
+      await this.repo.update(
+        delivery.socialPostId,
+        {
+          status: 'published',
+          publishedAt: new Date().toISOString(),
+          ...(resolution.externalUrl ? { externalUrl: resolution.externalUrl } : {}),
+          ...(resolution.externalPostId ? { externalPostId: resolution.externalPostId } : {}),
+          lastError: '',
+        },
+        store
+      );
+    } else {
+      await this.repo.update(
+        delivery.socialPostId,
+        {
+          status: 'failed',
+          lastError: resolution.note || 'Manually reconciled as failed',
+        },
+        store
+      );
+    }
+
+    return reconciled;
+  }
+
+  async listDeliveries(filters?: SocialDeliveryFilters) {
+    return this.deliveryRepo.list(filters);
+  }
+
+  async getDeliveryById(id: string) {
+    return this.deliveryRepo.getById(id);
   }
 }
 
