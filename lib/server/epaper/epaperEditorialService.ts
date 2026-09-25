@@ -25,7 +25,7 @@ import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
 import { withDistributedLock } from '@/lib/security/distributedLock';
 import { createWorkflowNotification } from '@/lib/storage/workflowNotifications';
 import { verifyEpaperAssetUpload, type EpaperUploadedAsset } from '@/lib/storage/epaperAssetUpload';
-import { deleteAssetFile, parsePublishDate } from '@/lib/utils/epaperStorage';
+import { deleteAssetFile, isAllowedAssetPath, isTrustedEpaperAssetPath, parsePublishDate } from '@/lib/utils/epaperStorage';
 import { buildEpaperAutomationInfo, buildEpaperReadiness } from '@/lib/utils/epaperAdminReadiness';
 import { buildEpaperEditionQualitySummary } from '@/lib/utils/epaperQualitySignals';
 import {
@@ -442,19 +442,104 @@ export class EpaperEditorialService {
       message, metadata: compactMetadata({ assignedToId: transition.nextProduction.productionAssignee?.id || '', assignedToName: transition.nextProduction.productionAssignee?.name || '',
         note, readinessStatus: readiness.status, blockers, allowedNextStatuses: getAllowedEpaperProductionTransitions(transition.toStatus) }) });
     await this.notifyAssignee(actor, updated, action, transition.toStatus, transition.nextProduction.productionAssignee, resolveEPaperPublicationType(current.publicationType));
-    if (transition.toStatus === 'published') logEpaperMetric('publishing_completed', { epaperId: id, familyId: String(updated.familyId || updated._id), revisionNumber: Number(updated.revisionNumber || 1) });
+    if (transition.toStatus === 'published') {
+      logEpaperMetric('epaper_published', { epaperId: id, familyId: String(updated.familyId || updated._id), revisionNumber: Number(updated.revisionNumber || 1) });
+      logEpaperMetric('publishing_completed', { epaperId: id, familyId: String(updated.familyId || updated._id), revisionNumber: Number(updated.revisionNumber || 1) });
+    } else if (transition.toStatus === 'archived') {
+      logEpaperMetric('epaper_archived', { epaperId: id, familyId: String(updated.familyId || updated._id), revisionNumber: Number(updated.revisionNumber || 1) });
+    }
     return { message, data: this.enrich(mapAdminEpaper(updated), updated, articleRows) };
   }
 
   async delete(actor: AdminSessionIdentity, id: string) {
     if (!canDeleteEpaper(actor.role)) throw new EpaperForbiddenError();
-    this.assertId(id); await this.repo.connect();
-    const edition = await this.repo.deleteEditionCascade(id);
+    this.assertId(id);
+    await this.repo.connect();
+
+    const edition = await this.repo.findEditionById(id);
     if (!edition) throw new EpaperNotFoundError();
-    const assets = [firstNonEmptyString(edition.pdfPath, edition.pdfUrl), firstNonEmptyString(edition.thumbnailPath, edition.thumbnail),
-      ...normalizeEpaperPages(edition.pages).map((page) => page.imagePath)].filter(Boolean);
-    await Promise.all(assets.map((asset) => deleteAssetFile(asset).catch(() => undefined)));
-    return { message: 'E-paper and associated assets deleted' };
+
+    // Draft immutability & protection: published editions or current revisions cannot be deleted
+    assertEpaperDraftEditable(edition);
+    if (edition.isCurrentRevision) {
+      throw new EpaperConflictError('Current published revision cannot be deleted.');
+    }
+
+    const candidateAssets = [
+      firstNonEmptyString(edition.pdfPath, edition.pdfUrl),
+      firstNonEmptyString(edition.thumbnailPath, edition.thumbnail),
+      ...normalizeEpaperPages(edition.pages).map((page) => page.imagePath),
+    ].filter(Boolean) as string[];
+
+    const unreferencedAssets: string[] = [];
+    const retainedAssets: string[] = [];
+
+    for (const asset of candidateAssets) {
+      if (!isTrustedEpaperAssetPath(asset) && !isAllowedAssetPath(asset)) {
+        continue;
+      }
+      const isReferenced = await this.repo.isAssetReferencedElsewhere(asset, id);
+      if (isReferenced) {
+        retainedAssets.push(asset);
+      } else {
+        unreferencedAssets.push(asset);
+      }
+    }
+
+    // Delete DB records first (failure-safe ordering)
+    await this.repo.deleteEditionCascade(id);
+
+    logEpaperMetric('epaper_cleanup_started', {
+      epaperId: id,
+      unreferencedCount: unreferencedAssets.length,
+      retainedCount: retainedAssets.length,
+    });
+
+    const failedAssets: Array<{ asset: string; error: string }> = [];
+    const deletedAssets: string[] = [];
+
+    for (const asset of unreferencedAssets) {
+      try {
+        await deleteAssetFile(asset);
+        deletedAssets.push(asset);
+      } catch (err) {
+        failedAssets.push({
+          asset,
+          error: err instanceof Error ? err.message : 'Delete failed',
+        });
+      }
+    }
+
+    if (failedAssets.length > 0) {
+      logEpaperMetric('epaper_cleanup_failed', {
+        epaperId: id,
+        failedCount: failedAssets.length,
+        error: failedAssets[0]?.error,
+      });
+    } else {
+      logEpaperMetric('epaper_cleanup_completed', {
+        epaperId: id,
+        deletedCount: deletedAssets.length,
+        retainedCount: retainedAssets.length,
+      });
+    }
+
+    await recordEpaperActivity({
+      epaperId: id,
+      actor,
+      action: 'edition_deleted',
+      message: buildEpaperActivityMessage({ action: 'edition_deleted' }),
+      metadata: {
+        deletedAssets: deletedAssets.length,
+        retainedAssets: retainedAssets.length,
+        failedAssets: failedAssets.length,
+      },
+    });
+
+    return {
+      message: 'E-paper and associated assets deleted',
+      data: { deletedAssets, retainedAssets, failedAssets },
+    };
   }
 
   async activity(actor: AdminSessionIdentity, id: string) {

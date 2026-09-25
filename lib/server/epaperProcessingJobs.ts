@@ -3,6 +3,8 @@ import 'server-only';
 import crypto from 'crypto';
 import EPaper from '@/lib/models/EPaper';
 import EPaperProcessingJob from '@/lib/models/EPaperProcessingJob';
+import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
+import { epaperRepository } from '@/lib/server/epaper/epaperRepository';
 import {
   buildEpaperActivityMessage,
   recordEpaperActivity,
@@ -834,32 +836,144 @@ export async function processQueuedEpaperJobs(options: { limit?: number } = {}) 
   }
 }
 
-export async function cleanupAbandonedEpaperUploads() {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const abandoned = await EPaper.find({
-    status: 'draft',
-    productionStatus: 'draft_upload',
-    pdfPath: { $in: ['', null] },
-    createdAt: { $lt: cutoff },
-  })
-    .select('_id pdfPublicId')
-    .lean();
+export type AbandonedCleanupOptions = {
+  now?: Date;
+  dryRun?: boolean;
+  maxAgeMs?: number;
+};
 
-  let deleted = 0;
-  for (const epaper of abandoned) {
-    const publicId = String(epaper.pdfPublicId || '').trim();
-    if (publicId) {
-      await deleteDigitalOceanSpacesAssetByPublicId(publicId, 'raw').catch(
-        () => undefined
-      );
+export function isAbandonedDraftCandidate(
+  epaper: {
+    status?: string;
+    productionStatus?: string;
+    pdfPath?: string | null;
+    isCurrentRevision?: boolean;
+    createdAt?: Date | string | null;
+  },
+  context: {
+    now?: Date;
+    maxAgeMs?: number;
+    hasActiveJobs?: boolean;
+  } = {}
+): boolean {
+  if (epaper.status !== 'draft') return false;
+  if (epaper.productionStatus !== 'draft_upload') return false;
+  if (epaper.isCurrentRevision === true) return false;
+  if (epaper.pdfPath && String(epaper.pdfPath).trim() !== '') return false;
+  if (context.hasActiveJobs) return false;
+
+  const createdAt = epaper.createdAt ? new Date(epaper.createdAt).getTime() : 0;
+  if (!createdAt || Number.isNaN(createdAt)) return false;
+
+  const now = context.now ? context.now.getTime() : Date.now();
+  const maxAge = context.maxAgeMs ?? 24 * 60 * 60 * 1000;
+  return now - createdAt >= maxAge;
+}
+
+export async function cleanupAbandonedEpaperUploads(
+  options: AbandonedCleanupOptions = {}
+) {
+  const maxAgeMs = options.maxAgeMs ?? 24 * 60 * 60 * 1000;
+  const now = options.now ?? new Date();
+  const cutoff = new Date(now.getTime() - maxAgeMs);
+
+  return withDistributedLock(
+    'epaper-abandoned-draft-sweeper',
+    async () => {
+      logEpaperMetric('epaper_cleanup_started', {
+        type: 'abandoned_draft_sweep',
+        cutoff: cutoff.toISOString(),
+        dryRun: Boolean(options.dryRun),
+      });
+
+      const candidates = await EPaper.find({
+        status: 'draft',
+        productionStatus: 'draft_upload',
+        isCurrentRevision: { $ne: true },
+        pdfPath: { $in: ['', null] },
+        createdAt: { $lte: cutoff },
+      })
+        .select('_id pdfPublicId thumbnailPath createdAt')
+        .lean();
+
+      const eligible: Array<{ _id: unknown; pdfPublicId?: string; thumbnailPath?: string }> = [];
+      for (const epaper of candidates) {
+        const activeJobs = await EPaperProcessingJob.countDocuments({
+          epaperId: epaper._id,
+          status: { $in: ['queued', 'processing'] },
+        });
+        if (activeJobs > 0) continue;
+
+        if (
+          isAbandonedDraftCandidate(epaper, {
+            now,
+            maxAgeMs,
+            hasActiveJobs: false,
+          })
+        ) {
+          eligible.push(epaper);
+        }
+      }
+
+      if (options.dryRun) {
+        return {
+          checked: candidates.length,
+          eligible: eligible.length,
+          deleted: 0,
+          dryRun: true,
+        };
+      }
+
+      let deleted = 0;
+      for (const epaper of eligible) {
+        const publicId = String(epaper.pdfPublicId || '').trim();
+        if (publicId) {
+          const isReferenced =
+            await epaperRepository.isAssetReferencedElsewhere(
+              publicId,
+              String(epaper._id)
+            );
+          if (!isReferenced) {
+            await deleteDigitalOceanSpacesAssetByPublicId(
+              publicId,
+              'raw'
+            ).catch(() => undefined);
+          }
+        }
+        await EPaperProcessingJob.deleteMany({ epaperId: epaper._id });
+        await EPaperOcrSuggestion.deleteMany({ epaperId: epaper._id });
+        const result = await EPaper.deleteOne({
+          _id: epaper._id,
+          pdfPath: { $in: ['', null] },
+          status: 'draft',
+        });
+        deleted += result.deletedCount || 0;
+      }
+
+      logEpaperMetric('epaper_cleanup_completed', {
+        type: 'abandoned_draft_sweep',
+        checked: candidates.length,
+        deleted,
+      });
+
+      return {
+        checked: candidates.length,
+        eligible: eligible.length,
+        deleted,
+      };
+    },
+    60
+  ).catch((error) => {
+    if (
+      error instanceof Error &&
+      error.message.includes('Could not acquire distributed lock')
+    ) {
+      return { checked: 0, eligible: 0, deleted: 0, locked: true };
     }
-    await EPaperProcessingJob.deleteMany({ epaperId: epaper._id });
-    const result = await EPaper.deleteOne({
-      _id: epaper._id,
-      pdfPath: { $in: ['', null] },
+    logEpaperMetric('epaper_cleanup_failed', {
+      type: 'abandoned_draft_sweep',
+      error: error instanceof Error ? error.message : 'Unknown cleanup error',
     });
-    deleted += result.deletedCount || 0;
-  }
-
-  return { checked: abandoned.length, deleted };
+    throw error;
+  });
 }

@@ -399,10 +399,63 @@ export class EpaperRepository {
     );
   }
 
+  async isAssetReferencedElsewhere(
+    assetPath: string,
+    excludeEditionId: string
+  ): Promise<boolean> {
+    const normalized = assetPath.trim();
+    if (!normalized) return false;
+
+    await this.connect();
+
+    const otherEdition = await EPaper.findOne({
+      _id: { $ne: excludeEditionId },
+      $or: [
+        { pdfPath: normalized },
+        { pdfUrl: normalized },
+        { thumbnailPath: normalized },
+        { thumbnail: normalized },
+        { 'pages.imagePath': normalized },
+      ],
+    })
+      .select('_id')
+      .lean();
+
+    if (otherEdition) return true;
+
+    const otherArticle = await EPaperArticle.findOne({
+      epaperId: { $ne: excludeEditionId },
+      $or: [
+        { coverImagePath: normalized },
+        { pageImagePath: normalized },
+      ],
+    })
+      .select('_id')
+      .lean();
+
+    if (otherArticle) return true;
+
+    const otherTts = await TtsAsset.findOne({
+      epaperId: { $ne: excludeEditionId },
+      $or: [{ audioUrl: normalized }, { storageKey: normalized }],
+    })
+      .select('_id')
+      .lean();
+
+    if (otherTts) return true;
+
+    return false;
+  }
+
   async deleteEditionCascade(id: string) {
     const edition = await this.findEditionById(id);
     if (!edition) return null;
-    await Promise.all([EPaper.deleteOne({ _id: id }), EPaperArticle.deleteMany({ epaperId: id })]);
+    await Promise.all([
+      EPaper.deleteOne({ _id: id }),
+      EPaperArticle.deleteMany({ epaperId: id }),
+      EPaperProcessingJob.deleteMany({ epaperId: id }),
+      EPaperOcrSuggestion.deleteMany({ epaperId: id }),
+    ]);
     return edition;
   }
 

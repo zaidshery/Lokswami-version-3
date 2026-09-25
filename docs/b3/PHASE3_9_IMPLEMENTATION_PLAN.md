@@ -587,3 +587,26 @@ Phase 3.9 cannot be considered complete until all 49 gates pass:
   - Total tests: 1,943 (up from 1,916 baseline, +27 new tests)
   - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, scope check, and production Next.js build (`build:ci`).
 - **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.
+
+---
+
+## 30. Phase 3.9D Implementation Completion Record
+
+- **Subphase:** Phase 3.9D — OCR Coordination, Recovery, Cleanup & Observability
+- **Status:** COMPLETE
+- **Deliverables Completed:**
+  - **Local OCR Coordination & Advisory Integrity:** Preserved isolated local child-process OCR execution (`tesseract.js` via `scripts/epaper-local-ocr-worker.cjs`) with zero external cloud network calls. Validated structured suggestion outputs against strict bounds (title, text, confidence, hotspot geometry). Suggestions remain advisory only (`status: 'pending'`), never mutating approved hotspots or blocking publication without editorial review.
+  - **OCR Idempotency, Lease Safety & Stale Generation Rejection:** Bound OCR jobs to canonical server identity (`epaperId`, `pageNumber`, `sourceKey` incorporating `processingGeneration`). Implemented atomic distributed lease claims, bounded retry backoffs (max 4 attempts), and compound fingerprint deduplication (`epaperId: 1, pageNumber: 1, fingerprint: 1`). Workers verify canonical generation freshness before committing suggestions; stale workers are cancelled cleanly.
+  - **Reference-Safe Deletion & Cascade Ordering:** In `epaperEditorialService.delete`, enforced failure-safe deletion ordering (validating permissions and draft immutability first, deleting database cascade records, then unlinking unreferenced storage assets). In `epaperRepository.isAssetReferencedElsewhere`, verified that assets shared between published revision $N$ and draft revision $N+1$ (PDF, thumbnails, page images) are strictly retained in storage when $N+1$ is deleted.
+  - **Abandoned Draft Sweeper Hardening:** Defined pure eligibility rules (`isAbandonedDraftCandidate`) requiring `status === 'draft'`, `productionStatus === 'draft_upload'`, empty/null `pdfPath`, `isCurrentRevision !== true`, zero active jobs, and age $\ge 24$ hours. Added `dryRun` inspection support, custom clock injection for deterministic boundary verification, and distributed lock concurrency protection. Published and current editions are permanently protected.
+  - **Structured E-Paper Observability & Error Redaction:** Standardized E-Paper event taxonomy (`epaper_upload_initiated`, `epaper_upload_finalized`, `epaper_processing_queued`, `epaper_processing_started`, `epaper_processing_completed`, `epaper_processing_failed`, `epaper_published`, `epaper_archived`, `epaper_ocr_queued`, `epaper_ocr_started`, `epaper_ocr_completed`, `epaper_ocr_failed`, `epaper_cleanup_started`, `epaper_cleanup_completed`, `epaper_cleanup_failed`). Redacted sensitive storage query parameters, Bearer tokens, passwords, and secrets; capped long strings to prevent raw OCR or PDF dumps.
+  - **Strict RBAC Enforcement:** Maintained `super_admin` authorization across deletion, OCR queueing, suggestion reviews, and internal cron job endpoints.
+- **Automated Tests Added:**
+  - `tests/epaper-ocr-lifecycle.test.ts` (7 tests)
+  - `tests/epaper-cleanup-safety.test.ts` (14 tests)
+  - `tests/epaper-observability-audit.test.ts` (7 tests)
+- **CI Regression Verification:**
+  - Total test files: 300 (up from 297 baseline)
+  - Total tests: 1,971 (up from 1,943 baseline, +28 new tests)
+  - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, scope check, and production Next.js build (`build:ci`).
+- **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.

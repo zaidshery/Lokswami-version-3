@@ -108,6 +108,12 @@ export function buildEpaperActivityMessage(input: ActivityMessageInput) {
       return 'An OCR suggestion was accepted as a story.';
     case 'ocr_suggestion_rejected':
       return 'An OCR suggestion was rejected.';
+    case 'edition_deleted':
+      return 'Edition deleted and unreferenced assets cleaned up.';
+    case 'ocr_queued':
+      return 'OCR extraction queued for edition pages.';
+    case 'cleanup_failed':
+      return 'Asset cleanup encountered errors during deletion.';
     default:
       return 'E-paper activity recorded.';
   }
