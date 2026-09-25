@@ -92,6 +92,8 @@ export function buildStoryActivityMessage(input: BuildStoryActivityMessageInput)
       return 'Story urgently published with an audited desk exception.';
     case 'archive':
       return 'Story archived.';
+    case 'restore_revision':
+      return 'Revision restored.';
     default:
       return 'Story activity recorded.';
   }

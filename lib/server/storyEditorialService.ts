@@ -869,19 +869,28 @@ export class StoryEditorialService {
     );
 
     if (!isAutosave) {
-      await recordStoryActivity({
-        storyId: id,
-        actor,
-        action: 'saved',
-        toStatus: resolveStoryWorkflow(updated).status,
-        message: buildStoryActivityMessage({ action: 'saved' }),
-        metadata: {
-          changedFields: Object.keys(updates),
-        },
-      });
+      try {
+        await recordStoryActivity({
+          storyId: id,
+          actor,
+          action: 'saved',
+          toStatus: resolveStoryWorkflow(updated).status,
+          message: buildStoryActivityMessage({ action: 'saved' }),
+          metadata: {
+            changedFields: Object.keys(updates),
+          },
+        });
+      } catch (activityError) {
+        console.error('Failed to record story activity on save:', activityError);
+      }
     }
 
-    const usage = await getStoryVideoMonthlyUsageSummary();
+    let usage = null;
+    try {
+      usage = await getStoryVideoMonthlyUsageSummary();
+    } catch (usageError) {
+      console.error('Failed to get story video usage summary:', usageError);
+    }
 
     return { story: resolveStoryResponse(updated), usage };
   }
@@ -995,39 +1004,50 @@ export class StoryEditorialService {
 
     const updated = await updateStoryWithCas(id, updates, expectedVersion, effectiveStore, { skipRevision: true });
 
-    await recordStoryActivity({
-      storyId: id,
-      actor,
-      action,
-      fromStatus,
-      toStatus,
-      message: buildStoryActivityMessage({
+    try {
+      await recordStoryActivity({
+        storyId: id,
+        actor,
         action,
+        fromStatus,
         toStatus,
-        assignedTo: nextWorkflow.assignedTo,
-        rejectionReason: nextWorkflow.rejectionReason,
-      }),
-      metadata: compactMetadata({
-        assignedToId: nextWorkflow.assignedTo?.id || '',
-        assignedToName: nextWorkflow.assignedTo?.name || '',
-        priority: nextWorkflow.priority,
-        dueAt: nextWorkflow.dueAt?.toISOString() || '',
-        scheduledFor: nextWorkflow.scheduledFor?.toISOString() || '',
-        rejectionReason: nextWorkflow.rejectionReason || '',
-        comment: actionBody.comment?.trim() || '',
-      }),
-    });
+        message: buildStoryActivityMessage({
+          action,
+          toStatus,
+          assignedTo: nextWorkflow.assignedTo,
+          rejectionReason: nextWorkflow.rejectionReason,
+        }),
+        metadata: compactMetadata({
+          assignedToId: nextWorkflow.assignedTo?.id || '',
+          assignedToName: nextWorkflow.assignedTo?.name || '',
+          priority: nextWorkflow.priority,
+          dueAt: nextWorkflow.dueAt?.toISOString() || '',
+          scheduledFor: nextWorkflow.scheduledFor?.toISOString() || '',
+          rejectionReason: nextWorkflow.rejectionReason || '',
+          comment: actionBody.comment?.trim() || '',
+        }),
+      });
+    } catch (activityError) {
+      console.error('Failed to record story activity after workflow action:', activityError);
+    }
 
-    await notifyWorkflowEvent({
-      contentType: 'story',
-      contentId: id,
-      title: String(updated.title || 'Story'),
-      href: `/admin/stories/${encodeURIComponent(id)}/edit`,
-      action,
-      workflow: nextWorkflow,
-      actor,
-      previousAssignee: currentStoryWorkflow.assignedTo,
-    });
+    try {
+      await notifyWorkflowEvent({
+        contentType: 'story',
+        contentId: id,
+        title: String(updated.title || 'Story'),
+        href: `/admin/stories/${encodeURIComponent(id)}/edit`,
+        action,
+        workflow: nextWorkflow,
+        actor,
+        previousAssignee: currentStoryWorkflow.assignedTo,
+        rejectionReason: actionBody.rejectionReason || nextWorkflow.rejectionReason || undefined,
+        scheduledFor: scheduledFor || nextWorkflow.scheduledFor || undefined,
+        comment: actionBody.comment || undefined,
+      });
+    } catch (notifyError) {
+      console.error('Failed to send story workflow notification:', notifyError);
+    }
 
     return {
       story: resolveStoryResponse(updated),
@@ -1190,17 +1210,22 @@ export class StoryEditorialService {
       }
     );
 
-    await recordStoryActivity({
-      storyId: id,
-      actor,
-      action: 'saved',
-      toStatus: resolveStoryWorkflow(updated).status,
-      message: `Restored story content from revision saved at ${targetRevision.savedAt || 'unknown'}.`,
-      metadata: {
-        revisionId,
-        revisionVersion: targetRevision.version,
-      },
-    });
+    try {
+      await recordStoryActivity({
+        storyId: id,
+        actor,
+        action: 'restore_revision',
+        toStatus: resolveStoryWorkflow(updated).status,
+        message: buildStoryActivityMessage({ action: 'restore_revision' }),
+        metadata: {
+          revisionId,
+          revisionVersion: targetRevision.version,
+          savedAt: targetRevision.savedAt || 'unknown',
+        },
+      });
+    } catch (activityError) {
+      console.error('Failed to record story revision restore activity:', activityError);
+    }
 
     return { story: resolveStoryResponse(updated) };
   }

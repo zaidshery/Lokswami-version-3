@@ -427,11 +427,11 @@ describe('Story Revisions & Restore (Phase 3.7C)', () => {
       expect((result.story.workflow as { status?: string })?.status).toBe('in_review');
       expect(result.story.isPublished).toBe(false);
 
-      // Activity log recorded
+      // Activity log recorded with correct restore_revision action
       expect(recordStoryActivityMock).toHaveBeenCalledWith(
         expect.objectContaining({
           storyId,
-          action: 'saved',
+          action: 'restore_revision',
           metadata: expect.objectContaining({ revisionId: 'rev-1', revisionVersion: 1 }),
         })
       );

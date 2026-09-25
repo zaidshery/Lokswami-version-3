@@ -616,23 +616,32 @@ async function POSTHandler(req: NextRequest) {
         },
       });
 
-      await recordStoryActivity({
-        storyId: stored._id,
-        actor: user,
-        action: 'created',
-        toStatus: stored.workflow.status,
-        message: buildStoryActivityMessage({
+      try {
+        await recordStoryActivity({
+          storyId: stored._id,
+          actor: user,
           action: 'created',
           toStatus: stored.workflow.status,
-        }),
-        metadata: {
-          intent,
-          priority: stored.workflow.priority,
-          createdById: stored.workflow.createdBy?.id || '',
-        },
-      });
+          message: buildStoryActivityMessage({
+            action: 'created',
+            toStatus: stored.workflow.status,
+          }),
+          metadata: {
+            intent,
+            priority: stored.workflow.priority,
+            createdById: stored.workflow.createdBy?.id || '',
+          },
+        });
+      } catch (activityError) {
+        console.error('Failed to record story activity on create:', activityError);
+      }
 
-      const usage = await getStoryVideoMonthlyUsageSummary();
+      let usage = null;
+      try {
+        usage = await getStoryVideoMonthlyUsageSummary();
+      } catch (usageError) {
+        console.error('Failed to get story video usage summary:', usageError);
+      }
 
       return NextResponse.json(
         {
@@ -654,23 +663,32 @@ async function POSTHandler(req: NextRequest) {
     });
     const saved = await story.save();
 
-    await recordStoryActivity({
-      storyId: String(saved._id),
-      actor: user,
-      action: 'created',
-      toStatus: workflow.status,
-      message: buildStoryActivityMessage({
+    try {
+      await recordStoryActivity({
+        storyId: String(saved._id),
+        actor: user,
         action: 'created',
         toStatus: workflow.status,
-      }),
-      metadata: {
-        intent,
-        priority: workflow.priority,
-        createdById: workflow.createdBy?.id || '',
-      },
-    });
+        message: buildStoryActivityMessage({
+          action: 'created',
+          toStatus: workflow.status,
+        }),
+        metadata: {
+          intent,
+          priority: workflow.priority,
+          createdById: workflow.createdBy?.id || '',
+        },
+      });
+    } catch (activityError) {
+      console.error('Failed to record story activity on create:', activityError);
+    }
 
-    const usage = await getStoryVideoMonthlyUsageSummary();
+    let usage = null;
+    try {
+      usage = await getStoryVideoMonthlyUsageSummary();
+    } catch (usageError) {
+      console.error('Failed to get story video usage summary:', usageError);
+    }
 
     return NextResponse.json(
       {

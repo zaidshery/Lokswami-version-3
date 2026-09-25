@@ -452,6 +452,87 @@ No route is removed in Phase 3.7. A future redirect/deprecation may be proposed 
 
 ## 9. 3.7E — Activity, Notifications, Parity and Final Acceptance
 
+### 9.0 Completion Note — Phase 3.7E COMPLETE ✅
+
+**Completed:** 2026-09-25
+**Branch:** `b3/phase3.7-articles-stories-copy-desk`
+**Commit:** `feat(cms): complete phase 3.7 editorial lifecycle`
+
+#### Implementation summary
+
+- **Activity parity** — `lib/server/articleActivity.ts` and `lib/server/storyActivity.ts` unified to emit identical messages for all shared lifecycle events (`submit`, `assign`, `reassign`, `review_started`, `copy_edit`, `changes_requested`, `ready_for_approval`, `approve`, `reject`, `schedule`, `publish`, `fast_publish`, `restore_revision`). Routine autosave events are intentionally excluded from activity history.
+- **Notification parity** — `lib/server/workflowNotificationEvents.ts` audited and confirmed:
+  - `submitted`: intentionally no separate notification (assignment immediately follows; duplicate notification suppressed for workflow efficiency; consistent for Article + Story).
+  - `copy_edit`: intentionally no separate notification (reviewer already holds the assignment; consistent for Article + Story).
+  - All other lifecycle events produce correctly targeted, deduplicated notifications.
+- **Notification context** — `changes_requested` and `rejected` forward reason text; `scheduled` forwards UTC schedule time; `fast_published` forwards reason when provided; assignment/reassignment include actor + assignee names.
+- **Recipient isolation** — actor self-exclusion enforced; `createdBy` + `assignedTo` are the only recipients; cross-content contamination impossible by construction.
+- **Side-effect failure resilience** — `lib/server/editorialRevisionService.ts` and `lib/server/editorialService.ts` updated: primary persistence result is authoritative; notification and activity failures are caught, logged without secret values, and do not cause the client-facing response to represent a committed primary mutation as failed.
+- **Stories API route** (`app/api/admin/stories/route.ts`) updated to propagate resilient side-effect pattern consistent with Article service.
+- **Test suite** — `tests/workflow-activity-resilience.test.ts` added (8 tests covering Task 2 activity parity, Task 4/6 notification context and resilience, Task 5 recipient isolation).
+
+#### Final parity matrix
+
+| Capability | Article | Story | Classification |
+|---|---|---|---|
+| Create | ✅ | ✅ | PASS |
+| Edit | ✅ | ✅ | PASS |
+| Draft save | ✅ | ✅ | PASS |
+| Submit | ✅ | ✅ | PASS |
+| Resubmit | ✅ | ✅ | PASS |
+| Assign | ✅ | ✅ | PASS |
+| Reassign | ✅ | ✅ | PASS |
+| Start review | ✅ | ✅ | PASS |
+| Copy edit | ✅ | ✅ | PASS |
+| Request changes | ✅ | ✅ | PASS |
+| Ready for approval | ✅ | ✅ | PASS |
+| Approve | ✅ | ✅ | PASS |
+| Reject | ✅ | ✅ | PASS |
+| Schedule | ✅ | ✅ | PASS |
+| Publish | ✅ | ✅ | PASS |
+| Fast publish | ✅ | ✅ | PASS |
+| Preview | ✅ | ✅ | PASS |
+| Activity history | ✅ | ✅ | PASS |
+| Notifications | ✅ | ✅ | PASS |
+| Autosave | ✅ | ✅ | PASS |
+| Revision history | ✅ | ✅ | PASS |
+| Restore | ✅ | ✅ | PASS |
+| Concurrency (CAS) | Article-level | Story CAS (3.7B) | DIFFERENT BY DESIGN |
+| Edit lease | N/A | ✅ (3.7C) | DIFFERENT BY DESIGN |
+| Media | Rich body + audio | Asset package + video | DIFFERENT BY DESIGN |
+| SEO | ✅ | N/A | DIFFERENT BY DESIGN |
+| Validation | ✅ | ✅ | PASS |
+| Loading/error | ✅ | ✅ | PASS |
+| Accessibility | ✅ | ✅ | PASS |
+| Responsive UX | ✅ | ✅ | PASS |
+
+**Unresolved P0: 0**
+
+#### Deferred (P2 — out of scope for Phase 3.7)
+
+- Large-scale Article/Story editor component decomposition
+- General-purpose workflow framework extraction
+- Broad notification outbox redesign
+- Route removal/permanent redirects for overlapping queues
+- E-Paper, Video Hub, reader, Homepage, analytics, social automation
+
+#### Verification
+
+- `npm run typecheck` — PASS
+- `npm run lint:strict` — PASS (0 warnings)
+- `npm run test:four-role-newsroom` — PASS (28/28 tests)
+- `npm run test:security` — PASS (73/73 tests)
+- `npm run test:auth-guards` — PASS (7/7 cases)
+- `npm run check:phase3-scope` — PASS (47 files inspected, no dangerous artifacts)
+- `npm run build:ci` — PASS
+- `git diff --check` — PASS (no whitespace errors)
+- `npm run test:ci` — PASS (272 test files, 1,717 tests)
+- `npm run check:pr-readiness` — PASS
+- Working tree: clean after commit
+- Remote sync: 0 left, 0 right
+
+---
+
 ### 9.1 Objective
 
 Close remaining lifecycle observability and parity gaps, harden secondary effects, and run the complete automated acceptance program.

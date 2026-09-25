@@ -322,26 +322,34 @@ export class EditorialService {
     const created = await createNewsroomArticle(articleDoc, store);
     const articleId = String(created._id || created.id || '');
 
-    await recordArticleActivity({
-      articleId,
-      actor,
-      action: 'created',
-      toStatus: workflow.status,
-      message: buildArticleActivityMessage({ action: 'created', toStatus: workflow.status }),
-      metadata: {
-        intent,
-        priority: workflow.priority,
-        createdById: workflow.createdBy?.id || '',
-      },
-    });
+    try {
+      await recordArticleActivity({
+        articleId,
+        actor,
+        action: 'created',
+        toStatus: workflow.status,
+        message: buildArticleActivityMessage({ action: 'created', toStatus: workflow.status }),
+        metadata: {
+          intent,
+          priority: workflow.priority,
+          createdById: workflow.createdBy?.id || '',
+        },
+      });
+    } catch (activityError) {
+      console.error('Failed to record article create activity:', activityError);
+    }
 
     if (input.sourceStoryId) {
-      await syncStoryLinkedArticle({
-        useFileStore,
-        storyId: input.sourceStoryId,
-        articleId,
-        articleStatus: workflow.status,
-      });
+      try {
+        await syncStoryLinkedArticle({
+          useFileStore,
+          storyId: input.sourceStoryId,
+          articleId,
+          articleStatus: workflow.status,
+        });
+      } catch (syncError) {
+        console.error('Failed to sync story linked article on create:', syncError);
+      }
     }
 
     if (workflow.status === 'published') {
@@ -467,21 +475,29 @@ export class EditorialService {
       await deleteStoredBreakingAudio(previousBreakingAudioUrl).catch(() => undefined);
     }
 
-    await recordArticleActivity({
-      articleId: id,
-      actor,
-      action: 'full_edit',
-      toStatus: resolveArticleWorkflow(updated).status,
-      message: buildArticleActivityMessage({ action: 'full_edit' }),
-    });
+    try {
+      await recordArticleActivity({
+        articleId: id,
+        actor,
+        action: 'full_edit',
+        toStatus: resolveArticleWorkflow(updated).status,
+        message: buildArticleActivityMessage({ action: 'full_edit' }),
+      });
+    } catch (activityError) {
+      console.error('Failed to record article activity on full update:', activityError);
+    }
 
     if (updated.sourceStoryId) {
-      await syncStoryLinkedArticle({
-        useFileStore: store === 'file',
-        storyId: String(updated.sourceStoryId),
-        articleId: id,
-        articleStatus: resolveArticleWorkflow(updated).status,
-      });
+      try {
+        await syncStoryLinkedArticle({
+          useFileStore: store === 'file',
+          storyId: String(updated.sourceStoryId),
+          articleId: id,
+          articleStatus: resolveArticleWorkflow(updated).status,
+        });
+      } catch (syncError) {
+        console.error('Failed to sync story linked article on full update:', syncError);
+      }
     }
 
     return resolveArticleResponse(updated);
@@ -593,21 +609,29 @@ export class EditorialService {
     }
 
     if (!isAutosave) {
-      await recordArticleActivity({
-        articleId: id,
-        actor,
-        action: 'partial_edit',
-        toStatus: resolveArticleWorkflow(updated).status,
-        message: buildArticleActivityMessage({ action: 'partial_edit' }),
-      });
+      try {
+        await recordArticleActivity({
+          articleId: id,
+          actor,
+          action: 'partial_edit',
+          toStatus: resolveArticleWorkflow(updated).status,
+          message: buildArticleActivityMessage({ action: 'partial_edit' }),
+        });
+      } catch (activityError) {
+        console.error('Failed to record article activity on partial update:', activityError);
+      }
 
       if (updated.sourceStoryId) {
-        await syncStoryLinkedArticle({
-          useFileStore: store === 'file',
-          storyId: String(updated.sourceStoryId),
-          articleId: id,
-          articleStatus: resolveArticleWorkflow(updated).status,
-        });
+        try {
+          await syncStoryLinkedArticle({
+            useFileStore: store === 'file',
+            storyId: String(updated.sourceStoryId),
+            articleId: id,
+            articleStatus: resolveArticleWorkflow(updated).status,
+          });
+        } catch (syncError) {
+          console.error('Failed to sync story linked article on partial update:', syncError);
+        }
       }
     }
 
@@ -719,47 +743,62 @@ export class EditorialService {
     });
 
     // Authoritative state write has succeeded; execute side-effects in sequence
-    await recordArticleActivity({
-      articleId: id,
-      actor,
-      action,
-      fromStatus,
-      toStatus,
-      message: buildArticleActivityMessage({
+    try {
+      await recordArticleActivity({
+        articleId: id,
+        actor,
         action,
+        fromStatus,
         toStatus,
-        assignedTo: nextWorkflow.assignedTo,
-        rejectionReason: nextWorkflow.rejectionReason,
-      }),
-      metadata: compactMetadata({
-        assignedToId: nextWorkflow.assignedTo?.id || '',
-        assignedToName: nextWorkflow.assignedTo?.name || '',
-        priority: nextWorkflow.priority,
-        dueAt: nextWorkflow.dueAt?.toISOString() || '',
-        scheduledFor: nextWorkflow.scheduledFor?.toISOString() || '',
-        rejectionReason: nextWorkflow.rejectionReason || '',
-        comment: actionBody.comment?.trim() || '',
-      }),
-    });
+        message: buildArticleActivityMessage({
+          action,
+          toStatus,
+          assignedTo: nextWorkflow.assignedTo,
+          rejectionReason: nextWorkflow.rejectionReason,
+        }),
+        metadata: compactMetadata({
+          assignedToId: nextWorkflow.assignedTo?.id || '',
+          assignedToName: nextWorkflow.assignedTo?.name || '',
+          priority: nextWorkflow.priority,
+          dueAt: nextWorkflow.dueAt?.toISOString() || '',
+          scheduledFor: nextWorkflow.scheduledFor?.toISOString() || '',
+          rejectionReason: nextWorkflow.rejectionReason || '',
+          comment: actionBody.comment?.trim() || '',
+        }),
+      });
+    } catch (activityError) {
+      console.error('Failed to record article activity after workflow action:', activityError);
+    }
 
-    await notifyWorkflowEvent({
-      contentType: 'article',
-      contentId: id,
-      title: String(updated.title || 'Article'),
-      href: `/admin/articles/${encodeURIComponent(id)}/edit`,
-      action,
-      workflow: nextWorkflow,
-      actor,
-      previousAssignee,
-    });
+    try {
+      await notifyWorkflowEvent({
+        contentType: 'article',
+        contentId: id,
+        title: String(updated.title || 'Article'),
+        href: `/admin/articles/${encodeURIComponent(id)}/edit`,
+        action,
+        workflow: nextWorkflow,
+        actor,
+        previousAssignee,
+        rejectionReason: actionBody.rejectionReason || nextWorkflow.rejectionReason || undefined,
+        scheduledFor: scheduledFor || nextWorkflow.scheduledFor || undefined,
+        comment: actionBody.comment || undefined,
+      });
+    } catch (notifyError) {
+      console.error('Failed to send workflow notification after workflow action:', notifyError);
+    }
 
     if (updated.sourceStoryId) {
-      await syncStoryLinkedArticle({
-        useFileStore: store === 'file',
-        storyId: String(updated.sourceStoryId),
-        articleId: id,
-        articleStatus: toStatus,
-      });
+      try {
+        await syncStoryLinkedArticle({
+          useFileStore: store === 'file',
+          storyId: String(updated.sourceStoryId),
+          articleId: id,
+          articleStatus: toStatus,
+        });
+      } catch (syncError) {
+        console.error('Failed to sync story linked article after workflow action:', syncError);
+      }
     }
 
     return {
