@@ -186,7 +186,9 @@ export class EpaperService {
 
   async resolvePublicPdfUrl(id: string) {
     const record = asObject(await this.repo.findPdfRecord(id));
-    if (!record._id) throw new EpaperNotFoundError('E-paper not found');
+    if (!record._id || record.status !== 'published' || record.isCurrentRevision === false) {
+      throw new EpaperNotFoundError('E-paper not found');
+    }
     const explicitPublicId = firstNonEmptyString(record.pdfPublicId);
     const pdfUrl = firstNonEmptyString(record.pdfUrl, record.pdfPath);
     const parsed = pdfUrl ? parseDigitalOceanSpacesAssetFromUrl(pdfUrl) : null;

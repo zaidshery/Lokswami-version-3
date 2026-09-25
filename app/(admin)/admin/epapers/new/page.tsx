@@ -224,7 +224,11 @@ export default function NewEPaperPage() {
         router.push(labels.adminBasePath);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to create ${labels.lowercase}.`);
+      const msg = err instanceof Error ? err.message : `Failed to create ${labels.lowercase}.`;
+      const guidedMsg = msg.includes('already exists')
+        ? `${msg} Please check existing editions or create a revision from the published edition.`
+        : msg;
+      setError(guidedMsg);
     } finally {
       setLoading(false);
     }
@@ -248,12 +252,12 @@ export default function NewEPaperPage() {
         </p>
 
         {error ? (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" aria-live="assertive" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         ) : null}
         {notice ? (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <div role="status" aria-live="polite" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             {notice}
           </div>
         ) : null}
@@ -362,6 +366,7 @@ export default function NewEPaperPage() {
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder={`${labels.singular} - ${isMonthlyPublication ? 'May 2026' : '16 Feb 2026'}`}
+              aria-label="Publication title"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               required
             />
@@ -376,6 +381,7 @@ export default function NewEPaperPage() {
                 type="file"
                 accept=".pdf,application/pdf"
                 onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
+                aria-label="PDF file upload"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 required
               />

@@ -610,3 +610,52 @@ Phase 3.9 cannot be considered complete until all 49 gates pass:
   - Total tests: 1,971 (up from 1,943 baseline, +28 new tests)
   - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, scope check, and production Next.js build (`build:ci`).
 - **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.
+
+---
+
+## 31. Phase 3.9E Implementation Completion Record & Phase 3.15 Reader Contract Freeze
+
+- **Subphase:** Phase 3.9E — Final QA + Admin UX/A11Y + Four-Role Regression + Phase 3.15 Public Reader Contract Freeze
+- **Status:** COMPLETE
+- **Deliverables Completed:**
+  - **Admin Desk List UX (`/admin/epapers`):**
+    - Communicates revision identity (`Rev X`) and `Historical` badge for superseded revisions.
+    - Added accessible live regions (`role="alert" aria-live="assertive"`, `role="status" aria-live="polite"`).
+    - Attached explicit `aria-label` attributes to search and filter controls.
+    - Verified clear empty states (`No {labels.plural.toLowerCase()} found.`) and responsive layout wrappers (`min-w-0 flex-1`).
+  - **Create / Upload UX (`/admin/epapers/new`):**
+    - Accessible live status and error regions for async upload feedback.
+    - Added explicit duplicate edition conflict guidance in error states (`create a revision from the published edition`).
+    - Added accessible form input labels (`aria-label="Publication title"`, `aria-label="PDF file upload"`) and disabled submission buttons during active requests. No misleading progress indicators.
+  - **Production Workspace UX (`/admin/epapers/[id]`):**
+    - Optimistic concurrency conflict detection: when server returns HTTP 409 `EPAPER_VERSION_CONFLICT`, UI renders an alert banner explaining that the edition was modified elsewhere with an interactive "Reload Edition" action to refresh server truth without losing state.
+    - Communicates revision identity (`Rev {epaper.revisionNumber}`) and `Historical` status badge in edition header.
+    - Displays canonical server-backed publication blockers derived from authoritative readiness.
+    - Accessible live feedback regions (`role="alert"`, `role="status"`).
+  - **Page / Hotspot Editor UX (`/admin/epapers/[id]/page/[pageNumber]`):**
+    - Sequential numeric page navigation (`Prev Page`, `Next Page`, `Page {pageNumber} of {epaper.pageCount}`) with reachable controls.
+    - Immutable edition guard (`isImmutable`): prohibits editing hotspots, drawing boxes, or modifying page annotations when the edition is published or archived.
+    - Accessible live regions for operational notices and errors.
+  - **Four-Role RBAC Final Regression:**
+    - `super_admin`: ALLOWED across all E-Paper desk routes and mutation operations.
+    - `admin`: strictly DENIED (HTTP 403 `EpaperForbiddenError`, page access blocked).
+    - `copy_editor`: strictly DENIED (HTTP 403 `EpaperForbiddenError`, page access blocked).
+    - `reporter`: strictly DENIED (HTTP 403 `EpaperForbiddenError`, page access blocked).
+    - Internal worker job route (`/api/admin/epapers/jobs/run-due`): unauthenticated requests denied with 403/503; timing-safe cron secret comparison; zero secret exposure in logs or payloads; newsroom sessions denied without cron secret.
+  - **Public Reader Contract Freeze (Handoff to Phase 3.15):**
+    - **Public List Endpoint (`GET /api/v1/public/epapers`):** Strictly returns editions where `status === 'published'` AND `isCurrentRevision === true`. Drafts, superseded revisions, and archived editions are strictly excluded from reader feeds.
+    - **Public Latest Feed Endpoint (`GET /api/v1/public/epapers/latest`):** Deterministic date/city ordering, returns only current published editions. Never exposes draft revision $N+1$ while published $N$ remains current.
+    - **Public PDF Endpoint (`GET /api/public/epapers/[id]/pdf`):** Strictly verifies canonical publication criteria (`status === 'published' && isCurrentRevision === true`). Historical superseded revisions and drafts return HTTP 404 `EpaperNotFoundError`. Resolves URL strictly from server-owned DigitalOcean Spaces metadata; arbitrary object keys and URL parameters are impossible.
+    - **Data Minimization & Public DTO:** Public reader contract exposes safe reader-facing fields (`_id`, `publicationType`, `citySlug`, `cityName`, `title`, `publishDate`, `thumbnailPath`, `pdfPath`, `pageCount`, and pages with `pageNumber`, `imagePath`, `width`, `height`). Internal CMS operational fields are completely stripped (`leaseOwner`, `leaseExpiresAt`, `cleanupPending`, `cleanupKeys`, `lastCleanupError`, `processingGeneration`, `productionNotes`, `productionAssignee`, `sourceType`, `sourceLabel`, `version`, and editorial page review metadata).
+    - **Numeric Sequential Page Ordering:** Public pages are strictly sorted by numeric `pageNumber` ($1, 2, 3 \dots 10$, never lexical $1, 10, 2$). Stale-generation or invalid page shells are purged.
+    - **Cross-Phase Lifecycle & Draft Deletion Safety:** Full lifecycle verified (draft $\to$ publish v1 $\to$ create draft v2 $\to$ public still exposes v1 $\to$ publish v2 $\to$ public exposes v2 $\to$ delete draft v3 $\to$ public v2 intact). Deleting draft revisions or cleaning abandoned drafts never mutates or disrupts the public contract of published editions.
+    - **Intentionally Deferred to Phase 3.15:** Zoom/pan reader viewer, page flip animations, reader toolbar, public reader archive UI, E-Magazine public reader, reader search/bookmarking, and full-text OCR reader search.
+- **Automated Tests Added:**
+  - `tests/phase39-reader-contract.test.ts` (12 tests)
+  - `tests/phase39-four-role-acceptance.test.ts` (23 tests)
+  - `tests/phase39-accessibility-ux.test.ts` (15 tests)
+- **CI Regression Verification:**
+  - Total test files: 303 (up from 300 baseline, +3 new test files)
+  - Total tests: 2,021 (up from 1,971 baseline, +50 new tests)
+  - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, scope check, and production Next.js build (`build:ci`).
+- **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.

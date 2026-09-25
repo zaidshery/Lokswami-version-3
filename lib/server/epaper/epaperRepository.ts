@@ -196,18 +196,19 @@ export class EpaperRepository {
     if ((await this.resolveAdminStore('public e-paper detail route')) === 'file') {
       return { store: 'file' as const, edition: publicationType === 'epaper' ? await getStoredEPaperById(id) : null, articles: [] };
     }
-    let edition = this.isValidId(id)
-      ? await EPaper.findById(id).lean()
+    const edition = this.isValidId(id)
+      ? await EPaper.findOne({
+          _id: id,
+          status: 'published',
+          isCurrentRevision: { $ne: false },
+          ...buildPublicationTypeMongoFilter(publicationType),
+        }).lean()
       : await EPaper.findOne({
-          ...buildPublicationTypeMongoFilter(publicationType), familyId: id,
-          status: 'published', isCurrentRevision: true,
+          familyId: id,
+          status: 'published',
+          isCurrentRevision: { $ne: false },
+          ...buildPublicationTypeMongoFilter(publicationType),
         }).lean();
-    if (edition && (edition.status !== 'published' || edition.isCurrentRevision === false)) {
-      edition = await EPaper.findOne({
-        ...buildPublicationTypeMongoFilter(publicationType),
-        familyId: String(edition.familyId || edition._id), status: 'published', isCurrentRevision: true,
-      }).lean();
-    }
     const articles = edition
       ? await EPaperArticle.find({ epaperId: edition._id }).sort({ pageNumber: 1, createdAt: 1 }).lean()
       : [];
@@ -215,9 +216,24 @@ export class EpaperRepository {
   }
 
   async findPdfRecord(id: string) {
+    if ((await this.resolveAdminStore('public e-paper pdf route')) === 'file') {
+      const stored = await getStoredEPaperById(id);
+      if (!stored) return null;
+      return {
+        _id: stored._id,
+        pdfPath: stored.pdfUrl,
+        pdfUrl: stored.pdfUrl,
+        status: 'published',
+        isCurrentRevision: true,
+      };
+    }
     if (!this.isValidId(id)) return null;
     await connectDB();
-    return EPaper.findById(id).select('_id pdfPublicId pdfFormat pdfPath pdfUrl').lean();
+    return EPaper.findOne({
+      _id: id,
+      status: 'published',
+      isCurrentRevision: { $ne: false },
+    }).select('_id pdfPublicId pdfFormat pdfPath pdfUrl status isCurrentRevision').lean();
   }
 
   async getHomeFeedEditions(store: EpaperStore) {
