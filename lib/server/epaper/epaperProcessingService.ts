@@ -2,6 +2,7 @@ import 'server-only';
 
 import { canEditEpaper } from '@/lib/auth/permissions';
 import { shouldUseGlobalPublicationScope } from '@/lib/utils/epaperPublication';
+import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
 import { asObject } from './epaperMapper';
 import { epaperRepository, EpaperRepository } from './epaperRepository';
 import { epaperWorkerAdapter, EpaperWorkerAdapter } from './epaperWorkerAdapter';
@@ -35,6 +36,7 @@ export class EpaperProcessingService {
     this.authorize(actor); this.assertId(id); await this.repo.connect();
     const paper = await this.repo.findEditionById(id, '_id publicationType citySlug status pageCount pages');
     if (!paper) throw new EpaperNotFoundError('E-paper not found.');
+    assertEpaperDraftEditable(paper);
     const citySlug = shouldUseGlobalPublicationScope(paper.publicationType) ? undefined : String(paper.citySlug || '');
     if (!this.worker.isPageProcessingEnabled(citySlug)) throw new EpaperConflictError('Background PDF processing is not enabled for this publication scope.');
     const source = asObject(body);

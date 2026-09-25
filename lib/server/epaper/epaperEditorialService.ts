@@ -22,6 +22,7 @@ import { buildEpaperImageAutomationUpdates } from '@/lib/server/epaperImageAutom
 import { buildEpaperActivityMessage, listEpaperActivity, recordEpaperActivity } from '@/lib/server/epaperActivity';
 import { logEpaperMetric } from '@/lib/server/epaperObservability';
 import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
+import { withDistributedLock } from '@/lib/security/distributedLock';
 import { createWorkflowNotification } from '@/lib/storage/workflowNotifications';
 import { verifyEpaperAssetUpload, type EpaperUploadedAsset } from '@/lib/storage/epaperAssetUpload';
 import { deleteAssetFile, parsePublishDate } from '@/lib/utils/epaperStorage';
@@ -239,26 +240,29 @@ export class EpaperEditorialService {
     const pageCount = Math.max(requestedCount, ...pageAssets.map((item) => item.pageNumber));
     if (pageCount < 1) throw new EpaperValidationError('pageCount is required when page images are not included in the create request');
     await this.repo.connect();
-    const duplicate = await this.repo.findEdition({
-      ...buildPublicationTypeMongoFilter(publicationType), citySlug: scope.citySlug,
-      publishDate: getPublicationIssueDateRange(normalizedDate, publicationType) || publishDate, isCurrentRevision: true,
-    }, '_id');
-    if (duplicate) throw new EpaperConflictError(scope.isGlobal
-      ? `${labels.singular} already exists for ${labels.issueFilterLabel.toLowerCase()} ${normalizedDate}`
-      : `${labels.singular} already exists for ${scope.citySlug} in ${labels.issueFilterLabel.toLowerCase()} ${normalizedDate}`);
-    const pages: Array<{ pageNumber: number; imagePath: string; width?: number; height?: number; pageType: 'editorial'; processingStatus: 'pending' | 'ready'; reviewStatus: 'pending' }> = Array.from({ length: pageCount }, (_, index) => ({ pageNumber: index + 1, imagePath: '', width: undefined, height: undefined,
-      pageType: 'editorial', processingStatus: 'pending', reviewStatus: 'pending' }));
-    for (const item of pageAssets) pages[item.pageNumber - 1] = { pageNumber: item.pageNumber, imagePath: item.asset.mediaUrl,
-      width: item.width, height: item.height, pageType: 'editorial', processingStatus: 'ready', reviewStatus: 'pending' };
-    const automation = buildEpaperImageAutomationUpdates({ pageCount, pages, currentThumbnailPath: thumbnail.mediaUrl,
-      currentProductionStatus: 'draft_upload', currentStatus: 'draft' });
-    const created = await this.repo.createEdition({ publicationType, citySlug: scope.citySlug, cityName: scope.cityName,
-      title, publishDate, pdfPath: pdf.mediaUrl, pdfPublicId: pdf.mediaKey,
-      pdfFormat: pdf.mediaKey.split('.').pop()?.toLowerCase() || 'pdf', thumbnailPath: thumbnail.mediaUrl,
-      pageCount, pages, status: 'draft', familyId: crypto.randomUUID(), revisionNumber: 1, isCurrentRevision: true,
-      productionStatus: automation.productionStatus || 'draft_upload', sourceType: 'manual-upload',
-      sourceLabel: `Direct Spaces upload (${labels.singular})`, sourceUrl: pdf.mediaUrl });
-    return { message: `${labels.singular} created successfully`, data: mapAdminEpaper(created) };
+    const lockKey = `epaper:draft:create:${publicationType}:${scope.citySlug}:${normalizedDate}`;
+    return withDistributedLock(lockKey, async () => {
+      const duplicate = await this.repo.findEdition({
+        ...buildPublicationTypeMongoFilter(publicationType), citySlug: scope.citySlug,
+        publishDate: getPublicationIssueDateRange(normalizedDate, publicationType) || publishDate, isCurrentRevision: true,
+      }, '_id');
+      if (duplicate) throw new EpaperConflictError(scope.isGlobal
+        ? `${labels.singular} already exists for ${labels.issueFilterLabel.toLowerCase()} ${normalizedDate}`
+        : `${labels.singular} already exists for ${scope.citySlug} in ${labels.issueFilterLabel.toLowerCase()} ${normalizedDate}`);
+      const pages: Array<{ pageNumber: number; imagePath: string; width?: number; height?: number; pageType: 'editorial'; processingStatus: 'pending' | 'ready'; reviewStatus: 'pending' }> = Array.from({ length: pageCount }, (_, index) => ({ pageNumber: index + 1, imagePath: '', width: undefined, height: undefined,
+        pageType: 'editorial', processingStatus: 'pending', reviewStatus: 'pending' }));
+      for (const item of pageAssets) pages[item.pageNumber - 1] = { pageNumber: item.pageNumber, imagePath: item.asset.mediaUrl,
+        width: item.width, height: item.height, pageType: 'editorial', processingStatus: 'ready', reviewStatus: 'pending' };
+      const automation = buildEpaperImageAutomationUpdates({ pageCount, pages, currentThumbnailPath: thumbnail.mediaUrl,
+        currentProductionStatus: 'draft_upload', currentStatus: 'draft' });
+      const created = await this.repo.createEdition({ publicationType, citySlug: scope.citySlug, cityName: scope.cityName,
+        title, publishDate, pdfPath: pdf.mediaUrl, pdfPublicId: pdf.mediaKey,
+        pdfFormat: pdf.mediaKey.split('.').pop()?.toLowerCase() || 'pdf', thumbnailPath: thumbnail.mediaUrl,
+        pageCount, pages, status: 'draft', familyId: crypto.randomUUID(), revisionNumber: 1, isCurrentRevision: true,
+        productionStatus: automation.productionStatus || 'draft_upload', sourceType: 'manual-upload',
+        sourceLabel: `Direct Spaces upload (${labels.singular})`, sourceUrl: pdf.mediaUrl });
+      return { message: `${labels.singular} created successfully`, data: mapAdminEpaper(created) };
+    });
   }
 
   async get(actor: AdminSessionIdentity, id: string, publicationTypeParam?: string | null) {
@@ -280,6 +284,7 @@ export class EpaperEditorialService {
     this.assertId(id); await this.repo.connect();
     const current = await this.repo.findEditionById(id);
     if (!current) throw new EpaperNotFoundError();
+    assertEpaperDraftEditable(current);
     const source = asObject(body);
     const updates: EpaperRecord = {};
     const previous = mapAdminEpaper(current);

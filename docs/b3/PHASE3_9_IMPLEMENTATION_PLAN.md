@@ -522,3 +522,25 @@ Phase 3.9 cannot be considered complete until all 49 gates pass:
 1. **Hostinger Cron Reliability:** Background processing relies on Hostinger cron hitting `/api/admin/epapers/jobs/run-due` once every minute. If Hostinger cron drops requests, processing latency increases. *Mitigation:* Admin CMS includes manual retry triggers and stuck warnings (>6 hours).
 2. **Memory Footprint of Heavy PDF Rasterization:** Rendering high-resolution 3000px pages consumes significant heap. *Mitigation:* Single-canvas mutex (`acquireCanvasLock`) and memory pressure checks (`checkMemoryPressure`) ensure Node.js never exhausts system RAM.
 3. **Role Delegation Timing:** Editorial staff may request ability for `admin` or `copy_editor` to map hotspots. *Mitigation:* Architecture separates mapping from publishing; when authorized by product leadership, RBAC can be expanded safely without altering domain logic.
+
+---
+
+## 27. Phase 3.9A Implementation Completion Record
+
+- **Subphase:** Phase 3.9A — Ingestion Security, Draft Immutability & Asset Receipts
+- **Status:** COMPLETE
+- **P0 Findings Closed:**
+  - **P0-1:** Restored centralized `assertEpaperDraftEditable` in `lib/server/epaperWorkflowPolicy.ts` and enforced across all mutation surfaces (`updateMetadata`, `updateWorkflow`, `updatePages`, `createArticle`, `cropHotspot`, `ocrProcessPage`, `retryProcessing`). Published and archived editions are strictly immutable with deterministic HTTP 409 Conflict.
+  - **P0-2:** Enforced published PDF finalization guard in `epaperUploadService.finalize`. Reject non-draft or non-upload states with HTTP 409 Conflict before touching external storage or workers.
+  - **P0-3:** Implemented HMAC-SHA256 actor-bound signed upload receipts in `lib/storage/epaperUploadReceipt.ts` binding actor ID, target edition ID, revision number, canonical object key, max bytes, and expiry with timing-safe verification.
+- **P1 Finding Closed:**
+  - **Draft Logical Uniqueness Race:** Protected `epaperUploadService.initialize` and `epaperEditorialService.create` with `withDistributedLock` using logical edition identity keys `(publicationType, citySlug, issueDate)` to prevent concurrent races from creating duplicate edition families.
+- **Automated Tests Added:**
+  - `tests/epaper-draft-immutability.test.ts` (14 tests)
+  - `tests/epaper-upload-receipt-security.test.ts` (11 tests)
+  - `tests/epaper-draft-concurrency.test.ts` (3 tests)
+- **CI Regression Verification:**
+  - Total test files: 294 (up from 291 baseline)
+  - Total tests: 1,887 (up from 1,859 baseline, +28 new tests)
+  - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, and production Next.js build.
+- **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.

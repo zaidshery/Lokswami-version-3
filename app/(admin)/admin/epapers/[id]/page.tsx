@@ -680,6 +680,7 @@ export default function AdminEPaperDetailPage() {
         },
         body: JSON.stringify({
           kind: 'epaper_pdf',
+          epaperId: epaper._id,
           publicationType,
           fileName: file.name,
           fileType: file.type || 'application/pdf',
@@ -727,6 +728,7 @@ export default function AdminEPaperDetailPage() {
             expectedSize: file.size,
             expectedFileType: file.type || 'application/pdf',
             expectedFileName: file.name,
+            uploadReceipt: (target as { uploadReceipt?: string }).uploadReceipt,
           }),
         }
       );

@@ -133,6 +133,7 @@ export default function NewEPaperPage() {
           expectedSize: pdfFile.size,
           expectedFileType: pdfFile.type || 'application/pdf',
           expectedFileName: pdfFile.name,
+          uploadReceipt: (target as { uploadReceipt?: string }).uploadReceipt,
         }),
       }
     );
