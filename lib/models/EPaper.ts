@@ -60,6 +60,7 @@ export interface IEPaper {
   productionAssignee: WorkflowActorRef | null;
   productionNotes: WorkflowComment[];
   qaCompletedAt: Date | null;
+  processingGeneration?: string;
   sourceType?: 'manual-upload' | 'drive-import' | 'remote-import' | 'legacy' | 'unknown';
   sourceLabel?: string;
   sourceUrl?: string;
@@ -135,6 +136,7 @@ const EPaperSchema = new mongoose.Schema<IEPaper>(
     productionAssignee: { type: WorkflowActorRefSchema, default: null },
     productionNotes: { type: [WorkflowCommentSchema], default: [] },
     qaCompletedAt: { type: Date, default: null },
+    processingGeneration: { type: String, trim: true, default: '' },
     sourceType: {
       type: String,
       enum: ['manual-upload', 'drive-import', 'remote-import', 'legacy', 'unknown'],

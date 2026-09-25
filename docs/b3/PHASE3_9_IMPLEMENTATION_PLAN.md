@@ -544,3 +544,24 @@ Phase 3.9 cannot be considered complete until all 49 gates pass:
   - Total tests: 1,887 (up from 1,859 baseline, +28 new tests)
   - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, and production Next.js build.
 - **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.
+
+---
+
+## 28. Phase 3.9B Implementation Completion Record
+
+- **Subphase:** Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Hardening
+- **Status:** COMPLETE
+- **Deliverables Completed:**
+  - **Processing Generation & Stale Worker Protection:** Added `processingGeneration` to `EPaper` and `generation` + `revisionNumber` to `EPaperProcessingJob`. Workers re-verify generation, revision, source PDF key, and active claim before committing intermediate pages and final status. Stale attempts cannot overwrite newer editions or retries.
+  - **Atomic Processing Claim & Lease Semantics:** Strengthened `claimJob` using atomic MongoDB `findOneAndUpdate` predicates preventing concurrent dual-processing of the same job. Expired leases (`leaseExpiresAt <= now`) can be safely reclaimed.
+  - **Server-Derived Asset Keys & Page Number Authority:** Page numbers are strictly server-derived sequence `1..pageCount`. Derived asset keys are strictly server-owned (`lokswami/.../revision-R-ID/pages/NNN-rendered.jpg`) with validation rejecting path traversal (`..`), backslashes, and cross-revision collisions.
+  - **Page Order, Count Integrity & Partial Failure Isolation:** Enforced numeric ordering (`1..N`) past page 9, unique page numbers, and exact page count match. Incomplete page sets or middle-page failures leave the edition in retryable `draft_upload` state and never transition to `pages_ready`.
+  - **Retry Semantics & Immutability:** Bounded retries generate a new unique generation attempt. Retry against published or archived editions strictly returns HTTP 409 `EpaperConflictError`. Non-`super_admin` retry attempts are denied with HTTP 403 `EpaperForbiddenError`.
+  - **Deterministic Error Hierarchy:** Defined typed error codes (`EPAPER_PROCESSING_STALE`, `EPAPER_PAGE_SEQUENCE_INVALID`, `EPAPER_PAGE_COUNT_INVALID`, `EPAPER_EDITION_IMMUTABLE`, etc.) via `lib/server/epaperProcessingErrors.ts`.
+- **Automated Tests Added:**
+  - `tests/epaper-processing-resilience.test.ts` (29 tests)
+- **CI Regression Verification:**
+  - Total test files: 295 (up from 294)
+  - Total tests: 1,916 (up from 1,887 baseline, +29 new tests)
+  - Full suite status: 100% passing across Vitest, auth guards, admin credentials, strict linting, typecheck, scope check, and production Next.js build (`build:ci`).
+- **QA Artifact:** `6ab0da70c6aab6a2a6cab44e` untouched.
