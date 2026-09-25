@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canViewPage } from '@/lib/auth/permissions';
 import { pushDeliveryService } from '@/lib/server/push/pushDeliveryService';
+import { auditPushCancelled } from '@/lib/security/phase38Observability';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -23,6 +24,13 @@ async function POSTHandler(req: NextRequest, context: RouteContext) {
       name: user.name,
       email: user.email,
       role: user.role,
+    });
+
+    void auditPushCancelled({
+      actor: user,
+      resourceId: id,
+      resourceName: 'Cancelled Push Alert',
+      metadata: { reason },
     });
 
     return NextResponse.json({

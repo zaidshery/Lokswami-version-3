@@ -4,6 +4,7 @@ import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canDispatchSocialPosts } from '@/lib/auth/permissions';
 import { DistributionServiceError } from '@/lib/server/distribution/distributionTypes';
 import { socialDistributionService } from '@/lib/server/distribution/socialDistributionService';
+import { auditSocialRetry } from '@/lib/security/phase38Observability';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,6 +22,13 @@ async function POSTHandler(req: NextRequest, context: RouteContext) {
       name: user.name,
       email: user.email,
       role: user.role,
+    });
+
+    void auditSocialRetry({
+      actor: user,
+      resourceId: id,
+      resourceName: 'Social Delivery Retry',
+      metadata: { automation: result.automation },
     });
 
     return NextResponse.json({

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canViewPage } from '@/lib/auth/permissions';
 import { pushDeliveryService } from '@/lib/server/push/pushDeliveryService';
+import { auditPushFailed } from '@/lib/security/phase38Observability';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -16,6 +17,16 @@ async function POSTHandler(req: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
     const { delivery, result } = await pushDeliveryService.attemptDelivery(id);
+
+    if (result.status === 'failed' || result.status === 'disabled') {
+      void auditPushFailed({
+        actor: user,
+        resourceId: id,
+        resourceName: 'Push Alert Dispatch Attempt',
+        errorMessage: result.message,
+        metadata: { provider: result.provider, status: result.status },
+      });
+    }
 
     return NextResponse.json({
       success: result.status === 'succeeded' || result.status === 'manual',

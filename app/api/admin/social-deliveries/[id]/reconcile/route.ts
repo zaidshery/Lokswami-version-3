@@ -4,6 +4,7 @@ import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canDispatchSocialPosts } from '@/lib/auth/permissions';
 import { DistributionServiceError } from '@/lib/server/distribution/distributionTypes';
 import { socialDistributionService } from '@/lib/server/distribution/socialDistributionService';
+import { auditSocialReconcile } from '@/lib/security/phase38Observability';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,13 @@ async function POSTHandler(req: NextRequest, context: RouteContext) {
         role: user.role,
       }
     );
+
+    void auditSocialReconcile({
+      actor: user,
+      resourceId: id,
+      resourceName: 'Social Delivery Reconcile',
+      metadata: { outcome, externalPostId, externalUrl },
+    });
 
     return NextResponse.json({
       success: true,

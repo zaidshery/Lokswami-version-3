@@ -418,7 +418,7 @@ export default function SocialPostsPage() {
       </section>
 
       {error ? (
-        <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div role="alert" aria-live="assertive" className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </div>
       ) : null}

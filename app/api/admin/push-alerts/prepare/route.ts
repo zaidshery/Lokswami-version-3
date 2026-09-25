@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canViewPage } from '@/lib/auth/permissions';
 import { pushDeliveryService } from '@/lib/server/push/pushDeliveryService';
+import { auditPushPrepared } from '@/lib/security/phase38Observability';
 
 async function POSTHandler(req: NextRequest) {
   try {
@@ -40,6 +41,16 @@ async function POSTHandler(req: NextRequest) {
         role: user.role,
       }
     );
+
+    void auditPushPrepared({
+      actor: user,
+      resourceId: prepared.deliveryId,
+      resourceName: prepared.payload.title,
+      metadata: {
+        audience: prepared.recipient.type,
+        deepLink: prepared.payload.deepLink,
+      },
+    });
 
     return NextResponse.json({
       success: true,

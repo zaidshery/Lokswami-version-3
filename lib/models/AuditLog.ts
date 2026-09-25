@@ -7,8 +7,40 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IAuditLog extends Document {
   // Action details
-  action: 'create' | 'read' | 'update' | 'delete' | 'publish' | 'archive' | 'assign' | 'review' | 'approve' | 'reject' | 'login' | 'logout' | 'settings_change';
-  resourceType: 'article' | 'video' | 'story' | 'epaper' | 'user' | 'settings' | 'role' | 'poll' | 'category' | 'auth_session' | 'other';
+  action:
+    | 'create'
+    | 'read'
+    | 'update'
+    | 'delete'
+    | 'publish'
+    | 'archive'
+    | 'assign'
+    | 'review'
+    | 'approve'
+    | 'reject'
+    | 'login'
+    | 'logout'
+    | 'settings_change'
+    | 'dispatch'
+    | 'retry'
+    | 'reconcile'
+    | 'prepare'
+    | 'cancel';
+  resourceType:
+    | 'article'
+    | 'video'
+    | 'story'
+    | 'epaper'
+    | 'user'
+    | 'settings'
+    | 'role'
+    | 'poll'
+    | 'category'
+    | 'auth_session'
+    | 'media'
+    | 'social'
+    | 'push'
+    | 'other';
   resourceId?: string;
   resourceName?: string;
 
@@ -63,6 +95,11 @@ const AuditLogSchema = new Schema<IAuditLog>(
         'login',
         'logout',
         'settings_change',
+        'dispatch',
+        'retry',
+        'reconcile',
+        'prepare',
+        'cancel',
       ],
       index: true,
     },
@@ -80,6 +117,9 @@ const AuditLogSchema = new Schema<IAuditLog>(
         'poll',
         'category',
         'auth_session',
+        'media',
+        'social',
+        'push',
         'other',
       ],
       index: true,
