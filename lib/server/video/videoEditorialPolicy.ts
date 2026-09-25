@@ -130,6 +130,12 @@ export function normalizeVideoInput(body: unknown) {
     processingStatus: normalizeVideoProcessingStatus(source.processingStatus),
     instagramUrl: typeof source.instagramUrl === 'string' ? source.instagramUrl.trim() : '',
     youtubeUrl: typeof source.youtubeUrl === 'string' ? source.youtubeUrl.trim() : '',
+    sourceAssetId: typeof source.sourceAssetId === 'string' ? source.sourceAssetId.trim() : '',
+    lastError: typeof source.lastError === 'string' ? source.lastError.trim() : '',
+    accessibilityMeta:
+      typeof source.accessibilityMeta === 'object' && source.accessibilityMeta !== null
+        ? (source.accessibilityMeta as Record<string, unknown>)
+        : undefined,
   };
 }
 
@@ -325,6 +331,11 @@ export function normalizeVideoUpdate(body: unknown) {
   if (typeof source.transcript === 'string') updates.transcript = source.transcript.trim();
   if (typeof source.instagramUrl === 'string') updates.instagramUrl = source.instagramUrl.trim();
   if (typeof source.youtubeUrl === 'string') updates.youtubeUrl = source.youtubeUrl.trim();
+  if (typeof source.sourceAssetId === 'string') updates.sourceAssetId = source.sourceAssetId.trim();
+  if (typeof source.lastError === 'string') updates.lastError = source.lastError.trim();
+  if (typeof source.accessibilityMeta === 'object' && source.accessibilityMeta !== null) {
+    updates.accessibilityMeta = source.accessibilityMeta as Record<string, unknown>;
+  }
   if (source.mediaProvider !== undefined) {
     updates.mediaProvider = inferVideoMediaProvider(source.mediaProvider);
   }

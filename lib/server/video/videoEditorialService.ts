@@ -22,6 +22,8 @@ import {
   applyVideoWorkflowAction,
   resolveVideoWorkflow,
 } from '@/lib/workflow/video';
+import type { VideoProcessingStatus } from '@/lib/content/videoPublication';
+import { videoLifecycleService } from './videoLifecycleService';
 import {
   FILE_STORE_UNBOUNDED_LIMIT,
   applyAutoThumbnail,
@@ -85,6 +87,9 @@ function createPayload(
     processingStatus: input.processingStatus,
     instagramUrl: input.instagramUrl,
     youtubeUrl: input.youtubeUrl,
+    sourceAssetId: input.sourceAssetId || undefined,
+    lastError: input.lastError || undefined,
+    accessibilityMeta: input.accessibilityMeta || undefined,
   };
 
   if (store === 'file') {
@@ -193,6 +198,7 @@ export class VideoEditorialService {
 
     const store = await this.repo.resolveStore();
     const input = normalizeVideoInput(body);
+
     const intent = normalizeCreateIntent(
       (body as Record<string, unknown>)?.intent,
       input.isPublished
@@ -210,6 +216,43 @@ export class VideoEditorialService {
     if (intent === 'publish' && input.isShort) {
       const articleError = await validatePublishedSwipeArticle(input);
       if (articleError) throw new VideoValidationError(articleError, 400);
+    }
+
+    const resolvedAsset = await videoLifecycleService.resolveSourceAsset({
+      sourceAssetId: input.sourceAssetId,
+      videoUrl: input.videoUrl,
+      mediaProvider: input.mediaProvider,
+      actor: user,
+    });
+    if (resolvedAsset.sourceAssetId) {
+      input.sourceAssetId = resolvedAsset.sourceAssetId;
+    }
+    if (resolvedAsset.videoUrl) {
+      input.videoUrl = resolvedAsset.videoUrl;
+      input.playbackUrl = resolvedAsset.playbackUrl;
+    }
+    if (resolvedAsset.duration && (!input.duration || input.duration === 60)) {
+      input.duration = resolvedAsset.duration;
+    }
+
+    if (input.captionUrl || input.transcript) {
+      const acc = videoLifecycleService.validateAccessibility({
+        captionUrl: input.captionUrl,
+        transcript: input.transcript,
+      });
+      if (!input.accessibilityMeta) {
+        input.accessibilityMeta = {
+          captionsUrl: input.captionUrl || undefined,
+          hasCaptions: acc.hasCaptions,
+          transcriptText: input.transcript || undefined,
+          hasTranscript: acc.hasTranscript,
+          accessibleControls: acc.controls,
+        };
+      }
+    }
+
+    if (input.processingStatus && input.processingStatus !== 'uploaded') {
+      videoLifecycleService.validateTransition('uploaded', input.processingStatus, user);
     }
 
     try {
@@ -270,6 +313,51 @@ export class VideoEditorialService {
       nextWorkflow.status === 'published' &&
       ((publishedState === true && currentWorkflow.status !== 'published') ||
         (updates.isShort === true && currentVideo.isShort !== true));
+
+    if (updates.sourceAssetId) {
+      const resolved = await videoLifecycleService.resolveSourceAsset({
+        sourceAssetId: String(updates.sourceAssetId),
+        videoUrl: typeof updates.videoUrl === 'string' ? updates.videoUrl : currentVideo.videoUrl,
+        mediaProvider: typeof updates.mediaProvider === 'string' ? updates.mediaProvider : currentVideo.mediaProvider,
+        actor: user,
+      });
+      updates.sourceAssetId = resolved.sourceAssetId;
+      if (resolved.videoUrl) {
+        updates.videoUrl = resolved.videoUrl;
+        updates.playbackUrl = resolved.playbackUrl;
+      }
+    }
+
+    if (updates.captionUrl !== undefined || updates.transcript !== undefined) {
+      const captionUrl = typeof updates.captionUrl === 'string' ? updates.captionUrl : (currentVideo.captionUrl as string | undefined);
+      const transcript = typeof updates.transcript === 'string' ? updates.transcript : (currentVideo.transcript as string | undefined);
+      const acc = videoLifecycleService.validateAccessibility({
+        captionUrl,
+        transcript,
+      });
+      if (!updates.accessibilityMeta) {
+        updates.accessibilityMeta = {
+          captionsUrl: captionUrl || undefined,
+          hasCaptions: acc.hasCaptions,
+          transcriptText: transcript || undefined,
+          hasTranscript: acc.hasTranscript,
+          accessibleControls: acc.controls,
+        };
+      }
+    }
+
+    if (updates.processingStatus && updates.processingStatus !== currentVideo.processingStatus) {
+      const currentStatus = (currentVideo.processingStatus || 'uploaded') as VideoProcessingStatus;
+      const targetStatus = updates.processingStatus as VideoProcessingStatus;
+      videoLifecycleService.validateTransition(currentStatus, targetStatus, user);
+    }
+
+    if (
+      nextWorkflow.status === 'published' &&
+      (currentVideo.processingStatus === 'failed' || updates.processingStatus === 'failed')
+    ) {
+      throw new VideoValidationError('Cannot publish a video with failed processing status.', 400);
+    }
 
     if (requiresSwipeReadiness) {
       const nextRecord = { ...currentVideo, ...updates, isPublished: true };
@@ -342,6 +430,9 @@ export class VideoEditorialService {
     const swipeError = validateSwipeReadiness(currentVideo, action);
     if (swipeError) throw new VideoValidationError(swipeError, 400);
     if (action === 'publish' || action === 'fast_publish') {
+      if (currentVideo.processingStatus === 'failed') {
+        throw new VideoValidationError('Cannot publish a video with failed processing status.', 400);
+      }
       const articleError = await validatePublishedSwipeArticle(currentVideo);
       if (articleError) throw new VideoValidationError(articleError, 400);
     }

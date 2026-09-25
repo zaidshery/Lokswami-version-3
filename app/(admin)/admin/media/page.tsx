@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
   AlertCircle,
@@ -100,7 +101,7 @@ export default function MediaLibrary() {
   const uploadWorkspaceTitle = isReporterView ? 'Your Upload Desk' : 'Upload Workspace';
   const uploadWorkspaceDescription = isReporterView
     ? 'Image uploads only. MP4 story videos stay inside each story draft.'
-    : 'Supports image and video assets for the shared desk.';
+    : 'Image uploads desk. MP4 story videos and standalone videos are handled via dedicated editors.';
   const refreshLabel = isReporterView ? 'Refresh My Uploads' : 'Refresh Library';
   const assetsLabel = isReporterView ? 'Your Assets' : 'Assets';
   const totalAssetsLabel = isReporterView ? 'Your Assets' : 'Total Assets';
@@ -115,8 +116,8 @@ export default function MediaLibrary() {
   const videoAssetsDescription = isReporterView
     ? 'Previously uploaded reporter video assets still stored in your library.'
     : 'Motion assets available for video and multimedia surfaces.';
-  const uploadInputAccept = isReporterView ? 'image/*' : 'image/*,video/*';
-  const uploadPromptLabel = isReporterView ? 'Choose image to upload' : 'Choose media to upload';
+  const uploadInputAccept = 'image/*';
+  const uploadPromptLabel = 'Choose image to upload';
 
   const fetchMedia = useCallback(async () => {
     setLoading(true);
@@ -165,9 +166,9 @@ export default function MediaLibrary() {
   const handleFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] || null;
 
-    if (isReporterView && nextFile && !nextFile.type.startsWith('image/')) {
+    if (nextFile && !nextFile.type.startsWith('image/')) {
       setFile(null);
-      setError('Reporter media desk only accepts image uploads. Add MP4 clips from the story editor.');
+      setError('Media desk uploads are restricted to images. Attach MP4 video clips directly inside story drafts or create standalone videos in Videos desk.');
       setSuccess('');
       event.target.value = '';
       return;
@@ -333,6 +334,18 @@ export default function MediaLibrary() {
                   Only your uploads are visible here. Asset cleanup stays with desk admins so published work is not removed by mistake.
                 </div>
               ) : null}
+
+              <div className="rounded-[20px] border border-blue-500/20 bg-blue-500/5 p-4 text-xs text-[color:var(--admin-shell-text-muted)]">
+                <span className="font-semibold text-[color:var(--admin-shell-text)]">Video Workflows: </span>
+                Production MP4 masters and clips are attached directly inside{' '}
+                <Link href="/admin/stories" className="font-medium text-blue-600 underline hover:text-blue-500 dark:text-blue-400">
+                  Stories
+                </Link>{' '}
+                or created as standalone clips in{' '}
+                <Link href="/admin/videos/new" className="font-medium text-blue-600 underline hover:text-blue-500 dark:text-blue-400">
+                  Videos Desk
+                </Link>.
+              </div>
 
               <div className="flex flex-wrap gap-3">
                 <button

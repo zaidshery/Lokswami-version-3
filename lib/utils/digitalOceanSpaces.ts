@@ -622,7 +622,12 @@ export function parseTrustedDigitalOceanSpacesAssetFromUrl(
     return null;
   }
 
-  const config = getSpacesConfig();
+  let config;
+  try {
+    config = getSpacesConfig();
+  } catch {
+    return null;
+  }
   const trustedOrigins = new Set([
     `https://${config.originHost}`,
     new URL(config.cdnBaseUrl).origin,

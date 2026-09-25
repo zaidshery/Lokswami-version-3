@@ -76,6 +76,19 @@ export type VideoLike = Record<string, unknown> & {
   processingStatus?: string;
   instagramUrl?: string;
   youtubeUrl?: string;
+  sourceAssetId?: string;
+  lastError?: string;
+  accessibilityMeta?: {
+    captionsUrl?: string;
+    captionFormat?: 'vtt' | 'srt';
+    captionLanguage?: string;
+    hasCaptions?: boolean;
+    transcriptText?: string;
+    transcriptUrl?: string;
+    hasTranscript?: boolean;
+    audioDescriptionUrl?: string;
+    accessibleControls?: boolean;
+  };
 };
 
 export type WorkflowActionBody = {
