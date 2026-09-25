@@ -191,6 +191,7 @@ export default function MediaLibrary() {
     try {
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('ownerType', 'library');
       if (isReporterView) {
         fd.append('purpose', 'image');
       }
@@ -205,25 +206,6 @@ export default function MediaLibrary() {
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok) {
         throw new Error(uploadData.error || 'Upload failed');
-      }
-
-      const createRes = await fetch('/api/admin/media', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        body: JSON.stringify({
-          filename: uploadData.data.filename,
-          url: uploadData.data.url,
-          size: uploadData.data.size,
-          type: uploadData.data.type,
-        }),
-      });
-
-      const createData = await createRes.json().catch(() => null);
-      if (!createRes.ok) {
-        throw new Error(createData?.error || 'Failed to register uploaded media');
       }
 
       setFile(null);

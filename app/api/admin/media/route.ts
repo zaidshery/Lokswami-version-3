@@ -49,6 +49,7 @@ async function POSTHandler(req: NextRequest) {
     }
 
     const body = (await req.json().catch(() => ({}))) as {
+      assetId?: string;
       filename?: string;
       url?: string;
       size?: number;
@@ -57,6 +58,7 @@ async function POSTHandler(req: NextRequest) {
 
     const media = await mediaService.createMedia(
       {
+        assetId: String(body.assetId || '').trim(),
         filename: String(body.filename || '').trim(),
         url: String(body.url || '').trim(),
         size: body.size,

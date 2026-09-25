@@ -62,13 +62,16 @@ import {
   type CreateStoryInput,
   type StoredStoryRevision,
 } from '@/lib/storage/storiesFile';
+import { storyMediaAssetService } from '@/lib/server/media/storyMediaAssetService';
+import { MediaValidationError } from '@/lib/server/media/mediaService';
 
 export { StoryVersionConflictError, isStoryVersionConflictError, StoryEditLeaseConflictError };
 
 export type StoryStore = 'file' | 'mongo';
 export type StoryRecord = Record<string, unknown>;
 
-export const STORY_VIDEO_STORAGE_PROVIDER = 'digitalocean_spaces';
+export const STORY_VIDEO_STORAGE_PROVIDER = 'do-spaces';
+export const LEGACY_STORY_VIDEO_STORAGE_PROVIDER = 'digitalocean_spaces';
 export const STORY_VIDEO_MIN_BYTES = 1;
 export const STORY_VIDEO_MAX_BYTES = 1.9 * 1024 * 1024 * 1024;
 
@@ -222,7 +225,10 @@ export function validateStoryVideoMetadata(input: {
     return null;
   }
 
-  if (input.storageProvider !== STORY_VIDEO_STORAGE_PROVIDER) {
+  if (
+    input.storageProvider !== STORY_VIDEO_STORAGE_PROVIDER &&
+    input.storageProvider !== LEGACY_STORY_VIDEO_STORAGE_PROVIDER
+  ) {
     return 'Unsupported story video storage provider';
   }
 
@@ -786,10 +792,35 @@ export class StoryEditorialService {
       );
     }
 
+    if (updates.mediaAssets !== undefined) {
+      try {
+        updates.mediaAssets = await storyMediaAssetService.resolveForWrite(
+          normalizeStoryMediaAssets(updates.mediaAssets),
+          actor,
+          { storyId: id, current: normalizeStoryMediaAssets(current.mediaAssets) }
+        );
+      } catch (error) {
+        if (error instanceof MediaValidationError) {
+          throw new StoryValidationError(error.message, error.status);
+        }
+        throw error;
+      }
+    }
     const nextMediaAssets = applyDerivedStoryMediaUpdates(updates, current);
     const mediaAssetsError = validateStoryMediaAssets(nextMediaAssets);
     if (mediaAssetsError) {
       throw new StoryValidationError(mediaAssetsError, 400);
+    }
+
+    const trustedStorageFields = ['mediaKey', 'mediaUrl', 'mediaSizeBytes', 'mediaMimeType', 'storageProvider'] as const;
+    const trustedStorageChanged = trustedStorageFields.some(
+      (field) => updates[field] !== undefined && String(updates[field]) !== String(current[field] ?? '')
+    );
+    if (trustedStorageChanged && !nextMediaAssets.some((asset) => asset.kind === 'video' && asset.assetId)) {
+      throw new StoryValidationError(
+        'Trusted Story video metadata can only be changed through a verified upload receipt.',
+        400
+      );
     }
 
     const metadataError = validateStoryVideoMetadata({
@@ -857,15 +888,29 @@ export class StoryEditorialService {
           typeof bodyRecord.changeReason === 'string' ? bodyRecord.changeReason : undefined
         );
 
-    const updated = await updateStoryWithCas(
+    let updated: StoryRecord;
+    try {
+      updated = await updateStoryWithCas(
+        id,
+        normalizedForStore,
+        expectedVersion,
+        effectiveStore,
+        {
+          skipRevision: isAutosave,
+          revisionSnapshot: snapshot,
+        }
+      );
+    } catch (error) {
+      await storyMediaAssetService.markUnattachedForCleanup(
+        normalizeStoryMediaAssets(current.mediaAssets),
+        nextMediaAssets
+      );
+      throw error;
+    }
+    await storyMediaAssetService.syncReferences(
       id,
-      normalizedForStore,
-      expectedVersion,
-      effectiveStore,
-      {
-        skipRevision: isAutosave,
-        revisionSnapshot: snapshot,
-      }
+      normalizeStoryMediaAssets(current.mediaAssets),
+      nextMediaAssets
     );
 
     if (!isAutosave) {
@@ -1070,8 +1115,15 @@ export class StoryEditorialService {
     await assertStoryLeaseNotHeldByOther(id, actor);
 
     const effectiveStore = store ?? (await resolveStoryStore());
+    const current = await getStoryForMutation(id, effectiveStore);
+    if (!current) throw new StoryNotFoundError();
     const deleted = await deleteStoryWithCas(id, expectedVersion, effectiveStore);
     if (deleted) {
+      await storyMediaAssetService.syncReferences(
+        id,
+        normalizeStoryMediaAssets(current.mediaAssets),
+        []
+      );
       await deleteStoryLock(id).catch(() => undefined);
     }
     return deleted;

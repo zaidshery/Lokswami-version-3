@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { isValidDigitalOceanSpacesObjectKey } from '@/lib/utils/digitalOceanSpaces';
 
 export const STORY_VIDEO_STORAGE_PROVIDER = 'do-spaces' as const;
 export const STORY_VIDEO_MIN_BYTES = 1;
@@ -174,7 +175,11 @@ export function buildStoryVideoPublicUrl(mediaKey: string) {
 }
 
 function assertValidStoryVideoKey(mediaKey: string) {
-  if (!mediaKey.startsWith('stories/videos/') || !mediaKey.toLowerCase().endsWith('.mp4')) {
+  if (
+    !isValidDigitalOceanSpacesObjectKey(mediaKey) ||
+    !mediaKey.startsWith('stories/videos/') ||
+    !mediaKey.toLowerCase().endsWith('.mp4')
+  ) {
     throw new Error('Uploaded video key is invalid.');
   }
 }
@@ -285,11 +290,17 @@ export async function verifyStoryVideoUpload(mediaKey: string): Promise<StoryVid
   assertValidStoryVideoKey(mediaKey);
 
   const request = buildSignedObjectRequest({ method: 'HEAD', key: mediaKey });
-  const response = await fetch(request.url, {
-    method: 'HEAD',
-    headers: request.headers,
-    cache: 'no-store',
-  });
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetch(request.url, {
+      method: 'HEAD', headers: request.headers, cache: 'no-store',
+      redirect: 'error', signal: abort.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (response.status === 404) {
     throw new Error('Uploaded video was not found in storage.');

@@ -1211,3 +1211,12 @@ Deferred items must not be smuggled into a subphase unless they become necessary
 ### Planning completion record
 
 This plan preserves the locked dependency order and maps every audit P0/P1 into an implementation subphase or explicit deferment. It authorizes no Phase 3.8 application implementation by itself. Implementation begins only through a separately approved 3.8A task.
+
+## 27. Phase 3.8A completion record
+
+- Status: Complete.
+- Story download SSRF and unbounded buffering P0 closed. Downloads use server-owned signed keys, exact origin validation, and bounded streaming with idle timeouts.
+- Canonical asset receipts and storage boundaries established for direct uploads and MP4 flows.
+- Story create/update/media writes derive trusted storage metadata from verified receipts.
+- Delete and replace safety enforces ownership, references, and retryable cleanup tombstones.
+- Automation: 276 test files, 1,753 tests passing across full CI suites.

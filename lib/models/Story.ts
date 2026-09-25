@@ -90,6 +90,7 @@ export interface IStoryRevision {
 const StoryMediaAssetSchema = new mongoose.Schema<StoryMediaAsset>(
   {
     id: { type: String, required: true, trim: true },
+    assetId: { type: String, default: '', trim: true },
     kind: { type: String, enum: ['image', 'video'], required: true },
     url: { type: String, required: true, trim: true },
     key: { type: String, default: '', trim: true },

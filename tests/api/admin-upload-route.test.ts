@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getAdminSessionFromReqMock = vi.fn();
 const uploadBufferToSpacesMock = vi.fn();
+const createMediaMock = vi.fn();
 
 vi.mock('@/lib/auth/admin', () => ({
   getAdminSession: getAdminSessionFromReqMock,
@@ -12,6 +13,13 @@ vi.mock('@/lib/auth/admin', () => ({
 
 vi.mock('@/lib/utils/digitalOceanSpaces', () => ({
   uploadBufferToDigitalOceanSpaces: uploadBufferToSpacesMock,
+}));
+
+vi.mock('@/lib/server/media/mediaRepository', () => ({
+  MediaRepository: class {},
+  mediaRepository: {
+    createMedia: createMediaMock,
+  },
 }));
 
 function createRequest(formData: FormData) {
@@ -23,13 +31,18 @@ function createRequest(formData: FormData) {
   } as unknown as NextRequest;
 }
 
-function createFile(name: string, type: string, contents = 'demo') {
-  return new File([contents], name, { type });
+function createFile(
+  name: string,
+  type: string,
+  contents: string | Uint8Array = new Uint8Array([0xff, 0xd8, 0xff])
+) {
+  return new File([contents as BlobPart], name, { type });
 }
 
 describe('/api/admin/upload POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createMediaMock.mockImplementation(async (data) => ({ ...data, _id: 'asset-1' }));
   });
 
   it('returns 401 for guests', async () => {
@@ -84,6 +97,7 @@ describe('/api/admin/upload POST', () => {
     const response = await POST(createRequest(formData));
     const payload = await response.json();
 
+    expect(payload, JSON.stringify(payload)).not.toHaveProperty('error');
     expect(response.status).toBe(201);
     expect(uploadBufferToSpacesMock).toHaveBeenCalledTimes(1);
     expect(payload.data.url).toBe('https://cdn.example.com/lokswami/images/image.jpg');
@@ -221,7 +235,10 @@ describe('/api/admin/upload POST', () => {
 
     const formData = new FormData();
     formData.set('purpose', 'epaper-paper');
-    formData.set('file', createFile('edition.pdf', 'application/pdf', 'pdf'));
+    formData.set(
+      'file',
+      createFile('edition.pdf', 'application/pdf', new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]))
+    );
 
     const { POST } = await import('@/app/api/admin/upload/route');
     const response = await POST(createRequest(formData));
@@ -271,7 +288,7 @@ describe('/api/admin/upload POST', () => {
 
     const formData = new FormData();
     formData.set('purpose', 'epaper-paper');
-    formData.set('file', createFile('edition.pdf', 'application/pdf', 'pdf'));
+    formData.set('file', createFile('edition.pdf', 'application/pdf', '%PDF-1.4'));
 
     const { POST } = await import('@/app/api/admin/upload/route');
     const response = await POST(createRequest(formData));
@@ -292,6 +309,7 @@ describe('/api/admin/upload POST', () => {
       success: true,
       message: 'File uploaded successfully',
       data: {
+        assetId: 'asset-1',
         url: 'https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/epapers/papers/edition.pdf',
         secureUrl:
           'https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/epapers/papers/edition.pdf',

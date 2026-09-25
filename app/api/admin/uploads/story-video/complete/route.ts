@@ -4,8 +4,10 @@ import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import {
   parseStoryVideoSize,
   validateStoryVideoSelection,
-  verifyStoryVideoUpload,
 } from '@/lib/storage/storyVideoUpload';
+import { storyVideoAssetService } from '@/lib/server/media/storyVideoAssetService';
+import { MediaValidationError } from '@/lib/server/media/mediaService';
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
 
 export const runtime = 'nodejs';
 
@@ -15,15 +17,19 @@ async function POSTHandler(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const rateLimit = await checkRateLimit({ scope: 'heavy', identifier: `story-video-complete:${user.id}` });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ success: false, error: 'Too many upload verification attempts.' }, { status: 429, headers: getRateLimitHeaders(rateLimit) });
+    }
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const mediaKey = String(body.mediaKey || '').trim();
+    const assetId = String(body.assetId || '').trim();
     const expectedSize = parseStoryVideoSize(body.expectedSize);
     const expectedFileType = String(body.expectedFileType || 'video/mp4').trim().toLowerCase();
-    const expectedFileName = String(body.expectedFileName || mediaKey.split('/').pop() || '').trim();
+    const expectedFileName = String(body.expectedFileName || '').trim();
 
-    if (!mediaKey) {
-      return NextResponse.json({ success: false, error: 'Uploaded video key is required.' }, { status: 400 });
+    if (!assetId) {
+      return NextResponse.json({ success: false, error: 'Upload receipt is required.' }, { status: 400 });
     }
 
     const validationError = validateStoryVideoSelection({
@@ -35,14 +41,9 @@ async function POSTHandler(req: NextRequest) {
       return NextResponse.json({ success: false, error: validationError }, { status: 400 });
     }
 
-    const asset = await verifyStoryVideoUpload(mediaKey);
-
-    if (expectedSize && Math.abs(asset.mediaSizeBytes - expectedSize) > 1024) {
-      return NextResponse.json(
-        { success: false, error: 'Uploaded video size does not match the selected file.' },
-        { status: 400 }
-      );
-    }
+    const asset = await storyVideoAssetService.complete({
+      assetId, expectedSize, expectedFileType, expectedFileName,
+    }, user);
 
     return NextResponse.json({
       success: true,
@@ -50,11 +51,14 @@ async function POSTHandler(req: NextRequest) {
       data: asset,
     });
   } catch (error) {
+    if (error instanceof MediaValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     console.error('Error completing story video upload:', error);
-    const message =
-      error instanceof Error ? error.message : 'Failed to verify story video upload';
-
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to verify story video upload' },
+      { status: 500 }
+    );
   }
 }
 
