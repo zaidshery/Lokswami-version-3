@@ -69,8 +69,13 @@ import { CmsWorkflowStatusBadge } from '@/components/admin/CmsWorkflowStatusBadg
 import ArticleEditorStudio, {
   type ArticleEditorStudioMode,
 } from '@/components/forms/ArticleEditorStudio';
+import { useStoryLease } from '@/components/admin/stories/useStoryLease';
+import { useStoryAutosave } from '@/components/admin/stories/useStoryAutosave';
+import { StoryCollaborationBar } from '@/components/admin/stories/StoryCollaborationBar';
+import { StoryRevisionsDrawer } from '@/components/admin/stories/StoryRevisionsDrawer';
 
 interface StoryFormData {
+  [key: string]: unknown;
   title: string;
   caption: string;
   thumbnail: string;
@@ -602,6 +607,67 @@ export default function EditStoryPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [storyVersion, setStoryVersion] = useState(1);
+  const [revisionCount, setRevisionCount] = useState(0);
+  const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
+  const [loadedAt] = useState(() => Date.now());
+
+  const {
+    hasLease,
+    isLockedByOther,
+    holder: lockHolder,
+    takeOver: takeOverLock,
+  } = useStoryLease({
+    storyId,
+    enabled: Boolean(storyId && !isLoading),
+  });
+
+  const {
+    saveStatus,
+    statusMessage,
+    recoveredDraft,
+    discardRecovery,
+    setSaveStatus,
+    clearDraftStorage,
+  } = useStoryAutosave({
+    storyId,
+    storyVersion,
+    formData,
+    hasLease,
+    isLockedByOther,
+    loadedAt,
+    onVersionAdvanced: (newVer) => setStoryVersion(newVer),
+  });
+
+  const handleRevisionRestored = (restoredStory: Record<string, unknown>) => {
+    const loadedVersion = Number(restoredStory.version);
+    setFormData((prev) => ({
+      ...prev,
+      title: String(restoredStory.title || ''),
+      caption: String(restoredStory.caption || ''),
+      thumbnail: String(restoredStory.thumbnail || ''),
+      mediaType: restoredStory.mediaType === 'video' ? 'video' : 'image',
+      mediaUrl: String(restoredStory.mediaUrl || ''),
+      mediaKey: String(restoredStory.mediaKey || ''),
+      mediaSizeBytes: Number(restoredStory.mediaSizeBytes || 0),
+      mediaMimeType: String(restoredStory.mediaMimeType || ''),
+      storageProvider: String(restoredStory.storageProvider || ''),
+      linkUrl: String(restoredStory.linkUrl || ''),
+      linkLabel: String(restoredStory.linkLabel || ''),
+      category: String(restoredStory.category || ''),
+      author: String(restoredStory.author || ''),
+      durationSeconds: String(restoredStory.durationSeconds || ''),
+      priority: String(restoredStory.priority || ''),
+    }));
+    if (Array.isArray(restoredStory.mediaAssets)) {
+      setMediaAssets(restoredStory.mediaAssets as StoryMediaAsset[]);
+    }
+    setStoryVersion(
+      Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : storyVersion + 1
+    );
+    setSuccess('Story restored from revision successfully');
+    setRevisionCount((prev) => prev + 1);
+  };
   const [workflow, setWorkflow] = useState<WorkflowState>(EMPTY_WORKFLOW);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUserOption[]>([]);
   const [isLoadingAssignableUsers, setIsLoadingAssignableUsers] = useState(false);
@@ -790,6 +856,7 @@ export default function EditStoryPage() {
       }
 
       const story = data.data as Record<string, unknown>;
+      const loadedVersion = Number(story.version);
       const nextForm = {
         title: String(story.title || ''),
         caption: String(story.caption || ''),
@@ -847,6 +914,10 @@ export default function EditStoryPage() {
       ) as LinkedArticleStatus;
 
       setFormData(nextForm);
+      setStoryVersion(
+        Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : 1
+      );
+      setRevisionCount(Array.isArray(story.revisions) ? story.revisions.length : 0);
       setMediaAssets(nextMediaAssets);
       setUsesMediaCollection(nextMediaAssets.length > 0);
       setThumbnailFile(null);
@@ -1497,7 +1568,7 @@ export default function EditStoryPage() {
         return;
       }
 
-      const payload: Record<string, unknown> = {};
+      const payload: Record<string, unknown> = { expectedVersion: storyVersion };
 
       if (canEditCommonFields) {
         payload.title = formData.title.trim();
@@ -1562,8 +1633,22 @@ export default function EditStoryPage() {
 
       const data = await response.json();
       if (!response.ok || !data.success) {
+        if (response.status === 409 && data.code === 'STORY_VERSION_CONFLICT') {
+          setSaveStatus('version_conflict');
+          throw new Error('This story was updated elsewhere. Refresh before saving again.');
+        }
+        if (response.status === 409 && data.code === 'STORY_EDIT_LEASE_CONFLICT') {
+          setSaveStatus('lease_conflict');
+          throw new Error('Story is currently locked by another editor.');
+        }
         throw new Error(data.error || 'Failed to update story');
       }
+
+      if (Number.isInteger(data.data?.version) && data.data.version > 0) {
+        setStoryVersion(data.data.version);
+      }
+      clearDraftStorage();
+      setSaveStatus('saved');
 
       setSuccess(
         [
@@ -1731,6 +1816,7 @@ export default function EditStoryPage() {
         },
         body: JSON.stringify({
           action,
+          expectedVersion: storyVersion,
           assignedToId: workflowAssigneeId || undefined,
           scheduledFor: scheduledFor || undefined,
           dueAt: dueAt || undefined,
@@ -1742,12 +1828,22 @@ export default function EditStoryPage() {
       const data = (await response.json().catch(() => ({}))) as {
         success?: boolean;
         error?: string;
+        code?: string;
         message?: string;
+        data?: { version?: number };
       };
 
       if (!response.ok || !data.success) {
-        setError(data.error || 'Failed to update workflow');
+        setError(
+          response.status === 409 && data.code === 'STORY_VERSION_CONFLICT'
+            ? 'This story was updated elsewhere. Refresh before saving again.'
+            : data.error || 'Failed to update workflow'
+        );
         return;
+      }
+
+      if (Number.isInteger(data.data?.version) && Number(data.data?.version) > 0) {
+        setStoryVersion(Number(data.data?.version));
       }
 
       setWorkflowComment('');
@@ -1790,7 +1886,16 @@ export default function EditStoryPage() {
         dueAt={workflow.dueAt}
         hasUnsavedChanges={hasUnsavedChanges}
         blockerCount={hasUnsavedChanges ? 1 : 0}
-        primaryAction={availableWorkflowActions[0] ? ACTION_LABELS[availableWorkflowActions[0]] : 'Review workflow'}
+        primaryAction={
+          availableWorkflowActions[0]
+            ? availableWorkflowActions[0] === 'submit' &&
+              (workflow.status === 'changes_requested' || workflow.status === 'rejected')
+              ? 'Resubmit for Review'
+              : availableWorkflowActions[0] === 'start_review' && isCopyEditorSharedSubmittedStory
+                ? 'Claim Story'
+                : ACTION_LABELS[availableWorkflowActions[0]]
+            : 'Review workflow'
+        }
       />
 
       <motion.div
@@ -1798,7 +1903,107 @@ export default function EditStoryPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <CmsEditorCanvas>
+        <div className="mb-6">
+          <StoryCollaborationBar
+            saveStatus={saveStatus}
+            statusMessage={statusMessage}
+            hasLease={hasLease}
+            isLockedByOther={isLockedByOther}
+            lockHolder={lockHolder}
+            canTakeOver={Boolean(permissionUser && (permissionUser.role === 'admin' || permissionUser.role === 'super_admin'))}
+            onTakeOver={takeOverLock}
+            recoveredDraft={recoveredDraft}
+            onRestoreDraft={() => {
+              if (recoveredDraft?.data) {
+                setFormData(recoveredDraft.data as StoryFormData);
+                discardRecovery();
+              }
+            }}
+            onDiscardDraft={discardRecovery}
+            onOpenRevisions={() => setIsRevisionsOpen(true)}
+            revisionCount={revisionCount}
+          />
+        </div>
         <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+          {workflow.status === 'changes_requested' ? (
+            <div className="mb-6 rounded-2xl border border-amber-300/80 bg-amber-50/90 p-5 shadow-xs dark:border-amber-500/20 dark:bg-amber-500/10">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <h2 className="text-base font-bold text-amber-900 dark:text-amber-200">
+                      Desk Changes Requested
+                    </h2>
+                    <span className="rounded-full bg-amber-200/70 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                      Action Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                    {workflow.reviewedBy?.name ? `Returned by ${workflow.reviewedBy.name}` : 'Returned by the editorial desk'}
+                  </p>
+                </div>
+              </div>
+
+              {(workflow.rejectionReason || formData.returnForChangesReason || formData.copyEditorNotes) ? (
+                <div className="mt-3 rounded-xl border border-amber-300/60 bg-white/90 p-3.5 text-sm text-zinc-800 dark:border-amber-500/30 dark:bg-zinc-900/90 dark:text-zinc-200">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    Feedback / Change Notes:
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">
+                    {workflow.rejectionReason || formData.returnForChangesReason || formData.copyEditorNotes}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-3 text-xs text-amber-900/80 dark:text-amber-300/80">
+                <p>
+                  <span className="font-semibold">Editable Fields:</span> Headline, caption, script/notes, category, tags, and attached media assets.
+                </p>
+              </div>
+              <p className="mt-2 text-[11px] text-amber-700/80 dark:text-amber-400/80">
+                What happens next: Resubmitting moves this story back to the newsroom Review Queue for the copy desk.
+              </p>
+            </div>
+          ) : null}
+
+          {workflow.status === 'rejected' ? (
+            <div className="mb-6 rounded-2xl border border-red-300/80 bg-red-50/90 p-5 shadow-xs dark:border-red-500/20 dark:bg-red-500/10">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+                    <h2 className="text-base font-bold text-red-900 dark:text-red-200">
+                      Story Rejected
+                    </h2>
+                    <span className="rounded-full bg-red-200/70 px-2.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-500/20 dark:text-red-300">
+                      Terminal / Resubmit Allowed for Author
+                    </span>
+                  </div>
+                  {workflow.reviewedBy?.name ? (
+                    <p className="text-xs text-red-800/80 dark:text-red-300/80">
+                      Reviewed by {workflow.reviewedBy.name}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              {workflow.rejectionReason ? (
+                <div className="mt-3 rounded-xl border border-red-300/60 bg-white/90 p-3.5 text-sm text-zinc-800 dark:border-red-500/30 dark:bg-zinc-900/90 dark:text-zinc-200">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400">
+                    Rejection Reason:
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">{workflow.rejectionReason}</p>
+                </div>
+              ) : null}
+
+              <div className="mt-3 text-xs text-red-900/80 dark:text-red-300/80">
+                <p>
+                  You may correct the issues described above, save your changes, and resubmit this story back for desk evaluation.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex flex-wrap items-center gap-3">
@@ -2985,10 +3190,12 @@ export default function EditStoryPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="submit"
-                    disabled={isSaving || isUploadingThumbnail || isUploadingImages || isUploadingVideo}
+                    disabled={isSaving || isUploadingThumbnail || isUploadingImages || isUploadingVideo || isLockedByOther}
                     className="inline-flex min-w-[180px] items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 py-3 font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isSaving || isUploadingThumbnail || isUploadingImages || isUploadingVideo ? (
+                    {isLockedByOther ? (
+                      'Locked by Editor'
+                    ) : isSaving || isUploadingThumbnail || isUploadingImages || isUploadingVideo ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
                         {isUploadingThumbnail || isUploadingImages || isUploadingVideo ? 'Uploading...' : 'Saving...'}
@@ -2996,7 +3203,9 @@ export default function EditStoryPage() {
                     ) : (
                       <>
                         <Save className="h-5 w-5" />
-                        Save Changes
+                        {workflow.status === 'changes_requested' || workflow.status === 'rejected'
+                          ? 'Resubmit for Review'
+                          : 'Save Changes'}
                       </>
                     )}
                   </button>

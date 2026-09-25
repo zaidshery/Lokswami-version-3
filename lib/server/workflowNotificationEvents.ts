@@ -156,5 +156,10 @@ export async function notifyWorkflowEvent(input: {
       dedupeKey: `${input.contentType}:${input.contentId}:${sec.eventType}:${sec.recipient.email}:${eventMarker}`,
     }));
 
-  return Promise.all([...primaryPromises, ...secondaryPromises]);
+  try {
+    return await Promise.all([...primaryPromises, ...secondaryPromises]);
+  } catch (error) {
+    console.error('Failed to create workflow notifications:', error);
+    return [];
+  }
 }

@@ -142,6 +142,7 @@ describe('governance permission helpers', () => {
     expect(canViewPage(copyEditor.role, 'copy_desk')).toBe(true);
     expect(canViewPage(reporter.role, 'articles')).toBe(false);
     expect(canViewPage(reporter.role, 'article_create')).toBe(true);
+    expect(canViewPage(reporter.role, 'article_edit')).toBe(true);
     expect(canViewPage(reporter.role, 'copy_desk')).toBe(false);
     expect(canViewPage(reporter.role, 'push_alerts')).toBe(false);
   });
@@ -168,6 +169,20 @@ describe('governance permission helpers', () => {
       canEditContent(reporter, { ...baseContent, workflowStatus: 'submitted' })
     ).toBe(false);
     expect(canTransitionContent(reporter, baseContent, 'submit')).toBe(true);
+    expect(
+      canTransitionContent(
+        reporter,
+        { ...baseContent, workflowStatus: 'changes_requested' },
+        'submit'
+      )
+    ).toBe(true);
+    expect(
+      canTransitionContent(
+        reporter,
+        { ...baseContent, workflowStatus: 'rejected' },
+        'submit'
+      )
+    ).toBe(true);
     expect(
       canTransitionContent(reporter, { ...baseContent, workflowStatus: 'submitted' }, 'submit')
     ).toBe(false);

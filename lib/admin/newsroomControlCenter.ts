@@ -124,8 +124,8 @@ export async function getNewsroomControlCenterData(): Promise<NewsroomControlCen
   );
   const copyDesk = queueItems.filter((item) =>
     item.contentType === 'story'
-      ? ['submitted', 'assigned', 'in_review', 'copy_edit'].includes(item.status)
-      : ['assigned', 'in_review', 'copy_edit'].includes(item.status)
+      ? ['submitted', 'assigned', 'in_review', 'copy_edit', 'changes_requested', 'ready_for_approval'].includes(item.status)
+      : ['assigned', 'in_review', 'copy_edit', 'changes_requested', 'ready_for_approval'].includes(item.status)
   );
 
   return {

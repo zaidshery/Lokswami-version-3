@@ -18,6 +18,7 @@ import type { WorkflowMeta } from '@/lib/workflow/types';
 
 export interface IStory {
   _id?: string;
+  version: number;
   title: string;
   caption: string;
   thumbnail: string;
@@ -44,10 +45,47 @@ export interface IStory {
   linkedArticleId: string;
   linkedArticleStatus: LinkedArticleStatus;
   videoProduction: StoryVideoProduction;
+  revisions?: IStoryRevision[];
   embedding: number[];
   embeddingGeneratedAt: Date | null;
   aiSummary: string;
 }
+export interface IStoryRevision {
+  _id?: string;
+  version: number;
+  title: string;
+  caption: string;
+  thumbnail: string;
+  mediaType: 'image' | 'video';
+  mediaUrl: string;
+  mediaKey: string;
+  mediaSizeBytes: number;
+  mediaMimeType: string;
+  storageProvider: string;
+  mediaAssets: StoryMediaAsset[];
+  videoProduction: StoryVideoProduction;
+  linkUrl: string;
+  linkLabel: string;
+  category: string;
+  author: string;
+  durationSeconds: number;
+  priority: number;
+  reporterMeta: ReporterMeta;
+  copyEditorMeta: CopyEditorMeta;
+  workflow?: {
+    status?: string;
+    priority?: string;
+  };
+  savedAt: Date;
+  savedBy?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+  changeReason?: string;
+}
+
 
 const StoryMediaAssetSchema = new mongoose.Schema<StoryMediaAsset>(
   {
@@ -81,7 +119,38 @@ const StoryVideoProductionSchema = new mongoose.Schema<StoryVideoProduction>(
   { _id: false }
 );
 
+const StoryRevisionSchema = new mongoose.Schema<IStoryRevision>(
+  {
+    version: { type: Number, required: true },
+    title: { type: String, default: '' },
+    caption: { type: String, default: '' },
+    thumbnail: { type: String, default: '' },
+    mediaType: { type: String, enum: ['image', 'video'], default: 'image' },
+    mediaUrl: { type: String, default: '' },
+    mediaKey: { type: String, default: '' },
+    mediaSizeBytes: { type: Number, default: 0 },
+    mediaMimeType: { type: String, default: '' },
+    storageProvider: { type: String, default: '' },
+    mediaAssets: { type: [StoryMediaAssetSchema], default: [] },
+    videoProduction: { type: StoryVideoProductionSchema, default: () => createEmptyStoryVideoProduction() },
+    linkUrl: { type: String, default: '' },
+    linkLabel: { type: String, default: '' },
+    category: { type: String, default: 'General' },
+    author: { type: String, default: 'Desk' },
+    durationSeconds: { type: Number, default: 6 },
+    priority: { type: Number, default: 0 },
+    reporterMeta: { type: ReporterMetaSchema, default: () => ({}) },
+    copyEditorMeta: { type: CopyEditorMetaSchema, default: () => ({}) },
+    workflow: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+    savedAt: { type: Date, default: Date.now },
+    savedBy: { type: mongoose.Schema.Types.Mixed, default: null },
+    changeReason: { type: String, default: 'manual_save' },
+  },
+  { _id: true }
+);
+
 const StorySchema = new mongoose.Schema<IStory>({
+  version: { type: Number, default: 1, min: 1 },
   title: { type: String, required: true, maxlength: 140 },
   caption: { type: String, default: '' },
   thumbnail: { type: String, required: true },
@@ -115,6 +184,7 @@ const StorySchema = new mongoose.Schema<IStory>({
     type: StoryVideoProductionSchema,
     default: () => createEmptyStoryVideoProduction(),
   },
+  revisions: { type: [StoryRevisionSchema], default: [] },
   embedding: { type: [Number], default: [], select: false },
   embeddingGeneratedAt: { type: Date, default: null },
   aiSummary: { type: String, default: '' },

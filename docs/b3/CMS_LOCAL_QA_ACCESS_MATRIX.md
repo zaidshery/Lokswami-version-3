@@ -44,7 +44,7 @@ The command refuses production, remote MongoDB, unnamed or ambiguously named dat
 | `copy_desk` | Copy Desk | YES | YES | YES | NO |
 | `articles` | Articles | YES | YES | YES | NO |
 | `article_create` | Create Article | YES | YES | YES | YES |
-| `article_edit` | Edit Article | YES | YES | YES | NO |
+| `article_edit` | Edit Article | YES | YES | YES | YES |
 | `stories` | Stories | YES | YES | YES | YES |
 | `story_create` | Create Story | YES | YES | NO | YES |
 | `story_edit` | Edit Story | YES | YES | YES | YES |
@@ -147,6 +147,7 @@ All `/admin/*` pages also inherit the group layout's authenticated, active, cano
 - Super Admin: `/admin`, `/admin/settings`, `/admin/audit-log`, `/admin/permission-review`; confirm `/admin/my-work` is denied by the frozen map.
 - Admin: `/admin/review-queue`, `/admin/analytics`, `/admin/operations`; confirm `/admin/settings` and `/admin/audit-log` redirect.
 - Copy Editor: `/admin/copy-desk`, `/admin/articles`, an assigned `/admin/articles/[id]/edit`, and assigned E-Paper edit/page routes; confirm `/admin/videos/new` and `/admin/settings` are denied at the effective server/API boundary.
+- Reporter: an owned or assigned `/admin/articles/[id]/edit` is reachable only when content-level policy allows editing/recovery; another reporter's Article and all approval, assignment, scheduling, and publishing actions remain denied by the API.
 - Reporter: `/admin/my-work`, `/admin/articles/new`, `/admin/stories`, `/admin/stories/new`, `/admin/media`; confirm `/admin/review-queue`, `/admin/articles`, `/admin/videos/new`, and `/admin/settings` are denied.
 
 For every denied case, verify both the sidebar state and direct navigation. A page that renders a shell but receives `403` from its API is a route-guard gap, even when the underlying data or mutation remains protected.

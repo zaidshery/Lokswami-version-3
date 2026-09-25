@@ -56,6 +56,7 @@ export interface StoredWorkflowMeta {
 
 export interface StoredStory {
   _id: string;
+  version: number;
   title: string;
   caption: string;
   thumbnail: string;
@@ -82,7 +83,42 @@ export interface StoredStory {
   linkedArticleId: string;
   linkedArticleStatus: LinkedArticleStatus;
   videoProduction: StoryVideoProduction;
+  revisions: StoredStoryRevision[];
 }
+
+export interface StoredStoryRevision {
+  _id: string;
+  version: number;
+  title: string;
+  caption: string;
+  thumbnail: string;
+  mediaType: 'image' | 'video';
+  mediaUrl: string;
+  mediaKey: string;
+  mediaSizeBytes: number;
+  mediaMimeType: string;
+  storageProvider: string;
+  mediaAssets: StoryMediaAsset[];
+  videoProduction: StoryVideoProduction;
+  linkUrl: string;
+  linkLabel: string;
+  category: string;
+  author: string;
+  durationSeconds: number;
+  priority: number;
+  reporterMeta: ReporterMeta;
+  copyEditorMeta: CopyEditorMeta;
+  workflow?: Partial<StoredWorkflowMeta>;
+  savedAt: string;
+  savedBy?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+  changeReason?: string;
+}
+
 
 export interface CreateStoryInput {
   title: string;
@@ -112,8 +148,47 @@ export interface CreateStoryInput {
   videoProduction?: Partial<StoryVideoProduction>;
 }
 
+export type UpdateStoredStoryOptions = {
+  expectedVersion?: number;
+  skipRevision?: boolean;
+  revisionSnapshot?: StoredStoryRevision | null;
+};
+
+export const MAX_STORED_STORY_REVISIONS = 30;
+
+export class StoryVersionConflictError extends Error {
+  readonly currentVersion: number;
+  readonly code: string = 'STORY_VERSION_CONFLICT';
+
+  constructor(currentVersion: number) {
+    super('This story was updated elsewhere. Refresh before saving again.');
+    this.name = 'StoryVersionConflictError';
+    this.currentVersion = currentVersion;
+  }
+}
+
+export type DeleteStoredStoryOptions = {
+  expectedVersion?: number;
+};
+
+export function isStoryVersionConflictError(
+  error: unknown
+): error is StoryVersionConflictError {
+  return error instanceof StoryVersionConflictError;
+}
+
 const dataDir = path.resolve(process.cwd(), 'data');
 const dataPath = path.join(dataDir, 'stories.json');
+let storyMutationQueue: Promise<void> = Promise.resolve();
+
+function runStoryMutation<T>(mutation: () => Promise<T>) {
+  const result = storyMutationQueue.then(mutation);
+  storyMutationQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
 
 function createId() {
   return typeof crypto.randomUUID === 'function'
@@ -220,6 +295,10 @@ function normalizeStoredStory(input: unknown): StoredStory | null {
 
   return {
     _id: typeof source._id === 'string' && source._id.trim() ? source._id : createId(),
+    version:
+      typeof source.version === 'number' && Number.isInteger(source.version) && source.version > 0
+        ? source.version
+        : 1,
     title,
     caption: typeof source.caption === 'string' ? source.caption.trim() : '',
     thumbnail,
@@ -252,6 +331,9 @@ function normalizeStoredStory(input: unknown): StoredStory | null {
       typeof source.linkedArticleId === 'string' ? source.linkedArticleId.trim() : '',
     linkedArticleStatus: normalizeLinkedArticleStatus(source.linkedArticleStatus),
     videoProduction: normalizeStoryVideoProduction(source.videoProduction),
+    revisions: Array.isArray(source.revisions)
+      ? (source.revisions as StoredStoryRevision[])
+      : [],
   };
 }
 
@@ -344,13 +426,14 @@ export async function getStoredStoryById(id: string) {
   return all.find((item) => item._id === id) || null;
 }
 
-export async function createStoredStory(input: CreateStoryInput) {
+async function createStoredStoryUnlocked(input: CreateStoryInput) {
   const now = new Date().toISOString();
   const all = await readAllStories();
   const isPublished = input.isPublished === false ? false : true;
 
   const story: StoredStory = {
     _id: createId(),
+    version: 1,
     title: input.title,
     caption: input.caption || '',
     thumbnail: input.thumbnail,
@@ -384,6 +467,7 @@ export async function createStoredStory(input: CreateStoryInput) {
       input.videoProduction !== undefined
         ? normalizeStoryVideoProduction(input.videoProduction)
         : createEmptyStoryVideoProduction(),
+    revisions: [],
   };
 
   all.push(story);
@@ -391,7 +475,11 @@ export async function createStoredStory(input: CreateStoryInput) {
   return story;
 }
 
-export async function updateStoredStory(
+export function createStoredStory(input: CreateStoryInput) {
+  return runStoryMutation(() => createStoredStoryUnlocked(input));
+}
+
+async function updateStoredStoryUnlocked(
   id: string,
   updates: Partial<CreateStoryInput> & {
     durationSeconds?: number;
@@ -402,19 +490,27 @@ export async function updateStoredStory(
     workflow?: Partial<StoredWorkflowMeta>;
     reporterMeta?: Partial<ReporterMeta>;
     copyEditorMeta?: Partial<CopyEditorMeta>;
-  }
+  },
+  options?: UpdateStoredStoryOptions
 ) {
   const all = await readAllStories();
   const index = all.findIndex((item) => item._id === id);
   if (index === -1) return null;
 
   const current = all[index];
+  if (
+    options?.expectedVersion !== undefined &&
+    current.version !== options.expectedVersion
+  ) {
+    throw new StoryVersionConflictError(current.version);
+  }
   const nextIsPublished =
     updates.isPublished !== undefined ? Boolean(updates.isPublished) : current.isPublished;
 
   const next: StoredStory = {
     ...current,
     ...updates,
+    version: current.version + 1,
     mediaType:
       updates.mediaType === 'video'
         ? 'video'
@@ -483,6 +579,10 @@ export async function updateStoredStory(
             ...updates.videoProduction,
           })
         : current.videoProduction,
+    revisions:
+      !options?.skipRevision && options?.revisionSnapshot
+        ? [...(Array.isArray(current.revisions) ? current.revisions : []), options.revisionSnapshot].slice(-MAX_STORED_STORY_REVISIONS)
+        : (Array.isArray(current.revisions) ? current.revisions : []),
   };
 
   all[index] = next;
@@ -490,12 +590,125 @@ export async function updateStoredStory(
   return next;
 }
 
-export async function deleteStoredStory(id: string) {
+export function updateStoredStory(
+  id: string,
+  updates: Parameters<typeof updateStoredStoryUnlocked>[1],
+  options?: UpdateStoredStoryOptions
+) {
+  return runStoryMutation(() => updateStoredStoryUnlocked(id, updates, options));
+}
+
+async function deleteStoredStoryUnlocked(
+  id: string,
+  options?: DeleteStoredStoryOptions
+) {
   const all = await readAllStories();
   const index = all.findIndex((item) => item._id === id);
   if (index === -1) return false;
 
+  const current = all[index];
+  if (
+    options?.expectedVersion !== undefined &&
+    current.version !== options.expectedVersion
+  ) {
+    throw new StoryVersionConflictError(current.version);
+  }
+
   all.splice(index, 1);
   await writeAllStories(all);
   return true;
+}
+
+export function deleteStoredStory(id: string, options?: DeleteStoredStoryOptions) {
+  return runStoryMutation(() => deleteStoredStoryUnlocked(id, options));
+}
+
+async function restoreStoredStoryRevisionUnlocked(
+  id: string,
+  revisionId: string,
+  options?: { expectedVersion?: number }
+) {
+  const all = await readAllStories();
+  const index = all.findIndex((item) => item._id === id);
+  if (index === -1) return null;
+
+  const current = all[index];
+  if (
+    options?.expectedVersion !== undefined &&
+    current.version !== options.expectedVersion
+  ) {
+    throw new StoryVersionConflictError(current.version);
+  }
+
+  const revisions = Array.isArray(current.revisions) ? current.revisions : [];
+  const revision = revisions.find((r) => r._id === revisionId);
+  if (!revision) return null;
+
+  const snapshot: StoredStoryRevision = {
+    _id: createId(),
+    version: current.version,
+    title: current.title,
+    caption: current.caption,
+    thumbnail: current.thumbnail,
+    mediaType: current.mediaType,
+    mediaUrl: current.mediaUrl,
+    mediaKey: current.mediaKey,
+    mediaSizeBytes: current.mediaSizeBytes,
+    mediaMimeType: current.mediaMimeType,
+    storageProvider: current.storageProvider,
+    mediaAssets: current.mediaAssets,
+    videoProduction: current.videoProduction,
+    linkUrl: current.linkUrl,
+    linkLabel: current.linkLabel,
+    category: current.category,
+    author: current.author,
+    durationSeconds: current.durationSeconds,
+    priority: current.priority,
+    reporterMeta: current.reporterMeta,
+    copyEditorMeta: current.copyEditorMeta,
+    workflow: current.workflow,
+    savedAt: new Date().toISOString(),
+    changeReason: 'pre_restore',
+  };
+
+  const now = new Date().toISOString();
+  const restored: StoredStory = {
+    ...current,
+    version: current.version + 1,
+    title: revision.title,
+    caption: revision.caption,
+    thumbnail: revision.thumbnail,
+    mediaType: revision.mediaType,
+    mediaUrl: revision.mediaUrl,
+    mediaKey: revision.mediaKey,
+    mediaSizeBytes: revision.mediaSizeBytes,
+    mediaMimeType: revision.mediaMimeType,
+    storageProvider: revision.storageProvider,
+    mediaAssets: revision.mediaAssets,
+    videoProduction: revision.videoProduction,
+    linkUrl: revision.linkUrl,
+    linkLabel: revision.linkLabel,
+    category: revision.category,
+    author: revision.author,
+    durationSeconds: revision.durationSeconds,
+    priority: revision.priority,
+    reporterMeta: revision.reporterMeta,
+    copyEditorMeta: revision.copyEditorMeta,
+    updatedAt: now,
+    revisions: [...revisions, snapshot].slice(-MAX_STORED_STORY_REVISIONS),
+  };
+
+  all[index] = restored;
+  await writeAllStories(all);
+  return restored;
+}
+
+export function restoreStoredStoryRevision(
+  id: string,
+  revisionId: string,
+  options?: { expectedVersion?: number }
+) {
+  return runStoryMutation(() =>
+    restoreStoredStoryRevisionUnlocked(id, revisionId, options)
+  );
 }

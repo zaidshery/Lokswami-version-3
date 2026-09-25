@@ -279,6 +279,33 @@ describe('/api/admin/articles route', () => {
     expect(ensureBreakingTtsForArticleMock).not.toHaveBeenCalled();
   });
 
+  it('rejects an unknown article intent without mutation or activity', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'desk@example.com',
+      name: 'Desk',
+      role: 'admin',
+    });
+
+    const { POST } = await import('@/app/api/admin/articles/route');
+    const response = await POST(
+      new Request('http://localhost/api/admin/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          intent: 'publish-now-without-validation',
+          title: 'Unsafe intent',
+        }),
+      }) as unknown as NextRequest
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toEqual({ success: false, error: 'Invalid article intent' });
+    expect(createStoredArticleMock).not.toHaveBeenCalled();
+    expect(recordArticleActivityMock).not.toHaveBeenCalled();
+  });
+
   it('allows copy editors to create linked articles from claimed story reviews', async () => {
     getAdminSessionMock.mockResolvedValue({
       id: 'copy-1',

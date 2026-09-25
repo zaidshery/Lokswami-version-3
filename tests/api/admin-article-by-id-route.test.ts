@@ -172,12 +172,26 @@ describe('/api/admin/articles/[id] route', () => {
     isArticleVersionConflictErrorMock.mockReturnValue(false);
   });
 
-  it('prevents reporters from opening article detail through the API', async () => {
+  it('lets a reporter reopen their own changes-requested article', async () => {
     getAdminSessionMock.mockResolvedValue({
       id: 'reporter-1',
       email: 'reporter@example.com',
       name: 'Reporter',
       role: 'reporter',
+    });
+    getStoredArticleByIdMock.mockResolvedValue({
+      _id: 'article-1',
+      version: 2,
+      title: 'Returned report',
+      workflow: {
+        status: 'changes_requested',
+        createdBy: {
+          id: 'reporter-1',
+          email: 'reporter@example.com',
+          name: 'Reporter',
+          role: 'reporter',
+        },
+      },
     });
 
     const { GET } = await import('@/app/api/admin/articles/[id]/route');
@@ -186,12 +200,39 @@ describe('/api/admin/articles/[id] route', () => {
     });
     const payload = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(payload).toEqual({
-      success: false,
-      error: 'Forbidden',
+    expect(response.status).toBe(200);
+    expect(payload.data).toEqual(
+      expect.objectContaining({ _id: 'article-1', title: 'Returned report' })
+    );
+  });
+
+  it('keeps another reporter article private', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'reporter-1',
+      email: 'reporter@example.com',
+      name: 'Reporter',
+      role: 'reporter',
     });
-    expect(getStoredArticleByIdMock).not.toHaveBeenCalled();
+    getStoredArticleByIdMock.mockResolvedValue({
+      _id: 'article-1',
+      title: 'Another reporter article',
+      workflow: {
+        status: 'changes_requested',
+        createdBy: {
+          id: 'reporter-2',
+          email: 'reporter2@example.com',
+          name: 'Other Reporter',
+          role: 'reporter',
+        },
+      },
+    });
+
+    const { GET } = await import('@/app/api/admin/articles/[id]/route');
+    const response = await GET(createJsonRequest('GET'), {
+      params: Promise.resolve({ id: 'article-1' }),
+    });
+
+    expect(response.status).toBe(403);
   });
 
   it('lets a copy editor reopen their explicitly owned direct-article draft', async () => {
@@ -270,30 +311,217 @@ describe('/api/admin/articles/[id] route', () => {
     expect(updateStoredArticleMock).not.toHaveBeenCalled();
   });
 
-  it('prevents reporters from patching articles through the API', async () => {
+  it('lets a reporter save permitted corrections without changing desk metadata', async () => {
     getAdminSessionMock.mockResolvedValue({
       id: 'reporter-1',
       email: 'reporter@example.com',
       name: 'Reporter',
       role: 'reporter',
     });
+    getStoredArticleByIdMock.mockResolvedValue({
+      _id: 'article-1',
+      version: 2,
+      title: 'Returned report',
+      slug: 'returned-report',
+      summary: 'Original summary',
+      content: '<p>Original content</p>',
+      image: 'https://cdn.example.com/original.jpg',
+      category: 'Politics',
+      author: 'Reporter',
+      isBreaking: false,
+      workflow: {
+        status: 'changes_requested',
+        createdBy: {
+          id: 'reporter-1',
+          email: 'reporter@example.com',
+          name: 'Reporter',
+          role: 'reporter',
+        },
+      },
+    });
+    updateStoredArticleMock.mockResolvedValue({
+      _id: 'article-1',
+      version: 3,
+      title: 'Corrected title',
+      workflow: { status: 'changes_requested' },
+    });
 
     const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
     const response = await PATCH(
-      createJsonRequest('PATCH', { title: 'Updated title' }),
+      createJsonRequest('PATCH', {
+        title: 'Corrected title',
+        category: 'Forged desk category',
+        isBreaking: true,
+        seo: { metaTitle: 'Forged SEO' },
+        copyEditorMeta: { proofreadComplete: true },
+        expectedVersion: 2,
+      }),
       {
         params: Promise.resolve({ id: 'article-1' }),
       }
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(payload).toEqual({
-      success: false,
-      error: 'Forbidden',
+    expect(response.status).toBe(200);
+    expect(payload.data.title).toBe('Corrected title');
+    expect(updateStoredArticleMock).toHaveBeenCalledWith(
+      'article-1',
+      expect.objectContaining({ title: 'Corrected title' }),
+      expect.any(Object)
+    );
+    const updates = updateStoredArticleMock.mock.calls[0]?.[1];
+    expect(updates).not.toHaveProperty('category');
+    expect(updates).not.toHaveProperty('isBreaking');
+    expect(updates).not.toHaveProperty('seo');
+    expect(updates).not.toHaveProperty('copyEditorMeta');
+  });
+
+  it('lets a reporter resubmit their corrected changes-requested article', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'reporter-1',
+      email: 'reporter@example.com',
+      name: 'Reporter',
+      role: 'reporter',
     });
-    expect(getStoredArticleByIdMock).not.toHaveBeenCalled();
-    expect(updateStoredArticleMock).not.toHaveBeenCalled();
+    const current = createReadyWorkflowArticle({
+      workflow: {
+        status: 'changes_requested',
+        priority: 'normal',
+        createdBy: {
+          id: 'reporter-1',
+          email: 'reporter@example.com',
+          name: 'Reporter',
+          role: 'reporter',
+        },
+      },
+    });
+    getStoredArticleByIdMock.mockResolvedValue(current);
+    updateStoredArticleMock.mockImplementation(
+      async (_id: string, updates: Record<string, unknown>) => ({
+        ...current,
+        version: 5,
+        ...updates,
+      })
+    );
+
+    const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+    const response = await PATCH(
+      createJsonRequest('PATCH', { action: 'submit', expectedVersion: 4 }),
+      { params: Promise.resolve({ id: 'article-1' }) }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data.workflow.status).toBe('submitted');
+    expect(recordArticleActivityMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['assign', 'approve', 'reject', 'schedule', 'publish', 'fast_publish'])(
+    'prevents a reporter from invoking the privileged %s action',
+    async (action) => {
+      getAdminSessionMock.mockResolvedValue({
+        id: 'reporter-1',
+        email: 'reporter@example.com',
+        name: 'Reporter',
+        role: 'reporter',
+      });
+      getStoredArticleByIdMock.mockResolvedValue(
+        createReadyWorkflowArticle({
+          workflow: {
+            status: 'changes_requested',
+            createdBy: {
+              id: 'reporter-1',
+              email: 'reporter@example.com',
+              name: 'Reporter',
+              role: 'reporter',
+            },
+          },
+        })
+      );
+
+      const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+      const response = await PATCH(
+        createJsonRequest('PATCH', {
+          action,
+          expectedVersion: 4,
+          assignedToId: 'reporter-1',
+          scheduledFor: '2099-01-01T00:00:00.000Z',
+          rejectionReason: 'Desk-only reason',
+          comment: 'Urgent desk-only exception',
+        }),
+        { params: Promise.resolve({ id: 'article-1' }) }
+      );
+
+      expect(response.status).toBe(403);
+      expect(updateStoredArticleMock).not.toHaveBeenCalled();
+      expect(recordArticleActivityMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['not-a-date', '2000-01-01T00:00:00.000Z'])(
+    'rejects an invalid or past Article schedule without side effects: %s',
+    async (scheduledFor) => {
+      getAdminSessionMock.mockResolvedValue({
+        id: 'admin-1',
+        email: 'desk@example.com',
+        name: 'Desk',
+        role: 'admin',
+      });
+      getStoredArticleByIdMock.mockResolvedValue(
+        createReadyWorkflowArticle({ workflow: { status: 'approved', priority: 'normal' } })
+      );
+
+      const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+      const response = await PATCH(
+        createJsonRequest('PATCH', {
+          action: 'schedule',
+          expectedVersion: 4,
+          scheduledFor,
+        }),
+        { params: Promise.resolve({ id: 'article-1' }) }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(payload.error).toBe('scheduledFor must be a valid future date.');
+      expect(updateStoredArticleMock).not.toHaveBeenCalled();
+      expect(recordArticleActivityMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it('accepts a valid future Article schedule through the workflow action', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'admin-1',
+      email: 'desk@example.com',
+      name: 'Desk',
+      role: 'admin',
+    });
+    const current = createReadyWorkflowArticle({
+      workflow: { status: 'approved', priority: 'normal' },
+    });
+    getStoredArticleByIdMock.mockResolvedValue(current);
+    updateStoredArticleMock.mockImplementation(
+      async (_id: string, updates: Record<string, unknown>) => ({
+        ...current,
+        version: 5,
+        ...updates,
+      })
+    );
+
+    const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+    const response = await PATCH(
+      createJsonRequest('PATCH', {
+        action: 'schedule',
+        expectedVersion: 4,
+        scheduledFor: '2099-01-01T00:00:00.000Z',
+      }),
+      { params: Promise.resolve({ id: 'article-1' }) }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data.workflow.status).toBe('scheduled');
+    expect(recordArticleActivityMock).toHaveBeenCalledTimes(1);
   });
 
   it('allows a copy editor to autosave their own direct-article draft', async () => {
@@ -661,12 +889,41 @@ describe('/api/admin/articles/[id] route', () => {
     expect(mongoUpdate).not.toHaveProperty('$inc');
   });
 
-  it('prevents reporters from replacing articles through the API', async () => {
+  it('lets a reporter replace permitted fields on their rejected article without privilege expansion', async () => {
     getAdminSessionMock.mockResolvedValue({
       id: 'reporter-1',
       email: 'reporter@example.com',
       name: 'Reporter',
       role: 'reporter',
+    });
+    getStoredArticleByIdMock.mockResolvedValue({
+      _id: 'article-1',
+      version: 2,
+      title: 'Rejected report',
+      slug: 'rejected-report',
+      previousSlugs: [],
+      summary: 'Original summary',
+      content: '<p>Original content</p>',
+      image: 'https://cdn.example.com/original.jpg',
+      category: 'Politics',
+      author: 'Reporter',
+      isBreaking: false,
+      isTrending: false,
+      workflow: {
+        status: 'rejected',
+        createdBy: {
+          id: 'reporter-1',
+          email: 'reporter@example.com',
+          name: 'Reporter',
+          role: 'reporter',
+        },
+      },
+    });
+    updateStoredArticleMock.mockResolvedValue({
+      _id: 'article-1',
+      version: 3,
+      title: 'Corrected rejected report',
+      workflow: { status: 'rejected' },
     });
 
     const { PUT } = await import('@/app/api/admin/articles/[id]/route');
@@ -676,8 +933,10 @@ describe('/api/admin/articles/[id] route', () => {
         summary: 'Updated summary',
         content: 'Updated content',
         image: 'https://cdn.example.com/updated.jpg',
-        category: 'General',
-        author: 'Desk',
+        category: 'Forged category',
+        author: 'Forged author',
+        isBreaking: true,
+        expectedVersion: 2,
       }),
       {
         params: Promise.resolve({ id: 'article-1' }),
@@ -685,13 +944,19 @@ describe('/api/admin/articles/[id] route', () => {
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(payload).toEqual({
-      success: false,
-      error: 'Forbidden',
-    });
-    expect(getStoredArticleByIdMock).not.toHaveBeenCalled();
-    expect(updateStoredArticleMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    const updates = updateStoredArticleMock.mock.calls[0]?.[1];
+    expect(updates).toEqual(
+      expect.objectContaining({
+        title: 'Updated title',
+        summary: 'Updated summary',
+        content: 'Updated content',
+        image: 'https://cdn.example.com/updated.jpg',
+      })
+    );
+    expect(updates).not.toHaveProperty('category');
+    expect(updates).not.toHaveProperty('author');
+    expect(updates).not.toHaveProperty('isBreaking');
     expect(deleteStoredArticleMock).not.toHaveBeenCalled();
   });
 

@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const getAdminSessionMock = vi.fn();
 const connectDBMock = vi.fn();
 const listAllStoredStoriesMock = vi.fn();
+const createStoredStoryMock = vi.fn();
 const listAllStoredVideosMock = vi.fn();
 const storyFindMock = vi.fn();
 const videoFindMock = vi.fn();
+const recordStoryActivityMock = vi.fn();
 
 vi.mock('@/lib/auth/admin', () => ({
   getAdminSessionFromReq: getAdminSessionMock,
@@ -17,8 +19,17 @@ vi.mock('@/lib/db/mongoose', () => ({
 }));
 
 vi.mock('@/lib/storage/storiesFile', () => ({
-  createStoredStory: vi.fn(),
+  createStoredStory: createStoredStoryMock,
   listAllStoredStories: listAllStoredStoriesMock,
+}));
+
+vi.mock('@/lib/server/storyActivity', () => ({
+  buildStoryActivityMessage: vi.fn(() => 'Story activity recorded.'),
+  recordStoryActivity: recordStoryActivityMock,
+}));
+
+vi.mock('@/lib/server/storyVideoUsage', () => ({
+  getStoryVideoMonthlyUsageSummary: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock('@/lib/storage/videosFile', () => ({
@@ -54,6 +65,13 @@ const copyEditor = {
   role: 'copy_editor' as const,
 };
 
+const admin = {
+  id: 'admin-1',
+  email: 'admin@example.com',
+  name: 'Admin One',
+  role: 'admin' as const,
+};
+
 const otherReporter = {
   id: 'reporter-2',
   email: 'other@example.com',
@@ -69,6 +87,14 @@ function mockMongoRows(findMock: ReturnType<typeof vi.fn>, rows: unknown[]) {
 
 function request(path: string) {
   return new Request(`http://localhost${path}`) as unknown as NextRequest;
+}
+
+function postRequest(body: Record<string, unknown>) {
+  return new Request('http://localhost/api/admin/stories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }) as unknown as NextRequest;
 }
 
 describe('admin story and video list file-store visibility parity', () => {
@@ -214,5 +240,81 @@ describe('admin story and video list file-store visibility parity', () => {
     });
     expect(listAllStoredVideosMock).toHaveBeenCalledTimes(1);
     expect(videoFindMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['isPublished', 'publishedAt', 'scheduledFor', 'workflow'])(
+    'rejects direct Story publication field %s on create without side effects',
+    async (field) => {
+      getAdminSessionMock.mockResolvedValue(admin);
+
+      const { POST } = await import('@/app/api/admin/stories/route');
+      const response = await POST(
+        postRequest({
+          title: 'Unsafe story create',
+          thumbnail: '/story.jpg',
+          [field]: field === 'isPublished' ? true : 'forged',
+        })
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(payload).toEqual({
+        success: false,
+        error: 'Publication state can only be changed through workflow actions.',
+      });
+      expect(createStoredStoryMock).not.toHaveBeenCalled();
+      expect(recordStoryActivityMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejects an unknown Story create intent without side effects', async () => {
+    getAdminSessionMock.mockResolvedValue(admin);
+
+    const { POST } = await import('@/app/api/admin/stories/route');
+    const response = await POST(
+      postRequest({
+        intent: 'publish-without-workflow',
+        title: 'Unsafe story intent',
+        thumbnail: '/story.jpg',
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toEqual({ success: false, error: 'Invalid story intent' });
+    expect(createStoredStoryMock).not.toHaveBeenCalled();
+    expect(recordStoryActivityMock).not.toHaveBeenCalled();
+  });
+
+  it('defaults a missing Story create intent to an unpublished draft', async () => {
+    getAdminSessionMock.mockResolvedValue(admin);
+    createStoredStoryMock.mockImplementation(async (story) => ({
+      _id: 'story-draft-1',
+      ...story,
+    }));
+
+    const { POST } = await import('@/app/api/admin/stories/route');
+    const response = await POST(
+      postRequest({
+        title: 'Safe draft story',
+        thumbnail: '/story.jpg',
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(payload.data).toEqual(
+      expect.objectContaining({
+        isPublished: false,
+        workflow: expect.objectContaining({ status: 'draft' }),
+      })
+    );
+    expect(createStoredStoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isPublished: false,
+        workflow: expect.objectContaining({ status: 'draft' }),
+      })
+    );
+    expect(recordStoryActivityMock).toHaveBeenCalledTimes(1);
   });
 });

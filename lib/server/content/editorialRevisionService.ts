@@ -193,17 +193,21 @@ export class EditorialRevisionService {
       throw new ArticleVersionConflictError(currentVersion, current.updatedAt);
     }
 
-    await recordArticleActivity({
-      articleId: id,
-      actor,
-      action: 'restore_revision',
-      toStatus: resolveArticleWorkflow(restored).status,
-      message: buildArticleActivityMessage({ action: 'restore_revision' }),
-      metadata: {
-        revisionId,
-        revisionTitle: typeof targetRevision.title === 'string' ? targetRevision.title : '',
-      },
-    });
+    try {
+      await recordArticleActivity({
+        articleId: id,
+        actor,
+        action: 'restore_revision',
+        toStatus: resolveArticleWorkflow(restored).status,
+        message: buildArticleActivityMessage({ action: 'restore_revision' }),
+        metadata: {
+          revisionId,
+          revisionTitle: typeof targetRevision.title === 'string' ? targetRevision.title : '',
+        },
+      });
+    } catch (activityError) {
+      console.error('Failed to record article revision restore activity:', activityError);
+    }
 
     return restored;
   }
