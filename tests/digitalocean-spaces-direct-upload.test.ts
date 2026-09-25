@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createDigitalOceanSpacesBrowserUploadTarget } from '@/lib/utils/digitalOceanSpaces';
+import {
+  createDigitalOceanSpacesBrowserUploadTarget,
+  isValidDigitalOceanSpacesObjectKey,
+} from '@/lib/utils/digitalOceanSpaces';
 
 describe('DigitalOcean Spaces browser upload targets', () => {
   const originalEnv = {
@@ -43,5 +46,21 @@ describe('DigitalOcean Spaces browser upload targets', () => {
     expect(target.secureUrl).toBe(
       'https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/epapers/indore/2026-05-05/pages/001-page.jpg'
     );
+  });
+
+  it.each([
+    '../secret',
+    'safe/../secret',
+    '/absolute/file.jpg',
+    'safe\\file.jpg',
+    'safe/%2e%2e/file.jpg',
+    'safe/%2Fadmin.jpg',
+    'safe/%5cadmin.jpg',
+    'safe//file.jpg',
+  ])('rejects unsafe or encoded object key %s', (key) => {
+    expect(isValidDigitalOceanSpacesObjectKey(key)).toBe(false);
+    expect(() => createDigitalOceanSpacesBrowserUploadTarget({
+      key, contentType: 'image/jpeg',
+    })).toThrow('Invalid DigitalOcean Spaces object key');
   });
 });

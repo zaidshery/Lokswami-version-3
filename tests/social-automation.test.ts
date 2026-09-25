@@ -98,7 +98,9 @@ describe('social automation helpers', () => {
     expect(request?.headers).toMatchObject({
       'Content-Type': 'application/json',
       'X-Lokswami-Provider': 'n8n',
-      'X-Lokswami-Signature': 'shared-secret',
+      'X-Lokswami-Signature': expect.stringMatching(/^sha256=[a-f0-9]{64}$/),
+      'X-Lokswami-Timestamp': expect.any(String),
+      'Idempotency-Key': expect.any(String),
     });
     expect(result).toEqual({
       provider: 'n8n',

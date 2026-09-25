@@ -10,6 +10,10 @@ import {
   VideoValidationError,
   type WorkflowActionBody,
 } from '@/lib/server/video/videoTypes';
+import {
+  auditVideoExportCompleted,
+  auditVideoProductionStarted,
+} from '@/lib/security/phase38Observability';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -93,6 +97,22 @@ async function PATCHHandler(req: NextRequest, context: RouteContext) {
     const { id } = await context.params;
     const body = (await req.json()) as WorkflowActionBody;
     const result = await videoEditorialService.applyWorkflowAction(id, body, user);
+
+    if (body.action === 'approve') {
+      void auditVideoProductionStarted({
+        actor: user,
+        resourceId: id,
+        resourceName: result.data.title || 'Video',
+        metadata: { action: body.action },
+      });
+    } else if (body.action === 'publish' || body.action === 'fast_publish') {
+      void auditVideoExportCompleted({
+        actor: user,
+        resourceId: id,
+        resourceName: result.data.title || 'Video',
+        metadata: { action: body.action, duration: result.data.duration },
+      });
+    }
 
     return NextResponse.json({
       success: true,

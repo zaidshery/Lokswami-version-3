@@ -4,6 +4,7 @@ import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canDispatchSocialPosts } from '@/lib/auth/permissions';
 import { DistributionServiceError } from '@/lib/server/distribution/distributionTypes';
 import { socialDistributionService } from '@/lib/server/distribution/socialDistributionService';
+import { auditSocialDispatched } from '@/lib/security/phase38Observability';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -22,6 +23,14 @@ async function POSTHandler(req: NextRequest, context: RouteContext) {
       email: user.email,
       role: user.role,
     });
+
+    void auditSocialDispatched({
+      actor: user,
+      resourceId: id,
+      resourceName: 'Social Post Dispatch',
+      metadata: { automation: result.automation },
+    });
+
     return NextResponse.json({
       success: true,
       data: result.data,

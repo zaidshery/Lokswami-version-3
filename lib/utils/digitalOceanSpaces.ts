@@ -42,6 +42,11 @@ type VerifyUploadedObjectOptions = {
   key: string;
 };
 
+export type DigitalOceanSpacesSignedRequest = {
+  url: string;
+  headers: Record<string, string>;
+};
+
 export type DigitalOceanSpacesBrowserUploadTarget = {
   publicId: string;
   secureUrl: string;
@@ -187,6 +192,39 @@ function normalizePublicId(input: string) {
     .map((segment) => sanitizePathSegment(segment, 'asset'))
     .filter(Boolean)
     .join('/');
+}
+
+export function isValidDigitalOceanSpacesObjectKey(input: string) {
+  const value = input.trim();
+  if (!value || value.length > 1024) return false;
+  if (value.startsWith('/') || value.endsWith('/')) return false;
+  if (value.includes('\\') || value.includes('\0')) return false;
+  if (/%(?:2e|2f|5c)/i.test(value)) return false;
+
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    return false;
+  }
+
+  if (decoded !== value || decoded.includes('\\')) return false;
+
+  const segments = value.split('/');
+  return segments.every(
+    (segment) =>
+      Boolean(segment) &&
+      segment !== '.' &&
+      segment !== '..' &&
+      /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(segment)
+  );
+}
+
+function requireValidObjectKey(input: string) {
+  if (!isValidDigitalOceanSpacesObjectKey(input)) {
+    throw new Error('Invalid DigitalOcean Spaces object key');
+  }
+  return input.trim();
 }
 
 function sanitizePathSegment(value: string, fallback: string) {
@@ -385,10 +423,7 @@ function createSignedObjectRequest(
 export function createDigitalOceanSpacesBrowserUploadTarget(
   options: BrowserUploadTargetOptions
 ): DigitalOceanSpacesBrowserUploadTarget {
-  const key = normalizePublicId(options.key);
-  if (!key) {
-    throw new Error('Invalid DigitalOcean Spaces object key');
-  }
+  const key = requireValidObjectKey(options.key);
 
   const contentType = options.contentType.trim() || 'application/octet-stream';
   const expiresSeconds = Math.max(60, Math.min(options.expiresSeconds || 600, 3600));
@@ -410,10 +445,7 @@ export function createDigitalOceanSpacesBrowserUploadTarget(
 }
 
 export function buildDigitalOceanSpacesPublicUrl(publicId: string) {
-  const key = normalizePublicId(publicId);
-  if (!key) {
-    throw new Error('Invalid DigitalOcean Spaces object key');
-  }
+  const key = requireValidObjectKey(publicId);
 
   return buildPublicUrl(getSpacesConfig(), key);
 }
@@ -421,10 +453,7 @@ export function buildDigitalOceanSpacesPublicUrl(publicId: string) {
 export async function verifyDigitalOceanSpacesUploadedObject(
   options: VerifyUploadedObjectOptions
 ): Promise<VerifiedDigitalOceanSpacesObject> {
-  const key = normalizePublicId(options.key);
-  if (!key) {
-    throw new Error('Invalid DigitalOcean Spaces object key');
-  }
+  const key = requireValidObjectKey(options.key);
 
   const config = getSpacesConfig();
   const request = createSignedObjectRequest(config, 'HEAD', key);
@@ -503,8 +532,7 @@ export async function deleteDigitalOceanSpacesAssetByPublicId(
 ) {
   void _resourceType;
 
-  const key = normalizePublicId(publicId);
-  if (!key) return;
+  const key = requireValidObjectKey(publicId);
 
   const config = getSpacesConfig();
   const request = createSignedObjectRequest(config, 'DELETE', key);
@@ -519,8 +547,7 @@ export async function deleteDigitalOceanSpacesAssetByPublicId(
 }
 
 export async function hasDigitalOceanSpacesAssetByPublicId(publicId: string) {
-  const key = normalizePublicId(publicId);
-  if (!key) return false;
+  const key = requireValidObjectKey(publicId);
 
   const config = getSpacesConfig();
   const request = createSignedObjectRequest(config, 'HEAD', key);
@@ -576,6 +603,56 @@ export function parseDigitalOceanSpacesAssetFromUrl(value: string): ParsedDigita
   }
 
   return parseDigitalOceanSpacesUrl(parsed);
+}
+
+export function parseTrustedDigitalOceanSpacesAssetFromUrl(
+  value: string
+): ParsedDigitalOceanSpacesAsset | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port) {
+    return null;
+  }
+
+  let config;
+  try {
+    config = getSpacesConfig();
+  } catch {
+    return null;
+  }
+  const trustedOrigins = new Set([
+    `https://${config.originHost}`,
+    new URL(config.cdnBaseUrl).origin,
+  ]);
+  if (!trustedOrigins.has(parsed.origin)) return null;
+
+  let key: string;
+  try {
+    key = decodeURIComponent(parsed.pathname).replace(/^\/+|\/+$/g, '');
+  } catch {
+    return null;
+  }
+  if (!isValidDigitalOceanSpacesObjectKey(key)) return null;
+
+  return {
+    publicId: key,
+    resourceType: inferResourceTypeFromKey(key),
+  };
+}
+
+export function createDigitalOceanSpacesDownloadRequest(
+  publicId: string
+): DigitalOceanSpacesSignedRequest {
+  const key = requireValidObjectKey(publicId);
+  return createSignedObjectRequest(getSpacesConfig(), 'GET', key);
 }
 
 export async function deleteDigitalOceanSpacesAssetByUrl(value: string) {

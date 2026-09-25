@@ -1,293 +1,107 @@
 import type { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const getAdminSessionMock = vi.fn();
-const getStoredStoryByIdMock = vi.fn();
-const createStoryVideoDownloadRequestMock = vi.fn();
-const connectDBMock = vi.fn();
+const getAdminSession = vi.fn();
+const getStoredStoryById = vi.fn();
+const getMediaById = vi.fn();
 
-vi.mock('@/lib/auth/admin', () => ({
-  getAdminSession: getAdminSessionMock,
+vi.mock('@/lib/auth/admin', () => ({ getAdminSession }));
+vi.mock('@/lib/storage/storiesFile', () => ({ getStoredStoryById }));
+vi.mock('@/lib/server/media/mediaRepository', () => ({ mediaRepository: { getMediaById } }));
+vi.mock('@/lib/security/getRateLimiter', () => ({
+  checkRateLimit: vi.fn(async () => ({ allowed: true, limit: 20, remaining: 19, reset: 1 })),
+  getRateLimitHeaders: vi.fn(() => ({})),
 }));
+vi.mock('@/lib/db/mongoose', () => ({ default: vi.fn() }));
+vi.mock('@/lib/models/Story', () => ({ default: { findById: vi.fn() } }));
 
-vi.mock('@/lib/storage/storiesFile', () => ({
-  getStoredStoryById: getStoredStoryByIdMock,
-}));
-
-vi.mock('@/lib/storage/storyVideoUpload', () => ({
-  STORY_VIDEO_STORAGE_PROVIDER: 'do-spaces',
-  createStoryVideoDownloadRequest: createStoryVideoDownloadRequestMock,
-}));
-
-vi.mock('@/lib/db/mongoose', () => ({
-  default: connectDBMock,
-}));
-
-vi.mock('@/lib/models/Story', () => ({
-  default: {
-    findById: vi.fn(),
-  },
-}));
-
-function createGetRequest(asset: 'thumbnail' | 'media' = 'media') {
-  return new Request(
-    `http://localhost/api/admin/stories/story-1/download?asset=${asset}`,
-    { method: 'GET' }
-  ) as unknown as NextRequest;
+const user = {
+  id: 'reporter-1', email: 'reporter@example.com', name: 'Reporter', username: 'reporter', role: 'reporter',
+};
+const workflow = {
+  status: 'draft', createdBy: { id: user.id, email: user.email, name: user.name, role: user.role },
+};
+function request(asset = 'media') {
+  return new Request(`http://localhost/api/admin/stories/story-1/download?asset=${asset}`) as NextRequest;
 }
 
-describe('story asset download route', () => {
-  const originalMongoUri = process.env.MONGODB_URI;
+describe('Story download storage boundary', () => {
   const fetchMock = vi.fn();
+  const original = { ...process.env };
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.MONGODB_URI = '';
+    process.env.DIGITALOCEAN_SPACES_ACCESS_KEY = 'test-access';
+    process.env.DIGITALOCEAN_SPACES_SECRET_KEY = 'test-secret';
+    process.env.DIGITALOCEAN_SPACES_BUCKET = 'test-bucket';
+    process.env.DIGITALOCEAN_SPACES_REGION = 'test-region';
     vi.stubGlobal('fetch', fetchMock);
+    getAdminSession.mockResolvedValue(user);
   });
 
   afterEach(() => {
-    process.env.MONGODB_URI = originalMongoUri;
+    process.env = { ...original };
     vi.unstubAllGlobals();
   });
 
-  it('rejects unauthenticated downloads', async () => {
-    getAdminSessionMock.mockResolvedValue(null);
-
+  it('rejects unauthenticated requests before storage access', async () => {
+    getAdminSession.mockResolvedValue(null);
     const { GET } = await import('@/app/api/admin/stories/[id]/download/route');
-    const response = await GET(createGetRequest(), {
-      params: Promise.resolve({ id: 'story-1' }),
-    });
-    const payload = await response.json();
-
+    const response = await GET(request(), { params: Promise.resolve({ id: 'story-1' }) });
     expect(response.status).toBe(401);
-    expect(payload).toEqual({
-      success: false,
-      error: 'Unauthorized',
-    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('lets assigned copy editors download story media through the signed video request', async () => {
-    getAdminSessionMock.mockResolvedValue({
-      id: 'copy-editor-1',
-      email: 'copy@example.com',
-      name: 'Copy Editor',
-      role: 'copy_editor',
+  it('downloads an explicit legacy key only through a signed origin request', async () => {
+    getStoredStoryById.mockResolvedValue({
+      _id: 'story-1', title: 'Safe Story', author: 'Reporter', workflow,
+      mediaType: 'video', mediaUrl: 'https://evil.example/ignored.mp4',
+      mediaKey: 'stories/videos/2026/09/safe.mp4', mediaMimeType: 'video/mp4', mediaSizeBytes: 3,
     });
-    getStoredStoryByIdMock.mockResolvedValue({
-      _id: 'story-1',
-      title: 'Budget Meeting',
-      author: 'Reporter One',
-      thumbnail: 'https://cdn.example.com/thumb.jpg',
-      mediaType: 'video',
-      mediaUrl: 'https://cdn.example.com/story.mp4',
-      mediaKey: 'stories/videos/2026/04/18/story-1.mp4',
-      mediaMimeType: 'video/mp4',
-      storageProvider: 'do-spaces',
-      isPublished: false,
-      publishedAt: '2026-04-18T10:00:00.000Z',
-      updatedAt: '2026-04-18T10:30:00.000Z',
-      workflow: {
-        status: 'copy_edit',
-        createdBy: {
-          id: 'reporter-1',
-          name: 'Reporter One',
-          email: 'reporter@example.com',
-          role: 'reporter',
-        },
-        assignedTo: {
-          id: 'copy-editor-1',
-          name: 'Copy Editor',
-          email: 'copy@example.com',
-          role: 'copy_editor',
-        },
-      },
-    });
-    createStoryVideoDownloadRequestMock.mockReturnValue({
-      url: 'https://origin.example.com/stories/videos/2026/04/18/story-1.mp4',
-      headers: {
-        Authorization: 'signed-request',
-      },
-    });
-    fetchMock.mockResolvedValue(
-      new Response('video-bytes', {
-        status: 200,
-        headers: {
-          'Content-Type': 'video/mp4',
-        },
-      })
-    );
-
+    fetchMock.mockResolvedValue(new Response('mp4', { status: 200, headers: { 'Content-Length': '3' } }));
     const { GET } = await import('@/app/api/admin/stories/[id]/download/route');
-    const response = await GET(createGetRequest('media'), {
-      params: Promise.resolve({ id: 'story-1' }),
-    });
-
+    const response = await GET(request(), { params: Promise.resolve({ id: 'story-1' }) });
     expect(response.status).toBe(200);
-    expect(createStoryVideoDownloadRequestMock).toHaveBeenCalledWith(
-      'stories/videos/2026/04/18/story-1.mp4'
-    );
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://origin.example.com/stories/videos/2026/04/18/story-1.mp4',
-      expect.objectContaining({
-        method: 'GET',
-        headers: {
-          Authorization: 'signed-request',
-        },
-      })
+      expect.stringMatching(/^https:\/\/test-bucket\.test-region\.digitaloceanspaces\.com\/stories\/videos\//),
+      expect.objectContaining({ method: 'GET', redirect: 'error' })
     );
-    expect(response.headers.get('content-type')).toBe('video/mp4');
-    expect(response.headers.get('content-disposition')).toContain(
-      'budget-meeting-media.mp4'
-    );
-    expect(await response.text()).toBe('video-bytes');
+    expect(await response.text()).toBe('mp4');
   });
 
-  it('blocks copy editors from downloading unassigned story assets', async () => {
-    getAdminSessionMock.mockResolvedValue({
-      id: 'copy-editor-1',
-      email: 'copy@example.com',
-      name: 'Copy Editor',
-      role: 'copy_editor',
+  it('rejects arbitrary remote URLs without fetching them', async () => {
+    getStoredStoryById.mockResolvedValue({
+      _id: 'story-1', title: 'Unsafe', author: 'Reporter', workflow,
+      thumbnail: 'https://attacker.invalid/internal', mediaAssets: [],
     });
-    getStoredStoryByIdMock.mockResolvedValue({
-      _id: 'story-1',
-      title: 'Desk Story',
-      author: 'Reporter One',
-      thumbnail: 'https://cdn.example.com/thumb.jpg',
-      workflow: {
-        status: 'copy_edit',
-        createdBy: {
-          id: 'reporter-1',
-          name: 'Reporter One',
-          email: 'reporter@example.com',
-          role: 'reporter',
-        },
-        assignedTo: {
-          id: 'someone-else',
-          name: 'Another Editor',
-          email: 'other@example.com',
-          role: 'copy_editor',
-        },
-      },
-      isPublished: false,
-      publishedAt: '2026-04-18T10:00:00.000Z',
-      updatedAt: '2026-04-18T10:30:00.000Z',
-    });
-
     const { GET } = await import('@/app/api/admin/stories/[id]/download/route');
-    const response = await GET(createGetRequest('thumbnail'), {
-      params: Promise.resolve({ id: 'story-1' }),
-    });
+    const response = await GET(request('thumbnail'), { params: Promise.resolve({ id: 'story-1' }) });
     const payload = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(payload).toEqual({
-      success: false,
-      error: 'Forbidden',
-    });
+    expect(response.status).toBe(409);
+    expect(payload.code).toBe('MEDIA_MIGRATION_REQUIRED');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('lets copy editors download unassigned submitted story assets from the shared queue', async () => {
-    getAdminSessionMock.mockResolvedValue({
-      id: 'copy-editor-1',
-      email: 'copy@example.com',
-      name: 'Copy Editor',
-      role: 'copy_editor',
+  it('uses canonical object metadata instead of asset-supplied provider fields', async () => {
+    getStoredStoryById.mockResolvedValue({
+      _id: 'story-1', title: 'Canonical', author: 'Reporter', workflow,
+      mediaAssets: [{
+        id: 'local-1', assetId: 'asset-1', kind: 'image', url: 'https://attacker.invalid/x',
+        key: 'attacker/key', mimeType: 'text/html', sizeBytes: 1, storageProvider: 'fake',
+        originalFileName: 'x', order: 0, createdAt: new Date().toISOString(),
+      }], mediaUrl: 'https://attacker.invalid/x',
     });
-    getStoredStoryByIdMock.mockResolvedValue({
-      _id: 'story-1',
-      title: 'Submitted Story',
-      author: 'Reporter One',
-      thumbnail: 'https://cdn.example.com/thumb.jpg',
-      workflow: {
-        status: 'submitted',
-        createdBy: {
-          id: 'reporter-1',
-          name: 'Reporter One',
-          email: 'reporter@example.com',
-          role: 'reporter',
-        },
-        assignedTo: null,
-      },
-      isPublished: false,
-      updatedAt: '2026-04-18T10:30:00.000Z',
+    getMediaById.mockResolvedValue({
+      _id: 'asset-1', provider: 'do-spaces', objectKey: 'lokswami/images/safe.jpg',
+      url: 'https://cdn/safe.jpg', type: 'image/jpeg', size: 3, mediaKind: 'image', status: 'attached',
+      ownerType: 'story', ownerId: 'story-1', references: [],
     });
-    fetchMock.mockResolvedValue(
-      new Response('thumb-bytes', {
-        status: 200,
-        headers: {
-          'Content-Type': 'image/jpeg',
-        },
-      })
-    );
-
+    fetchMock.mockResolvedValue(new Response('jpg', { status: 200, headers: { 'Content-Length': '3' } }));
     const { GET } = await import('@/app/api/admin/stories/[id]/download/route');
-    const response = await GET(createGetRequest('thumbnail'), {
-      params: Promise.resolve({ id: 'story-1' }),
-    });
-
+    const response = await GET(request(), { params: Promise.resolve({ id: 'story-1' }) });
     expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://cdn.example.com/thumb.jpg',
-      expect.objectContaining({ method: 'GET' })
-    );
-    expect(response.headers.get('content-disposition')).toContain(
-      'submitted-story-thumbnail.jpg'
-    );
-  });
-
-  it('lets reporters download thumbnail assets for their own stories', async () => {
-    getAdminSessionMock.mockResolvedValue({
-      id: 'reporter-1',
-      email: 'reporter@example.com',
-      name: 'Reporter One',
-      role: 'reporter',
-    });
-    getStoredStoryByIdMock.mockResolvedValue({
-      _id: 'story-1',
-      title: 'Reporter Package',
-      author: 'Reporter One',
-      thumbnail: 'https://cdn.example.com/thumb.webp',
-      workflow: {
-        status: 'submitted',
-        createdBy: {
-          id: 'reporter-1',
-          name: 'Reporter One',
-          email: 'reporter@example.com',
-          role: 'reporter',
-        },
-        assignedTo: {
-          id: 'copy-editor-1',
-          name: 'Copy Editor',
-          email: 'copy@example.com',
-          role: 'copy_editor',
-        },
-      },
-      isPublished: false,
-      publishedAt: '2026-04-18T10:00:00.000Z',
-      updatedAt: '2026-04-18T10:30:00.000Z',
-    });
-    fetchMock.mockResolvedValue(
-      new Response('thumb-bytes', {
-        status: 200,
-        headers: {
-          'Content-Type': 'image/webp',
-        },
-      })
-    );
-
-    const { GET } = await import('@/app/api/admin/stories/[id]/download/route');
-    const response = await GET(createGetRequest('thumbnail'), {
-      params: Promise.resolve({ id: 'story-1' }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('content-disposition')).toContain(
-      'reporter-package-thumbnail.webp'
-    );
-    expect(await response.text()).toBe('thumb-bytes');
+    expect(fetchMock.mock.calls[0][0]).toContain('/lokswami/images/safe.jpg');
+    expect(fetchMock.mock.calls[0][0]).not.toContain('attacker');
   });
 });

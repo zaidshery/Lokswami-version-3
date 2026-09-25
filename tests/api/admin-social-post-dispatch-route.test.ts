@@ -8,6 +8,8 @@ const dispatchSocialPostToAutomationMock = vi.fn();
 const getSocialAutomationConfigMock = vi.fn();
 const getSocialAutomationPublicConfigMock = vi.fn();
 
+const getSocialDraftContentSourcesMock = vi.fn();
+
 vi.mock('@/lib/auth/admin', () => ({
   getAdminSession: getAdminSessionMock,
   getAdminSessionFromReq: getAdminSessionMock,
@@ -15,10 +17,37 @@ vi.mock('@/lib/auth/admin', () => ({
 
 vi.mock('@/lib/db/mongoose', () => ({ default: vi.fn() }));
 vi.mock('@/lib/models/SocialPost', () => ({ default: {} }));
+vi.mock('@/lib/models/SocialDelivery', () => ({ default: {} }));
 
 vi.mock('@/lib/storage/socialPostsFile', () => ({
   getStoredSocialPostById: getStoredSocialPostByIdMock,
   updateStoredSocialPost: updateStoredSocialPostMock,
+}));
+
+vi.mock('@/lib/server/content/socialDistributionContentQueryService', () => ({
+  getSocialDraftContentSources: getSocialDraftContentSourcesMock,
+}));
+
+vi.mock('@/lib/server/distribution/socialDeliveryRepository', () => ({
+  socialDeliveryRepository: {
+    resolveStore: vi.fn().mockResolvedValue('file'),
+    findOrCreateDelivery: vi.fn().mockResolvedValue({
+      _id: 'delivery-1',
+      idempotencyKey: 'idemp-1',
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 3,
+    }),
+    atomicClaim: vi.fn().mockResolvedValue({
+      claimed: true,
+      claimId: 'claim-1',
+      delivery: { _id: 'delivery-1', status: 'dispatching', attempts: 1 },
+    }),
+    recordSuccess: vi.fn().mockResolvedValue({}),
+    recordFailure: vi.fn().mockResolvedValue({}),
+    recordReconciliationRequired: vi.fn().mockResolvedValue({}),
+    getById: vi.fn().mockResolvedValue(null),
+  },
 }));
 
 vi.mock('@/lib/server/socialAutomation', () => ({
@@ -49,6 +78,22 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
       provider: 'n8n',
       enabled: true,
       label: 'n8n webhook automation',
+    });
+    getSocialDraftContentSourcesMock.mockResolvedValue({
+      store: 'file',
+      story: {
+        _id: 'story-1',
+        title: 'Story 1',
+        workflow: { status: 'approved' },
+        videoUrl: 'https://cdn.example.com/final.mp4',
+        linkedArticleId: 'article-1',
+      },
+      article: {
+        _id: 'article-1',
+        title: 'Article 1',
+        status: 'published',
+        version: 1,
+      },
     });
   });
 

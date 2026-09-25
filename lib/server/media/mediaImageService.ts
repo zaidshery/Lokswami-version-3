@@ -67,8 +67,20 @@ export class MediaImageService {
       { key: 'square1x1' as const, suffix: '1x1', width: 1080, height: 1080 },
     ];
 
-    const cropUploads = await Promise.all(
-      cropSpecs.map(async (spec) => {
+    const uploadedKeys: string[] = [];
+    const uploadTracked = async (buffer: Buffer, originalFilename: string) => {
+      const uploaded = await spacesAdapter.uploadBuffer(buffer, {
+        folder: input.folder,
+        resourceType: 'image',
+        originalFilename,
+      });
+      uploadedKeys.push(uploaded.publicId);
+      return uploaded;
+    };
+
+    try {
+      const cropUploads: Array<readonly [typeof cropSpecs[number]['key'], string]> = [];
+      for (const spec of cropSpecs) {
         const crop = resolveFocalCrop({
           width,
           height,
@@ -81,39 +93,37 @@ export class MediaImageService {
           .resize(spec.width, spec.height)
           .webp({ quality: 86, effort: 4 })
           .toBuffer();
-        const uploaded = await spacesAdapter.uploadBuffer(buffer, {
-          folder: input.folder,
-          resourceType: 'image',
-          originalFilename: replaceImageExtension(input.filename, spec.suffix, 'webp'),
-        });
-        return [spec.key, uploaded.secureUrl] as const;
-      })
-    );
+        const uploaded = await uploadTracked(
+          buffer,
+          replaceImageExtension(input.filename, spec.suffix, 'webp')
+        );
+        cropUploads.push([spec.key, uploaded.secureUrl] as const);
+      }
 
-    const [primary, avif] = await Promise.all([
-      spacesAdapter.uploadBuffer(primaryBuffer, {
-        folder: input.folder,
-        resourceType: 'image',
-        originalFilename: replaceImageExtension(input.filename, 'optimized', 'webp'),
-      }),
-      spacesAdapter.uploadBuffer(avifBuffer, {
-        folder: input.folder,
-        resourceType: 'image',
-        originalFilename: replaceImageExtension(input.filename, 'optimized', 'avif'),
-      }),
-    ]);
+      const primary = await uploadTracked(
+        primaryBuffer,
+        replaceImageExtension(input.filename, 'optimized', 'webp')
+      );
+      const avif = await uploadTracked(
+        avifBuffer,
+        replaceImageExtension(input.filename, 'optimized', 'avif')
+      );
 
-    return {
-      primary,
-      width,
-      height,
-      filename: replaceImageExtension(input.filename, 'optimized', 'webp'),
-      variants: {
-        ...Object.fromEntries(cropUploads),
-        webp: primary.secureUrl,
-        avif: avif.secureUrl,
-      },
-    };
+      return {
+        primary,
+        width,
+        height,
+        filename: replaceImageExtension(input.filename, 'optimized', 'webp'),
+        variants: {
+          ...Object.fromEntries(cropUploads),
+          webp: primary.secureUrl,
+          avif: avif.secureUrl,
+        },
+      };
+    } catch (error) {
+      await Promise.allSettled(uploadedKeys.map((key) => spacesAdapter.deleteAssetByPublicId(key)));
+      throw error;
+    }
   }
 }
 

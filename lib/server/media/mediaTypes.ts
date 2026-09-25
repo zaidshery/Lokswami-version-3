@@ -5,6 +5,23 @@ export type MediaUploadPurpose =
   | 'epaper-thumbnail'
   | 'epaper-paper';
 
+export type MediaAssetStatus =
+  | 'pending'
+  | 'verified'
+  | 'attached'
+  | 'cleanup_pending'
+  | 'deleted'
+  | 'failed';
+
+export type MediaOwnerType = 'library' | 'article' | 'story' | 'video' | 'epaper';
+
+export interface MediaReference {
+  ownerType: MediaOwnerType;
+  ownerId: string;
+  field?: string;
+  attachedAt: string | Date;
+}
+
 export interface MediaRecord {
   _id?: string;
   filename: string;
@@ -12,6 +29,21 @@ export interface MediaRecord {
   size?: number;
   type?: string;
   uploadedBy?: string;
+  createdById?: string;
+  provider?: 'do-spaces' | 'legacy';
+  objectKey?: string;
+  status?: MediaAssetStatus;
+  mediaKind?: 'image' | 'video' | 'document';
+  ownerType?: MediaOwnerType;
+  ownerId?: string;
+  expectedSize?: number;
+  referenceTrackingComplete?: boolean;
+  references?: MediaReference[];
+  variants?: MediaOptimizedVariantMap;
+  cleanupError?: string;
+  verifiedAt?: string | Date;
+  deletedAt?: string | Date;
+  updatedAt?: string | Date;
   createdAt?: string | Date;
 }
 
@@ -34,6 +66,7 @@ export interface MediaOptimizedVariantMap {
 }
 
 export interface MediaUploadResult {
+  assetId: string;
   url: string;
   secureUrl: string;
   publicId: string;

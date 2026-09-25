@@ -2,7 +2,15 @@ import { resolveVideoWorkflow } from '@/lib/workflow/video';
 
 export const VIDEO_MEDIA_PROVIDERS = ['youtube', 'spaces-mp4'] as const;
 export const VIDEO_ASPECT_RATIOS = ['9:16', '16:9', '1:1', 'unknown'] as const;
-export const VIDEO_PROCESSING_STATUSES = ['ready', 'processing', 'failed'] as const;
+export const VIDEO_PROCESSING_STATUSES = [
+  'uploaded',
+  'processing',
+  'ready',
+  'failed',
+  'review',
+  'approved',
+  'published',
+] as const;
 
 export type VideoMediaProvider = (typeof VIDEO_MEDIA_PROVIDERS)[number];
 export type VideoAspectRatio = (typeof VIDEO_ASPECT_RATIOS)[number];
@@ -157,7 +165,8 @@ export function isPubliclyPublishedVideo(source: PublicVideoSource, now = new Da
   const publishedAt = new Date(String(source.publishedAt || ''));
   if (!Number.isNaN(publishedAt.getTime()) && publishedAt.getTime() > now.getTime()) return false;
 
-  return normalizeVideoProcessingStatus(source.processingStatus) === 'ready';
+  const status = normalizeVideoProcessingStatus(source.processingStatus);
+  return status === 'ready' || status === 'published';
 }
 
 export function isSwipeFeedEligibleVideo(source: PublicVideoSource, now = new Date()) {
@@ -174,7 +183,8 @@ export function validateSwipePublishFields(source: PublicVideoSource) {
   if (!toId(source.articleId)) return 'Swipe News requires a related published article before publishing.';
   if (!text(source.posterUrl) && !text(source.thumbnail)) return 'Swipe News requires a poster before publishing.';
   if (!text(source.playbackUrl) && !text(source.videoUrl)) return 'Swipe News requires ready media before publishing.';
-  if (normalizeVideoProcessingStatus(source.processingStatus) !== 'ready') {
+  const status = normalizeVideoProcessingStatus(source.processingStatus);
+  if (status !== 'ready' && status !== 'published') {
     return 'Swipe News media must be ready before publishing.';
   }
   if (normalizeVideoAspectRatio(source.aspectRatio) !== '9:16') {

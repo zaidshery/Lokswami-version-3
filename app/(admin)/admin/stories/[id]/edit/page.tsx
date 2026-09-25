@@ -1107,6 +1107,8 @@ export default function EditStoryPage() {
     const body = new FormData();
     body.append('file', file);
     body.append('purpose', 'image');
+    body.append('ownerType', 'story');
+    body.append('ownerId', storyId);
 
     const response = await fetch('/api/admin/upload', {
       method: 'POST',
@@ -1122,6 +1124,7 @@ export default function EditStoryPage() {
     }
 
     return createStoryMediaAsset({
+      assetId: String(data.data?.assetId || ''),
       kind: 'image',
       url: String(data.data?.url || ''),
       key: String(data.data?.publicId || ''),
@@ -1307,13 +1310,14 @@ export default function EditStoryPage() {
         success?: boolean;
         error?: string;
         data?: {
+          assetId?: string;
           mediaKey?: string;
           uploadUrl?: string;
           uploadHeaders?: Record<string, string>;
         };
       };
 
-      if (!initResponse.ok || !initPayload.success || !initPayload.data?.uploadUrl || !initPayload.data.mediaKey) {
+      if (!initResponse.ok || !initPayload.success || !initPayload.data?.uploadUrl || !initPayload.data.mediaKey || !initPayload.data.assetId) {
         throw new Error(initPayload.error || 'Failed to initialize video upload.');
       }
 
@@ -1331,7 +1335,7 @@ export default function EditStoryPage() {
           ...getAuthHeader(),
         },
         body: JSON.stringify({
-          mediaKey: initPayload.data.mediaKey,
+          assetId: initPayload.data.assetId,
           expectedSize: file.size,
           expectedFileType: file.type || 'video/mp4',
           expectedFileName: file.name,
@@ -1341,6 +1345,7 @@ export default function EditStoryPage() {
         success?: boolean;
         error?: string;
         data?: {
+          assetId?: string;
           mediaUrl?: string;
           mediaKey?: string;
           mediaSizeBytes?: number;
@@ -1354,6 +1359,7 @@ export default function EditStoryPage() {
       }
 
       const uploadedAsset = createStoryMediaAsset({
+        assetId: String(completePayload.data?.assetId || ''),
         kind: 'video',
         url: String(completePayload.data?.mediaUrl || ''),
         key: String(completePayload.data?.mediaKey || ''),

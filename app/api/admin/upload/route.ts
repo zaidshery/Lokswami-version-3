@@ -6,6 +6,8 @@ import {
   MediaValidationError,
 } from '@/lib/server/media/mediaService';
 import type { MediaUploadPurpose } from '@/lib/server/media/mediaTypes';
+import type { MediaOwnerType } from '@/lib/server/media/mediaTypes';
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
 
 export const runtime = 'nodejs';
 
@@ -40,8 +42,33 @@ function parseFocalPoint(value: FormDataEntryValue | null): number {
   return Math.min(100, Math.max(0, parsed));
 }
 
+function parseOwnerType(value: FormDataEntryValue | null): MediaOwnerType | undefined {
+  return ['library', 'article', 'story', 'video', 'epaper'].includes(String(value || ''))
+    ? (String(value) as MediaOwnerType)
+    : undefined;
+}
+
 async function POSTHandler(req: NextRequest) {
   try {
+    const user = await getAdminSessionFromReq(req);
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    const rateLimit = await checkRateLimit({ scope: 'heavy', identifier: `media-upload:${user.id}` });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many media uploads. Try again shortly.' },
+        { status: 429, headers: getRateLimitHeaders(rateLimit) }
+      );
+    }
+    const requestBytes = Number(req.headers?.get('content-length') || 0);
+    if (Number.isFinite(requestBytes) && requestBytes > 26 * 1024 * 1024) {
+      return NextResponse.json(
+        { success: false, error: 'Upload request is too large.' },
+        { status: 413 }
+      );
+    }
+
     let formData: FormData;
     try {
       formData = await readUploadFormData(req);
@@ -51,11 +78,6 @@ async function POSTHandler(req: NextRequest) {
         { success: false, error: 'Failed to process request body' },
         { status: 400 }
       );
-    }
-
-    const user = await getAdminSessionFromReq(req);
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const file = formData.get('file');
@@ -68,10 +90,13 @@ async function POSTHandler(req: NextRequest) {
     const optimizeArticleImage =
       purpose === 'image' && formData.get('optimizeArticleImage') === 'true';
 
-    const data = await mediaService.processUpload(file, purpose, user.role, {
+    const data = await mediaService.processUpload(file, purpose, user, {
       optimizeArticleImage,
       focalPointX: parseFocalPoint(formData.get('focalPointX')),
       focalPointY: parseFocalPoint(formData.get('focalPointY')),
+      ownerType: parseOwnerType(formData.get('ownerType')),
+      ownerId: String(formData.get('ownerId') || '').trim(),
+      referenceTrackingComplete: formData.get('ownerType') === 'library',
     });
 
     return NextResponse.json(

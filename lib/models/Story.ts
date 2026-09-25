@@ -90,6 +90,7 @@ export interface IStoryRevision {
 const StoryMediaAssetSchema = new mongoose.Schema<StoryMediaAsset>(
   {
     id: { type: String, required: true, trim: true },
+    assetId: { type: String, default: '', trim: true },
     kind: { type: String, enum: ['image', 'video'], required: true },
     url: { type: String, required: true, trim: true },
     key: { type: String, default: '', trim: true },
@@ -107,13 +108,17 @@ const StoryVideoProductionSchema = new mongoose.Schema<StoryVideoProduction>(
   {
     status: {
       type: String,
-      enum: ['not_started', 'editing', 'qa_review', 'ready_to_publish', 'published'],
+      enum: ['not_started', 'editing', 'qa_review', 'ready_to_publish', 'published', 'failed'],
       default: 'not_started',
     },
     assignedTo: { type: WorkflowActorRefSchema, default: null },
     editorNotes: { type: String, default: '' },
+    masterAssetId: { type: String, default: '', trim: true },
     masterExportUrl: { type: String, default: '' },
     thumbnailUrl: { type: String, default: '' },
+    verifiedAt: { type: String, default: null },
+    technicalMetadata: { type: mongoose.Schema.Types.Mixed, default: null },
+    lastError: { type: String, default: null },
     updatedAt: { type: String, default: null },
   },
   { _id: false }

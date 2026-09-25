@@ -8,6 +8,7 @@ export type StoryMediaAssetKind = 'image' | 'video';
 
 export type StoryMediaAsset = {
   id: string;
+  assetId?: string;
   kind: StoryMediaAssetKind;
   url: string;
   key: string;
@@ -52,6 +53,7 @@ export function normalizeStoryMediaAssets(input: unknown): StoryMediaAsset[] {
 
       return {
         id: normalizeString(source.id) || createAssetId(),
+        ...(normalizeString(source.assetId) ? { assetId: normalizeString(source.assetId) } : {}),
         kind,
         url,
         key: normalizeString(source.key),

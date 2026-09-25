@@ -1,6 +1,6 @@
 import type { AdminSessionIdentity } from '@/lib/auth/admin';
 import { canDeleteContent } from '@/lib/auth/permissions';
-import { isReporterDeskRole } from '@/lib/auth/roles';
+import { isReporterDeskRole, normalizeAdminRole } from '@/lib/auth/roles';
 import {
   mediaImageService,
   type MediaImageService,
@@ -19,6 +19,11 @@ import {
   spacesAdapter,
   type SpacesAdapter,
 } from './spacesAdapter';
+import { validateUploadedFileContent } from './mediaFileValidation';
+import {
+  isValidDigitalOceanSpacesObjectKey,
+  parseTrustedDigitalOceanSpacesAssetFromUrl,
+} from '@/lib/utils/digitalOceanSpaces';
 
 export class MediaValidationError extends Error {
   readonly status: number;
@@ -36,21 +41,17 @@ function bytesFromMb(mb: number) {
 function isPdf(file: File) {
   const mime = file.type.trim().toLowerCase();
   const name = file.name.trim().toLowerCase();
-  return mime === 'application/pdf' || name.endsWith('.pdf');
+  return mime === 'application/pdf' && name.endsWith('.pdf');
 }
 
 function isImage(file: File) {
   const mime = file.type.trim().toLowerCase();
-  const name = file.name.trim().toLowerCase();
   return (
     mime === 'image/jpeg' ||
     mime === 'image/jpg' ||
     mime === 'image/png' ||
     mime === 'image/webp' ||
-    name.endsWith('.jpg') ||
-    name.endsWith('.jpeg') ||
-    name.endsWith('.png') ||
-    name.endsWith('.webp')
+    false
   );
 }
 
@@ -121,6 +122,17 @@ function canUseUploadPurpose(role: string | null | undefined, purpose: MediaUplo
   return purpose === 'image' || purpose === 'story-thumbnail';
 }
 
+function getCanonicalObjectKeys(record: MediaRecord) {
+  const keys = new Set<string>();
+  if (record.objectKey && isValidDigitalOceanSpacesObjectKey(record.objectKey)) keys.add(record.objectKey);
+  for (const url of Object.values(record.variants || {})) {
+    if (!url) continue;
+    const parsed = parseTrustedDigitalOceanSpacesAssetFromUrl(url);
+    if (parsed?.publicId) keys.add(parsed.publicId);
+  }
+  return [...keys];
+}
+
 export class MediaService {
   constructor(
     private readonly repository: MediaRepository = mediaRepository,
@@ -133,17 +145,22 @@ export class MediaService {
   }
 
   async createMedia(
-    data: { filename: string; url: string; size?: number; type?: string },
+    data: { assetId?: string; filename: string; url: string; size?: number; type?: string },
     user: AdminSessionIdentity
   ): Promise<MediaRecord> {
-    if (!data.filename || !data.url) {
+    if (!data.assetId && !data.url) {
       throw new MediaValidationError('Missing fields', 400);
     }
-
-    return this.repository.createMedia({
-      ...data,
-      uploadedBy: user.email || 'admin',
-    });
+    const existing = data.assetId
+      ? await this.repository.getMediaById(data.assetId)
+      : await this.repository.findMediaByUrl(data.url);
+    if (!existing || existing.status === 'deleted') {
+      throw new MediaValidationError('Upload receipt not found. Upload the file again.', 400);
+    }
+    if (existing.createdById && existing.createdById !== user.id && isReporterDeskRole(user.role)) {
+      throw new MediaValidationError('This upload receipt belongs to another user.', 403);
+    }
+    return existing;
   }
 
   async deleteMedia(id: string, user: AdminSessionIdentity): Promise<void> {
@@ -151,23 +168,61 @@ export class MediaService {
       throw new MediaValidationError('Only admins can delete media assets.', 403);
     }
 
-    const deleted = await this.repository.deleteMediaById(id);
-    if (!deleted) {
+    const record = await this.repository.getMediaById(id);
+    if (!record) {
       throw new MediaValidationError('Not found', 404);
+    }
+    if (record.status === 'deleted') return;
+    if (!record.provider || record.provider === 'legacy' || !record.objectKey) {
+      await this.repository.updateMediaById(id, { status: 'deleted', deletedAt: new Date() });
+      return;
+    }
+    if (!record.referenceTrackingComplete) {
+      throw new MediaValidationError('Asset reference state is unknown; provider deletion was refused.', 409);
+    }
+    if ((record.references || []).length > 0) {
+      throw new MediaValidationError('Asset is still referenced and cannot be deleted.', 409);
+    }
+    if (!isValidDigitalOceanSpacesObjectKey(record.objectKey)) {
+      throw new MediaValidationError('Stored asset key is invalid; provider deletion was refused.', 409);
+    }
+
+    await this.repository.updateMediaById(id, { status: 'cleanup_pending', cleanupError: '' });
+    try {
+      for (const key of getCanonicalObjectKeys(record)) {
+        await this.spaces.deleteAssetByPublicId(key);
+      }
+      await this.repository.updateMediaById(id, {
+        status: 'deleted',
+        deletedAt: new Date(),
+        cleanupError: '',
+      });
+    } catch {
+      await this.repository.updateMediaById(id, {
+        status: 'cleanup_pending',
+        cleanupError: 'provider_cleanup_failed',
+      });
+      throw new MediaValidationError('Provider cleanup failed; the asset is queued for retry.', 503);
     }
   }
 
   async processUpload(
     file: File,
     purpose: MediaUploadPurpose,
-    userRole: string | null | undefined,
+    userInput: AdminSessionIdentity | string,
     options: {
       optimizeArticleImage?: boolean;
       focalPointX?: number;
       focalPointY?: number;
+      ownerType?: MediaRecord['ownerType'];
+      ownerId?: string;
+      referenceTrackingComplete?: boolean;
     } = {}
   ): Promise<MediaUploadResult> {
-    if (!canUseUploadPurpose(userRole, purpose)) {
+    const user: AdminSessionIdentity = typeof userInput === 'string'
+      ? { id: 'legacy-upload', email: '', name: '', username: '', role: normalizeAdminRole(userInput) || 'admin' }
+      : userInput;
+    if (!canUseUploadPurpose(user.role, purpose)) {
       throw new MediaValidationError(
         'Reporters can only upload image assets from this workspace.',
         403
@@ -179,11 +234,15 @@ export class MediaService {
       throw new MediaValidationError(rule.errorType, 400);
     }
 
-    if (file.size > rule.maxSizeBytes) {
+    if (file.size <= 0 || file.size > rule.maxSizeBytes) {
       throw new MediaValidationError(rule.errorSize, 400);
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    const contentError = validateUploadedFileContent(file, purpose, buffer);
+    if (contentError) throw new MediaValidationError(contentError, 400);
+
+    let result: Omit<MediaUploadResult, 'assetId'>;
 
     if (purpose === 'image' && options.optimizeArticleImage) {
       const optimized = await this.imageService.uploadOptimizedArticleImage(
@@ -197,7 +256,7 @@ export class MediaService {
         this.spaces
       );
 
-      return {
+      result = {
         url: optimized.primary.secureUrl,
         secureUrl: optimized.primary.secureUrl,
         publicId: optimized.primary.publicId,
@@ -211,24 +270,73 @@ export class MediaService {
         format: 'webp',
         variants: optimized.variants,
       };
+    } else {
+      const uploaded = await this.spaces.uploadBuffer(buffer, {
+        folder: rule.folder,
+        resourceType: rule.resourceType,
+        originalFilename: file.name || undefined,
+      });
+
+      result = {
+        url: uploaded.secureUrl,
+        secureUrl: uploaded.secureUrl,
+        publicId: uploaded.publicId,
+        resourceType: uploaded.resourceType,
+        storageProvider: 'do-spaces',
+        filename: file.name,
+        size: uploaded.bytes || file.size,
+        type: file.type,
+      };
     }
 
-    const uploaded = await this.spaces.uploadBuffer(buffer, {
-      folder: rule.folder,
-      resourceType: rule.resourceType,
-      originalFilename: file.name || undefined,
-    });
+    try {
+      const record = await this.repository.createMedia({
+        filename: result.filename,
+        url: result.secureUrl,
+        size: result.size,
+        type: result.type,
+        uploadedBy: user.email || 'admin',
+        createdById: user.id,
+        provider: 'do-spaces',
+        objectKey: result.publicId,
+        status: 'verified',
+        mediaKind: result.type === 'application/pdf' ? 'document' : 'image',
+        ownerType: options.ownerType || (purpose.startsWith('epaper') ? 'epaper' : 'article'),
+        ownerId: options.ownerId || '',
+        referenceTrackingComplete: Boolean(options.referenceTrackingComplete),
+        references: [],
+        variants: result.variants || {},
+        verifiedAt: new Date(),
+      });
+      return { ...result, assetId: String(record._id) };
+    } catch (error) {
+      await this.spaces.deleteAssetByPublicId(result.publicId).catch(() => undefined);
+      throw error;
+    }
+  }
 
-    return {
-      url: uploaded.secureUrl,
-      secureUrl: uploaded.secureUrl,
-      publicId: uploaded.publicId,
-      resourceType: uploaded.resourceType,
-      storageProvider: 'do-spaces',
-      filename: file.name,
-      size: uploaded.bytes || file.size,
-      type: file.type,
-    };
+  async reconcileCleanup(before: Date): Promise<{ deleted: number; failed: number }> {
+    const candidates = await this.repository.listCleanupCandidates(before);
+    let deleted = 0;
+    let failed = 0;
+    for (const record of candidates) {
+      if (!record._id || !record.objectKey || (record.references || []).length) continue;
+      try {
+        for (const key of getCanonicalObjectKeys(record)) {
+          await this.spaces.deleteAssetByPublicId(key);
+        }
+        await this.repository.updateMediaById(String(record._id), {
+          status: 'deleted', deletedAt: new Date(), cleanupError: '',
+        });
+        deleted += 1;
+      } catch {
+        await this.repository.updateMediaById(String(record._id), {
+          cleanupError: 'provider_cleanup_failed',
+        });
+        failed += 1;
+      }
+    }
+    return { deleted, failed };
   }
 }
 

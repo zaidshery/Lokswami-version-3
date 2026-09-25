@@ -46,6 +46,8 @@ import {
 } from '@/lib/workflow/story';
 import { isWorkflowStatus } from '@/lib/workflow/types';
 import { resolveStoryVersion } from '@/lib/server/storyEditorialService';
+import { storyMediaAssetService } from '@/lib/server/media/storyMediaAssetService';
+import { MediaValidationError } from '@/lib/server/media/mediaService';
 
 const FILE_STORE_UNBOUNDED_LIMIT = Number.MAX_SAFE_INTEGER;
 
@@ -261,6 +263,13 @@ function validateStoryInput(
 
     if (input.mediaMimeType !== 'video/mp4') {
       return 'Uploaded story videos must be MP4 files';
+    }
+
+    const trustedVideo = input.mediaAssets.find(
+      (asset) => asset.kind === 'video' && asset.assetId
+    );
+    if (!trustedVideo) {
+      return 'Uploaded story videos must include a verified upload receipt';
     }
   }
 
@@ -534,6 +543,8 @@ export async function GET(req: NextRequest) {
 }
 
 async function POSTHandler(req: NextRequest) {
+  let canonicalAssetsForCleanup: StoryMediaAsset[] = [];
+  let contentPersisted = false;
   try {
     // Read JSON body FIRST to avoid disturbed/locked body errors in Next.js 15
     const body = await req.json();
@@ -573,7 +584,18 @@ async function POSTHandler(req: NextRequest) {
     }
 
     const rawInput = normalizeStoryInput(body);
-    const input = sanitizeCreateInputForUser(user, rawInput);
+    const sanitizedInput = sanitizeCreateInputForUser(user, rawInput);
+    const canonicalAssets = await storyMediaAssetService.resolveForWrite(
+      sanitizedInput.mediaAssets,
+      user
+    );
+    canonicalAssetsForCleanup = canonicalAssets;
+    const canonicalPrimary = derivePrimaryStoryMedia(canonicalAssets, sanitizedInput.thumbnail);
+    const input = {
+      ...sanitizedInput,
+      ...canonicalPrimary,
+      mediaAssets: canonicalAssets,
+    };
     const validationError = validateStoryInput(input, {
       allowLongCaption: user.role === 'reporter',
     });
@@ -615,6 +637,8 @@ async function POSTHandler(req: NextRequest) {
           publishedAt: workflow.publishedAt?.toISOString() || null,
         },
       });
+      contentPersisted = true;
+      await storyMediaAssetService.syncReferences(String(stored._id), [], input.mediaAssets);
 
       try {
         await recordStoryActivity({
@@ -662,6 +686,8 @@ async function POSTHandler(req: NextRequest) {
       workflow,
     });
     const saved = await story.save();
+    contentPersisted = true;
+    await storyMediaAssetService.syncReferences(String(saved._id), [], input.mediaAssets);
 
     try {
       await recordStoryActivity({
@@ -700,6 +726,13 @@ async function POSTHandler(req: NextRequest) {
       { status: 201 }
     );
   } catch (error: unknown) {
+    if (!contentPersisted && canonicalAssetsForCleanup.length) {
+      await storyMediaAssetService.markUnattachedForCleanup([], canonicalAssetsForCleanup)
+        .catch(() => undefined);
+    }
+    if (error instanceof MediaValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     console.error('Error creating story:', error);
     const message =
       process.env.NODE_ENV !== 'production'

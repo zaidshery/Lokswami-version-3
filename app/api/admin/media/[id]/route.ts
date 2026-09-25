@@ -6,6 +6,7 @@ import {
   mediaService,
   MediaValidationError,
 } from '@/lib/server/media/mediaService';
+import { auditMediaDeleted } from '@/lib/security/phase38Observability';
 
 async function DELETEHandler(
   req: NextRequest,
@@ -24,6 +25,13 @@ async function DELETEHandler(
     const id = resolvedParams?.id || pathParts[pathParts.length - 1];
 
     await mediaService.deleteMedia(id, user);
+
+    void auditMediaDeleted({
+      actor: user,
+      resourceId: id,
+      resourceName: 'Media Deleted',
+    });
+
     return NextResponse.json({ success: true });
   } catch (err) {
     if (err instanceof MediaValidationError) {
