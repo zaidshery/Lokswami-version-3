@@ -456,7 +456,7 @@ No route is removed in Phase 3.7. A future redirect/deprecation may be proposed 
 
 **Completed:** 2026-09-25
 **Branch:** `b3/phase3.7-articles-stories-copy-desk`
-**Commit:** `feat(cms): complete phase 3.7 editorial lifecycle`
+**Commit:** `c594706` — feat(cms): complete phase 3.7 editorial lifecycle
 
 #### Implementation summary
 
