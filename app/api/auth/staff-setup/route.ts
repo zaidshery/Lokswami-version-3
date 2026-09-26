@@ -4,6 +4,8 @@ import {
   findStaffUserBySetupToken,
   setStaffPasswordWithToken,
 } from '@/lib/auth/staffCredentials';
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
+import { getClientIp } from '@/lib/security/ipUtils';
 
 function normalizePassword(value: unknown) {
   return typeof value === 'string' ? value : '';
@@ -53,6 +55,22 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const clientIp = getClientIp(req);
+    const limitRes = await checkRateLimit({
+      scope: 'staff_setup_redemption',
+      identifier: clientIp,
+    });
+    if (!limitRes.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Too many setup attempts. Please try again later.',
+          code: 'RATE_LIMITED',
+        },
+        { status: 429, headers: getRateLimitHeaders(limitRes) }
+      );
+    }
+
     const body = await req.json();
     const token = typeof body.token === 'string' ? body.token : '';
     const password = normalizePassword(body.password);

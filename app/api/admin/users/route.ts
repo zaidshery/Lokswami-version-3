@@ -3,9 +3,17 @@ import { withAdminApi } from '@/lib/api/adminRoute';
 import { canManageUsers } from '@/lib/auth/permissions';
 import connectDB from '@/lib/db/mongoose';
 import User from '@/lib/models/User';
-import { normalizeUserRole } from '@/lib/auth/roles';
+import { normalizeUserRole, type UserRole } from '@/lib/auth/roles';
 import { normalizeWhatsAppNumber } from '@/lib/utils/phone';
 import { readUsersFile, upsertStoredUser } from '@/lib/storage/usersFile';
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
+import { getClientIp } from '@/lib/security/ipUtils';
+import {
+  safeMutateSuperAdmin,
+  LastSuperAdminRemovalError,
+  SelfDemotionError,
+  GovernanceLockTimeoutError,
+} from '@/lib/auth/superAdminGovernance';
 
 export const GET = withAdminApi(
   async (req: NextRequest) => {
@@ -156,6 +164,21 @@ export const GET = withAdminApi(
 export const PATCH = withAdminApi(
   async (req: NextRequest, _context: Record<string, never>, { admin }) => {
     try {
+      const rateLimit = await checkRateLimit({
+        scope: 'admin_mutation_sensitive',
+        identifier: admin.id || getClientIp(req),
+      });
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Too many administrative mutations. Please try again later.',
+            code: 'RATE_LIMITED',
+          },
+          { status: 429, headers: getRateLimitHeaders(rateLimit) }
+        );
+      }
+
       const body = await req.json();
       const { userId, isActive, role, whatsappNumber, optInDailyEpaper } = body;
 
@@ -211,63 +234,145 @@ export const PATCH = withAdminApi(
         updates.optInDailyEpaper = optInDailyEpaper;
       }
 
+      // Load canonical target state to check for super admin governance
+      let currentRole: string | undefined;
+      let currentIsActive: boolean = true;
+      let mongoUserFound = false;
+
       try {
         await connectDB();
-        const updated = await User.findByIdAndUpdate(
-          userId,
-          { $set: updates },
-          { new: true }
-        ).lean();
-
-        if (updated) {
-          void upsertStoredUser({
-            _id: updated._id.toString(),
-            name: updated.name,
-            email: updated.email,
-            role: updated.role,
-            isActive: updated.isActive !== false,
-            whatsappNumber: updated.whatsappNumber,
-            optInDailyEpaper: updated.optInDailyEpaper !== false,
-          });
-
-          return NextResponse.json({
-            success: true,
-            message: 'User updated successfully.',
-            data: {
-              id: updated._id.toString(),
-              name: updated.name,
-              email: updated.email,
-              role: updated.role,
-              isActive: updated.isActive !== false,
-              whatsappNumber: updated.whatsappNumber || null,
-              optInDailyEpaper: updated.optInDailyEpaper !== false,
-            },
-          });
+        if (typeof User.findById === 'function') {
+          const existingUser = await User.findById(userId).select('_id role isActive').lean<{
+            _id?: unknown;
+            role?: string;
+            isActive?: boolean;
+          } | null>();
+          if (existingUser) {
+            mongoUserFound = true;
+            currentRole = existingUser.role;
+            currentIsActive = existingUser.isActive !== false;
+          }
         }
-      } catch (mongoError) {
-        console.warn('[Admin Users PATCH] MongoDB fallback:', mongoError);
+      } catch (mongoReadErr) {
+        console.warn('[Admin Users PATCH] MongoDB read error, falling back to file:', mongoReadErr);
       }
 
-      // File store fallback
-      const fileUser = await upsertStoredUser({
-        _id: userId,
-        email: body.email || `${userId}@lokswami.reader`,
-        ...updates,
-      });
+      if (!mongoUserFound) {
+        const storedUsers = await readUsersFile();
+        const found = storedUsers.find((u) => u._id === userId);
+        if (found) {
+          currentRole = found.role;
+          currentIsActive = found.isActive !== false;
+        }
+      }
 
-      return NextResponse.json({
-        success: true,
-        message: 'User updated successfully.',
-        data: {
-          id: fileUser._id,
-          name: fileUser.name,
-          email: fileUser.email,
-          role: fileUser.role,
-          isActive: fileUser.isActive !== false,
-          whatsappNumber: fileUser.whatsappNumber || null,
-          optInDailyEpaper: fileUser.optInDailyEpaper !== false,
-        },
-      });
+      const nextRole = typeof updates.role === 'string' ? updates.role : currentRole;
+      const nextIsActive = typeof updates.isActive === 'boolean' ? updates.isActive : currentIsActive;
+
+      try {
+        return await safeMutateSuperAdmin({
+          targetId: userId,
+          actorId: admin.id,
+          currentRole,
+          currentIsActive,
+          nextRole,
+          nextIsActive,
+          mutateFn: async (session) => {
+            try {
+              await connectDB();
+              const query = User.findByIdAndUpdate(
+                userId,
+                { $set: updates },
+                { new: true }
+              );
+              if (session) {
+                query.session(session);
+              }
+              const updated = await query.lean<{
+                _id: { toString(): string };
+                name?: string;
+                email?: string;
+                role?: UserRole;
+                isActive?: boolean;
+                whatsappNumber?: string;
+                optInDailyEpaper?: boolean;
+              } | null>();
+
+              if (updated) {
+                const updatedId = updated._id ? updated._id.toString() : userId;
+                const email = updated.email || `${userId}@lokswami.reader`;
+                const role = updated.role || 'reader';
+                void upsertStoredUser({
+                  _id: updatedId,
+                  name: updated.name,
+                  email,
+                  role,
+                  isActive: updated.isActive !== false,
+                  whatsappNumber: updated.whatsappNumber,
+                  optInDailyEpaper: updated.optInDailyEpaper !== false,
+                });
+
+                return NextResponse.json({
+                  success: true,
+                  message: 'User updated successfully.',
+                  data: {
+                    id: updatedId,
+                    name: updated.name,
+                    email,
+                    role,
+                    isActive: updated.isActive !== false,
+                    whatsappNumber: updated.whatsappNumber || null,
+                    optInDailyEpaper: updated.optInDailyEpaper !== false,
+                  },
+                });
+              }
+            } catch (mongoError) {
+              console.warn('[Admin Users PATCH] MongoDB fallback:', mongoError);
+            }
+
+            // File store fallback
+            const fileUser = await upsertStoredUser({
+              _id: userId,
+              email: body.email || `${userId}@lokswami.reader`,
+              ...updates,
+            });
+
+            return NextResponse.json({
+              success: true,
+              message: 'User updated successfully.',
+              data: {
+                id: fileUser._id,
+                name: fileUser.name,
+                email: fileUser.email,
+                role: fileUser.role,
+                isActive: fileUser.isActive !== false,
+                whatsappNumber: fileUser.whatsappNumber || null,
+                optInDailyEpaper: fileUser.optInDailyEpaper !== false,
+              },
+            });
+          },
+        });
+      } catch (err: unknown) {
+        if (err instanceof LastSuperAdminRemovalError) {
+          return NextResponse.json(
+            { success: false, error: err.message, code: 'LAST_ACTIVE_SUPER_ADMIN' },
+            { status: 400 }
+          );
+        }
+        if (err instanceof SelfDemotionError) {
+          return NextResponse.json(
+            { success: false, error: err.message, code: 'SELF_DEMOTION_BLOCKED' },
+            { status: 400 }
+          );
+        }
+        if (err instanceof GovernanceLockTimeoutError) {
+          return NextResponse.json(
+            { success: false, error: err.message, code: 'CONFLICT' },
+            { status: 409 }
+          );
+        }
+        throw err;
+      }
     } catch (error) {
       console.error('[Admin Users API PATCH] Error:', error);
       return NextResponse.json(

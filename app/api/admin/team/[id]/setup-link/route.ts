@@ -9,6 +9,9 @@ import User from '@/lib/models/User';
 import { sendTeamInviteEmail } from '@/lib/notifications/teamInviteEmail';
 import { resolveShareRequestOrigin } from '@/lib/server/requestOrigin';
 
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
+import { getClientIp } from '@/lib/security/ipUtils';
+
 type RouteContext = {
   params: Promise<{
     id: string;
@@ -26,6 +29,21 @@ async function POSTHandler(req: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params;
+
+    const rateLimit = await checkRateLimit({
+      scope: 'setup_link_regeneration',
+      identifier: `${admin.id || getClientIp(req)}:${id}`,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Too many setup link requests. Please try again later.',
+          code: 'RATE_LIMITED',
+        },
+        { status: 429, headers: getRateLimitHeaders(rateLimit) }
+      );
+    }
     await connectDB();
 
     const member = await User.findById(id).select('_id email role loginId').lean<{

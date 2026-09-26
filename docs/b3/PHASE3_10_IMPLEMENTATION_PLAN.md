@@ -692,3 +692,28 @@ Upon completion and merge of Phase 3.10:
    - Re-hydrating user active status and role in `getAdminSession()` requires a quick database lookup. To prevent excessive database load on page navigation, a lightweight in-memory cache (30-second TTL) invalidated immediately on administrative mutations can be utilized.
 3. **Outbound Webhook DNS Rebinding:**
    - Webhook validation checks resolved IPs before `fetch`. In high-security environments, DNS rebinding could theoretically resolve a public IP during validation and a private IP during fetch. For Phase 3.10, performing validation immediately prior to request dispatch with a dedicated agent/dispatcher mitigates this risk.
+
+---
+
+## 31. Phase 3.10A Implementation Completion Record
+
+- **Completed Phase:** Phase 3.10A — Identity + Team + Last-Active-Super-Admin Safety
+- **P0-1 Closure:** Replaced flawed local `ensureSuperAdminRemovalIsSafe` with canonical governance service `lib/auth/superAdminGovernance.ts`. The remaining-admin check strictly queries `{ role: 'super_admin', isActive: true, _id: { $nin: [targetId] } }`. Inactive super admin accounts cannot satisfy the invariant.
+- **P0-2 Closure:** Route parity achieved in `PATCH /api/admin/users`. Inspects target user canonical state and wraps role/isActive updates with `safeMutateSuperAdmin`, eliminating backdoor demotions and deactivations.
+- **P0-3 Closure (Concurrency Architecture):** Implemented multi-layered race-free synchronization:
+  1. In-process mutex queue (`withProcessQueue`) for process-local FIFO execution.
+  2. MongoDB-backed distributed lock lease (`GovernanceLock.findOneAndUpdate` with 10s TTL, polling backoff) for cross-instance mutual exclusion.
+  3. MongoDB multi-document transactions (`session.withTransaction`) when running on replica sets with fallback to distributed lock on standalone Mongo.
+  4. File-storage serialization via `readUsersFile` / `withUsersFileMutationLock`.
+- **P1 Identity Hardening:**
+  - Rate limiting via `lib/security/getRateLimiter.ts`:
+    - `POST /api/admin/team`: `staff_invite` (10 requests / 10 minutes)
+    - `PATCH /api/admin/team/[id]`, `DELETE /api/admin/team/[id]`, `PATCH /api/admin/users`: `admin_mutation_sensitive` (30 requests / 5 minutes)
+    - `POST /api/admin/team/[id]/setup-link`: `setup_link_regeneration` (5 requests / 15 minutes)
+    - `POST /api/auth/staff-setup`: `staff_setup_redemption` (5 requests / 15 minutes)
+  - Setup credential security: Atomic `findOneAndUpdate` claiming and invalidation in `setStaffPasswordWithToken` prevents token double-redemption races. Setup link regeneration overwrites the token hash atomically.
+- **Verification & Test Coverage:**
+  - Added `tests/admin-super-admin-safety.test.ts` (25 focused tests covering invariant checks, inactive super admins, self-demotion, self-deactivation, soft-deletion, Users API parity, concurrency races, and rate limiting).
+  - Full regression: 304 test files, 2,046 tests passed (0 failures).
+  - All automated checks clean: `typecheck`, `lint:strict`, `test:four-role-newsroom`, `test:security`, `test:auth-guards`, `check:phase3-scope`, `build:ci`.
+- **Target Commit:** `feat(admin): harden super admin governance and onboarding`
