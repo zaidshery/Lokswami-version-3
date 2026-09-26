@@ -28,7 +28,7 @@ function cx(...classes: Array<string | undefined | false>) {
   return classes.filter(Boolean).join(' ');
 }
 
-const PANEL_CLASS = 'admin-shell-surface-strong rounded-[32px] p-6';
+const PANEL_CLASS = 'admin-shell-surface-strong rounded-[24px] p-4 sm:rounded-[32px] sm:p-6';
 
 const SOFT_CARD_CLASS =
   'admin-shell-surface-muted rounded-[24px] p-4 shadow-[0_18px_48px_-40px_rgba(15,23,42,0.14)] dark:shadow-[0_18px_48px_-40px_rgba(0,0,0,0.35)]';
@@ -234,7 +234,7 @@ export default async function AuditLogPage({
 
   return (
     <div className="mx-auto max-w-[1640px] space-y-8">
-      <section className="relative overflow-hidden rounded-[36px] border border-[color:var(--admin-shell-border)] bg-[radial-gradient(circle_at_top_left,rgba(185,28,28,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(37,99,235,0.08),transparent_28%),var(--admin-bg-depth)] p-8 text-[color:var(--admin-shell-text)] shadow-[var(--admin-shell-shadow-strong)] lg:p-10">
+      <section className="relative overflow-hidden rounded-[28px] border border-[color:var(--admin-shell-border)] bg-[radial-gradient(circle_at_top_left,rgba(185,28,28,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(37,99,235,0.08),transparent_28%),var(--admin-bg-depth)] p-5 text-[color:var(--admin-shell-text)] shadow-[var(--admin-shell-shadow-strong)] sm:rounded-[36px] sm:p-8 lg:p-10">
         <div className="pointer-events-none absolute -right-10 top-0 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/14" />
         <div className="pointer-events-none absolute bottom-0 left-0 h-40 w-40 rounded-full bg-red-500/10 blur-3xl dark:bg-red-500/14" />
         <div className="relative">
@@ -258,6 +258,10 @@ export default async function AuditLogPage({
               {CONTENT_OPTIONS.find((option) => option.id === contentFilter)?.label || 'All Content'}
             </span>
             <span className={META_CHIP_CLASS}>{formatNumber(audit.entries.length)} entries</span>
+          </div>
+          <div className="admin-shell-surface mt-6 max-w-3xl rounded-2xl px-4 py-3 text-sm text-[color:var(--admin-shell-text-muted)]">
+            <strong className="text-[color:var(--admin-shell-text)]">Read-only, append-only history.</strong>{' '}
+            Audit entries can be searched and reviewed here, but they cannot be edited or deleted.
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/admin/permission-review" className={ACTION_LINK_CLASS}>

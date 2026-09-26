@@ -33,6 +33,7 @@
     "verify:phase3": "npm run typecheck && npm run lint:strict && npm run test:security && npm run test:governance && npm run test:four-role-newsroom && npm run verify:dependency-security && npm run test:ci && npm run build:ci",
     "check:phase3-scope": "node scripts/phase3/check-scope.js",
     "qa:responsive": "node scripts/phase3/responsive-qa.js",
+    "qa:phase310:offline": "node scripts/phase3/phase310-offline-browser-qa.cjs",
     "check:pr-readiness": "node scripts/phase3/pr-readiness.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

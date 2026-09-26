@@ -25,7 +25,11 @@ export type ApiErrorCode =
   | 'INTERNAL_ERROR'
   | 'NOT_FOUND'
   | 'UNAUTHORIZED'
-  | 'VALIDATION_ERROR';
+  | 'VALIDATION_ERROR'
+  | 'LAST_ACTIVE_SUPER_ADMIN'
+  | 'SELF_DEMOTION_BLOCKED'
+  | 'RATE_LIMITED'
+  | 'CONFLICT';
 
 export type AdminApiContext = {
   admin: AdminSessionIdentity;
@@ -126,7 +130,8 @@ export function apiError(
   error: string,
   status: number,
   code: ApiErrorCode,
-  requestId?: string
+  requestId?: string,
+  headers?: Record<string, string>
 ) {
   return NextResponse.json(
     {
@@ -135,7 +140,7 @@ export function apiError(
       code,
       ...(requestId ? { requestId } : {}),
     },
-    { status }
+    { status, headers }
   );
 }
 

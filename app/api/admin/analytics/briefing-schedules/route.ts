@@ -6,6 +6,7 @@ import {
   listLeadershipReportSchedules,
   parseLeadershipReportScheduleId,
   updateLeadershipReportSchedule,
+  SettingsConflictError,
 } from '@/lib/storage/leadershipReportSchedulesFile';
 
 type ScheduleUpdateBody = Partial<{
@@ -17,6 +18,8 @@ type ScheduleUpdateBody = Partial<{
   webhookUrls: string[];
   webhookProvider: 'generic_json' | 'slack' | 'discord' | 'teams' | 'telegram';
   notes: string;
+  expectedVersion?: number;
+  expectedUpdatedAt?: string;
 }>;
 
 async function requireLeadershipAdmin() {
@@ -65,18 +68,61 @@ async function PATCHHandler(req: NextRequest) {
       );
     }
 
-    const schedule = await updateLeadershipReportSchedule(id, {
-      enabled: body.enabled,
-      deliveryTime: body.deliveryTime,
-      deliveryMode: body.deliveryMode,
-      recipientEmails: body.recipientEmails,
-      webhookUrls: body.webhookUrls,
-      webhookProvider: body.webhookProvider,
-      notes: body.notes,
-    });
+    const expectedVersion =
+      typeof body.expectedVersion === 'number' ? body.expectedVersion : undefined;
+    const expectedUpdatedAt =
+      typeof body.expectedUpdatedAt === 'string'
+        ? body.expectedUpdatedAt.trim()
+        : undefined;
+
+    if (expectedVersion === undefined && !expectedUpdatedAt) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Missing required concurrency token (expectedVersion or expectedUpdatedAt).',
+        },
+        { status: 400 }
+      );
+    }
+
+    const schedule = await updateLeadershipReportSchedule(
+      id,
+      {
+        enabled: body.enabled,
+        deliveryTime: body.deliveryTime,
+        deliveryMode: body.deliveryMode,
+        recipientEmails: body.recipientEmails,
+        webhookUrls: body.webhookUrls,
+        webhookProvider: body.webhookProvider,
+        notes: body.notes,
+      },
+      { expectedVersion, expectedUpdatedAt }
+    );
 
     return NextResponse.json({ success: true, data: schedule });
   } catch (error) {
+    if (error instanceof SettingsConflictError) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: error.code,
+          error: error.message,
+        },
+        { status: 409 }
+      );
+    }
+
+    if (error instanceof Error && error.message.startsWith('Invalid webhook URL')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+        },
+        { status: 400 }
+      );
+    }
+
     console.error('Leadership report schedule PATCH failed:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update leadership report schedule.' },

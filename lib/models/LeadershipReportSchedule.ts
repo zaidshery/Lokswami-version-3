@@ -13,6 +13,7 @@ export interface ILeadershipReportSchedule extends mongoose.Document {
   lastRunAt?: Date | null;
   lastRunStatus: 'idle' | 'success' | 'failed';
   lastRunSummary: string;
+  version: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,6 +21,7 @@ export interface ILeadershipReportSchedule extends mongoose.Document {
 const LeadershipReportScheduleSchema = new mongoose.Schema<ILeadershipReportSchedule>(
   {
     presetId: { type: String, required: true, trim: true, maxlength: 80, unique: true, index: true },
+    version: { type: Number, default: 1 },
     enabled: { type: Boolean, default: false },
     deliveryTime: { type: String, trim: true, maxlength: 5, default: '09:00' },
     timezone: { type: String, trim: true, maxlength: 120, default: 'Asia/Calcutta' },

@@ -50,6 +50,8 @@ const SENSITIVE_AUDIT_FIELDS = [
   'password',
   'passwordHash',
   'token',
+  'setupToken',
+  'setupTokenHash',
   'secret',
   'apiKey',
   'accessKey',
@@ -62,6 +64,13 @@ const SENSITIVE_AUDIT_FIELDS = [
   'creditCard',
   'ssn',
   'pin',
+  'signature',
+  'sig',
+  'x-amz-signature',
+  'x-goog-signature',
+  'mongodb',
+  'mongoUri',
+  'mongodbUri',
 ];
 
 function isSensitiveAuditField(key: string) {
@@ -75,9 +84,10 @@ function sanitizeAuditMessage(value: string) {
   return value
     .slice(0, MAX_AUDIT_STRING_LENGTH)
     .replace(
-      /(password|token|secret|api[-_]?key|authorization|cookie|credential|private[-_]?key|session[-_]?id)(\s*[:=]\s*)([^\r\n,;]+)/gi,
+      /(password|passwordHash|setupToken|setupTokenHash|token|secret|api[-_]?key|authorization|cookie|credential|private[-_]?key|session[-_]?id)(\s*[:=]\s*)([^\r\n,;]+)/gi,
       '$1$2[REDACTED]'
-    );
+    )
+    .replace(/mongodb(\+srv)?:\/\/[^\s"'<>]+/gi, 'mongodb[REDACTED]');
 }
 
 function isAuditLoggingDisabled() {
@@ -566,6 +576,36 @@ export async function logUserRoleChanged(
     changedFields: ['role'],
     ipAddress,
     userAgent,
+  });
+}
+
+/**
+ * Log staff setup completion
+ */
+export async function logStaffSetupCompleted(args: {
+  userId: string;
+  userEmail: string;
+  userRole: string;
+  loginId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}): Promise<IAuditLog | null> {
+  return logAuditAction({
+    action: 'staff_setup_completed',
+    resourceType: 'user',
+    resourceId: args.userId,
+    resourceName: args.userEmail,
+    userId: args.userId,
+    userEmail: args.userEmail,
+    userRole: args.userRole,
+    method: 'POST',
+    endpoint: '/api/auth/staff-setup',
+    statusCode: 200,
+    duration: 0,
+    responseStatus: 'success',
+    requestData: args.loginId ? { loginId: args.loginId } : undefined,
+    ipAddress: args.ipAddress || 'unknown',
+    userAgent: args.userAgent || 'unknown',
   });
 }
 

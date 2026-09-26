@@ -43,12 +43,20 @@ function createReport(): LeadershipReport {
   };
 }
 
+import dns from 'dns';
+
 describe('sendLeadershipReportWebhook', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
+    vi.spyOn(dns.promises, 'lookup').mockImplementation(async () => [
+      { address: '93.184.216.34', family: 4 },
+    ] as any);
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
       text: vi.fn().mockResolvedValue(''),
     } as unknown as Response);
   });

@@ -246,39 +246,54 @@ export async function setStaffPasswordWithToken(input: {
   token: string;
   password: string;
 }) {
-  const user = await findStaffUserBySetupToken(input.token);
-  if (!user) {
+  const normalizedToken = String(input.token || '').trim();
+  if (!normalizedToken) {
     return { success: false as const, error: 'Invalid setup link' };
   }
 
-  const role = user.role;
+  const hashedToken = hashSetupToken(normalizedToken);
+  const now = new Date();
+  const passwordHash = await hashPassword(input.password);
+  await connectDB();
+
+  // Atomically claim the token and verify expiration in one query to prevent double-redemption races
+  const updatedUser = (await User.findOneAndUpdate(
+    {
+      setupTokenHash: hashedToken,
+      setupTokenExpiresAt: { $gt: now },
+    },
+    {
+      $set: {
+        passwordHash,
+        passwordSetAt: now,
+        setupTokenHash: '',
+      },
+      $unset: {
+        setupTokenExpiresAt: 1,
+        setupTokenIssuedAt: 1,
+      },
+    },
+    { new: true }
+  ).lean()) as StaffUserRecord | null;
+
+  if (!updatedUser) {
+    const existing = (await User.findOne({ setupTokenHash: hashedToken }).lean()) as StaffUserRecord | null;
+    if (existing) {
+      return { success: false as const, error: 'This setup link has expired' };
+    }
+    return { success: false as const, error: 'Invalid setup link' };
+  }
+
+  const role = updatedUser.role;
   if (!isAdminRole(role)) {
     return { success: false as const, error: 'This setup link is not valid for staff access' };
   }
 
-  const expiresAt = user.setupTokenExpiresAt ? new Date(user.setupTokenExpiresAt) : null;
-  if (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
-    return { success: false as const, error: 'This setup link has expired' };
-  }
-
-  const passwordHash = await hashPassword(input.password);
-  await connectDB();
-  await User.findByIdAndUpdate(user._id, {
-    $set: {
-      passwordHash,
-      passwordSetAt: new Date(),
-      setupTokenHash: '',
-    },
-    $unset: {
-      setupTokenExpiresAt: 1,
-      setupTokenIssuedAt: 1,
-    },
-  });
-
   return {
     success: true as const,
-    loginId: typeof user.loginId === 'string' ? user.loginId.trim() : '',
-    email: typeof user.email === 'string' ? user.email.trim() : '',
+    userId: String(updatedUser._id),
+    loginId: typeof updatedUser.loginId === 'string' ? updatedUser.loginId.trim() : '',
+    email: typeof updatedUser.email === 'string' ? updatedUser.email.trim() : '',
     role: role as AdminRole,
   };
 }

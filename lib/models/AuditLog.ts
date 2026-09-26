@@ -25,7 +25,8 @@ export interface IAuditLog extends Document {
     | 'retry'
     | 'reconcile'
     | 'prepare'
-    | 'cancel';
+    | 'cancel'
+    | 'staff_setup_completed';
   resourceType:
     | 'article'
     | 'video'
@@ -100,6 +101,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
         'reconcile',
         'prepare',
         'cancel',
+        'staff_setup_completed',
       ],
       index: true,
     },

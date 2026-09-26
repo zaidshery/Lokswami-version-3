@@ -67,9 +67,15 @@ export default async function OperationsCenterPage() {
             <span className={META_CHIP_CLASS}>Blocked {formatNumber(metrics.blockedEditions)}</span>
             <span className={META_CHIP_CLASS}>Quality alerts {formatNumber(metrics.qualityAlerts)}</span>
             <span className={META_CHIP_CLASS}>Reporting alerts {formatNumber(metrics.reportingAlerts)}</span>
+            <span className={META_CHIP_CLASS}>Read-only overview</span>
           </>
         }
       />
+
+      <section className="admin-shell-surface-strong rounded-[24px] p-4 text-sm leading-6 text-[color:var(--admin-shell-text-muted)]" aria-label="Operations action guidance">
+        <strong className="text-[color:var(--admin-shell-text)]">Status and navigation are read-only here.</strong>{' '}
+        Cards show current conditions; labelled links open the relevant workspace. Recovery and cleanup actions run only from their dedicated, guarded controls.
+      </section>
 
       <OperationsCenterTabs
         tabs={[

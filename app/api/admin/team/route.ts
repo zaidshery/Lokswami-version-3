@@ -20,6 +20,8 @@ import {
 import User from '@/lib/models/User';
 import { sendTeamInviteEmail } from '@/lib/notifications/teamInviteEmail';
 import { resolveShareRequestOrigin } from '@/lib/server/requestOrigin';
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
+import { getClientIp } from '@/lib/security/ipUtils';
 
 type TeamMemberRecord = {
   _id?: unknown;
@@ -110,7 +112,21 @@ export async function GET(req: NextRequest) {
 }
 
 export const POST = withAdminApi(
-  async (req: NextRequest, _context: Record<string, never>, { admin }) => {
+  async (req: NextRequest, _context: Record<string, never>, { admin, requestId }) => {
+    const rateLimit = await checkRateLimit({
+      scope: 'staff_invite',
+      identifier: admin.id || getClientIp(req),
+    });
+    if (!rateLimit.allowed) {
+      return apiError(
+        'Too many staff invitations. Please try again later.',
+        429,
+        'RATE_LIMITED',
+        requestId,
+        getRateLimitHeaders(rateLimit)
+      );
+    }
+
     const body = await req.json();
     const email = normalizeEmail(typeof body.email === 'string' ? body.email : '');
     const name = typeof body.name === 'string' ? body.name.trim() : '';

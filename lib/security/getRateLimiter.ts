@@ -16,7 +16,11 @@ export type RateLimitScope =
   | 'heavy_strict'
   | 'public_write'
   | 'api'
-  | 'admin';
+  | 'admin'
+  | 'staff_invite'
+  | 'admin_mutation_sensitive'
+  | 'setup_link_regeneration'
+  | 'staff_setup_redemption';
 
 export interface RateLimitCheckResult {
   allowed: boolean;
@@ -39,6 +43,10 @@ let adminLimiter: RateLimiter | null = null;
 let heavyRouteLimiter: RateLimiter | null = null;
 let heavyStrictLimiter: RateLimiter | null = null;
 let publicWriteLimiter: RateLimiter | null = null;
+let staffInviteLimiter: RateLimiter | null = null;
+let adminMutationSensitiveLimiter: RateLimiter | null = null;
+let setupLinkRegenerationLimiter: RateLimiter | null = null;
+let staffSetupRedemptionLimiter: RateLimiter | null = null;
 
 // Distributed Ratelimit singletons cached by scope
 const distributedLimiters = new Map<RateLimitScope, Ratelimit>();
@@ -117,6 +125,42 @@ function getDistributedLimiter(
         redis,
         limiter: Ratelimit.slidingWindow(20000, '60 s'),
         prefix: 'lokswami:ratelimit:admin',
+      });
+      break;
+
+    case 'staff_invite':
+      // 10 requests / 10 minutes (600s)
+      limiter = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(10, '600 s'),
+        prefix: 'lokswami:ratelimit:staff_invite',
+      });
+      break;
+
+    case 'admin_mutation_sensitive':
+      // 30 requests / 5 minutes (300s)
+      limiter = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(30, '300 s'),
+        prefix: 'lokswami:ratelimit:admin_mutation_sensitive',
+      });
+      break;
+
+    case 'setup_link_regeneration':
+      // 5 requests / 15 minutes (900s)
+      limiter = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(5, '900 s'),
+        prefix: 'lokswami:ratelimit:setup_link_regeneration',
+      });
+      break;
+
+    case 'staff_setup_redemption':
+      // 5 requests / 15 minutes (900s)
+      limiter = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(5, '900 s'),
+        prefix: 'lokswami:ratelimit:staff_setup_redemption',
       });
       break;
 
@@ -269,6 +313,82 @@ function checkInMemoryRateLimit(
       };
     }
 
+    case 'staff_invite': {
+      if (!staffInviteLimiter) {
+        staffInviteLimiter = new RateLimiter({
+          windowMs: 10 * 60 * 1000,
+          maxAttempts: 10,
+          blockDurationMs: 10 * 60 * 1000,
+          keyPrefix: 'staff_invite',
+        });
+      }
+      const res = staffInviteLimiter.check(identifier);
+      return {
+        allowed: res.allowed,
+        limit: 10,
+        remaining: res.remaining ?? 0,
+        reset: Math.ceil((now + (res.retryAfter ? res.retryAfter * 1000 : 600_000)) / 1000),
+        retryAfter: res.retryAfter,
+      };
+    }
+
+    case 'admin_mutation_sensitive': {
+      if (!adminMutationSensitiveLimiter) {
+        adminMutationSensitiveLimiter = new RateLimiter({
+          windowMs: 5 * 60 * 1000,
+          maxAttempts: 30,
+          blockDurationMs: 5 * 60 * 1000,
+          keyPrefix: 'admin_mutation_sensitive',
+        });
+      }
+      const res = adminMutationSensitiveLimiter.check(identifier);
+      return {
+        allowed: res.allowed,
+        limit: 30,
+        remaining: res.remaining ?? 0,
+        reset: Math.ceil((now + (res.retryAfter ? res.retryAfter * 1000 : 300_000)) / 1000),
+        retryAfter: res.retryAfter,
+      };
+    }
+
+    case 'setup_link_regeneration': {
+      if (!setupLinkRegenerationLimiter) {
+        setupLinkRegenerationLimiter = new RateLimiter({
+          windowMs: 15 * 60 * 1000,
+          maxAttempts: 5,
+          blockDurationMs: 15 * 60 * 1000,
+          keyPrefix: 'setup_link_regeneration',
+        });
+      }
+      const res = setupLinkRegenerationLimiter.check(identifier);
+      return {
+        allowed: res.allowed,
+        limit: 5,
+        remaining: res.remaining ?? 0,
+        reset: Math.ceil((now + (res.retryAfter ? res.retryAfter * 1000 : 900_000)) / 1000),
+        retryAfter: res.retryAfter,
+      };
+    }
+
+    case 'staff_setup_redemption': {
+      if (!staffSetupRedemptionLimiter) {
+        staffSetupRedemptionLimiter = new RateLimiter({
+          windowMs: 15 * 60 * 1000,
+          maxAttempts: 5,
+          blockDurationMs: 15 * 60 * 1000,
+          keyPrefix: 'staff_setup_redemption',
+        });
+      }
+      const res = staffSetupRedemptionLimiter.check(identifier);
+      return {
+        allowed: res.allowed,
+        limit: 5,
+        remaining: res.remaining ?? 0,
+        reset: Math.ceil((now + (res.retryAfter ? res.retryAfter * 1000 : 900_000)) / 1000),
+        retryAfter: res.retryAfter,
+      };
+    }
+
     case 'api':
     default: {
       const limiter = getApiLimiter();
@@ -363,6 +483,10 @@ export function resetAllLimiters(): void {
   heavyRouteLimiter?.resetAll();
   heavyStrictLimiter?.resetAll();
   publicWriteLimiter?.resetAll();
+  staffInviteLimiter?.resetAll();
+  adminMutationSensitiveLimiter?.resetAll();
+  setupLinkRegenerationLimiter?.resetAll();
+  staffSetupRedemptionLimiter?.resetAll();
   distributedLimiters.clear();
 }
 
@@ -377,6 +501,10 @@ export function destroyAllLimiters(): void {
   heavyRouteLimiter?.destroy();
   heavyStrictLimiter?.destroy();
   publicWriteLimiter?.destroy();
+  staffInviteLimiter?.destroy();
+  adminMutationSensitiveLimiter?.destroy();
+  setupLinkRegenerationLimiter?.destroy();
+  staffSetupRedemptionLimiter?.destroy();
 
   loginLimiter = null;
   authRouteLimiter = null;
@@ -385,5 +513,9 @@ export function destroyAllLimiters(): void {
   heavyRouteLimiter = null;
   heavyStrictLimiter = null;
   publicWriteLimiter = null;
+  staffInviteLimiter = null;
+  adminMutationSensitiveLimiter = null;
+  setupLinkRegenerationLimiter = null;
+  staffSetupRedemptionLimiter = null;
   distributedLimiters.clear();
 }

@@ -2,6 +2,8 @@ import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canRunGlobalAiOps } from '@/lib/auth/permissions';
+import { logAuditAction } from '@/lib/security/auditLogger';
+import { getClientIp } from '@/lib/security/ipUtils';
 import {
   ttsService,
   TtsValidationError,
@@ -16,6 +18,10 @@ function parseLimit(value: unknown, fallback: number) {
 }
 
 async function POSTHandler(req: NextRequest) {
+  const startTime = Date.now();
+  const clientIp = getClientIp(req);
+  const userAgent = req.headers.get('user-agent') || 'unknown';
+
   try {
     const admin = await getAdminSessionFromReq(req);
     if (!admin) {
@@ -43,6 +49,27 @@ async function POSTHandler(req: NextRequest) {
       },
       admin
     );
+
+    void logAuditAction({
+      action: 'delete',
+      resourceType: 'media',
+      resourceName: 'TTS Asset Cleanup',
+      userId: admin.id,
+      userEmail: admin.email,
+      userRole: admin.role,
+      method: 'POST',
+      endpoint: '/api/admin/tts/cleanup',
+      statusCode: 200,
+      duration: Date.now() - startTime,
+      ipAddress: clientIp,
+      userAgent,
+      requestData: {
+        dryRun: Boolean(body.dryRun),
+        deletedAssets: data.deletedAssets,
+        deletedFiles: data.deletedFiles,
+      },
+      responseStatus: 'success',
+    });
 
     return NextResponse.json({
       success: true,
