@@ -23,6 +23,7 @@ type LeadershipReportSchedule = {
   lastRunAt: string | null;
   lastRunStatus: 'idle' | 'success' | 'failed';
   lastRunSummary: string;
+  version?: number;
   updatedAt: string;
   nextPlannedAt: string | null;
   viewHref: string;
@@ -349,6 +350,8 @@ export default function LeadershipReportDeliveryPanel({
           webhookUrls: target.webhookUrls,
           webhookProvider: target.webhookProvider,
           notes: target.notes,
+          expectedVersion: target.version,
+          expectedUpdatedAt: target.updatedAt,
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as {

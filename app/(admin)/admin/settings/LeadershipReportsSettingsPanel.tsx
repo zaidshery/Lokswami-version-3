@@ -22,6 +22,7 @@ type LeadershipSchedule = {
   lastRunAt: string | null;
   lastRunStatus: 'idle' | 'success' | 'failed';
   lastRunSummary: string;
+  version?: number;
   updatedAt: string;
   nextPlannedAt: string | null;
   viewHref: string;

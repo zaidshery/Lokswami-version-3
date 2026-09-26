@@ -6,7 +6,23 @@ import {
 import { listLeadershipReportAlertNotificationHistory } from '@/lib/storage/leadershipReportAlertNotificationHistoryFile';
 import { getLeadershipReportCriticalAlertState } from '@/lib/storage/leadershipReportCriticalAlertStateFile';
 import { listLeadershipReportRunHistory } from '@/lib/storage/leadershipReportRunHistoryFile';
-import { listLeadershipReportSchedules } from '@/lib/storage/leadershipReportSchedulesFile';
+import {
+  listLeadershipReportSchedules,
+  updateLeadershipReportSchedule,
+  parseLeadershipReportScheduleId,
+  SettingsConflictError,
+  type LeadershipReportDeliveryMode,
+  type LeadershipReportWebhookProvider,
+  type StoredLeadershipReportSchedule,
+} from '@/lib/storage/leadershipReportSchedulesFile';
+import type { LeadershipReportPresetId } from '@/lib/admin/leadershipReports';
+
+export {
+  SettingsConflictError,
+  parseLeadershipReportScheduleId,
+  type LeadershipReportDeliveryMode,
+  type LeadershipReportWebhookProvider,
+};
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '');
@@ -62,6 +78,14 @@ export class AnalyticsReportService {
       healthAlerts,
       escalations,
     };
+  }
+
+  async updateLeadershipReportSchedule(
+    id: LeadershipReportPresetId,
+    patch: Parameters<typeof updateLeadershipReportSchedule>[1],
+    cas?: { expectedVersion?: number; expectedUpdatedAt?: string }
+  ): Promise<StoredLeadershipReportSchedule> {
+    return updateLeadershipReportSchedule(id, patch, cas);
   }
 }
 

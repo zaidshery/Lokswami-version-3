@@ -717,3 +717,52 @@ Upon completion and merge of Phase 3.10:
   - Full regression: 304 test files, 2,046 tests passed (0 failures).
   - All automated checks clean: `typecheck`, `lint:strict`, `test:four-role-newsroom`, `test:security`, `test:auth-guards`, `check:phase3-scope`, `build:ci`.
 - **Target Commit:** `feat(admin): harden super admin governance and onboarding`
+
+---
+
+## 32. Phase 3.10B Implementation Completion Record
+
+- **Completed Phase:** Phase 3.10B — Configuration + Webhook SSRF + Secret Boundaries + Settings CAS
+- **Webhook Trust Mechanism & URL Policy:**
+  - Implemented single canonical network boundary helper: `lib/security/safeUrlFetch.ts` (`validateSafeWebhookUrl` and `safeWebhookFetch`).
+  - Strict HTTPS enforcement in production/non-test environments; blocks `http:`, `ftp:`, `file:`, `javascript:`, `data:`, `ws:`, `wss:`.
+  - Rejects embedded userinfo credentials (`user:pass@` or `token@`).
+  - Integrated into all leadership-report webhook dispatchers in `lib/notifications/leadershipReportWebhook.ts` (`sendLeadershipReportWebhook` and `sendLeadershipReportCriticalAlertWebhook`).
+  - Validated both at configuration/save time (`updateLeadershipReportSchedule`) and revalidated immediately prior to network dispatch (`sendLeadershipReportWebhook`).
+- **DNS Resolution & Address Protection:**
+  - Resolves hostnames via `dns.promises.lookup` with `{ all: true }` and validates every A and AAAA address record returned.
+  - Bitwise IPv4 parser (`parseIPv4`) and IPv6 128-bit BigInt parser (`parseIPv6`) reject:
+    - IPv4 Loopback (`127.0.0.0/8`)
+    - IPv4 RFC1918 Private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`)
+    - IPv4 Link-Local (`169.254.0.0/16`) & Cloud Metadata (`169.254.169.254`)
+    - IPv6 Loopback (`::1`)
+    - IPv6 Unique-Local (`fc00::/7`)
+    - IPv6 Link-Local (`fe80::/10`)
+    - IPv4-Mapped IPv6 translations (`::ffff:x.x.x.x`) for all blocked IPv4 ranges
+    - Unspecified, broadcast, and multicast addresses.
+  - DNS resolution failures fail closed. Multiple DNS answers fail closed if even one address is non-public.
+- **Redirects, Timeout & Response Bounds:**
+  - `redirect: 'manual'` prevents open redirect chains to private/internal infrastructure.
+  - 5-second execution bound via `AbortSignal.timeout(5000)`.
+  - Response body streaming reader limits consumption to max 2,048 bytes (2 KB).
+  - Webhook error outputs sanitize and redact credentials, authorization headers, and URLs.
+- **Cron Authentication & Secret Non-Readback:**
+  - Hardened `app/api/admin/analytics/briefing-schedules/run-due/route.ts`:
+    - Constant-time secret comparison with `crypto.timingSafeEqual`, safe buffer length checking, and fixed-time dummy comparison to prevent length/timing leaks.
+    - Canonical auth accepts `Authorization: Bearer <secret>` and `x-lokswami-cron-secret: <secret>`.
+    - Query-string `?secret=` deprecated with non-sensitive warnings in development/staging and strictly rejected in production.
+    - Plaintext secrets are never logged, echoed, or exposed by any configuration API or settings serializer.
+- **Settings Optimistic Concurrency (CAS):**
+  - Added monotonically increasing `version: number` (default 1) to `LeadershipReportSchedule` Mongoose model and stored schedules file.
+  - Storage layer enforces CAS checks matching `expectedVersion` or `expectedUpdatedAt`.
+  - MongoDB update uses atomic query predicate: `findOneAndUpdate({ id, version: expectedVersion }, ...)`.
+  - File fallback serializes updates with `withScheduleLock`, evaluating CAS before atomic write.
+  - Concurrent stale writers are rejected with HTTP 409 `SETTINGS_VERSION_CONFLICT` and error message: `"Settings were modified by another administrator. Reload and try again."`
+  - Routes `PATCH /api/admin/analytics/briefing-schedules` and `PATCH /api/admin/settings/leadership-reports` require `expectedVersion` or `expectedUpdatedAt`.
+  - Client panels (`LeadershipReportDeliveryPanel.tsx` and `LeadershipReportsSettingsPanel.tsx`) track schedule version tokens and send concurrency parameters on save.
+- **Verification & Test Coverage:**
+  - Created `tests/admin-webhook-security.test.ts` (43 focused tests covering IP parsers, RFC1918, IPv6, cloud metadata, DNS resolution, redirect rejection, timeouts, response bounds, cron timing safety, settings CAS, and secret non-exposure).
+  - All tests fully mocked and offline (0 live provider or network calls).
+  - Test baseline increased from 304 test files / 2,046 tests to **305 test files / 2,089 tests** (100% passing).
+  - Clean passes across: `npm run typecheck`, `npm run lint:strict`, `npm run test:four-role-newsroom`, `npm run test:security`, `npm run test:auth-guards`, `npm run check:phase3-scope`, `npm run build:ci`, `git diff --check`, `npm run test:ci`.
+- **Target Commit:** `feat(admin): harden configuration and webhook security`

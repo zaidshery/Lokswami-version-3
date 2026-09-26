@@ -10,6 +10,18 @@ import {
   type LeadershipReportPresetId,
 } from '@/lib/admin/leadershipReports';
 import LeadershipReportSchedule from '@/lib/models/LeadershipReportSchedule';
+import { validateSafeWebhookUrl } from '@/lib/security/safeUrlFetch';
+
+export class SettingsConflictError extends Error {
+  readonly code = 'SETTINGS_VERSION_CONFLICT';
+  readonly status = 409;
+  constructor(
+    message = 'Settings were modified by another administrator. Reload and try again.'
+  ) {
+    super(message);
+    this.name = 'SettingsConflictError';
+  }
+}
 
 export type LeadershipReportDeliveryMode =
   | 'dashboard_link'
@@ -24,7 +36,7 @@ export type LeadershipReportWebhookProvider =
   | 'telegram';
 export type LeadershipReportRunStatus = 'idle' | 'success' | 'failed';
 
-type StoredLeadershipReportSchedule = {
+export type StoredLeadershipReportSchedule = {
   id: LeadershipReportPresetId;
   enabled: boolean;
   deliveryTime: string;
@@ -37,6 +49,7 @@ type StoredLeadershipReportSchedule = {
   lastRunAt: string | null;
   lastRunStatus: LeadershipReportRunStatus;
   lastRunSummary: string;
+  version?: number;
   updatedAt: string;
 };
 
@@ -67,6 +80,7 @@ const DEFAULT_SCHEDULES: StoredLeadershipReportSchedule[] = [
     lastRunAt: null,
     lastRunStatus: 'idle',
     lastRunSummary: '',
+    version: 1,
     updatedAt: new Date(0).toISOString(),
   },
   {
@@ -82,6 +96,7 @@ const DEFAULT_SCHEDULES: StoredLeadershipReportSchedule[] = [
     lastRunAt: null,
     lastRunStatus: 'idle',
     lastRunSummary: '',
+    version: 1,
     updatedAt: new Date(0).toISOString(),
   },
   {
@@ -97,6 +112,7 @@ const DEFAULT_SCHEDULES: StoredLeadershipReportSchedule[] = [
     lastRunAt: null,
     lastRunStatus: 'idle',
     lastRunSummary: '',
+    version: 1,
     updatedAt: new Date(0).toISOString(),
   },
   {
@@ -112,6 +128,7 @@ const DEFAULT_SCHEDULES: StoredLeadershipReportSchedule[] = [
     lastRunAt: null,
     lastRunStatus: 'idle',
     lastRunSummary: '',
+    version: 1,
     updatedAt: new Date(0).toISOString(),
   },
 ];
@@ -198,6 +215,7 @@ type MongoScheduleRecord = {
   lastRunAt?: Date | string | null;
   lastRunStatus?: LeadershipReportRunStatus;
   lastRunSummary?: string;
+  version?: number;
   updatedAt?: Date | string;
 };
 
@@ -238,6 +256,10 @@ function normalizeStoredSchedule(record: MongoScheduleRecord): StoredLeadershipR
         ? record.lastRunStatus
         : fallback.lastRunStatus,
     lastRunSummary: String(record.lastRunSummary || '').trim(),
+    version:
+      typeof record.version === 'number' && Number.isFinite(record.version)
+        ? record.version
+        : fallback.version || 1,
     updatedAt: toIsoDate(record.updatedAt) || fallback.updatedAt,
   };
 }
@@ -271,10 +293,89 @@ async function writeScheduleMongo(schedule: StoredLeadershipReportSchedule) {
         lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : null,
         lastRunStatus: schedule.lastRunStatus,
         lastRunSummary: schedule.lastRunSummary,
+        version: schedule.version,
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
   );
+}
+
+async function writeScheduleMongoWithCas(
+  schedule: StoredLeadershipReportSchedule,
+  options?: UpdateLeadershipReportScheduleOptions
+): Promise<StoredLeadershipReportSchedule> {
+  await connectDB();
+  const filter: Record<string, unknown> = { presetId: schedule.id };
+  const expectedVersion = options?.expectedVersion;
+  const expectedUpdatedAt = options?.expectedUpdatedAt;
+
+  if (expectedVersion !== undefined) {
+    filter.version = expectedVersion;
+  } else if (expectedUpdatedAt !== undefined) {
+    filter.updatedAt = new Date(expectedUpdatedAt);
+  }
+
+  const nextVersion = (schedule.version || 1) + 1;
+  const now = new Date();
+
+  const updated = (await LeadershipReportSchedule.findOneAndUpdate(
+    filter,
+    {
+      $set: {
+        presetId: schedule.id,
+        enabled: schedule.enabled,
+        deliveryTime: schedule.deliveryTime,
+        timezone: schedule.timezone,
+        deliveryMode: schedule.deliveryMode,
+        recipientEmails: schedule.recipientEmails,
+        webhookUrls: schedule.webhookUrls,
+        webhookProvider: schedule.webhookProvider,
+        notes: schedule.notes,
+        lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : null,
+        lastRunStatus: schedule.lastRunStatus,
+        lastRunSummary: schedule.lastRunSummary,
+        version: nextVersion,
+        updatedAt: now,
+      },
+    },
+    { new: true, runValidators: true }
+  ).lean()) as MongoScheduleRecord | null;
+
+  if (!updated) {
+    const existing = (await LeadershipReportSchedule.findOne({
+      presetId: schedule.id,
+    }).lean()) as MongoScheduleRecord | null;
+
+    if (existing) {
+      throw new SettingsConflictError();
+    }
+
+    if (expectedVersion !== undefined && expectedVersion !== 1) {
+      throw new SettingsConflictError();
+    }
+
+    const created = (await LeadershipReportSchedule.create({
+      presetId: schedule.id,
+      enabled: schedule.enabled,
+      deliveryTime: schedule.deliveryTime,
+      timezone: schedule.timezone,
+      deliveryMode: schedule.deliveryMode,
+      recipientEmails: schedule.recipientEmails,
+      webhookUrls: schedule.webhookUrls,
+      webhookProvider: schedule.webhookProvider,
+      notes: schedule.notes,
+      lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : null,
+      lastRunStatus: schedule.lastRunStatus,
+      lastRunSummary: schedule.lastRunSummary,
+      version: 2,
+    })) as unknown as MongoScheduleRecord;
+
+    const normalized = normalizeStoredSchedule(created);
+    return normalized || { ...schedule, version: 2, updatedAt: now.toISOString() };
+  }
+
+  const normalized = normalizeStoredSchedule(updated);
+  return normalized || { ...schedule, version: nextVersion, updatedAt: now.toISOString() };
 }
 
 function buildCandidateAtTime(baseDate: Date, deliveryTime: string) {
@@ -366,6 +467,28 @@ function enrichSchedule(
   };
 }
 
+let scheduleFileLock = Promise.resolve();
+
+export async function withScheduleLock<T>(fn: () => Promise<T>): Promise<T> {
+  let release: () => void;
+  const nextLock = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const prevLock = scheduleFileLock;
+  scheduleFileLock = (async () => {
+    try {
+      await prevLock;
+    } catch {}
+    await nextLock;
+  })();
+  try {
+    await prevLock;
+    return await fn();
+  } finally {
+    release!();
+  }
+}
+
 function mergeWithDefaults(
   storedSchedules: StoredLeadershipReportSchedule[]
 ): StoredLeadershipReportSchedule[] {
@@ -388,6 +511,10 @@ function mergeWithDefaults(
         ? (stored?.webhookProvider as LeadershipReportWebhookProvider)
         : fallback.webhookProvider,
       notes: String(stored?.notes || fallback.notes || '').trim(),
+      version:
+        typeof stored?.version === 'number' && Number.isFinite(stored.version)
+          ? stored.version
+          : fallback.version || 1,
     };
   });
 }
@@ -415,6 +542,11 @@ export async function listLeadershipReportSchedules(): Promise<LeadershipReportS
   );
 }
 
+export type UpdateLeadershipReportScheduleOptions = {
+  expectedVersion?: number;
+  expectedUpdatedAt?: string;
+};
+
 export async function updateLeadershipReportSchedule(
   id: LeadershipReportPresetId,
   updates: Partial<{
@@ -425,63 +557,187 @@ export async function updateLeadershipReportSchedule(
     webhookUrls: string[];
     webhookProvider: LeadershipReportWebhookProvider;
     notes: string;
-  }>
+  }>,
+  options?: UpdateLeadershipReportScheduleOptions
 ): Promise<LeadershipReportSchedule> {
-  const merged = mergeWithDefaults(
-    shouldUseFileStore()
-      ? await readSchedulesFile()
-      : await readSchedulesMongo().catch(async (error) => {
-          console.error('Leadership report schedules Mongo read failed, using file fallback.', error);
-          return readSchedulesFile();
-        })
-  );
-  const targetIndex = merged.findIndex((schedule) => schedule.id === id);
-  const now = new Date().toISOString();
-
-  if (targetIndex === -1) {
-    throw new Error('Leadership report schedule not found.');
-  }
-
-  const current = merged[targetIndex];
-  const next: StoredLeadershipReportSchedule = {
-    ...current,
-    enabled: updates.enabled === undefined ? current.enabled : Boolean(updates.enabled),
-    deliveryTime: normalizeTime(updates.deliveryTime, current.deliveryTime),
-    deliveryMode:
-      updates.deliveryMode && isDeliveryMode(updates.deliveryMode)
-        ? updates.deliveryMode
-        : current.deliveryMode,
-    recipientEmails:
-      updates.recipientEmails === undefined
-        ? current.recipientEmails
-        : normalizeRecipientEmails(updates.recipientEmails),
-    webhookUrls:
-      updates.webhookUrls === undefined
-        ? current.webhookUrls
-        : normalizeWebhookUrls(updates.webhookUrls),
-    webhookProvider:
-      updates.webhookProvider && isWebhookProvider(updates.webhookProvider)
-        ? updates.webhookProvider
-        : current.webhookProvider,
-    notes: updates.notes === undefined ? current.notes : String(updates.notes || '').trim(),
-    updatedAt: now,
-  };
-
-  merged[targetIndex] = next;
-
-  if (shouldUseFileStore()) {
-    await writeSchedulesFile(merged);
-  } else {
-    try {
-      await writeScheduleMongo(next);
-    } catch (error) {
-      console.error('Leadership report schedules Mongo write failed, using file fallback.', error);
-      await writeSchedulesFile(merged);
+  // Save-time webhook URL validation (Task 13)
+  if (updates.webhookUrls !== undefined && Array.isArray(updates.webhookUrls)) {
+    for (const rawUrl of updates.webhookUrls) {
+      const validation = await validateSafeWebhookUrl(rawUrl);
+      if (!validation.safe) {
+        throw new Error(`Invalid webhook URL "${rawUrl}": ${validation.error}`);
+      }
     }
   }
 
-  const config = LEADERSHIP_REPORT_PRESETS.find((preset) => preset.id === id) || LEADERSHIP_REPORT_PRESETS[0];
-  return enrichSchedule(next, config);
+  const config =
+    LEADERSHIP_REPORT_PRESETS.find((preset) => preset.id === id) || LEADERSHIP_REPORT_PRESETS[0];
+
+  if (shouldUseFileStore()) {
+    return withScheduleLock(async () => {
+      const stored = await readSchedulesFile();
+      const merged = mergeWithDefaults(stored);
+      const targetIndex = merged.findIndex((schedule) => schedule.id === id);
+
+      if (targetIndex === -1) {
+        throw new Error('Leadership report schedule not found.');
+      }
+
+      const current = merged[targetIndex];
+
+      // Optimistic concurrency check (CAS)
+      if (options?.expectedVersion !== undefined && current.version !== options.expectedVersion) {
+        throw new SettingsConflictError();
+      }
+      if (
+        options?.expectedUpdatedAt !== undefined &&
+        current.updatedAt !== options.expectedUpdatedAt
+      ) {
+        throw new SettingsConflictError();
+      }
+
+      const now = new Date().toISOString();
+      const nextVersion = (current.version || 1) + 1;
+      const next: StoredLeadershipReportSchedule = {
+        ...current,
+        enabled: updates.enabled === undefined ? current.enabled : Boolean(updates.enabled),
+        deliveryTime: normalizeTime(updates.deliveryTime, current.deliveryTime),
+        deliveryMode:
+          updates.deliveryMode && isDeliveryMode(updates.deliveryMode)
+            ? updates.deliveryMode
+            : current.deliveryMode,
+        recipientEmails:
+          updates.recipientEmails === undefined
+            ? current.recipientEmails
+            : normalizeRecipientEmails(updates.recipientEmails),
+        webhookUrls:
+          updates.webhookUrls === undefined
+            ? current.webhookUrls
+            : normalizeWebhookUrls(updates.webhookUrls),
+        webhookProvider:
+          updates.webhookProvider && isWebhookProvider(updates.webhookProvider)
+            ? updates.webhookProvider
+            : current.webhookProvider,
+        notes: updates.notes === undefined ? current.notes : String(updates.notes || '').trim(),
+        version: nextVersion,
+        updatedAt: now,
+      };
+
+      merged[targetIndex] = next;
+      await writeSchedulesFile(merged);
+      return enrichSchedule(next, config);
+    });
+  }
+
+  // MongoDB path with CAS
+  try {
+    const stored = await readSchedulesMongo();
+    const merged = mergeWithDefaults(stored);
+    const targetIndex = merged.findIndex((schedule) => schedule.id === id);
+
+    if (targetIndex === -1) {
+      throw new Error('Leadership report schedule not found.');
+    }
+
+    const current = merged[targetIndex];
+
+    // Pre-check CAS token before executing Mongo mutation
+    if (options?.expectedVersion !== undefined && current.version !== options.expectedVersion) {
+      throw new SettingsConflictError();
+    }
+    if (
+      options?.expectedUpdatedAt !== undefined &&
+      current.updatedAt !== options.expectedUpdatedAt
+    ) {
+      throw new SettingsConflictError();
+    }
+
+    const now = new Date().toISOString();
+    const next: StoredLeadershipReportSchedule = {
+      ...current,
+      enabled: updates.enabled === undefined ? current.enabled : Boolean(updates.enabled),
+      deliveryTime: normalizeTime(updates.deliveryTime, current.deliveryTime),
+      deliveryMode:
+        updates.deliveryMode && isDeliveryMode(updates.deliveryMode)
+          ? updates.deliveryMode
+          : current.deliveryMode,
+      recipientEmails:
+        updates.recipientEmails === undefined
+          ? current.recipientEmails
+          : normalizeRecipientEmails(updates.recipientEmails),
+      webhookUrls:
+        updates.webhookUrls === undefined
+          ? current.webhookUrls
+          : normalizeWebhookUrls(updates.webhookUrls),
+      webhookProvider:
+        updates.webhookProvider && isWebhookProvider(updates.webhookProvider)
+          ? updates.webhookProvider
+          : current.webhookProvider,
+      notes: updates.notes === undefined ? current.notes : String(updates.notes || '').trim(),
+      version: current.version,
+      updatedAt: now,
+    };
+
+    const persisted = await writeScheduleMongoWithCas(next, options);
+    return enrichSchedule(persisted, config);
+  } catch (error) {
+    if (error instanceof SettingsConflictError) {
+      throw error;
+    }
+    console.error('Leadership report schedules Mongo write failed, using file fallback.', error);
+    return withScheduleLock(async () => {
+      const stored = await readSchedulesFile();
+      const merged = mergeWithDefaults(stored);
+      const targetIndex = merged.findIndex((schedule) => schedule.id === id);
+
+      if (targetIndex === -1) {
+        throw new Error('Leadership report schedule not found.');
+      }
+
+      const current = merged[targetIndex];
+
+      if (options?.expectedVersion !== undefined && current.version !== options.expectedVersion) {
+        throw new SettingsConflictError();
+      }
+      if (
+        options?.expectedUpdatedAt !== undefined &&
+        current.updatedAt !== options.expectedUpdatedAt
+      ) {
+        throw new SettingsConflictError();
+      }
+
+      const now = new Date().toISOString();
+      const nextVersion = (current.version || 1) + 1;
+      const next: StoredLeadershipReportSchedule = {
+        ...current,
+        enabled: updates.enabled === undefined ? current.enabled : Boolean(updates.enabled),
+        deliveryTime: normalizeTime(updates.deliveryTime, current.deliveryTime),
+        deliveryMode:
+          updates.deliveryMode && isDeliveryMode(updates.deliveryMode)
+            ? updates.deliveryMode
+            : current.deliveryMode,
+        recipientEmails:
+          updates.recipientEmails === undefined
+            ? current.recipientEmails
+            : normalizeRecipientEmails(updates.recipientEmails),
+        webhookUrls:
+          updates.webhookUrls === undefined
+            ? current.webhookUrls
+            : normalizeWebhookUrls(updates.webhookUrls),
+        webhookProvider:
+          updates.webhookProvider && isWebhookProvider(updates.webhookProvider)
+            ? updates.webhookProvider
+            : current.webhookProvider,
+        notes: updates.notes === undefined ? current.notes : String(updates.notes || '').trim(),
+        version: nextVersion,
+        updatedAt: now,
+      };
+
+      merged[targetIndex] = next;
+      await writeSchedulesFile(merged);
+      return enrichSchedule(next, config);
+    });
+  }
 }
 
 export async function recordLeadershipReportRun(args: {
