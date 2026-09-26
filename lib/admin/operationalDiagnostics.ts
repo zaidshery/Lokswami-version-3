@@ -7,6 +7,7 @@ import {
   getLeadershipReportRuntimeSnapshot,
   type LeadershipReportEscalation,
   type LeadershipReportHealthAlert,
+  type LeadershipReportRuntimeSnapshot,
 } from '@/lib/admin/leadershipReportHealth';
 import {
   getSystemHealthSummary,
@@ -14,7 +15,9 @@ import {
   type SystemHealthSignal,
   type SystemHealthFailure,
   type SystemHealthStatus,
+  type SystemHealthSummary,
 } from '@/lib/admin/systemHealth';
+import { sanitizeDiagnosticsText } from '@/lib/admin/diagnosticsSanitizer';
 import { listLeadershipReportRunHistory } from '@/lib/storage/leadershipReportRunHistoryFile';
 import { listLeadershipReportSchedules } from '@/lib/storage/leadershipReportSchedulesFile';
 
@@ -87,7 +90,7 @@ function buildSignal(
   value: string,
   tone: SystemHealthSignal['tone']
 ): SystemHealthSignal {
-  return { label, value, tone };
+  return { label: sanitizeDiagnosticsText(label), value: sanitizeDiagnosticsText(value), tone };
 }
 
 export function buildUploadRuntimeSummary(): UploadRuntimeSummary {
@@ -186,42 +189,170 @@ function mapHealthAlert(alert: LeadershipReportHealthAlert): OperationalDiagnost
         : alert.severity === 'warning'
           ? 'warning'
           : 'neutral',
-    title: alert.title,
-    detail: alert.detail,
-    href: alert.actionHref,
-    actionLabel: alert.actionLabel,
+    title: sanitizeDiagnosticsText(alert.title),
+    detail: sanitizeDiagnosticsText(alert.detail),
+    href: alert.actionHref ? sanitizeDiagnosticsText(alert.actionHref) : undefined,
+    actionLabel: alert.actionLabel ? sanitizeDiagnosticsText(alert.actionLabel) : undefined,
+  };
+}
+
+export function sanitizeOperationalDiagnosticsSnapshot(
+  snapshot: OperationalDiagnosticsSnapshot
+): OperationalDiagnosticsSnapshot {
+  return {
+    dataSource: snapshot.dataSource,
+    summary: { ...snapshot.summary },
+    lanes: snapshot.lanes.map((lane) => ({
+      ...lane,
+      label: sanitizeDiagnosticsText(lane.label),
+      summary: sanitizeDiagnosticsText(lane.summary),
+      detail: sanitizeDiagnosticsText(lane.detail),
+      href: lane.href ? sanitizeDiagnosticsText(lane.href) : undefined,
+    })),
+    runtimeSignals: snapshot.runtimeSignals.map((signal) => ({
+      ...signal,
+      label: sanitizeDiagnosticsText(signal.label),
+      value: sanitizeDiagnosticsText(signal.value),
+    })),
+    alerts: snapshot.alerts.map((alert) => ({
+      ...alert,
+      title: sanitizeDiagnosticsText(alert.title),
+      detail: sanitizeDiagnosticsText(alert.detail),
+      href: alert.href ? sanitizeDiagnosticsText(alert.href) : undefined,
+      actionLabel: alert.actionLabel ? sanitizeDiagnosticsText(alert.actionLabel) : undefined,
+    })),
+    reportEscalations: snapshot.reportEscalations.map((esc) => ({
+      ...esc,
+      label: sanitizeDiagnosticsText(esc.label),
+      reason: sanitizeDiagnosticsText(esc.reason),
+      actionHref: sanitizeDiagnosticsText(esc.actionHref),
+      actionLabel: sanitizeDiagnosticsText(esc.actionLabel),
+    })),
+    blockedEditions: snapshot.blockedEditions.map((ed) => ({
+      ...ed,
+      title: sanitizeDiagnosticsText(ed.title),
+      cityName: sanitizeDiagnosticsText(ed.cityName),
+      blockers: ed.blockers.map(sanitizeDiagnosticsText),
+    })),
+    lowQualityPages: snapshot.lowQualityPages.map((pg) => ({
+      ...pg,
+      epaperTitle: sanitizeDiagnosticsText(pg.epaperTitle),
+      cityName: sanitizeDiagnosticsText(pg.cityName),
+      qualityLabel: sanitizeDiagnosticsText(pg.qualityLabel),
+      issueSummary: sanitizeDiagnosticsText(pg.issueSummary),
+      reviewedByName: sanitizeDiagnosticsText(pg.reviewedByName),
+    })),
+    recentFailures: snapshot.recentFailures.map((rf) => ({
+      ...rf,
+      message: sanitizeDiagnosticsText(rf.message),
+      action: sanitizeDiagnosticsText(rf.action),
+      sourceType: sanitizeDiagnosticsText(rf.sourceType),
+      variant: sanitizeDiagnosticsText(rf.variant),
+    })),
   };
 }
 
 export async function getOperationalDiagnosticsSnapshot(): Promise<OperationalDiagnosticsSnapshot> {
-  const [epaperInsights, schedules, runHistory] = await Promise.all([
+  const [epaperInsightsResult, schedulesResult, runHistoryResult] = await Promise.allSettled([
     getEpaperInsights({ maxLowQualityPages: 10, maxBlockedEditions: 8 }),
     listLeadershipReportSchedules(),
     listLeadershipReportRunHistory(120),
   ]);
 
+  const epaperInsights: EpaperInsights =
+    epaperInsightsResult.status === 'fulfilled'
+      ? epaperInsightsResult.value
+      : {
+          source: 'file',
+          editionCounts: { total: 0, inProduction: 0, readyToPublish: 0, published: 0 },
+          pageQualityCounts: { good: 0, watch: 0, critical: 0, lowTextPages: 0, pendingQa: 0, needsAttentionQa: 0, readyQa: 0 },
+          lowQualityPages: [],
+          blockedEditions: [],
+        };
+
+  const schedules =
+    schedulesResult.status === 'fulfilled' ? schedulesResult.value : [];
+  const runHistory =
+    runHistoryResult.status === 'fulfilled' ? runHistoryResult.value : [];
+
   const dataSource = deriveDataSource(epaperInsights.source);
-  const runtime = await getLeadershipReportRuntimeSnapshot(schedules);
-  const reportAlerts = buildLeadershipReportHealthAlerts({
-    schedules,
-    history: runHistory,
-    runtime,
-  });
-  const reportEscalations = buildLeadershipReportEscalations({
-    schedules,
-    history: runHistory,
-    runtime,
-  });
+
+  let runtime: LeadershipReportRuntimeSnapshot;
+  try {
+    runtime = await getLeadershipReportRuntimeSnapshot(schedules);
+  } catch (err) {
+    console.warn('Failed to retrieve leadership report runtime snapshot:', err);
+    runtime = {
+      cronSecretConfigured: false,
+      emailDeliveryConfigured: false,
+      resendConfigured: false,
+      fromEmailConfigured: false,
+      dueNowCount: 0,
+      dueNowIds: [],
+    };
+  }
+
+  let reportAlerts: LeadershipReportHealthAlert[] = [];
+  try {
+    reportAlerts = buildLeadershipReportHealthAlerts({
+      schedules,
+      history: runHistory,
+      runtime,
+    });
+  } catch (err) {
+    console.warn('Failed to build leadership report health alerts:', err);
+  }
+
+  let reportEscalations: LeadershipReportEscalation[] = [];
+  try {
+    reportEscalations = buildLeadershipReportEscalations({
+      schedules,
+      history: runHistory,
+      runtime,
+    });
+  } catch (err) {
+    console.warn('Failed to build leadership report escalations:', err);
+  }
+
   const uploadRuntime = buildUploadRuntimeSummary();
   const ocrRuntime = buildOcrRuntimeSummary();
-  const systemHealth = await getSystemHealthSummary({
-    dataSource,
-    blockedEditions: epaperInsights.blockedEditions.length,
-    qualityAlerts: epaperInsights.lowQualityPages.length,
-    queuePressure: epaperInsights.editionCounts.inProduction,
-    inboxEscalations: 0,
-    teamAlerts: 0,
-  });
+
+  let systemHealth: SystemHealthSummary;
+  try {
+    systemHealth = await getSystemHealthSummary({
+      dataSource,
+      blockedEditions: epaperInsights.blockedEditions.length,
+      qualityAlerts: epaperInsights.lowQualityPages.length,
+      queuePressure: epaperInsights.editionCounts.inProduction,
+      inboxEscalations: 0,
+      teamAlerts: 0,
+    });
+  } catch (err) {
+    console.warn('Failed to get system health summary for operational diagnostics:', err);
+    systemHealth = {
+      dataSource,
+      services: [
+        {
+          id: 'database',
+          label: 'Database',
+          status: 'critical',
+          summary: 'Database connectivity probe failed.',
+          detail: 'Database connectivity probe threw an exception.',
+        },
+      ],
+      runtimeSignals: [],
+      recentFailures: [],
+      risks: ['System health summary degraded'],
+      metrics: {
+        serviceRisks: 1,
+        recentFailures: 0,
+        failedAssets: 0,
+        staleAssets: 0,
+        enabledSurfaces: 0,
+        writableStorage: false,
+      },
+    };
+  }
 
   const serviceMap = new Map<string, SystemHealthService>(
     systemHealth.services.map((service) => [service.id, service])
@@ -359,7 +490,7 @@ export async function getOperationalDiagnosticsSnapshot(): Promise<OperationalDi
     ),
   ];
 
-  return {
+  return sanitizeOperationalDiagnosticsSnapshot({
     dataSource,
     summary: {
       servicesAtRisk: lanes.filter((lane) => lane.status !== 'healthy').length,
@@ -376,5 +507,5 @@ export async function getOperationalDiagnosticsSnapshot(): Promise<OperationalDi
     blockedEditions: epaperInsights.blockedEditions,
     lowQualityPages: epaperInsights.lowQualityPages,
     recentFailures: systemHealth.recentFailures,
-  };
+  });
 }

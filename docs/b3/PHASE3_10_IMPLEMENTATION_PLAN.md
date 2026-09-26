@@ -811,3 +811,96 @@ Upon completion and merge of Phase 3.10:
   - Regression baseline increased from 305 test files / 2,089 tests to **307 test files / 2,113 tests** (100% passing).
   - Clean passes across: `npm run typecheck`, `npm run lint:strict`, `npm run test:four-role-newsroom`, `npm run test:security`, `npm run test:auth-guards`, `npm run check:phase3-scope`, `npm run build:ci`, `git diff --check`, `npm run test:ci`.
 - **Target Commit:** `feat(admin): enforce session freshness and audit integrity`
+
+---
+
+## Phase 3.10D Completion Record — Operations + Diagnostics + Recovery Safety
+
+- **Completed:** 2026-09-26
+- **Branch:** `b3/phase3.10-admin-system-management`
+- **Starting HEAD:** `9407fcb`
+- **Commit:** `feat(admin): harden operations and diagnostics safety`
+
+### Diagnostics DTO / Information Minimization
+- Created `lib/admin/diagnosticsSanitizer.ts` — canonical text-sanitizer that redacts Mongo URIs, Bearer tokens, signed URL query parameters, credential assignments, synthetic secret names (`TEST_*_SECRET`, `CRON_SECRET`, etc.), and user filesystem paths; enforces a 1,000-character cap.
+- Added `sanitizeDiagnosticsRecord<T>()` — recursive object sanitizer used internally.
+- Applied `sanitizeDiagnosticsText` throughout `lib/admin/systemHealth.ts` for all error messages, labels, and event fields.
+- Applied `sanitizeDiagnosticsText` at every `buildSignal` call in `lib/admin/operationalDiagnostics.ts` (labels, values, alert titles, detail, escalation reason).
+- Exported `sanitizeOperationalDiagnosticsSnapshot()` — a full snapshot-level sanitizer applied as the final step of `getOperationalDiagnosticsSnapshot()`, ensuring no raw string escapes the builder.
+- Raw `process.env` is never serialized in any diagnostics path; configuration status is expressed as `configured: true/false` via runtime summaries.
+
+### Public Health Contract
+- **`GET /api/health`**: Wrapped in try/catch; healthy → `{ status: "ok", db: "connected" }` (HTTP 200); DB unavailable → `{ status: "error", db: "unavailable" }` (HTTP 503); unexpected exception → same safe 503 body. Internal Mongo details, hostnames, and error messages are never included.
+- **`GET /api/v1/public/health`**: Replaced snapshot-based disclosure with a live bounded probe (`isMongoAvailable`, 1,500 ms timeout); healthy → `{ success: true, status: "ok", service: "lokswami-public-api", dependencies: { mongo: "available" } }`; DB unavailable → HTTP 503 with `dependencies: { mongo: "unavailable" }`. No internal topology exposed.
+
+### Outage / Dependency Degradation
+- `getSystemHealthSummary` in `lib/admin/systemHealth.ts` now gates DB-dependent Mongoose queries behind a live `isMongoAvailable` probe (2,000 ms timeout). If probe fails, returns safe degraded `SystemHealthSummary` with `status: "critical"` without crashing.
+- `getOperationalDiagnosticsSnapshot` in `lib/admin/operationalDiagnostics.ts` upgraded from `Promise.all` (any failure = crash) to `Promise.allSettled` for the three root data fetches. Each downstream builder (`getLeadershipReportRuntimeSnapshot`, `buildLeadershipReportHealthAlerts`, `buildLeadershipReportEscalations`, `getSystemHealthSummary`) is independently try/caught with warn logging and safe fallback values.
+- Partial provider failure (e.g., storage unavailable while DB is healthy) produces a `degraded` overall status without crashing the diagnostics page.
+- MongoDB error messages are redacted in `lib/db/mongoAvailability.ts` via `redactMongoReason()` before being stored in state, logged, or surfaced anywhere.
+
+### Recovery Action Authorization, CSRF, and Audit
+- All recovery mutations use `withAdminMutation` (same-origin CSRF) + `getAdminSessionFromReq` (fresh DB-backed role from 3.10C).
+- **Briefing schedule retry** (`/api/admin/analytics/briefing-schedules/retry-failed`): upgraded from cookie-only `getAdminSession` to `getAdminSessionFromReq`; added `logAuditAction` for both success and failure outcomes, recording actor, role, retry counts, duration, and IP — no secrets logged.
+- **E-paper processing retry** (`/api/admin/epapers/[id]/processing/retry`): added `logAuditAction` for success and domain-error outcomes, recording `resourceId`, `jobId`, `pageNumbers`, and outcome — no secrets logged.
+- **TTS asset cleanup** (`/api/admin/tts/cleanup`): added `logAuditAction` recording `dryRun`, `deletedAssets`, `deletedFiles` — no credential fields present.
+- **TTS retry** (`/api/admin/tts/retry`): remains a permanent HTTP 405 tombstone; auto-TTS synthesis is not supported.
+
+### Idempotency and Canonical Revalidation
+- E-paper retry correctly propagates `EpaperValidationError` (400) when no failed or missing pages exist — second attempt on completed work returns a bounded rejection without duplicate processing.
+- All retry mutations revalidate domain state before acting; there is no blind re-execution.
+
+### Operations RBAC (Four-Role Policy)
+- `operations_center` and `operations_diagnostics` confirmed locked to `['super_admin']` in `lib/auth/permissions.ts`.
+- `canManageLeadershipReports` remains `isSuperAdminRole` — admin/copy_editor/reporter cannot call the briefing retry endpoint (HTTP 403).
+- `canRunGlobalAiOps` (TTS cleanup) is super_admin-only — other roles receive HTTP 403.
+- Both page guards and API routes enforce the same policy; UI buttons are not the security boundary.
+
+### Tests Added
+- Created `tests/admin-operations-safety.test.ts` (20 focused tests):
+  - Task 31: Sanitizer unit tests — URI, token, signed URL, path, and synthetic secret redaction; snapshot-level sanitization covering all nested fields.
+  - Task 32: Public health contract — healthy (200), DB unavailable (503 minimal), unexpected exception (503 minimal); public v1 health healthy/unavailable.
+  - Task 33: Graceful degradation — missing Spaces config → `critical` without throw; OCR fallback missing provider → `critical`; diagnostics snapshot with Mongo down → no throw.
+  - Task 34: Operations RBAC — page guards for `operations_center`/`operations_diagnostics`; briefing retry endpoint denies admin/copy_editor/reporter; TTS cleanup denies non-super_admin.
+  - Tasks 35 & 36: Idempotency + audit — briefing retry audits success; e-paper retry audits success and domain error; idempotency rejection on no-retryable pages; TTS retry 405 tombstone; TTS cleanup audits success.
+- All 20 new tests pass with mocks/fakes only — no real providers, DB, or storage called.
+
+### Validation Results
+- **`tests/admin-operations-safety.test.ts`:** 20/20 ✅
+- **3.10A regression (`admin-super-admin-safety.test.ts`):** 25/25 ✅
+- **3.10B regression (`admin-webhook-security.test.ts`, `leadership-report-webhook.test.ts`):** 48/48 ✅
+- **3.10C regression (`admin-session-invalidation.test.ts`, `admin-audit-integrity.test.ts`, `permissions-governance.test.ts`):** 35/35 ✅
+- **`npm run typecheck`:** ✅ clean
+- **`npm run lint:strict`:** ✅ 0 warnings
+- **`npm run test:four-role-newsroom`:** ✅ 28/28
+- **`npm run test:security`:** ✅ 73/73
+- **`npm run test:auth-guards`:** ✅ 7/7
+- **`npm run check:phase3-scope`:** ✅ PASS (43 files inspected, no dangerous artifacts)
+- **`npm run build:ci`:** ✅ compiled successfully, 175/175 static pages generated
+- **`git diff --check`:** ✅ (pre-existing `data/categories.json` / `next-env.d.ts` warnings only)
+- **`npm run test:ci` (full suite):** ✅ **308 test files, 2,133 tests passed** (baseline: 307 files / 2,113 tests)
+
+### Safety Invariants
+- Real recovery operations: 0
+- Real cleanup operations: 0
+- Real provider calls: 0
+- Real storage mutations: 0
+- Staging/production mutations: 0
+- Env contents inspected: 0
+- Secrets exposed: 0
+- `data/categories.json` and `next-env.d.ts` preserved and not staged
+
+### Changed Files (3.10D)
+| File | Type |
+|---|---|
+| `lib/admin/diagnosticsSanitizer.ts` | New — canonical diagnostics sanitizer |
+| `lib/admin/operationalDiagnostics.ts` | Modified — allSettled, try/catch isolation, sanitizer applied |
+| `lib/admin/systemHealth.ts` | Modified — live DB probe, degraded fallback, sanitizer applied |
+| `lib/db/mongoAvailability.ts` | Modified — URI redaction in error messages and log output |
+| `app/api/health/route.ts` | Modified — try/catch, minimal safe 503 body, no raw error |
+| `app/api/v1/public/health/route.ts` | Modified — live bounded probe, no topology disclosure |
+| `app/api/admin/analytics/briefing-schedules/retry-failed/route.ts` | Modified — fresh session, audit logging |
+| `app/api/admin/epapers/[id]/processing/retry/route.ts` | Modified — audit logging success + domain error |
+| `app/api/admin/tts/cleanup/route.ts` | Modified — audit logging |
+| `tests/admin-operations-safety.test.ts` | New — 20 focused 3.10D tests |
+| `docs/b3/PHASE3_10_IMPLEMENTATION_PLAN.md` | Modified — this completion record |
