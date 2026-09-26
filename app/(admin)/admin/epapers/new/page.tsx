@@ -224,6 +224,7 @@ export default function NewEPaperPage() {
         router.push(labels.adminBasePath);
       }
     } catch (err) {
+      setNotice('');
       const msg = err instanceof Error ? err.message : `Failed to create ${labels.lowercase}.`;
       const guidedMsg = msg.includes('already exists')
         ? `${msg} Please check existing editions or create a revision from the published edition.`

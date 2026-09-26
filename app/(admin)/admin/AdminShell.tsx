@@ -549,7 +549,7 @@ export default function AdminShell({
       <div className="flex h-[68px] items-center gap-3 border-b border-[color:var(--admin-shell-border)] px-4">
         <Link href="/admin" className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex-shrink-0">
-            <Logo size="sm" />
+            <Logo size="sm" priority />
           </div>
           <div className="min-w-0">
             <div className="truncate text-xs text-[color:var(--admin-shell-text-muted)]">
