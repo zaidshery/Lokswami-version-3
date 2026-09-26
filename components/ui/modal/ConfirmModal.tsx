@@ -27,6 +27,10 @@ export function ConfirmModal({
   variant = 'primary',
   isLoading = false,
 }: ConfirmModalProps) {
+  const handleClose = () => {
+    if (!isLoading) onClose();
+  };
+
   const getButtonStyles = () => {
     switch (variant) {
       case 'danger':
@@ -39,7 +43,14 @@ export function ConfirmModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} maxWidth="sm" showCloseButton={!isLoading}>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      maxWidth="sm"
+      showCloseButton={!isLoading}
+      title={title}
+      description={message}
+    >
       <div className="text-center">
         {variant === 'danger' && (
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400">
@@ -47,15 +58,12 @@ export function ConfirmModal({
           </div>
         )}
 
-        <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{title}</h3>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{message}</p>
-
-        <div className="mt-6 flex items-center justify-center gap-3">
+        <div className="mt-4 flex items-center justify-center gap-3">
           <button
             type="button"
             disabled={isLoading}
-            onClick={onClose}
-            className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            onClick={handleClose}
+            className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             {cancelLabel}
           </button>
@@ -64,7 +72,7 @@ export function ConfirmModal({
             type="button"
             disabled={isLoading}
             onClick={() => void onConfirm()}
-            className={`inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold shadow-sm transition disabled:opacity-50 ${getButtonStyles()}`}
+            className={`inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold shadow-sm transition focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 ${getButtonStyles()}`}
           >
             {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
             <span>{confirmLabel}</span>

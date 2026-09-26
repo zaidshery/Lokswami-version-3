@@ -183,7 +183,7 @@ function cx(...classes: Array<string | undefined | false>) {
 }
 
 const PANEL_CLASS =
-  'rounded-[32px] border border-zinc-200/80 bg-white/92 p-8 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.38)] dark:border-white/10 dark:bg-zinc-950/60';
+  'rounded-[24px] border border-zinc-200/80 bg-white/92 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.38)] sm:rounded-[32px] sm:p-8 dark:border-white/10 dark:bg-zinc-950/60';
 
 const SOFT_CARD_CLASS =
   'rounded-[26px] border border-zinc-200/80 bg-zinc-50/80 p-4 shadow-[0_18px_48px_-40px_rgba(15,23,42,0.32)] dark:border-white/10 dark:bg-white/[0.03]';
@@ -195,10 +195,10 @@ const INLINE_NOTICE_CLASS =
   'rounded-[22px] border border-zinc-200/80 bg-zinc-50/75 px-4 py-3 text-sm text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-300';
 
 const PRIMARY_BUTTON_CLASS =
-  'inline-flex items-center justify-center rounded-2xl border border-zinc-950 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200';
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-zinc-950 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200';
 
 const SECONDARY_BUTTON_CLASS =
-  'inline-flex items-center justify-center rounded-2xl border border-zinc-200/80 bg-white/85 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:border-red-300/40 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:border-red-500/30 dark:hover:text-red-300';
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-zinc-200/80 bg-white/85 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:border-red-300/40 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:border-red-500/30 dark:hover:text-red-300';
 
 const DANGER_BUTTON_CLASS =
   'inline-flex items-center justify-center rounded-2xl border border-red-200/80 bg-red-50/85 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20';
@@ -492,7 +492,7 @@ export default function LeadershipReportsSettingsPanel() {
   if (loading && !payload) {
     return (
       <div className={PANEL_CLASS}>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p role="status" aria-live="polite" className="text-sm text-zinc-600 dark:text-zinc-400">
           Loading leadership report settings...
         </p>
       </div>
@@ -502,7 +502,7 @@ export default function LeadershipReportsSettingsPanel() {
   if (!payload) {
     return (
       <div className={PANEL_CLASS}>
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {error || 'Unable to load leadership report settings.'}
         </p>
       </div>
@@ -524,7 +524,7 @@ export default function LeadershipReportsSettingsPanel() {
         </p>
 
         {error ? (
-          <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+          <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
             {error}
           </p>
         ) : null}
@@ -533,7 +533,7 @@ export default function LeadershipReportsSettingsPanel() {
           <div className={cx('rounded-[24px] border p-4 shadow-sm', getReadinessToneClass(payload.runtime.cronSecretConfigured))}>
             <p className="text-xs font-semibold uppercase tracking-wide">Cron Secret</p>
             <p className="mt-2 text-lg font-bold">
-              {payload.runtime.cronSecretConfigured ? 'Configured' : 'Missing'}
+              {payload.runtime.cronSecretConfigured ? 'Configured' : 'Not configured'}
             </p>
             <p className="mt-1 text-sm opacity-90">
               Required for secure Hostinger cron execution.
@@ -543,7 +543,7 @@ export default function LeadershipReportsSettingsPanel() {
           <div className={cx('rounded-[24px] border p-4 shadow-sm', getReadinessToneClass(payload.runtime.resendConfigured))}>
             <p className="text-xs font-semibold uppercase tracking-wide">Resend API</p>
             <p className="mt-2 text-lg font-bold">
-              {payload.runtime.resendConfigured ? 'Configured' : 'Missing'}
+              {payload.runtime.resendConfigured ? 'Configured' : 'Not configured'}
             </p>
             <p className="mt-1 text-sm opacity-90">
               Needed for `Email Summary` delivery mode.
@@ -553,7 +553,7 @@ export default function LeadershipReportsSettingsPanel() {
           <div className={cx('rounded-[24px] border p-4 shadow-sm', getReadinessToneClass(payload.runtime.fromEmailConfigured))}>
             <p className="text-xs font-semibold uppercase tracking-wide">From Email</p>
             <p className="mt-2 text-lg font-bold">
-              {payload.runtime.fromEmailConfigured ? 'Configured' : 'Missing'}
+              {payload.runtime.fromEmailConfigured ? 'Configured' : 'Not configured'}
             </p>
             <p className="mt-1 text-sm opacity-90">
               Uses `LEADERSHIP_REPORT_FROM_EMAIL` or `RESEND_FROM_EMAIL`.

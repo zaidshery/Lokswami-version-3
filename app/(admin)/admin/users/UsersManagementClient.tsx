@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -17,8 +18,10 @@ import {
   UserX,
   Users,
 } from 'lucide-react';
+import Badge from '@/components/ui/Badge';
 import { formatUserRoleLabel, type AdminRole, type UserRole } from '@/lib/auth/roles';
 import { formatUiDate, formatUiDateTime } from '@/lib/utils/dateFormat';
+import { getSystemControlErrorMessage } from '@/lib/admin/systemControlFeedback';
 import { useToast } from '@/components/ui/toast/useToast';
 import FormSwitch from '@/components/ui/form/FormSwitch';
 import Modal from '@/components/ui/modal/Modal';
@@ -48,6 +51,8 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [loadError, setLoadError] = useState('');
+  const [statusUpdateUserId, setStatusUpdateUserId] = useState<string | null>(null);
 
   // Role edit modal state
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
@@ -59,6 +64,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
 
   const fetchUsers = async () => {
     setIsLoading(true);
+    setLoadError('');
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -80,17 +86,21 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
       }
 
       const res = await fetch(`/api/admin/users?${params.toString()}`);
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
-      if (json.success && json.data) {
+      if (res.ok && json.success && json.data) {
         setUsers(json.data.users || []);
         setTotalPages(json.data.pagination?.totalPages || 1);
         setTotalCount(json.data.pagination?.total || 0);
       } else {
-        toast.error('Failed to load users list.', 'Error');
+        const message = getSystemControlErrorMessage(res, json, 'Unable to load user accounts.');
+        setLoadError(message);
+        toast.error(message, 'Unable to load accounts');
       }
     } catch {
-      toast.error('Network error loading users.', 'Error');
+      const message = 'Network error while loading user accounts. Check the connection and retry.';
+      setLoadError(message);
+      toast.error(message, 'Unable to load accounts');
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +118,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
 
   const handleToggleStatus = async (user: ManagedUser) => {
     const nextStatus = !user.isActive;
+    setStatusUpdateUserId(user.id);
     try {
       const res = await fetch('/api/admin/users', {
         method: 'PATCH',
@@ -118,8 +129,8 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
         }),
       });
 
-      const json = await res.json();
-      if (json.success) {
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
         toast.success(
           `User ${user.name} is now ${nextStatus ? 'active' : 'inactive'}.`,
           'Status Updated'
@@ -128,11 +139,15 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
           prev.map((u) => (u.id === user.id ? { ...u, isActive: nextStatus } : u))
         );
       } else {
-        toast.error(json.error || 'Failed to update user status.', 'Error');
+        toast.error(
+          getSystemControlErrorMessage(res, json, 'Unable to update account status.'),
+          'Status not changed'
+        );
       }
     } catch {
       toast.error('Network error updating status.', 'Error');
     } finally {
+      setStatusUpdateUserId(null);
       setPendingStatusUser(null);
     }
   };
@@ -151,8 +166,8 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
         }),
       });
 
-      const json = await res.json();
-      if (json.success) {
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
         toast.success(
           `Role for ${editingUser.name} updated to ${formatUserRoleLabel(selectedRole)}.`,
           'Role Updated'
@@ -162,7 +177,10 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
         );
         setEditingUser(null);
       } else {
-        toast.error(json.error || 'Failed to update role.', 'Error');
+        toast.error(
+          getSystemControlErrorMessage(res, json, 'Unable to update this account role.'),
+          'Role not changed'
+        );
       }
     } catch {
       toast.error('Network error updating role.', 'Error');
@@ -207,10 +225,10 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 sm:text-3xl">
-            User & Subscriber Management
+            User Accounts
           </h1>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            View registered readers, manage WhatsApp daily e-paper subscribers, and control editorial roles.
+            Review staff and reader identities without mixing them with the separate newsletter audience.
           </p>
         </div>
 
@@ -219,7 +237,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
             type="button"
             onClick={handleExportCsv}
             disabled={users.length === 0}
-            className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-xs transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-xs transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             <Download className="h-4 w-4" />
             <span>Export CSV</span>
@@ -228,13 +246,39 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
           <button
             type="button"
             onClick={() => void fetchUsers()}
-            className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-xs transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            disabled={isLoading}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-xs transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-sm text-blue-950 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100" aria-labelledby="account-populations-heading">
+        <h2 id="account-populations-heading" className="font-bold">Who appears in this directory?</h2>
+        <div className="mt-2 grid gap-2 leading-6 sm:grid-cols-3">
+          <p><strong>Staff accounts</strong> are labelled Staff and are managed primarily in Team Management.</p>
+          <p><strong>Reader accounts</strong> are public identities used for reader sign-in and preferences.</p>
+          <p><strong>Newsletter subscribers</strong> are a separate audience and are not User records in this directory.</p>
+        </div>
+        <Link href="/admin/team" className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-4 py-2 font-semibold text-blue-800 transition hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-blue-400/30 dark:bg-zinc-950/50 dark:text-blue-200">
+          Manage staff roles and onboarding in Team Management
+        </Link>
+      </section>
+
+      {loadError ? (
+        <div role="alert" aria-live="assertive" className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-bold">User accounts could not be loaded</p>
+            <p className="mt-1">{loadError}</p>
+          </div>
+          <button type="button" onClick={() => void fetchUsers()} className="min-h-11 rounded-xl border border-red-300 px-3 py-2 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600">
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -249,7 +293,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-xs dark:border-emerald-900/40 dark:bg-emerald-950/20">
           <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
             <Newspaper className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase tracking-wider">WhatsApp Subscribers</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Daily E-Paper Opt-ins</span>
           </div>
           <p className="mt-2 text-2xl font-black text-emerald-900 dark:text-emerald-300">{subscriberCount}</p>
         </div>
@@ -280,7 +324,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
         <div className="flex flex-wrap gap-1 rounded-2xl bg-zinc-100 p-1.5 dark:bg-zinc-800">
           {[
             { key: 'all', label: 'All Users' },
-            { key: 'subscribers', label: 'WhatsApp E-Paper' },
+            { key: 'subscribers', label: 'Daily E-Paper Opt-in' },
             { key: 'active', label: 'Active' },
             { key: 'inactive', label: 'Inactive' },
           ].map((tab) => (
@@ -291,7 +335,8 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
                 setFilterTab(tab.key as typeof filterTab);
                 setPage(1);
               }}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition ${
+              aria-pressed={filterTab === tab.key}
+              className={`min-h-11 rounded-xl px-3.5 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${
                 filterTab === tab.key
                   ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-900 dark:text-zinc-100'
                   : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -302,18 +347,20 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
           ))}
         </div>
 
-        <form onSubmit={handleSearchSubmit} className="relative flex min-w-[260px] items-center">
+        <form onSubmit={handleSearchSubmit} className="relative flex min-w-0 items-center sm:min-w-[260px]">
           <Search className="pointer-events-none absolute left-3 h-4 w-4 text-zinc-400" />
           <input
             type="text"
+            name="user-search"
+            aria-label="Search user accounts by name, email, or phone"
             placeholder="Search by name, email, phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-20 text-xs text-zinc-900 shadow-xs transition placeholder:text-zinc-400 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/15 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-20 text-xs text-zinc-900 shadow-xs transition placeholder:text-zinc-400 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
           />
           <button
             type="submit"
-            className="absolute right-1 inline-flex h-8 items-center justify-center rounded-lg bg-red-600 px-3 text-[11px] font-bold text-white transition hover:bg-red-700"
+            className="absolute right-1 inline-flex h-9 min-w-16 items-center justify-center rounded-lg bg-red-600 px-3 text-[11px] font-bold text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
           >
             Search
           </button>
@@ -323,7 +370,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
       {/* Table Container */}
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
         {isLoading ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-3">
+          <div role="status" aria-live="polite" className="flex h-64 flex-col items-center justify-center gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-red-600" />
             <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
               Loading users...
@@ -338,12 +385,14 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="User accounts table" tabIndex={0} className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500">
             <table className="w-full text-left text-xs">
+              <caption className="sr-only">Staff and reader User records, their roles, access status, and daily e-paper preference.</caption>
               <thead className="border-b border-zinc-200 bg-zinc-50/75 text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
                 <tr>
                   <th className="px-5 py-3.5">User</th>
                   <th className="px-4 py-3.5">WhatsApp Number</th>
+                  <th className="px-4 py-3.5">Account Type</th>
                   <th className="px-4 py-3.5">Role</th>
                   <th className="px-4 py-3.5">Daily E-Paper</th>
                   <th className="px-4 py-3.5">Joined</th>
@@ -382,7 +431,14 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
                     </td>
 
                     <td className="px-4 py-3.5">
-                      <span
+                      <Badge variant={user.role === 'reader' ? 'neutral' : 'outline'} size="md">
+                        {user.role === 'reader' ? 'Reader' : 'Staff'}
+                      </Badge>
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      <Badge
+                        size="md"
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                           user.role === 'super_admin'
                             ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
@@ -396,7 +452,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
                         }`}
                       >
                         {formatUserRoleLabel(user.role)}
-                      </span>
+                      </Badge>
                     </td>
 
                     <td className="px-4 py-3.5">
@@ -415,10 +471,18 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
                     </td>
 
                     <td className="px-4 py-3.5">
-                      <FormSwitch
-                        checked={user.isActive}
-                        onChange={() => setPendingStatusUser(user)}
-                      />
+                      <div className="flex items-center gap-2">
+                        <FormSwitch
+                          id={`user-status-${user.id}`}
+                          ariaLabel={`${user.isActive ? 'Deactivate' : 'Activate'} ${user.name}`}
+                          checked={user.isActive}
+                          disabled={statusUpdateUserId === user.id}
+                          onChange={() => setPendingStatusUser(user)}
+                        />
+                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                          {user.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                     </td>
 
                     <td className="px-4 py-3.5 text-right">
@@ -428,7 +492,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
                           setEditingUser(user);
                           setSelectedRole(user.role);
                         }}
-                        className="rounded-lg px-2.5 py-1 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="min-h-11 rounded-lg px-2.5 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-zinc-300 dark:hover:bg-zinc-800"
                       >
                         Change Role
                       </button>
@@ -451,7 +515,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
               type="button"
               disabled={page <= 1 || isLoading}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-semibold transition hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-800"
+              className="min-h-11 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-800"
             >
               Previous
             </button>
@@ -459,7 +523,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
               type="button"
               disabled={page >= totalPages || isLoading}
               onClick={() => setPage((p) => p + 1)}
-              className="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-semibold transition hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-800"
+              className="min-h-11 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-800"
             >
               Next
             </button>
@@ -485,7 +549,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
                 onChange={(e) => setSelectedRole(e.target.value as UserRole)}
                 className="mt-1.5 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
               >
-                <option value="reader">Reader / Subscriber</option>
+                <option value="reader">Reader</option>
                 <option value="reporter">Reporter</option>
                 <option value="copy_editor">Copy Editor / Sub-Editor</option>
                 <option value="admin">Admin</option>
@@ -533,6 +597,7 @@ export default function UsersManagementClient({ viewerRole }: { viewerRole: Admi
           }`}
           confirmLabel={pendingStatusUser.isActive ? 'Deactivate' : 'Activate'}
           variant={pendingStatusUser.isActive ? 'danger' : 'primary'}
+          isLoading={statusUpdateUserId === pendingStatusUser.id}
         />
       )}
     </div>

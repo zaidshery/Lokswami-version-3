@@ -904,3 +904,87 @@ Upon completion and merge of Phase 3.10:
 | `app/api/admin/tts/cleanup/route.ts` | Modified — audit logging |
 | `tests/admin-operations-safety.test.ts` | New — 20 focused 3.10D tests |
 | `docs/b3/PHASE3_10_IMPLEMENTATION_PLAN.md` | Modified — this completion record |
+
+---
+
+## 35. Phase 3.10E Implementation Completion Record
+
+- **Completed Phase:** Phase 3.10E — Admin System UX + Accessibility + Four-Role Final QA
+- **Branch:** `b3/phase3.10-admin-system-management`
+- **Foundation Baseline:** `f95eae4`
+- **Prior HEAD:** `1c80501`
+
+### Users Population Clarity (P1-7 Resolution)
+- **Account Disambiguation:** `/admin/users` is explicitly titled **User Accounts** and clearly disambiguates Staff identities from Reader identities.
+- **Audience Separation:** Added a visible informational notice explaining that newsletter subscribers represent a distinct audience domain and collection from User accounts, preventing editorial confusion.
+- **Direct Navigation:** Added accessible links to `/admin/team` ("Team Management") for staff onboarding, role assignment, and lifecycle administration.
+- **Role and Status Semantics:** Visually distinctive Badges for all roles (`Super Admin`, `Admin`, `Copy Editor`, `Reporter`, `Reader`) and dual-channel status indicators (`Active` / `Inactive` text + toggle state) ensuring information is never conveyed by color alone.
+
+### System Control UX & Feedback
+- **System Feedback Helper (`lib/admin/systemControlFeedback.ts`):** Canonical error mapping for administrative operations:
+  - `LAST_ACTIVE_SUPER_ADMIN`: "At least one active Super Admin must remain."
+  - `SELF_DEMOTION_BLOCKED`: "You cannot demote or deactivate your own Super Admin account."
+  - `RATE_LIMITED`: "Too many requests. Try again in about X minutes." (parses `Retry-After` header safely).
+  - `CONFLICT`: "This account changed while you were working. Refresh the directory and try again."
+  - `FORBIDDEN`: "You do not have permission to perform this action."
+- **Settings CAS Conflict UX:** Leadership report delivery and settings panels detect HTTP 409 `SETTINGS_VERSION_CONFLICT`, explain that another administrator updated settings concurrently, prevent client-side silent overwrite, and offer an explicit "Reload Latest Settings" action.
+- **Secret Sanitization:** Configuration panels render only sanitized metadata ("Configured" / "Not configured") without ever rendering real secret values or fake client readback inputs.
+- **Operations & Diagnostics Feedback:** Read-only overviews clearly identified; action cards separated from status cards; degraded states highlighted truthfully when dependencies fail without exposing internal stack traces or connection strings.
+- **Destructive Actions Confirmation:** Destructive mutations (e.g., user deactivation, TTS cleanup) guarded by accessible `ConfirmModal` dialogs with action name, description, cancel, confirm button, and focus restoration.
+
+### Accessibility Enhancements
+- **Modal Component (`components/ui/modal/Modal.tsx` & `ConfirmModal.tsx`):** Complete ARIA dialog semantics (`role="dialog"`, `aria-modal="true"`, `aria-labelledby`, `aria-describedby`), initial sensible focus, focus trapping/containment, Escape key handling, and focus return to triggering element upon closure. Primary actions provide ~44x44px touch targets.
+- **Form Controls & Switches (`FormSwitch.tsx`):** Added explicit `aria-label` / `aria-labelledby` attributes, `role="switch"`, `aria-checked`, and visible keyboard focus indicator states.
+- **Screen Reader Semantics:** Data tables enhanced with accessible captions and `role="region"` scroll containers with visible keyboard focus rings.
+- **Live Regions:** Polished accessible status announcements (`role="status"`, `aria-live="polite"`, `role="alert"`) across client panels for mutation feedback and loading states.
+
+### Responsive Validation & Offline Browser QA
+- Validated across Desktop (1440x900), Tablet (768x1024), and Mobile (390x844) viewports:
+  - `/admin/users` (no horizontal page overflow, reachable controls, visible focus, responsive user cards)
+  - `/admin/team` (no horizontal page overflow, reachable controls, responsive cards)
+  - `/admin/settings` (no horizontal page overflow, accessible forms, safe wrapping)
+  - `/admin/audit-log` (no horizontal page overflow, responsive log cards, read-only banner)
+  - `/admin/permission-review` (no horizontal page overflow, accessible matrix table)
+  - `/admin/operations` (no horizontal page overflow, responsive decision cards, read-only guidance)
+  - `/admin/operations-diagnostics` (no horizontal page overflow, sanitized dependency badges, truthful degraded summary)
+- Verified with custom offline browser QA runner (`npm run qa:phase310:offline`) executing entirely against loopback interfaces with zero external egress, producing verified screenshots in `artifacts/phase310-offline-qa`.
+
+### Four-Role Acceptance Matrix
+- Verified complete Phase 3.10 system-control policy via `tests/phase310-four-role-acceptance.test.ts`:
+  - `super_admin`: ALLOW across all core system control pages (`team`, `users`, `settings`, `newsroom_settings`, `audit_log`, `permission_review`, `operations_center`, `operations_diagnostics`) and APIs.
+  - `admin`: DENY (redirected to `/admin/work?access=denied`, HTTP 403 on protected control APIs).
+  - `copy_editor`: DENY.
+  - `reporter`: DENY.
+- Direct URL protection, API guards, and navigation menu visibility verified for all 4 roles.
+
+### Full Regression & Invariants
+- **Phase 3.10A Regression:** PASS (Last active super_admin safety, rate limiting, setup link protection).
+- **Phase 3.10B Regression:** PASS (SSRF protection, safe URL fetch, CAS settings versioning).
+- **Phase 3.10C Regression:** PASS (Fresh DB-backed session invalidation, demotion enforcement, append-only audit log).
+- **Phase 3.10D Regression:** PASS (Sanitized diagnostics, minimal public health, recovery auditing, retry idempotency).
+- **Phase 3.10E Tests:** PASS (`phase310-four-role-acceptance.test.ts`, `phase310-accessibility-ux.test.ts`, `phase310-offline-qa-tooling.test.ts`).
+- **Unresolved P0 Issues:** 0
+- **Unresolved Required Phase 3.10 P1 Issues:** 0
+- **Deferred P2 Items:** 0
+
+### Automated Gates Summary
+- `npm run typecheck`: EXIT 0
+- `npm run lint:strict`: EXIT 0
+- `npm run test:four-role-newsroom`: EXIT 0 (28 tests)
+- `npm run test:security`: EXIT 0 (73 tests)
+- `npm run test:auth-guards`: EXIT 0 (7 cases)
+- `npm run check:phase3-scope`: EXIT 0
+- `npm run build:ci`: EXIT 0 (175/175 static pages generated)
+- `npm run test:ci`: EXIT 0 (**311 test files, 2,160 tests passed**, up from baseline 308 files / 2,133 tests)
+- `git diff --check`: EXIT 0
+
+### Safety Verification
+- Real user mutations: 0
+- Real role mutations: 0
+- Real settings mutations: 0
+- Real recovery/cleanup executed: 0
+- External network/provider calls: 0
+- Staging/production DB mutations: 0
+- Environment secret inspection: 0
+- Secrets exposed: 0
+- Preserved unrelated files: `data/categories.json`, `next-env.d.ts` unstaged and intact.

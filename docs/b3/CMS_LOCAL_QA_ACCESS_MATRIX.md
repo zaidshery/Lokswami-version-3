@@ -65,7 +65,7 @@ The command refuses production, remote MongoDB, unnamed or ambiguously named dat
 | `newsroom_settings` | Newsroom Settings | YES | NO | NO | NO |
 | `revenue` | Revenue & Ads Control | YES | NO | NO | NO |
 | `team` | Team | YES | NO | NO | NO |
-| `users` | Users & Subscribers | YES | NO | NO | NO |
+| `users` | User Accounts | YES | NO | NO | NO |
 | `analytics` | Analytics | YES | YES | NO | NO |
 | `business_value` | Business Value | YES | NO | NO | NO |
 | `audit_log` | Audit Log | YES | NO | NO | NO |

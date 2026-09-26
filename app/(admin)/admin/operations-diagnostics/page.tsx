@@ -22,7 +22,7 @@ function cx(...classes: Array<string | undefined | false>) {
   return classes.filter(Boolean).join(' ');
 }
 
-const PANEL_CLASS = 'admin-shell-surface-strong rounded-[32px] p-6';
+const PANEL_CLASS = 'admin-shell-surface-strong rounded-[24px] p-4 sm:rounded-[32px] sm:p-6';
 
 const SOFT_CARD_CLASS =
   'admin-shell-surface-muted rounded-[24px] p-4 shadow-[0_18px_48px_-40px_rgba(15,23,42,0.14)] dark:shadow-[0_18px_48px_-40px_rgba(0,0,0,0.35)]';
@@ -137,7 +137,7 @@ export default async function OperationsDiagnosticsPage() {
 
   return (
     <div className="mx-auto max-w-[1640px] space-y-8">
-      <section className="relative overflow-hidden rounded-[36px] border border-[color:var(--admin-shell-border)] bg-[radial-gradient(circle_at_top_left,rgba(185,28,28,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(37,99,235,0.08),transparent_28%),var(--admin-bg-depth)] p-8 text-[color:var(--admin-shell-text)] shadow-[var(--admin-shell-shadow-strong)] lg:p-10">
+      <section className="relative overflow-hidden rounded-[28px] border border-[color:var(--admin-shell-border)] bg-[radial-gradient(circle_at_top_left,rgba(185,28,28,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(37,99,235,0.08),transparent_28%),var(--admin-bg-depth)] p-5 text-[color:var(--admin-shell-text)] shadow-[var(--admin-shell-shadow-strong)] sm:rounded-[36px] sm:p-8 lg:p-10">
         <div className="pointer-events-none absolute -right-10 top-0 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/14" />
         <div className="pointer-events-none absolute bottom-0 left-0 h-40 w-40 rounded-full bg-red-500/10 blur-3xl dark:bg-red-500/14" />
         <div className="relative">
@@ -158,6 +158,15 @@ export default async function OperationsDiagnosticsPage() {
               {diagnostics.dataSource === 'hybrid' ? 'MongoDB + fallback' : diagnostics.dataSource}
             </span>
             <span className={META_CHIP_CLASS}>{formatNumber(diagnostics.summary.servicesAtRisk)} services at risk</span>
+            <span className={cx(
+              META_CHIP_CLASS,
+              diagnostics.summary.servicesAtRisk > 0
+                ? 'border-amber-300 text-amber-800 dark:border-amber-500/30 dark:text-amber-200'
+                : 'border-emerald-300 text-emerald-800 dark:border-emerald-500/30 dark:text-emerald-200'
+            )}>
+              Overall: {diagnostics.summary.servicesAtRisk > 0 ? 'Degraded' : 'Healthy'}
+            </span>
+            <span className={META_CHIP_CLASS}>Read-only diagnostics</span>
           </div>
         </div>
       </section>
@@ -234,11 +243,11 @@ export default async function OperationsDiagnosticsPage() {
                   </div>
                   <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusToneClass(lane.status)}`}>
                     {lane.status === 'critical'
-                      ? 'Critical'
+                      ? 'Unavailable'
                       : lane.status === 'watch'
-                        ? 'Watch'
+                        ? 'Degraded'
                         : lane.status === 'inactive'
-                          ? 'Inactive'
+                          ? 'Disabled'
                           : 'Healthy'}
                   </span>
                 </div>

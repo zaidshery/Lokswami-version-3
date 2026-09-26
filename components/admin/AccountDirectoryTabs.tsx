@@ -11,8 +11,8 @@ const tabs = [
   {
     key: 'readers' as const,
     href: '/admin/users',
-    label: 'Readers & Subscribers',
-    description: 'Accounts, WhatsApp subscriptions and access status',
+    label: 'User Accounts',
+    description: 'Staff and reader identities, roles, and access status',
     icon: Users,
   },
   {

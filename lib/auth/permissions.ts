@@ -158,7 +158,7 @@ export const PAGE_LABELS: Record<AdminPageKey, string> = {
   newsroom_settings: 'Newsroom Settings',
   revenue: 'Revenue & Ads Control',
   team: 'Team',
-  users: 'Users & Subscribers',
+  users: 'User Accounts',
   analytics: 'Analytics',
   business_value: 'Business Value',
   audit_log: 'Audit Log',

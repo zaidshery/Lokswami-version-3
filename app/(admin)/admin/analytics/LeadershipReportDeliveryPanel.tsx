@@ -187,16 +187,16 @@ const INLINE_NOTICE_CLASS =
   'rounded-[22px] border border-zinc-200/80 bg-zinc-50/75 px-4 py-3 text-sm text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-300';
 
 const INPUT_CLASS =
-  'w-full rounded-2xl border border-zinc-300/90 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-200/60 dark:border-white/10 dark:bg-zinc-950/70 dark:text-zinc-100 dark:focus:border-red-500/40 dark:focus:ring-red-500/20';
+  'min-h-11 w-full rounded-2xl border border-zinc-300/90 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-200/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950/70 dark:text-zinc-100 dark:focus:border-red-500/40 dark:focus:ring-red-500/20';
 
 const PRIMARY_BUTTON_CLASS =
-  'inline-flex items-center justify-center rounded-2xl border border-zinc-950 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200';
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-zinc-950 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200';
 
 const SECONDARY_BUTTON_CLASS =
-  'inline-flex items-center justify-center rounded-2xl border border-zinc-200/80 bg-white/85 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:border-red-300/40 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:border-red-500/30 dark:hover:text-red-300';
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-zinc-200/80 bg-white/85 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:border-red-300/40 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:border-red-500/30 dark:hover:text-red-300';
 
 const DANGER_BUTTON_CLASS =
-  'inline-flex items-center justify-center rounded-2xl border border-red-200/80 bg-red-50/85 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20';
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-200/80 bg-red-50/85 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20';
 
 const ACTION_LINK_CLASS =
   'inline-flex items-center gap-2 rounded-full border border-zinc-200/80 bg-white/88 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-700 transition-colors hover:border-red-400/30 hover:text-red-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:border-red-500/30 dark:hover:text-red-300';
@@ -235,6 +235,7 @@ export default function LeadershipReportDeliveryPanel({
   const [muteBusy, setMuteBusy] = useState(false);
   const [previewBusyId, setPreviewBusyId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, string>>({});
+  const [messageKinds, setMessageKinds] = useState<Record<string, 'status' | 'error' | 'conflict'>>({});
   const [muteMessage, setMuteMessage] = useState('');
   const [previews, setPreviews] = useState<Record<string, LeadershipReportPreview | null>>({});
   const [healthAlerts] = useState(initialHealthAlerts);
@@ -336,6 +337,7 @@ export default function LeadershipReportDeliveryPanel({
 
     setBusyId(id);
     setMessages((current) => ({ ...current, [id]: '' }));
+    setMessageKinds((current) => ({ ...current, [id]: 'status' }));
 
     try {
       const response = await fetch('/api/admin/analytics/briefing-schedules', {
@@ -357,17 +359,29 @@ export default function LeadershipReportDeliveryPanel({
       const payload = (await response.json().catch(() => ({}))) as {
         success?: boolean;
         error?: string;
+        code?: string;
         data?: LeadershipReportSchedule;
       };
+
+      if (response.status === 409 && payload.code === 'SETTINGS_VERSION_CONFLICT') {
+        setMessageKinds((current) => ({ ...current, [id]: 'conflict' }));
+        setMessages((current) => ({
+          ...current,
+          [id]: 'Another administrator changed this schedule. Your changes were not saved. Reload the current server version before editing again.',
+        }));
+        return;
+      }
 
       if (!response.ok || !payload.success || !payload.data) {
         throw new Error(payload.error || 'Failed to save delivery schedule.');
       }
 
       updateLocalSchedule(id, payload.data);
+      setMessageKinds((current) => ({ ...current, [id]: 'status' }));
       setMessages((current) => ({ ...current, [id]: 'Schedule saved.' }));
     } catch (error) {
       console.error('Leadership report schedule save failed.', error);
+      setMessageKinds((current) => ({ ...current, [id]: 'error' }));
       setMessages((current) => ({
         ...current,
         [id]: error instanceof Error ? error.message : 'Failed to save schedule.',
@@ -377,9 +391,43 @@ export default function LeadershipReportDeliveryPanel({
     }
   }
 
+  async function handleReloadSchedule(id: LeadershipReportSchedule['id']) {
+    setBusyId(id);
+    try {
+      const response = await fetch('/api/admin/analytics/briefing-schedules', {
+        cache: 'no-store',
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+        data?: LeadershipReportSchedule[];
+      };
+      const canonical = payload.data?.find((schedule) => schedule.id === id);
+      if (!response.ok || !payload.success || !canonical) {
+        throw new Error(payload.error || 'Failed to reload the current schedule.');
+      }
+
+      updateLocalSchedule(id, canonical);
+      setMessageKinds((current) => ({ ...current, [id]: 'status' }));
+      setMessages((current) => ({
+        ...current,
+        [id]: 'Current server settings reloaded. Review them before saving.',
+      }));
+    } catch (error) {
+      setMessageKinds((current) => ({ ...current, [id]: 'error' }));
+      setMessages((current) => ({
+        ...current,
+        [id]: error instanceof Error ? error.message : 'Failed to reload the current schedule.',
+      }));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function handleRunNow(id: LeadershipReportSchedule['id']) {
     setBusyId(id);
     setMessages((current) => ({ ...current, [id]: '' }));
+    setMessageKinds((current) => ({ ...current, [id]: 'status' }));
     setBulkMessage('');
     setBulkResults([]);
 
@@ -416,12 +464,14 @@ export default function LeadershipReportDeliveryPanel({
         ...current,
         [id]: nextSchedule.lastRunSummary || resultData.report?.headline || 'Briefing generated successfully.',
       }));
+      setMessageKinds((current) => ({ ...current, [id]: 'status' }));
     } catch (error) {
       console.error('Leadership report run failed.', error);
       setMessages((current) => ({
         ...current,
         [id]: error instanceof Error ? error.message : 'Failed to run briefing.',
       }));
+      setMessageKinds((current) => ({ ...current, [id]: 'error' }));
     } finally {
       setBusyId(null);
     }
@@ -433,6 +483,7 @@ export default function LeadershipReportDeliveryPanel({
 
     setPreviewBusyId(id);
     setMessages((current) => ({ ...current, [id]: '' }));
+    setMessageKinds((current) => ({ ...current, [id]: 'status' }));
 
     try {
       const response = await fetch('/api/admin/analytics/briefing-schedules/preview', {
@@ -460,12 +511,14 @@ export default function LeadershipReportDeliveryPanel({
         ...current,
         [id]: payload.data || null,
       }));
+      setMessageKinds((current) => ({ ...current, [id]: 'status' }));
     } catch (error) {
       console.error('Leadership report preview failed.', error);
       setMessages((current) => ({
         ...current,
         [id]: error instanceof Error ? error.message : 'Failed to build preview.',
       }));
+      setMessageKinds((current) => ({ ...current, [id]: 'error' }));
     } finally {
       setPreviewBusyId(null);
     }
@@ -1289,6 +1342,9 @@ export default function LeadershipReportDeliveryPanel({
           const isBusy = busyId === schedule.id;
           const isPreviewBusy = previewBusyId === schedule.id;
           const preview = previews[schedule.id];
+          const feedbackId = `schedule-${schedule.id}-feedback`;
+          const messageKind = messageKinds[schedule.id];
+          const hasFieldError = messageKind === 'error' || messageKind === 'conflict';
           const deliveryDiagnostics = getLeadershipReportDeliveryDiagnostics(schedule, {
             emailDeliveryConfigured,
           });
@@ -1327,8 +1383,13 @@ export default function LeadershipReportDeliveryPanel({
                     Delivery Time
                   </span>
                   <input
+                    id={`schedule-${schedule.id}-delivery-time`}
+                    name={`${schedule.id}-delivery-time`}
                     type="time"
                     value={schedule.deliveryTime}
+                    disabled={isBusy}
+                    aria-describedby={feedbackId}
+                    aria-invalid={hasFieldError}
                     onChange={(event) =>
                       updateLocalSchedule(schedule.id, { deliveryTime: event.target.value })
                     }
@@ -1341,7 +1402,12 @@ export default function LeadershipReportDeliveryPanel({
                     Delivery Mode
                   </span>
                   <select
+                    id={`schedule-${schedule.id}-delivery-mode`}
+                    name={`${schedule.id}-delivery-mode`}
                     value={schedule.deliveryMode}
+                    disabled={isBusy}
+                    aria-describedby={feedbackId}
+                    aria-invalid={hasFieldError}
                     onChange={(event) =>
                       updateLocalSchedule(schedule.id, {
                         deliveryMode: event.target.value as LeadershipReportSchedule['deliveryMode'],
@@ -1361,8 +1427,13 @@ export default function LeadershipReportDeliveryPanel({
                     Recipient Emails
                   </span>
                   <textarea
+                    id={`schedule-${schedule.id}-recipients`}
+                    name={`${schedule.id}-recipients`}
                     rows={3}
                     value={schedule.recipientEmails.join('\n')}
+                    disabled={isBusy}
+                    aria-describedby={feedbackId}
+                    aria-invalid={hasFieldError}
                     onChange={(event) =>
                       updateLocalSchedule(schedule.id, {
                         recipientEmails: event.target.value
@@ -1381,8 +1452,13 @@ export default function LeadershipReportDeliveryPanel({
                     Webhook URLs
                   </span>
                   <textarea
+                    id={`schedule-${schedule.id}-webhooks`}
+                    name={`${schedule.id}-webhooks`}
                     rows={3}
                     value={schedule.webhookUrls.join('\n')}
+                    disabled={isBusy}
+                    aria-describedby={feedbackId}
+                    aria-invalid={hasFieldError}
                     onChange={(event) =>
                       updateLocalSchedule(schedule.id, {
                         webhookUrls: event.target.value
@@ -1402,7 +1478,12 @@ export default function LeadershipReportDeliveryPanel({
                       Webhook Provider
                     </span>
                     <select
+                      id={`schedule-${schedule.id}-webhook-provider`}
+                      name={`${schedule.id}-webhook-provider`}
                       value={schedule.webhookProvider}
+                      disabled={isBusy}
+                      aria-describedby={feedbackId}
+                      aria-invalid={hasFieldError}
                       onChange={(event) =>
                         updateLocalSchedule(schedule.id, {
                           webhookProvider: event.target.value as LeadershipReportSchedule['webhookProvider'],
@@ -1424,8 +1505,13 @@ export default function LeadershipReportDeliveryPanel({
                     Delivery Notes
                   </span>
                   <textarea
+                    id={`schedule-${schedule.id}-notes`}
+                    name={`${schedule.id}-notes`}
                     rows={3}
                     value={schedule.notes}
+                    disabled={isBusy}
+                    aria-describedby={feedbackId}
+                    aria-invalid={hasFieldError}
                     onChange={(event) =>
                       updateLocalSchedule(schedule.id, { notes: event.target.value })
                     }
@@ -1507,7 +1593,29 @@ export default function LeadershipReportDeliveryPanel({
               ) : null}
 
               {messages[schedule.id] ? (
-                <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{messages[schedule.id]}</p>
+                <div
+                  id={feedbackId}
+                  role={hasFieldError ? 'alert' : 'status'}
+                  aria-live={hasFieldError ? 'assertive' : 'polite'}
+                  className={cx(
+                    'mt-3 rounded-2xl border px-3 py-3 text-sm',
+                    hasFieldError
+                      ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200'
+                  )}
+                >
+                  <p>{messages[schedule.id]}</p>
+                  {messageKind === 'conflict' ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleReloadSchedule(schedule.id)}
+                      disabled={isBusy}
+                      className={cx(SECONDARY_BUTTON_CLASS, 'mt-3')}
+                    >
+                      {isBusy ? 'Reloading...' : 'Reload current settings'}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
 
               <div className="mt-4 space-y-2">

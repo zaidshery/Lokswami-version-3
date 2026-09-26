@@ -149,7 +149,7 @@ const ADMIN_SURFACES: SidebarItem[] = [
   { icon: Settings2, labelEn: 'AI Ops', labelHi: '\u090f\u0906\u0908 \u0911\u092a\u0930\u0947\u0936\u0902\u0938', href: '/admin/ai', pageKey: 'ai_ops', section: 'insights' },
   { icon: ClipboardList, labelEn: 'Audit Log', labelHi: HI.auditLog, href: '/admin/audit-log', pageKey: 'audit_log', section: 'governance' },
   { icon: ShieldCheck, labelEn: 'Permission Review', labelHi: HI.permissionReview, href: '/admin/permission-review', pageKey: 'permission_review', section: 'governance' },
-  { icon: Users, labelEn: 'Users & Subscribers', labelHi: 'उपयोगकर्ता एवं ग्राहक', href: '/admin/users', pageKey: 'users', section: 'governance' },
+  { icon: Users, labelEn: 'User Accounts', labelHi: '\u0909\u092a\u092f\u094b\u0917\u0915\u0930\u094d\u0924\u093e \u0916\u093e\u0924\u0947', href: '/admin/users', pageKey: 'users', section: 'governance' },
   { icon: Activity, labelEn: 'Operations Diagnostics', labelHi: HI.operationsDiagnostics, href: '/admin/operations-diagnostics', pageKey: 'operations_diagnostics', section: 'governance' },
   { icon: Activity, labelEn: 'Elections', labelHi: '\u091a\u0941\u0928\u093e\u0935', href: '/admin/settings/elections', pageKey: 'newsroom_settings', section: 'governance' },
   { icon: Settings2, labelEn: 'Newsroom Settings', labelHi: HI.newsroomSettings, href: '/admin/settings/newsroom', pageKey: 'newsroom_settings', section: 'governance' },
