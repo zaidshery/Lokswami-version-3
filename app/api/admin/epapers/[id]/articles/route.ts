@@ -8,7 +8,11 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 function errorResponse(error: unknown, fallback: string) {
   if (error instanceof EpaperDomainError) return NextResponse.json({ success: false, error: error.message }, { status: error.status });
-  console.error(fallback, error);
+  const message = error instanceof Error ? error.message : String(error || 'Unknown error');
+  console.error(fallback, {
+    name: error instanceof Error ? error.name : 'Error',
+    message: message.replace(/https?:\/\/\S+/gi, '[REDACTED_URL]').slice(0, 1000),
+  });
   return NextResponse.json({ success: false, error: fallback }, { status: 500 });
 }
 
@@ -31,7 +35,13 @@ async function POSTHandler(req: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const data = await epaperArticleService.create(actor, id, await req.json().catch(() => ({})));
-    return NextResponse.json({ success: true, message: 'Article created successfully', data }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      message: data.recovered
+        ? 'Matching mapped story already exists and was recovered.'
+        : 'Draft article created successfully',
+      data,
+    }, { status: 201 });
   } catch (error) {
     return errorResponse(error, 'Failed to create article');
   }

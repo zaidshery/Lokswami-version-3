@@ -47,12 +47,14 @@ export function buildEpaperImageAutomationUpdates(input: {
 
   const productionStatus = String(input.currentProductionStatus || 'draft_upload');
   const isPublished = input.currentStatus === 'published' || productionStatus === 'published';
-  if (
-    !isPublished &&
-    productionStatus === 'draft_upload' &&
-    hasCompletePageImages({ pageCount: input.pageCount, pages: input.pages })
-  ) {
+  const completePageImages = hasCompletePageImages({
+    pageCount: input.pageCount,
+    pages: input.pages,
+  });
+  if (!isPublished && productionStatus === 'draft_upload' && completePageImages) {
     updates.productionStatus = 'pages_ready';
+  } else if (!isPublished && productionStatus === 'pages_ready' && !completePageImages) {
+    updates.productionStatus = 'draft_upload';
   }
 
   return updates;

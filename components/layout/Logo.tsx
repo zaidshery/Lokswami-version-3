@@ -29,6 +29,7 @@ export interface LogoIconProps {
   size?: LogoSize;
   variant?: 'standard';
   className?: string;
+  priority?: boolean;
 }
 
 export const MOBILE_HEADER_LOGO_SRC = '/logo-3.png';
@@ -63,8 +64,10 @@ export function LogoIcon({
   size = 'md',
   variant: _variant = 'standard',
   className = '',
+  priority,
 }: LogoIconProps) {
   const sizeConfig = LOGO_SIZES[size];
+  const isPriority = priority ?? (size === 'headerCompact' || size === 'headerMobile' || size === 'headerDesktop');
 
   return (
     <span
@@ -82,7 +85,7 @@ export function LogoIcon({
         width={sizeConfig.icon}
         height={sizeConfig.icon}
         className="relative z-[1] block h-full w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-300 motion-safe:group-hover/logo:scale-[1.06]"
-        priority={size === 'headerCompact' || size === 'headerMobile' || size === 'headerDesktop'}
+        priority={isPriority}
         sizes="(max-width: 639px) 44px, (max-width: 1023px) 50px, 58px"
       />
     </span>
@@ -93,6 +96,7 @@ export interface LogoWordmarkProps {
   size?: LogoSize;
   variant?: 'standard' | 'white' | 'dark';
   className?: string;
+  priority?: boolean;
 }
 
 /** Standalone targetable 'लोकस्वामी' Wordmark component */
@@ -100,8 +104,10 @@ export function LogoWordmark({
   size = 'md',
   variant = 'standard',
   className = '',
+  priority,
 }: LogoWordmarkProps) {
   const sizeConfig = LOGO_SIZES[size];
+  const isPriority = priority ?? (size === 'headerCompact' || size === 'headerMobile' || size === 'headerDesktop');
 
   const maxWClass =
     size === 'headerCompact'
@@ -135,7 +141,7 @@ export function LogoWordmark({
               ? 'brightness-0'
               : 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)] dark:brightness-0 dark:invert'
             }`}
-          priority={size === 'headerCompact' || size === 'headerMobile' || size === 'headerDesktop'}
+          priority={isPriority}
           sizes="(max-width: 639px) 154px, (max-width: 1023px) 172px, 208px"
         />
       </div>
@@ -158,6 +164,7 @@ export interface LogoProps {
   wordmarkVariant?: 'standard' | 'white' | 'dark';
   showIcon?: boolean;
   showWordmark?: boolean;
+  priority?: boolean;
 }
 
 /** Complete Lokswami Brand Logo with separately targetable Emblem & Wordmark sub-elements */
@@ -171,6 +178,7 @@ export default function Logo({
   wordmarkVariant = 'standard',
   showIcon = true,
   showWordmark = true,
+  priority,
 }: LogoProps) {
   const reduceMotion = useReducedMotion();
   const sizeConfig = LOGO_SIZES[size];
@@ -199,7 +207,7 @@ export default function Logo({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: reduceMotion ? 0.01 : 0.32, ease: [0.22, 1, 0.36, 1] }}
           >
-            <LogoIcon size={size} variant={iconVariant} className={iconClassName} />
+            <LogoIcon size={size} variant={iconVariant} className={iconClassName} priority={priority} />
           </motion.div>
         ) : null}
 
@@ -213,7 +221,7 @@ export default function Logo({
               delay: reduceMotion ? 0 : 0.08,
             }}
           >
-            <LogoWordmark size={size} variant={wordmarkVariant} className={wordmarkClassName} />
+            <LogoWordmark size={size} variant={wordmarkVariant} className={wordmarkClassName} priority={priority} />
           </motion.div>
         ) : null}
       </motion.div>

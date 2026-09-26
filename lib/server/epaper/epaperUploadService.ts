@@ -335,7 +335,7 @@ export class EpaperUploadService {
       pdfPublicId: asset.mediaKey,
       pdfFormat: 'pdf',
       sourceUrl: asset.mediaUrl,
-      productionStatus: 'page_processing',
+      productionStatus: 'draft_upload',
       pageCount,
       pages,
     });

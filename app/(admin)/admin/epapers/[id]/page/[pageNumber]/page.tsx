@@ -644,7 +644,7 @@ export default function EPaperPageHotspotEditor() {
     try {
       const isPlaceholderDraft =
         !draftInput.title.trim() || !draftInput.contentHtml.trim();
-      await createArticleRequest({
+      const result = await createArticleRequest({
         title: draftInput.title.trim(),
         excerpt: draftInput.excerpt,
         contentHtml: draftInput.contentHtml,
@@ -653,7 +653,9 @@ export default function EPaperPageHotspotEditor() {
       });
 
       setNotice(
-        isPlaceholderDraft
+        result?.data?.recovered
+          ? 'A matching mapped story already existed. It has been restored in the story list.'
+          : isPlaceholderDraft
           ? 'Draft hotspot created. Add a headline and readable text before QA.'
           : 'Article created'
       );

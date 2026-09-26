@@ -340,6 +340,10 @@ export class EpaperRepository {
     return asObject(created.toObject());
   }
 
+  async deleteArticleWhere(query: EpaperRecord) {
+    return EPaperArticle.deleteOne(query);
+  }
+
   async updateEdition(
     id: string,
     updates: EpaperRecord,
