@@ -95,6 +95,7 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
       const service = new EpaperEditorialService(mockRepo);
       const res = await service.updateWorkflow(superAdminActor, 'rev-1', {
         productionStatus: 'published',
+        expectedVersion: 1,
       });
 
       expect(res.data.status).toBe('published');
@@ -102,7 +103,12 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
       expect(storedEditions['rev-1'].status).toBe('published');
       expect(storedEditions['rev-1'].isCurrentRevision).toBe(true);
       expect(storedEditions['rev-1'].publishedAt).toBeInstanceOf(Date);
-      expect(mockRepo.publishEdition).toHaveBeenCalledWith('rev-1', familyId, expect.any(Object));
+      expect(mockRepo.publishEdition).toHaveBeenCalledWith(
+        'rev-1',
+        familyId,
+        expect.any(Object),
+        1
+      );
     });
 
     it('publishes revision N+1 atomically: old isCurrentRevision becomes false, new becomes true', async () => {
@@ -171,6 +177,7 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
       const service = new EpaperEditorialService(mockRepo);
       await service.updateWorkflow(superAdminActor, 'rev-2', {
         productionStatus: 'published',
+        expectedVersion: 1,
       });
 
       expect(storedEditions['rev-1'].isCurrentRevision).toBe(false);
@@ -245,6 +252,7 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
       const service = new EpaperEditorialService(mockRepo);
       await service.updateWorkflow(superAdminActor, 'family-b-rev-1', {
         productionStatus: 'published',
+        expectedVersion: 1,
       });
 
       // family-a-rev-1 MUST still be current
@@ -317,8 +325,14 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
 
       // Race: attempt to publish both simultaneously
       await Promise.all([
-        service.updateWorkflow(superAdminActor, 'rev-A', { productionStatus: 'published' }),
-        service.updateWorkflow(superAdminActor, 'rev-B', { productionStatus: 'published' }),
+        service.updateWorkflow(superAdminActor, 'rev-A', {
+          productionStatus: 'published',
+          expectedVersion: 1,
+        }),
+        service.updateWorkflow(superAdminActor, 'rev-B', {
+          productionStatus: 'published',
+          expectedVersion: 1,
+        }),
       ]);
 
       const currentRevisions = Object.values(storedEditions).filter((e) => e.isCurrentRevision === true);

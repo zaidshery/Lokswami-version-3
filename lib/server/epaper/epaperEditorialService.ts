@@ -26,7 +26,11 @@ import { withDistributedLock } from '@/lib/security/distributedLock';
 import { createWorkflowNotification } from '@/lib/storage/workflowNotifications';
 import { verifyEpaperAssetUpload, type EpaperUploadedAsset } from '@/lib/storage/epaperAssetUpload';
 import { deleteAssetFile, isAllowedAssetPath, isTrustedEpaperAssetPath, parsePublishDate } from '@/lib/utils/epaperStorage';
-import { buildEpaperAutomationInfo, buildEpaperReadiness } from '@/lib/utils/epaperAdminReadiness';
+import {
+  buildEpaperAutomationInfo,
+  buildEpaperProcessingBlockers,
+  buildEpaperReadiness,
+} from '@/lib/utils/epaperAdminReadiness';
 import { buildEpaperEditionQualitySummary } from '@/lib/utils/epaperQualitySignals';
 import {
   buildPublicationTypeMongoFilter,
@@ -400,23 +404,35 @@ export class EpaperEditorialService {
         throw new EpaperValidationError('Only draft editions can be published.');
       }
       const latestJob = await this.repo.findLatestProcessingJob(id);
-      if (latestJob && (latestJob.status === 'processing' || latestJob.status === 'queued')) {
-        throw new EpaperValidationError('Background processing job is still active.');
+      const processingBlockers = buildEpaperProcessingBlockers({
+        processingGeneration: String(canonical.processingGeneration || ''),
+        latestJob: latestJob
+          ? {
+              status: String(latestJob.status || ''),
+              generation: String(latestJob.generation || ''),
+            }
+          : null,
+      });
+      if (processingBlockers.length > 0) {
+        logEpaperMetric('publishing_blocked', {
+          epaperId: id,
+          targetStatus: nextStatus,
+          blockerCount: processingBlockers.length,
+          blockers: processingBlockers,
+        });
+        throw new EpaperValidationError(
+          `This edition still has blockers: ${processingBlockers.join(' ')}`
+        );
       }
-      if (
-        latestJob &&
-        latestJob.generation &&
-        canonical.processingGeneration &&
-        latestJob.generation !== canonical.processingGeneration
-      ) {
-        throw new EpaperValidationError('Processing generation is stale.');
+      const expectedVersion = Number(source.expectedVersion);
+      const canonicalVersion = Number(canonical.version || 1);
+      if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new EpaperValidationError(
+          'Current edition version is required before publishing.'
+        );
       }
-      if (source.expectedVersion !== undefined && source.expectedVersion !== null) {
-        const expectedVersion = Number(source.expectedVersion);
-        const canonicalVersion = Number(canonical.version || 1);
-        if (expectedVersion !== canonicalVersion) {
-          throw new EpaperVersionConflictError(canonicalVersion, expectedVersion);
-        }
+      if (expectedVersion !== canonicalVersion) {
+        throw new EpaperVersionConflictError(canonicalVersion, expectedVersion);
       }
     }
     let assignedTo: Awaited<ReturnType<typeof this.resolveAssignee>> | undefined;
@@ -433,7 +449,12 @@ export class EpaperEditorialService {
       ...(transition.toStatus === 'archived' ? { status: 'draft', isCurrentRevision: false } : {}),
     };
     const updated = transition.toStatus === 'published'
-      ? await this.repo.publishEdition(id, String(current.familyId || current._id), updates)
+      ? await this.repo.publishEdition(
+          id,
+          String(current.familyId || current._id),
+          updates,
+          Number(source.expectedVersion)
+        )
       : await this.repo.updateEdition(id, updates);
     if (!updated) throw new EpaperNotFoundError();
     const action = nextStatus && nextStatus !== transition.fromStatus ? nextStatus : hasAssignee ? 'assign' : 'note';

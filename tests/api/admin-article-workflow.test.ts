@@ -233,6 +233,87 @@ describe('Admin Article Workflow Characterization', () => {
     expect(updateStoredArticleMock).not.toHaveBeenCalled();
   });
 
+  it('publishes a complete normal draft through EditorialService for a Super Admin', async () => {
+    const article = createBaseTestArticle({ workflow: { status: 'draft' } });
+    getAdminSessionMock.mockResolvedValue({
+      id: 'super-admin-1',
+      email: 'superadmin@example.com',
+      name: 'Super Admin',
+      role: 'super_admin',
+    });
+    getStoredArticleByIdMock.mockResolvedValue(article);
+    updateStoredArticleMock.mockImplementation(
+      async (_id: string, updates: Record<string, unknown>) => ({
+        ...article,
+        ...updates,
+        version: 4,
+      })
+    );
+
+    const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+    const response = await PATCH(
+      createJsonRequest('PATCH', {
+        action: 'publish',
+        expectedVersion: 3,
+      }),
+      { params: Promise.resolve({ id: 'article-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.success).toBe(true);
+    expect(payload.data.workflow.status).toBe('published');
+    expect(payload.data.workflow.publishedAt).toBeTruthy();
+    expect(updateStoredArticleMock).toHaveBeenCalledWith(
+      'article-1',
+      expect.objectContaining({
+        workflow: expect.objectContaining({ status: 'published' }),
+        publishedAt: expect.any(String),
+      }),
+      { skipRevision: true, expectedVersion: 3 }
+    );
+    expect(recordArticleActivityMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'publish',
+        fromStatus: 'draft',
+        toStatus: 'published',
+      })
+    );
+  });
+
+  it.each([
+    ['Summary', { summary: '' }],
+    ['Article body', { content: '' }],
+    ['Author', { author: '' }],
+    ['Featured image', { image: '' }],
+  ])('rejects Super Admin publish when %s is missing', async (label, override) => {
+    const article = createBaseTestArticle({
+      ...override,
+      workflow: { status: 'draft' },
+    });
+    getAdminSessionMock.mockResolvedValue({
+      id: 'super-admin-1',
+      email: 'superadmin@example.com',
+      name: 'Super Admin',
+      role: 'super_admin',
+    });
+    getStoredArticleByIdMock.mockResolvedValue(article);
+
+    const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+    const response = await PATCH(
+      createJsonRequest('PATCH', {
+        action: 'publish',
+        expectedVersion: 3,
+      }),
+      { params: Promise.resolve({ id: 'article-1' }) }
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error).toContain(`Article is not ready: ${label}`);
+    expect(updateStoredArticleMock).not.toHaveBeenCalled();
+  });
+
   it('pins breaking article publish blocked without breaking TTS audio', async () => {
     const breakingArticle = createBaseTestArticle({
       isBreaking: true,

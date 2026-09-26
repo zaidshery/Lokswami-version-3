@@ -81,8 +81,10 @@ import {
   stripArticleHtml,
 } from '@/lib/seo/articleSeo';
 import {
+  buildArticleAssistResult,
   suggestArticleFocusKeyword,
   suggestArticleSecondaryKeywords,
+  summarizeArticleReadiness,
   type ArticleAssistField,
   type ArticleAssistPatch,
   type ArticleAssistResult,
@@ -544,7 +546,10 @@ function formatActivityActionLabel(action: string | undefined) {
   }
 }
 
-function getArticlePublishPathHint(status: WorkflowStatus) {
+function getArticlePublishPathHint(
+  status: WorkflowStatus,
+  actions: readonly ContentTransitionAction[]
+) {
   switch (status) {
     case 'ready_for_approval':
       return 'Approve this article first; the publish action appears after approval.';
@@ -554,9 +559,12 @@ function getArticlePublishPathHint(status: WorkflowStatus) {
     case 'published':
       return 'This article is already published.';
     case 'draft':
+      return actions.includes('publish')
+        ? 'Direct publishing is available when the publish-readiness checks pass; review submission remains optional.'
+        : 'Submit this article for review before it can move toward publish.';
     case 'changes_requested':
     case 'rejected':
-      return 'Submit this article for review before it can move toward publish.';
+      return 'Resubmit this article for review, or return it to draft where that transition is available.';
     case 'submitted':
     case 'assigned':
     case 'in_review':
@@ -865,7 +873,10 @@ export default function EditArticle() {
         canTransitionContent(permissionUser, workflowPermissionRecord, action)
       );
   }, [permissionUser, workflow.status, workflowPermissionRecord]);
-  const workflowPublishHint = getArticlePublishPathHint(workflow.status);
+  const workflowPublishHint = getArticlePublishPathHint(
+    workflow.status,
+    availableWorkflowActions
+  );
 
   const recentWorkflowComments = useMemo(
     () =>
@@ -916,7 +927,7 @@ export default function EditArticle() {
       : articleTtsInfo?.status || 'missing';
 
   const buildAssistPayload = useCallback(() => ({
-    mode: 'edit',
+    mode: 'edit' as const,
     title: formData.title,
     summary: formData.summary,
     content: formData.content,
@@ -940,14 +951,24 @@ export default function EditArticle() {
     },
     isBreaking: formData.isBreaking,
     isTrending: formData.isTrending,
-    language: 'hi',
+    language: 'hi' as const,
     breakingAudioReady: !formData.isBreaking || breakingTtsStatus === 'ready',
+    requireBreakingAudio: formData.isBreaking,
     listenAudioReady: articleTtsStatus === 'ready',
     sourceInfo: formData.sourceInfo,
     sourceStoryId: formData.sourceStoryId,
     locationTag: formData.locationTag,
     editorial: formData.editorial,
   }), [articleTtsStatus, breakingTtsStatus, formData, imagePreview]);
+
+  const livePublishAssistResult = useMemo(
+    () => buildArticleAssistResult(buildAssistPayload()),
+    [buildAssistPayload]
+  );
+  const livePublishReadiness = useMemo(
+    () => summarizeArticleReadiness(livePublishAssistResult.readiness),
+    [livePublishAssistResult.readiness]
+  );
 
   const fetchArticleTtsStatus = useCallback(async () => {
     if (!articleId) {
@@ -2216,6 +2237,21 @@ export default function EditArticle() {
       return;
     }
 
+    if (
+      (action === 'submit' ||
+        action === 'schedule' ||
+        action === 'publish' ||
+        action === 'fast_publish') &&
+      livePublishReadiness.blockers.length > 0
+    ) {
+      setError(
+        `Article is not ready: ${livePublishReadiness.blockers
+          .map((item) => item.label)
+          .join(', ')}`
+      );
+      return;
+    }
+
     if (action === 'publish' && formData.isBreaking && (!breakingTtsInfo?.audioUrl || breakingTtsNeedsSave)) {
       setError(
         breakingTtsNeedsSave
@@ -2278,8 +2314,10 @@ export default function EditArticle() {
       if (!response.ok || !data.success) {
         if (response.status === 409 && data.code === 'ARTICLE_VERSION_CONFLICT') {
           setError(
-            data.error ||
-              'This article changed in another session. Reload before changing workflow.'
+            action === 'publish'
+              ? 'Article changed elsewhere. Reload before publishing.'
+              : data.error ||
+                'This article changed in another session. Reload before changing workflow.'
           );
           return;
         }
@@ -2407,7 +2445,7 @@ export default function EditArticle() {
         assignee={workflow.assignedTo?.name || workflow.assignedTo?.email}
         dueAt={workflow.dueAt}
         hasUnsavedChanges={hasUnsavedChanges}
-        blockerCount={hasUnsavedChanges ? 1 : 0}
+        blockerCount={livePublishReadiness.blockers.length + (hasUnsavedChanges ? 1 : 0)}
         primaryAction={
           availableWorkflowActions[0]
             ? availableWorkflowActions[0] === 'submit' &&
@@ -3205,6 +3243,80 @@ export default function EditArticle() {
                     </div>
                   ) : null}
 
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Publish readiness</p>
+                        <p className="mt-1 text-xs text-gray-600">
+                          These checks use the same shared readiness rules as the publishing service.
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          livePublishReadiness.blockers.length
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        {livePublishReadiness.blockers.length
+                          ? `${livePublishReadiness.blockers.length} blocking`
+                          : 'Ready to publish'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                          Ready
+                        </p>
+                        <ul className="mt-2 space-y-1.5 text-xs text-emerald-800">
+                          {livePublishReadiness.done.map((item) => (
+                            <li key={item.id} className="flex items-start gap-1.5">
+                              <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                              <span>{item.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                          Blocking
+                        </p>
+                        {livePublishReadiness.blockers.length ? (
+                          <ul className="mt-2 space-y-2 text-xs text-red-800">
+                            {livePublishReadiness.blockers.map((item) => (
+                              <li key={item.id}>
+                                <span className="font-semibold">{item.label}</span>
+                                <span className="mt-0.5 block">{item.detail}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-xs text-emerald-700">No blocking fields remain.</p>
+                        )}
+                      </div>
+
+                      <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                          Warnings
+                        </p>
+                        {livePublishReadiness.warnings.length ? (
+                          <ul className="mt-2 space-y-2 text-xs text-amber-800">
+                            {livePublishReadiness.warnings.map((item) => (
+                              <li key={item.id}>
+                                <span className="font-semibold">{item.label}</span>
+                                <span className="mt-0.5 block">{item.detail}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-xs text-amber-800">No advisory warnings.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   {workflowPublishHint || hasUnsavedChanges ? (
                     <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
                       {hasUnsavedChanges ? (
@@ -3221,12 +3333,19 @@ export default function EditArticle() {
                         const needsAssignee = action === 'assign' && !workflowAssigneeId.trim();
                         const needsReason = action === 'reject' && !workflowRejectionReason.trim();
                         const needsSchedule = action === 'schedule' && !workflowScheduledFor.trim();
+                        const hasReadinessBlockers =
+                          (action === 'submit' ||
+                            action === 'schedule' ||
+                            action === 'publish' ||
+                            action === 'fast_publish') &&
+                          livePublishReadiness.blockers.length > 0;
                         const disabled =
                           Boolean(runningWorkflowAction) ||
                           hasUnsavedChanges ||
                           needsAssignee ||
                           needsReason ||
-                          needsSchedule;
+                          needsSchedule ||
+                          hasReadinessBlockers;
                         const toneClass =
                           action === 'reject'
                             ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'

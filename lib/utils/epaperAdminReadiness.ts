@@ -34,6 +34,30 @@ export type MinimalEpaperRecord = {
   isStaleGeneration?: boolean;
 };
 
+export type MinimalEpaperProcessingJob = {
+  status?: string;
+  generation?: string;
+};
+
+export function buildEpaperProcessingBlockers(input: {
+  processingGeneration?: string;
+  latestJob?: MinimalEpaperProcessingJob | null;
+}): string[] {
+  const status = nonEmptyString(input.latestJob?.status);
+  const editionGeneration = nonEmptyString(input.processingGeneration);
+  const jobGeneration = nonEmptyString(input.latestJob?.generation);
+  const blockers: string[] = [];
+
+  if (status === 'queued' || status === 'processing') {
+    blockers.push('Background processing job is still active.');
+  }
+  if (editionGeneration && jobGeneration && editionGeneration !== jobGeneration) {
+    blockers.push('Processing generation is stale.');
+  }
+
+  return blockers;
+}
+
 type MinimalArticleRecord = Pick<
   EPaperArticleRecord,
   'pageNumber' | 'contentHtml' | 'excerpt' | 'coverImagePath'

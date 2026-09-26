@@ -1,9 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+const recordEpaperActivityMock = vi.hoisted(() => vi.fn());
+
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/server/epaperActivity', () => ({
   buildEpaperActivityMessage: vi.fn(() => 'Activity message'),
-  recordEpaperActivity: vi.fn(),
+  recordEpaperActivity: recordEpaperActivityMock,
   listEpaperActivity: vi.fn(() => []),
 }));
 vi.mock('@/lib/server/epaperObservability', () => ({
@@ -14,6 +16,7 @@ vi.mock('@/lib/storage/workflowNotifications', () => ({
 }));
 
 import {
+  buildEpaperProcessingBlockers,
   buildEpaperReadiness,
   isTrustedPdfAsset,
 } from '@/lib/utils/epaperAdminReadiness';
@@ -24,6 +27,7 @@ import {
   EpaperForbiddenError,
   EpaperValidationError,
   EpaperConflictError,
+  EpaperVersionConflictError,
   type AdminSessionIdentity,
 } from '@/lib/server/epaper/epaperTypes';
 
@@ -100,6 +104,22 @@ describe('Phase 3.9C — E-Paper Publication Invariants & Quality Signals', () =
         epaper,
       });
       expect(quality.publishBlockers).toEqual([]);
+    });
+
+    it('uses shared processing blockers for active jobs and stale generations', () => {
+      expect(
+        buildEpaperProcessingBlockers({
+          processingGeneration: 'generation-current',
+          latestJob: { status: 'processing', generation: 'generation-current' },
+        })
+      ).toEqual(['Background processing job is still active.']);
+
+      expect(
+        buildEpaperProcessingBlockers({
+          processingGeneration: 'generation-current',
+          latestJob: { status: 'completed', generation: 'generation-old' },
+        })
+      ).toEqual(['Processing generation is stale.']);
     });
 
     it('blocks publication when thumbnail is missing', () => {
@@ -331,6 +351,144 @@ describe('Phase 3.9C — E-Paper Publication Invariants & Quality Signals', () =
         ...overrides,
       } as unknown as EpaperRepository;
     }
+
+    it('publishes a complete draft with CAS version, retained revision, and activity', async () => {
+      const edition = {
+        _id: '507f1f77bcf86cd799439011',
+        familyId: 'family-publish-ready',
+        revisionNumber: 2,
+        isCurrentRevision: true,
+        version: 7,
+        publicationType: 'epaper',
+        citySlug: 'indore',
+        cityName: 'Indore',
+        title: 'Publish-ready Indore edition',
+        pageCount: 2,
+        pdfPath: '/uploads/paper.pdf',
+        thumbnailPath: '/uploads/page-1.jpg',
+        processingGeneration: 'generation-current',
+        pages: [
+          { pageNumber: 1, imagePath: '/uploads/page-1.jpg', processingStatus: 'ready' },
+          { pageNumber: 2, imagePath: '/uploads/page-2.jpg', processingStatus: 'ready' },
+        ],
+        status: 'draft',
+        productionStatus: 'hotspot_mapping',
+      };
+      const publishEdition = vi.fn(
+        async (_id: string, _familyId: string, updates: Record<string, unknown>) => ({
+          ...edition,
+          ...updates,
+          version: 8,
+        })
+      );
+      const mockRepo = createMockRepo({
+        findEditionById: vi.fn().mockResolvedValue(edition),
+        listArticles: vi.fn().mockResolvedValue([
+          {
+            pageNumber: 1,
+            title: 'Mapped story',
+            excerpt: 'Readable mapped story',
+            contentHtml: '<p>Readable mapped story</p>',
+          },
+        ]),
+        findLatestProcessingJob: vi.fn().mockResolvedValue({
+          status: 'completed',
+          generation: 'generation-current',
+        }),
+        publishEdition,
+      });
+      const service = new EpaperEditorialService(mockRepo);
+
+      const result = await service.updateWorkflow(
+        superAdminActor,
+        '507f1f77bcf86cd799439011',
+        { productionStatus: 'published', expectedVersion: 7 }
+      );
+
+      expect(result.data.status).toBe('published');
+      expect(result.data.productionStatus).toBe('published');
+      expect(result.data.publishedAt).toBeTruthy();
+      expect(result.data.revisionNumber).toBe(2);
+      expect(result.data.isCurrentRevision).toBe(true);
+      expect(publishEdition).toHaveBeenCalledWith(
+        '507f1f77bcf86cd799439011',
+        'family-publish-ready',
+        expect.objectContaining({
+          status: 'published',
+          productionStatus: 'published',
+          isCurrentRevision: true,
+          publishedAt: expect.any(Date),
+        }),
+        7
+      );
+      expect(recordEpaperActivityMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'published',
+          fromStatus: 'hotspot_mapping',
+          toStatus: 'published',
+        })
+      );
+    });
+
+    it('requires the current edition version before publishing', async () => {
+      const mockRepo = createMockRepo({
+        findEditionById: vi.fn().mockResolvedValue({
+          _id: '507f1f77bcf86cd799439011',
+          version: 4,
+          publicationType: 'epaper',
+          citySlug: 'indore',
+          cityName: 'Indore',
+          title: 'Ready edition',
+          pageCount: 1,
+          pdfPath: '/uploads/paper.pdf',
+          thumbnailPath: '/uploads/page-1.jpg',
+          pages: [
+            { pageNumber: 1, imagePath: '/uploads/page-1.jpg', processingStatus: 'ready' },
+          ],
+          status: 'draft',
+          productionStatus: 'hotspot_mapping',
+        }),
+      });
+      const service = new EpaperEditorialService(mockRepo);
+
+      await expect(
+        service.updateWorkflow(superAdminActor, '507f1f77bcf86cd799439011', {
+          productionStatus: 'published',
+        })
+      ).rejects.toThrow(/Current edition version is required/);
+    });
+
+    it('rejects publish when the supplied edition version is stale', async () => {
+      const publishEdition = vi.fn();
+      const mockRepo = createMockRepo({
+        findEditionById: vi.fn().mockResolvedValue({
+          _id: '507f1f77bcf86cd799439011',
+          version: 5,
+          publicationType: 'epaper',
+          citySlug: 'indore',
+          cityName: 'Indore',
+          title: 'Ready edition',
+          pageCount: 1,
+          pdfPath: '/uploads/paper.pdf',
+          thumbnailPath: '/uploads/page-1.jpg',
+          pages: [
+            { pageNumber: 1, imagePath: '/uploads/page-1.jpg', processingStatus: 'ready' },
+          ],
+          status: 'draft',
+          productionStatus: 'hotspot_mapping',
+        }),
+        publishEdition,
+      });
+      const service = new EpaperEditorialService(mockRepo);
+
+      await expect(
+        service.updateWorkflow(superAdminActor, '507f1f77bcf86cd799439011', {
+          productionStatus: 'published',
+          expectedVersion: 4,
+        })
+      ).rejects.toThrow(EpaperVersionConflictError);
+      expect(publishEdition).not.toHaveBeenCalled();
+    });
 
     it('rejects ready_to_publish transition when publish blockers exist', async () => {
       const mockRepo = createMockRepo({
