@@ -766,3 +766,48 @@ Upon completion and merge of Phase 3.10:
   - Test baseline increased from 304 test files / 2,046 tests to **305 test files / 2,089 tests** (100% passing).
   - Clean passes across: `npm run typecheck`, `npm run lint:strict`, `npm run test:four-role-newsroom`, `npm run test:security`, `npm run test:auth-guards`, `npm run check:phase3-scope`, `npm run build:ci`, `git diff --check`, `npm run test:ci`.
 - **Target Commit:** `feat(admin): harden configuration and webhook security`
+
+---
+
+## 33. Phase 3.10C Implementation Completion Record
+
+- **Completed Phase:** Phase 3.10C — Audit Integrity + Permission Parity + Session Freshness
+- **Session Freshness & Rehydration Invariants:**
+  - Removed page/API authorization asymmetry between `getAdminSession()` and `getAdminSessionFromReq()`.
+  - Extracted shared helper `rehydrateAdminIdentity(claims: AdminIdentityClaims)` in `lib/auth/admin.ts`.
+  - Bootstrap super-admin check (`isBootstrapAdminUserId`) executes without MongoDB lookups and preserves `super_admin` privilege without personal email hardcoding.
+  - DB-backed staff accounts are strictly validated against MongoDB:
+    - Validates `Types.ObjectId.isValid(userId)`.
+    - Queries `User.findById(userId).select('role isActive name email loginId')`.
+    - Fails closed (`return null`) if user is missing, deleted, or has `isActive === false`.
+    - Normalizes DB role with `normalizeAdminRole` and enforces `isAdminRole`. Non-admin roles (such as `reader` or malformed strings) immediately fail closed (`return null`).
+    - Stale JWT/session claims cannot maintain elevated access: demotion from `super_admin` to `admin` takes effect immediately on Server Component render and API dispatch without waiting for JWT expiration or requiring global logout.
+    - Demoted identities update `registerAdminMutationActor` with their fresh canonical role, ensuring mutation audit logging cannot retain stale `super_admin` attribution.
+    - Database errors fail closed (`return null`) with sanitized operational logging.
+    - No unsafe caching of privilege claims was introduced; rehydration happens per authorization check.
+- **Staff Setup Completion Audit Evidence:**
+  - Extended canonical `IAuditLog['action']` type and `AuditLogSchema` enum to include `'staff_setup_completed'`.
+  - Exported `logStaffSetupCompleted` helper in `lib/security/auditLogger.ts`.
+  - Updated `setStaffPasswordWithToken` in `lib/auth/staffCredentials.ts` to return canonical `userId`.
+  - Integrated structured audit logging in `app/api/auth/staff-setup/route.ts` upon successful password establishment with:
+    - `action: 'staff_setup_completed'`
+    - `resourceType: 'user'`
+    - Canonical `userId`, `userEmail`, `userRole`, and `loginId`.
+    - Server-owned timestamp (`timestamp: new Date()`).
+    - Best-effort execution ensuring zero exposure of passwords, confirmPasswords, setup tokens, token hashes, or password hashes.
+- **Audit Immutability & Secret Redaction:**
+  - Verified append-only invariant: repository contains zero application routes or service methods supporting update, edit, deletion, or bulk removal of `AuditLog` records.
+  - Enhanced centralized redaction in `lib/security/auditLogger.ts`:
+    - Added `setupToken`, `setupTokenHash`, `mongodb`, `mongoUri`, `mongodbUri`, `signature`, `sig`, `x-amz-signature`, `x-goog-signature` to `SENSITIVE_AUDIT_FIELDS`.
+    - Sanitized error messages to mask Mongo connection URIs (`mongodb[REDACTED]`) and token parameters.
+  - Enforced query bounds: `getAuditLogs` clamps limit requests to maximum 1,000 records; `getAdminAuditCenterData` clamps to maximum 120 records.
+- **Permission Parity & Governance Review:**
+  - Verified `PAGE_ACCESS` in `lib/auth/permissions.ts` remains canonical across Server Component page guards, `AdminPageAccessGuard`, and `AdminShell` navigation.
+  - Verified that `/admin/permission-review` directly reflects runtime `PAGE_ACCESS` and is strictly informational.
+  - All critical system-control surfaces (`settings`, `newsroom_settings`, `revenue`, `team`, `users`, `audit_log`, `permission_review`, `operations_center`, `operations_diagnostics`) remain strictly locked to `super_admin`.
+- **Verification & Test Coverage:**
+  - Created `tests/admin-session-invalidation.test.ts` (15 focused tests covering bootstrap precedence, active super admins, instant super-admin demotion, reader demotion, deactivated accounts, deleted accounts, malformed IDs, invalid DB roles, DB failure fail-closed, and mutation context role synchronization).
+  - Created `tests/admin-audit-integrity.test.ts` (9 focused tests covering staff setup completion audit emission, secret redaction, append-only immutability, schema indexed fields, query bounding, and pagination).
+  - Regression baseline increased from 305 test files / 2,089 tests to **307 test files / 2,113 tests** (100% passing).
+  - Clean passes across: `npm run typecheck`, `npm run lint:strict`, `npm run test:four-role-newsroom`, `npm run test:security`, `npm run test:auth-guards`, `npm run check:phase3-scope`, `npm run build:ci`, `git diff --check`, `npm run test:ci`.
+- **Target Commit:** `feat(admin): enforce session freshness and audit integrity`

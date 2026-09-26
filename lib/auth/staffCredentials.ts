@@ -291,6 +291,7 @@ export async function setStaffPasswordWithToken(input: {
 
   return {
     success: true as const,
+    userId: String(updatedUser._id),
     loginId: typeof updatedUser.loginId === 'string' ? updatedUser.loginId.trim() : '',
     email: typeof updatedUser.email === 'string' ? updatedUser.email.trim() : '',
     role: role as AdminRole,

@@ -6,6 +6,7 @@ import {
 } from '@/lib/auth/staffCredentials';
 import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
 import { getClientIp } from '@/lib/security/ipUtils';
+import { logStaffSetupCompleted } from '@/lib/security/auditLogger';
 
 function normalizePassword(value: unknown) {
   return typeof value === 'string' ? value : '';
@@ -107,6 +108,19 @@ export async function POST(req: NextRequest) {
         { success: false, error: result.error },
         { status: 400 }
       );
+    }
+
+    try {
+      await logStaffSetupCompleted({
+        userId: result.userId,
+        userEmail: result.email,
+        userRole: result.role,
+        loginId: result.loginId,
+        ipAddress: clientIp,
+        userAgent: req.headers.get('user-agent') || 'unknown',
+      });
+    } catch (auditError) {
+      console.error('Failed to log staff setup completion audit event:', auditError);
     }
 
     return NextResponse.json({
