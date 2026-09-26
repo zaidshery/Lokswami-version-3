@@ -487,7 +487,12 @@ export class EpaperRepository {
       .lean();
   }
 
-  async publishEdition(id: string, familyId: string, updates: EpaperRecord) {
+  async publishEdition(
+    id: string,
+    familyId: string,
+    updates: EpaperRecord,
+    expectedVersion: number
+  ) {
     let session: ClientSession | null = null;
     let supportsTransactions = true;
     try {
@@ -507,21 +512,40 @@ export class EpaperRepository {
       isCurrentRevision: true,
       publishedAt: updates.publishedAt || new Date(),
     };
+    const publishFilter = { _id: id, version: expectedVersion };
+    const publishMutation = {
+      $set: publishUpdates,
+      $inc: { version: 1 },
+    };
+
+    const throwVersionConflict = async () => {
+      const currentDoc = await EPaper.findById(id).select('version').lean();
+      if (currentDoc) {
+        throw new EpaperVersionConflictError(
+          Number(currentDoc.version || 1),
+          expectedVersion
+        );
+      }
+    };
 
     if (session && supportsTransactions) {
       try {
         let result: EpaperRecord | null = null;
         await session.withTransaction(async () => {
+          result = (await EPaper.findOneAndUpdate(publishFilter, publishMutation, {
+            new: true,
+            runValidators: true,
+            session,
+          }).lean()) as EpaperRecord | null;
+          if (!result) {
+            await throwVersionConflict();
+            return;
+          }
           await EPaper.updateMany(
             { familyId, _id: { $ne: id }, isCurrentRevision: true },
             { $set: { isCurrentRevision: false } },
             { session }
           );
-          result = (await EPaper.findByIdAndUpdate(id, publishUpdates, {
-            new: true,
-            runValidators: true,
-            session,
-          }).lean()) as EpaperRecord | null;
         });
         return result;
       } catch (txError: unknown) {
@@ -539,14 +563,19 @@ export class EpaperRepository {
       }
     }
 
+    const updated = (await EPaper.findOneAndUpdate(publishFilter, publishMutation, {
+      new: true,
+      runValidators: true,
+    }).lean()) as EpaperRecord | null;
+    if (!updated) {
+      await throwVersionConflict();
+      return null;
+    }
     await EPaper.updateMany(
       { familyId, _id: { $ne: id }, isCurrentRevision: true },
       { $set: { isCurrentRevision: false } }
     );
-    return EPaper.findByIdAndUpdate(id, publishUpdates, {
-      new: true,
-      runValidators: true,
-    }).lean() as Promise<EpaperRecord | null>;
+    return updated;
   }
 
   async listOcrSuggestions(query: EpaperRecord) {

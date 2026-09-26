@@ -48,6 +48,7 @@ import {
   resolveEPaperPublicationType,
 } from '@/lib/utils/epaperPublication';
 import { buildEpaperEditionQualitySummary } from '@/lib/utils/epaperQualitySignals';
+import { buildEpaperProcessingBlockers } from '@/lib/utils/epaperAdminReadiness';
 import { getAllowedEpaperProductionTransitions } from '@/lib/workflow/transitions';
 import type { EPaperProductionStatus } from '@/lib/workflow/types';
 
@@ -87,6 +88,7 @@ type ProcessingData = {
     failedPageNumbers?: number[];
     lastError?: string;
     updatedAt?: string;
+    generation?: string;
   } | null;
   pageCount?: number;
   pages?: EPaperRecord['pages'];
@@ -914,6 +916,9 @@ export default function AdminEPaperDetailPage() {
         },
         body: JSON.stringify({
           ...(nextStatus ? { productionStatus: nextStatus } : {}),
+          ...(nextStatus === 'published'
+            ? { expectedVersion: epaper.version || 1 }
+            : {}),
           ...(canManageAssignments ? { assignedToId: productionAssigneeId } : {}),
           note,
         }),
@@ -1050,8 +1055,21 @@ export default function AdminEPaperDetailPage() {
     (nextStatus) =>
       canPublishPublication || (nextStatus !== 'published' && nextStatus !== 'archived')
   );
+  const processingBlockers = buildEpaperProcessingBlockers({
+    processingGeneration: epaper.processingGeneration,
+    latestJob: processingData?.job
+      ? {
+          status: processingData.job.status,
+          generation: processingData.job.generation,
+        }
+      : null,
+  });
   const publishBlockers = Array.from(
-    new Set([...(readiness?.blockers || []), ...editionQualitySummary.publishBlockers])
+    new Set([
+      ...(readiness?.blockers || []),
+      ...editionQualitySummary.publishBlockers,
+      ...processingBlockers,
+    ])
   );
   const hasDeskChanges =
     productionNote.trim().length > 0 ||
@@ -1891,7 +1909,7 @@ export default function AdminEPaperDetailPage() {
                   <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
                     <p className="font-semibold">Publish blockers</p>
                     <ul className="mt-2 list-disc space-y-1 pl-4">
-                      {publishBlockers.slice(0, 3).map((blocker) => (
+                      {publishBlockers.map((blocker) => (
                         <li key={blocker}>{blocker}</li>
                       ))}
                     </ul>
@@ -1920,6 +1938,17 @@ export default function AdminEPaperDetailPage() {
                     <p className="mt-1">{workspaceNoun} checks are clear for the current stage.</p>
                   </div>
                 )}
+
+                {readiness?.warnings?.length ? (
+                  <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    <p className="font-semibold">Review warnings (do not block publishing)</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {readiness.warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
               </section>
 
@@ -2064,32 +2093,6 @@ export default function AdminEPaperDetailPage() {
                       {automation.pageImageGenerationReason ? (
                         <p className="mt-2">{automation.pageImageGenerationReason}</p>
                       ) : null}
-                    </div>
-                  ) : null}
-
-                  {readiness?.warnings?.length ? (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                        Review notes
-                      </p>
-                      <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-amber-700">
-                        {readiness.warnings.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {publishBlockers.length > 1 ? (
-                    <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
-                        All blockers
-                      </p>
-                      <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-red-700">
-                        {publishBlockers.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
                     </div>
                   ) : null}
 
