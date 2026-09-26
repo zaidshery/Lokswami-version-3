@@ -1,6 +1,7 @@
 import 'server-only';
 
 import crypto from 'crypto';
+import { Types } from 'mongoose';
 import EPaper from '@/lib/models/EPaper';
 import EPaperProcessingJob from '@/lib/models/EPaperProcessingJob';
 import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
@@ -485,7 +486,7 @@ export async function processClaimedJob(
 
     // Re-verify that the edition has not been superseded or published
     const freshEdition = await EPaper.findById(job.epaperId)
-      .select('status productionStatus processingGeneration revisionNumber')
+      .select('status productionStatus processingGeneration revisionNumber pages')
       .lean<Record<string, unknown> | null>();
 
     if (
@@ -530,6 +531,27 @@ export async function processClaimedJob(
     if (pageIndex < 0 || pageNumber > expectedPageCount) {
       failedPageNumbers.push(pageNumber);
       failures.push(`Page ${pageNumber}: page metadata is missing or out of bounds.`);
+      continue;
+    }
+
+    const freshPages = Array.isArray(freshEdition.pages) ? freshEdition.pages : [];
+    const freshPage = freshPages.find((entry) => {
+      const candidate = typeof entry === 'object' && entry
+        ? (entry as Record<string, unknown>)
+        : {};
+      return Number(candidate.pageNumber) === pageNumber;
+    }) as Record<string, unknown> | undefined;
+    if (
+      freshPage?.processingStatus === 'ready' &&
+      String(freshPage.imagePath || '').trim()
+    ) {
+      pages[pageIndex] = {
+        ...pages[pageIndex],
+        ...freshPage,
+        pageNumber,
+        imagePath: String(freshPage.imagePath),
+        processingStatus: 'ready',
+      };
       continue;
     }
 
@@ -670,15 +692,14 @@ export async function processClaimedJob(
         String(p.imagePath || '').trim().length > 0
     );
 
-  if (allPagesReady) {
-    const automationUpdates = buildEpaperImageAutomationUpdates({
-      pageCount: expectedPageCount,
-      pages: sortedPages,
-      currentThumbnailPath: epaper.thumbnailPath,
-      currentProductionStatus: epaper.productionStatus,
-      currentStatus: epaper.status,
-    });
-
+  const automationUpdates = buildEpaperImageAutomationUpdates({
+    pageCount: expectedPageCount,
+    pages: sortedPages,
+    currentThumbnailPath: epaper.thumbnailPath,
+    currentProductionStatus: epaper.productionStatus,
+    currentStatus: epaper.status,
+  });
+  if (allPagesReady || Object.keys(automationUpdates).length > 0) {
     const updateFilter: Record<string, unknown> = {
       _id: job.epaperId,
       status: 'draft',
@@ -834,6 +855,106 @@ export async function processQueuedEpaperJobs(options: { limit?: number } = {}) 
     }
     throw error;
   }
+}
+
+export async function processEpaperJobForEdition(options: {
+  epaperId: string;
+  workerId?: string;
+}) {
+  if (!Types.ObjectId.isValid(options.epaperId)) {
+    throw new Error('A valid e-paper ID is required.');
+  }
+  if (!isEpaperBackgroundProcessingEnabled()) {
+    return { claimed: 0, status: 'paused' as const };
+  }
+
+  return withDistributedLock(
+    'lock:epaper-job-worker',
+    async () => {
+      const job = await EPaperProcessingJob.findOne({
+        epaperId: options.epaperId,
+        kind: 'pdf_pages',
+        status: { $in: ['queued', 'processing'] },
+      }).sort({ createdAt: -1 });
+
+      if (!job) {
+        const latest = await EPaperProcessingJob.findOne({
+          epaperId: options.epaperId,
+          kind: 'pdf_pages',
+        })
+          .sort({ createdAt: -1 })
+          .select('_id status nextAttemptAt');
+        return {
+          claimed: 0,
+          status: 'no_active_job' as const,
+          jobId: latest ? String(latest._id) : '',
+          jobStatus: latest ? String(latest.status) : 'missing',
+        };
+      }
+
+      const claimed = await claimJob({
+        jobId: String(job._id),
+        workerId:
+          options.workerId ||
+          `epaper-targeted-${process.pid}-${crypto.randomUUID()}`,
+      });
+      if (!claimed) {
+        const retryAt = job.nextAttemptAt ? new Date(job.nextAttemptAt) : null;
+        return {
+          claimed: 0,
+          status:
+            job.status === 'queued' && retryAt && retryAt.getTime() > Date.now()
+              ? ('retry_scheduled' as const)
+              : ('already_claimed' as const),
+          jobId: String(job._id),
+          jobStatus: String(job.status),
+          nextAttemptAt: retryAt?.toISOString() || null,
+        };
+      }
+
+      try {
+        const result = await processClaimedJob(claimed);
+        return {
+          claimed: 1,
+          status: result.status,
+          jobId: String(claimed._id),
+          result,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Processing failed.';
+        const currentAttempt = Number(claimed.attemptCount || 1);
+        const shouldRetry = currentAttempt < Number(claimed.maxAttempts || 4);
+        const delay =
+          RETRY_DELAYS_MS[
+            Math.min(Math.max(currentAttempt - 1, 0), RETRY_DELAYS_MS.length - 1)
+          ];
+        const nextAttemptAt = shouldRetry
+          ? new Date(Date.now() + delay)
+          : new Date();
+        await EPaperProcessingJob.findByIdAndUpdate(claimed._id, {
+          status: shouldRetry ? 'queued' : 'failed',
+          nextAttemptAt,
+          lastError: message,
+          leaseOwner: '',
+          leaseExpiresAt: null,
+          completedAt: shouldRetry ? null : new Date(),
+        });
+        return {
+          claimed: 1,
+          status: shouldRetry ? ('queued' as const) : ('failed' as const),
+          jobId: String(claimed._id),
+          nextAttemptAt: nextAttemptAt.toISOString(),
+          result: {
+            jobId: String(claimed._id),
+            status: shouldRetry ? 'queued' : 'failed',
+            processed: 0,
+            failed: claimed.pageNumbers.length,
+          },
+        };
+      }
+    },
+    120
+  );
 }
 
 export type AbandonedCleanupOptions = {

@@ -79,6 +79,8 @@ type ProductionActivityResponse = {
 type ProcessingData = {
   job?: {
     status?: string;
+    attemptCount?: number;
+    nextAttemptAt?: string;
     processedItems?: number;
     totalItems?: number;
     failedItems?: number;
@@ -90,6 +92,8 @@ type ProcessingData = {
   pages?: EPaperRecord['pages'];
   productionStatus?: EPaperProductionStatus;
   stuckWarning?: string;
+  jobState?: string;
+  statusMessage?: string;
 };
 
 type ProcessingResponse = {
@@ -1324,10 +1328,15 @@ export default function AdminEPaperDetailPage() {
                       PDF processing
                     </p>
                     <h2 className="mt-1 text-base font-semibold text-blue-950">
-                      {formatProductionStatusLabel(processingData.job.status)}
+                      {formatProductionStatusLabel(
+                        processingData.jobState || processingData.job.status
+                      )}
                     </h2>
                     <p className="mt-1 text-sm text-blue-800">
-                      PDF uploaded. Page conversion progress:{' '}
+                      {processingData.statusMessage || 'PDF processing status updated.'}
+                    </p>
+                    <p className="mt-1 text-sm text-blue-800">
+                      Page conversion progress:{' '}
                       {processingData.job.processedItems || convertedPageCount}/
                       {processingData.job.totalItems || epaper.pageCount} pages converted
                       {processingData.job.failedItems

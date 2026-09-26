@@ -26,10 +26,24 @@ export class EpaperProcessingService {
     const stale = Number.isFinite(ageMs) && ageMs > warningHours * 60 * 60 * 1000;
     const jobSource = asObject(job);
     const processing = jobSource.status === 'queued' || jobSource.status === 'processing';
+    const jobState = jobSource.status === 'queued' && Number(jobSource.attemptCount || 0) > 0
+      ? 'retry_scheduled'
+      : String(jobSource.status || 'not_queued');
+    const statusMessage = jobState === 'queued'
+      ? 'Queued — waiting for background worker.'
+      : jobState === 'retry_scheduled'
+        ? 'Retry scheduled — waiting for the next background worker attempt.'
+        : jobState === 'processing'
+          ? 'Processing — the background worker is converting page images.'
+          : jobState === 'failed' || jobState === 'completed_with_errors'
+            ? 'Processing finished with failures. Retry the missing pages when ready.'
+            : jobState === 'completed'
+              ? 'Processing completed.'
+              : '';
     const productionStatus = paper.productionStatus === 'qa_review' ? 'hotspot_mapping' : paper.productionStatus;
     const stuckWarning = stale && processing ? `This edition has been processing for more than ${warningHours} hours.`
       : stale && productionStatus === 'hotspot_mapping' ? `This edition has remained in hotspot mapping for more than ${warningHours} hours.` : '';
-    return { job, pageCount: paper.pageCount, pages: paper.pages, productionStatus, updatedAt: paper.updatedAt, stuckWarning };
+    return { job, jobState, statusMessage, pageCount: paper.pageCount, pages: paper.pages, productionStatus, updatedAt: paper.updatedAt, stuckWarning };
   }
 
   async retry(actor: AdminSessionIdentity, id: string, body: unknown) {

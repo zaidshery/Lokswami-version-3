@@ -97,22 +97,49 @@ export class EpaperArticleService {
     }
     const hotspotError = validateHotspot(hotspot);
     if (hotspotError) throw new EpaperValidationError(hotspotError);
+    const matchingArticle = await this.repo.findArticle({
+      epaperId: id,
+      pageNumber,
+      ...(requestedTitle ? { title: requestedTitle } : {}),
+      excerpt,
+      contentHtml,
+      coverImagePath,
+      hotspot,
+    });
+    if (matchingArticle) {
+      await applyEpaperWorkflowAutomation({
+        epaperId: id,
+        actor,
+        reason: 'An existing mapped e-paper story was recovered after a create retry.',
+      });
+      return {
+        ...mapAdminEpaperArticle(matchingArticle),
+        recovered: true,
+      };
+    }
     const count = requestedTitle ? 0 : await this.repo.countArticles({ epaperId: id, pageNumber });
     const title = requestedTitle || buildEpaperPlaceholderTitle(pageNumber, count + 1);
     const slug = await resolveUniqueSlug(slugInput || title, (candidate) => this.repo.articleExists({ epaperId: id, slug: candidate }));
-    const page = Array.isArray(paper.pages) ? paper.pages.map(asObject).find((entry) => Number(entry.pageNumber) === pageNumber) : undefined;
-    const now = new Date();
     const created = await this.repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
-      releasedSnapshot: { title, slug, pageNumber, excerpt, contentHtml, coverImagePath, pageImagePath: String(page?.imagePath || ''), hotspot: { ...hotspot },
-        version: 1, releasedAt: now.toISOString(), releasedById: actor.id, sourceUpdatedAt: now.toISOString() },
-      workflow: { status: 'published', publishedAt: now, reviewedBy: { id: actor.id, name: actor.name || actor.email || 'Admin', email: actor.email || '', role: actor.role } } });
+      releasedSnapshot: null,
+      workflow: {
+        status: 'draft',
+        createdBy: {
+          id: actor.id,
+          name: actor.name || actor.email || 'Admin',
+          email: actor.email || '',
+          role: actor.role,
+        },
+      } });
+    try {
+      await applyEpaperWorkflowAutomation({ epaperId: id, actor, reason: 'A mapped e-paper story was created.' });
+    } catch (error) {
+      await this.repo.deleteArticleWhere({ _id: created._id, epaperId: id });
+      throw error;
+    }
     await recordEpaperActivity({ epaperId: id, actor, action: 'story_created', message: buildEpaperActivityMessage({ action: 'story_created' }),
       metadata: { articleId: String(created._id || ''), pageNumber, title } });
-    const pages = Array.isArray(paper.pages) ? paper.pages.map(asObject).map((entry) => Number(entry.pageNumber) === pageNumber
-      ? { ...entry, reviewStatus: 'ready', reviewedAt: now, reviewedBy: actor.id } : entry) : [];
-    await this.repo.updateEdition(id, { pages });
-    await applyEpaperWorkflowAutomation({ epaperId: id, actor, reason: 'A mapped e-paper story was created.' });
-    return mapAdminEpaperArticle(created);
+    return { ...mapAdminEpaperArticle(created), recovered: false };
   }
 
   async release(actor: AdminSessionIdentity, id: string, articleId: string, expectedUpdatedAt: unknown) {

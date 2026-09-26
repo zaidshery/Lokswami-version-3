@@ -70,6 +70,7 @@
     "migrate:epaper-workflow-v3": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts",
     "migrate:epaper-workflow-v3:write": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts --write",
     "migrate:epaper-workflow-v3:indexes": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts --indexes-only",
+    "epaper:worker:staging": "ts-node --files -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/epaper/process-staging-edition.ts",
     "migrate:swipe-videos": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/migrate-swipe-videos.ts",
     "migrate:swipe-videos:write": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/migrate-swipe-videos.ts --write",
     "migrate:four-role-admin": "node scripts/migrate-four-role-admin.js",
