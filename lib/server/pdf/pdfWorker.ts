@@ -33,6 +33,7 @@ export interface PdfWorkerRenderOptions {
   _simulateRenderError?: Error;
   _simulateNeverSettle?: boolean;
   _simulateTerminationFailure?: boolean;
+  _simulateProcessExitCode?: number;
 }
 
 export interface PdfWorkerRenderResult {
@@ -220,7 +221,7 @@ class MockPdfWorkerBoundary implements PdfWorkerExecutionBoundary {
  * - Enforces single-canvas concurrency mutex
  * - Enforces runtime memory checks
  * - Enforces execution timeout
- * - Dedicated terminable execution boundary (Node.js worker_threads)
+ * - Dedicated terminable child-process boundary for native PDF rendering
  * - True hang recovery: hard-terminates never-settling workers, confirms termination,
  *   and creates fresh replacement workers with zero overlapping native renders.
  */
@@ -337,6 +338,7 @@ export async function renderPdfPageWithWorkerIsolation(
         jpegQuality: options.jpegQuality ?? DEFAULT_JPEG_QUALITY,
         simulateNeverSettle: options._simulateNeverSettle,
         simulateRenderError: options._simulateRenderError?.message,
+        simulateProcessExitCode: options._simulateProcessExitCode,
       },
       options._onCanvasDisposed
     );

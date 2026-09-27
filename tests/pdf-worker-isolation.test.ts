@@ -101,4 +101,25 @@ describe('PDF worker isolation & memory guard', () => {
     expect(first.buffer).toBeInstanceOf(Buffer);
     expect(second.buffer).toBeInstanceOf(Buffer);
   }, 45_000);
+
+  it('contains an abnormal native-renderer exit and allows a fresh renderer process', async () => {
+    const pdf = createSinglePagePdf();
+
+    await expect(
+      renderPdfPageWithWorkerIsolation({
+        pdfBuffer: pdf,
+        pageNumber: 1,
+        _simulateProcessExitCode: 91,
+      })
+    ).rejects.toThrow('PDF renderer process exited unexpectedly with code 91');
+
+    const recovered = await renderPdfPageWithWorkerIsolation({
+      pdfBuffer: pdf,
+      pageNumber: 1,
+      targetWidth: 500,
+    });
+
+    expect(recovered.width).toBe(500);
+    expect(recovered.buffer).toBeInstanceOf(Buffer);
+  }, 45_000);
 });

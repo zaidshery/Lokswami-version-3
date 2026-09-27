@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { Worker } from 'node:worker_threads';
+import { spawn, type ChildProcess } from 'node:child_process';
 import v8 from 'v8';
 
 export class PdfWorkerTerminationError extends Error {
@@ -35,6 +35,7 @@ export interface IsolatedRenderTask {
   jpegQuality: number;
   simulateNeverSettle?: boolean;
   simulateRenderError?: string;
+  simulateProcessExitCode?: number;
 }
 
 export interface IsolatedRenderResult {
@@ -44,14 +45,19 @@ export interface IsolatedRenderResult {
 }
 
 /**
- * Worker thread script executed inside an isolated V8 thread.
+ * Renderer script executed in an isolated Node.js child process.
  * Native canvas allocation and PDF.js execution reside entirely within this boundary.
  */
 export const PDF_RENDER_WORKER_SCRIPT = `
-const { parentPort } = require('node:worker_threads');
 const sharp = require('sharp');
 
 let activeCancel = null;
+
+const send = (message) => {
+  if (typeof process.send === 'function') {
+    process.send(message);
+  }
+};
 
 async function executeRender(msg) {
 
@@ -82,7 +88,7 @@ async function executeRender(msg) {
         }
         canvas.width = 0;
         canvas.height = 0;
-        parentPort.postMessage({ type: 'canvasDisposed', id: msg.id, info: { width, height } });
+        send({ type: 'canvasDisposed', id: msg.id, info: { width, height } });
       } catch {
         // Best-effort disposal
       }
@@ -161,13 +167,16 @@ async function executeRender(msg) {
   }
 }
 
-parentPort.on('message', async (msg) => {
+process.on('message', async (msg) => {
   if (msg.type === 'render') {
+    if (msg.simulateProcessExitCode) {
+      process.exit(msg.simulateProcessExitCode);
+    }
     try {
       const result = await executeRender(msg);
-      parentPort.postMessage({ type: 'success', id: msg.id, result });
+      send({ type: 'success', id: msg.id, result });
     } catch (err) {
-      parentPort.postMessage({
+      send({
         type: 'error',
         id: msg.id,
         error: err.message || String(err),
@@ -194,10 +203,12 @@ export interface PdfWorkerExecutionBoundary {
 }
 
 /**
- * Encapsulates a terminable Node.js worker_threads worker.
+ * Encapsulates PDF.js and native canvas work in a child process. A process
+ * boundary is required because a native access violation in a worker thread
+ * terminates the entire Node.js host on Windows.
  */
 export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
-  private worker: Worker | null = null;
+  private worker: ChildProcess | null = null;
   private terminated = false;
   private activeReject: ((err: Error) => void) | null = null;
   private terminationPromise: Promise<void> | null = null;
@@ -207,12 +218,21 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
   }
 
   private initWorker() {
-    this.worker = new Worker(PDF_RENDER_WORKER_SCRIPT, { eval: true });
+    this.worker = spawn(process.execPath, ['-e', PDF_RENDER_WORKER_SCRIPT], {
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      serialization: 'advanced',
+      windowsHide: true,
+    });
     this.terminated = false;
   }
 
   isTerminated(): boolean {
-    return this.terminated || this.worker === null;
+    return (
+      this.terminated ||
+      this.worker === null ||
+      this.worker.exitCode !== null ||
+      this.worker.signalCode !== null
+    );
   }
 
   render(
@@ -265,12 +285,13 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
         reject(err);
       };
 
-      const onExit = (code: number) => {
+      const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
         cleanup();
         if (!this.terminated) {
           this.terminated = true;
           this.worker = null;
-          reject(new Error(`PDF worker exited unexpectedly with code ${code}`));
+          const exitDetail = code !== null ? `code ${code}` : `signal ${signal || 'unknown'}`;
+          reject(new Error(`PDF renderer process exited unexpectedly with ${exitDetail}`));
         }
       };
 
@@ -285,7 +306,7 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
       worker.on('error', onError);
       worker.on('exit', onExit);
 
-      worker.postMessage({
+      worker.send({
         type: 'render',
         id: task.id,
         pdfBuffer: task.pdfBuffer,
@@ -294,6 +315,7 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
         jpegQuality: task.jpegQuality,
         simulateNeverSettle: task.simulateNeverSettle,
         simulateRenderError: task.simulateRenderError,
+        simulateProcessExitCode: task.simulateProcessExitCode,
       });
     });
   }
@@ -301,7 +323,7 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
   cancel(taskId: number): void {
     if (this.worker && !this.terminated) {
       try {
-        this.worker.postMessage({ type: 'cancel', id: taskId });
+        this.worker.send({ type: 'cancel', id: taskId });
       } catch {
         // Ignore send errors during cancellation
       }
@@ -336,10 +358,32 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
 
     this.terminationPromise = (async () => {
       try {
-        await workerToKill.terminate();
+        if (workerToKill.exitCode === null && workerToKill.signalCode === null) {
+          const signalled = workerToKill.kill();
+          if (!signalled && workerToKill.exitCode === null && workerToKill.signalCode === null) {
+            throw new Error('Renderer process did not accept termination.');
+          }
+          await new Promise<void>((resolve, reject) => {
+            if (workerToKill.exitCode !== null || workerToKill.signalCode !== null) {
+              resolve();
+              return;
+            }
+            const timer = setTimeout(() => {
+              reject(new Error('Timed out waiting for renderer process termination.'));
+            }, 5_000);
+            workerToKill.once('exit', () => {
+              clearTimeout(timer);
+              resolve();
+            });
+            workerToKill.once('error', (error) => {
+              clearTimeout(timer);
+              reject(error);
+            });
+          });
+        }
       } catch (err) {
         throw new PdfWorkerTerminationError(
-          `Failed to terminate worker thread: ${(err as Error).message}`
+          `Failed to terminate renderer process: ${(err as Error).message}`
         );
       } finally {
         if (this.activeReject) {
