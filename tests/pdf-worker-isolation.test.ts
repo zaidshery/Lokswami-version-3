@@ -11,7 +11,7 @@ import {
   renderPdfPageWithWorkerIsolation,
 } from '@/lib/server/pdf/pdfWorker';
 
-function createPdf(pageCount = 1): Buffer {
+function createPdf(pageCount = 1, pageContent = ''): Buffer {
   const pageRefs = Array.from({ length: pageCount }, (_, index) => `${index + 3} 0 R`);
   const objects = [
     '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
@@ -28,7 +28,7 @@ function createPdf(pageCount = 1): Buffer {
   for (let index = 0; index < pageCount; index += 1) {
     const contentObjectNumber = index + 3 + pageCount;
     objects.push(
-      `${contentObjectNumber} 0 obj\n<< /Length 0 >>\nstream\n\nendstream\nendobj\n`
+      `${contentObjectNumber} 0 obj\n<< /Length ${Buffer.byteLength(pageContent, 'ascii')} >>\nstream\n${pageContent}\nendstream\nendobj\n`
     );
   }
 
@@ -146,6 +146,47 @@ describe('PDF worker isolation & memory guard', () => {
     expect(metadata.format).toBe('jpeg');
     expect(metadata.width).toBe(320);
     expect(metadata.height).toBe(320);
+  }, 45_000);
+
+  it('preserves red and blue channel order in PDFium JPEG output', async () => {
+    const pageContent = [
+      '1 0 0 rg',
+      '0 0 40 100 re f',
+      '0 0 1 rg',
+      '60 0 40 100 re f',
+    ].join('\n');
+    const rendered = await renderPdfPageWithWorkerIsolation({
+      pdfBuffer: createPdf(1, pageContent),
+      pageNumber: 1,
+      targetWidth: 320,
+      _rendererEngine: 'pdfium',
+    });
+    const { data, info } = await sharp(rendered.buffer)
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const sample = (x: number, y: number) => {
+      const offset = (y * info.width + x) * info.channels;
+      return {
+        red: data[offset],
+        green: data[offset + 1],
+        blue: data[offset + 2],
+      };
+    };
+
+    const red = sample(64, 160);
+    const white = sample(160, 160);
+    const blue = sample(256, 160);
+
+    expect(red.red).toBeGreaterThan(180);
+    expect(red.green).toBeLessThan(70);
+    expect(red.blue).toBeLessThan(70);
+    expect(white.red).toBeGreaterThan(220);
+    expect(white.green).toBeGreaterThan(220);
+    expect(white.blue).toBeGreaterThan(220);
+    expect(blue.red).toBeLessThan(70);
+    expect(blue.green).toBeLessThan(70);
+    expect(blue.blue).toBeGreaterThan(180);
   }, 45_000);
 
   it('renders sequential PDFium pages through the same isolated worker', async () => {

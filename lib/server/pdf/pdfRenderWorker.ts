@@ -234,8 +234,12 @@ async function executePdfiumRender(msg) {
       colorSpace: 'BGRA',
       transparent: false,
     });
+    // @hyzyla/pdfium 2.1.13 accepts a BGRA bitmap format but renders it with
+    // FPDF_REVERSE_BYTE_ORDER, so page.render() returns RGBA bytes for canvas consumers.
+    // Keep that verified order intact for Sharp; swapping red and blue here would corrupt colors.
+    const rgba = Buffer.from(rendered.data);
 
-    const normalized = await sharp(Buffer.from(rendered.data), {
+    const normalized = await sharp(rgba, {
       raw: {
         width: rendered.width,
         height: rendered.height,
