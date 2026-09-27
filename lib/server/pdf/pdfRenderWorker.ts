@@ -1,7 +1,26 @@
 import 'server-only';
 
-import { Worker } from 'node:worker_threads';
+import { spawn, type ChildProcess } from 'node:child_process';
+import path from 'node:path';
 import v8 from 'v8';
+
+const PDFIUM_DIST_PATH = path.join(
+  process.cwd(),
+  'node_modules',
+  '@hyzyla',
+  'pdfium',
+  'dist'
+);
+const PDFIUM_PACKAGE_ENTRY = path.join(PDFIUM_DIST_PATH, 'index.cjs');
+const PDFIUM_WASM_PATH = path.join(PDFIUM_DIST_PATH, 'pdfium.wasm');
+
+export type PdfRendererEngine = 'pdfium' | 'pdfjs';
+
+export function selectPdfRendererEngine(
+  platform: NodeJS.Platform = process.platform
+): PdfRendererEngine {
+  return platform === 'win32' ? 'pdfium' : 'pdfjs';
+}
 
 export class PdfWorkerTerminationError extends Error {
   readonly code = 'PDF_WORKER_TERMINATION_FAILED';
@@ -33,8 +52,10 @@ export interface IsolatedRenderTask {
   pageNumber: number;
   targetWidth: number;
   jpegQuality: number;
+  rendererEngine: PdfRendererEngine;
   simulateNeverSettle?: boolean;
   simulateRenderError?: string;
+  simulateProcessExitCode?: number;
 }
 
 export interface IsolatedRenderResult {
@@ -44,17 +65,22 @@ export interface IsolatedRenderResult {
 }
 
 /**
- * Worker thread script executed inside an isolated V8 thread.
- * Native canvas allocation and PDF.js execution reside entirely within this boundary.
+ * Renderer script executed in an isolated Node.js child process.
+ * Native renderer allocation and PDF execution reside entirely within this boundary.
  */
 export const PDF_RENDER_WORKER_SCRIPT = `
-const { parentPort } = require('node:worker_threads');
 const sharp = require('sharp');
+const fs = require('node:fs');
 
 let activeCancel = null;
 
-async function executeRender(msg) {
+const send = (message) => {
+  if (typeof process.send === 'function') {
+    process.send(message);
+  }
+};
 
+async function executePdfJsRender(msg) {
   const canvasModule = require('@napi-rs/canvas');
   globalThis.DOMMatrix = canvasModule.DOMMatrix;
   globalThis.ImageData = canvasModule.ImageData;
@@ -82,7 +108,7 @@ async function executeRender(msg) {
         }
         canvas.width = 0;
         canvas.height = 0;
-        parentPort.postMessage({ type: 'canvasDisposed', id: msg.id, info: { width, height } });
+        send({ type: 'canvasDisposed', id: msg.id, info: { width, height } });
       } catch {
         // Best-effort disposal
       }
@@ -120,7 +146,7 @@ async function executeRender(msg) {
 
     try {
       if (msg.simulateNeverSettle) {
-        // Simulates an underlying native engine that never settles and ignores cancellation
+        // Simulates an underlying native engine that never settles and ignores cancellation.
         await new Promise(() => {});
       }
       if (msg.simulateRenderError) {
@@ -161,13 +187,121 @@ async function executeRender(msg) {
   }
 }
 
-parentPort.on('message', async (msg) => {
+async function executePdfiumRender(msg) {
+  let library = null;
+  let document = null;
+  let width = 0;
+  let height = 0;
+  let resourcesAllocated = false;
+
+  try {
+    if (!process.env.LOKSWAMI_PDFIUM_ENTRY || !process.env.LOKSWAMI_PDFIUM_WASM_PATH) {
+      throw new Error('Local PDFium renderer assets are unavailable.');
+    }
+
+    const { PDFiumLibrary } = require(process.env.LOKSWAMI_PDFIUM_ENTRY);
+    const wasmBuffer = fs.readFileSync(process.env.LOKSWAMI_PDFIUM_WASM_PATH);
+    const wasmBinary = wasmBuffer.buffer.slice(
+      wasmBuffer.byteOffset,
+      wasmBuffer.byteOffset + wasmBuffer.byteLength
+    );
+
+    library = await PDFiumLibrary.init({ wasmBinary });
+    document = await library.loadDocument(new Uint8Array(Buffer.from(msg.pdfBuffer)));
+
+    const pageCount = document.getPageCount();
+    if (msg.pageNumber < 1 || msg.pageNumber > pageCount) {
+      throw new Error('Requested PDF page is outside the document page range.');
+    }
+
+    const page = document.getPage(msg.pageNumber - 1);
+    const { originalWidth, originalHeight } = page.getOriginalSize();
+    width = Math.round(msg.targetWidth || 3000);
+    height = Math.round((width * originalHeight) / originalWidth);
+    resourcesAllocated = true;
+
+    if (msg.simulateNeverSettle) {
+      // PDFium has no cooperative page-render cancellation API; timeout recovery kills this process.
+      await new Promise(() => {});
+    }
+    if (msg.simulateRenderError) {
+      throw new Error(msg.simulateRenderError);
+    }
+
+    const rendered = await page.render({
+      width,
+      height,
+      colorSpace: 'BGRA',
+      transparent: false,
+    });
+    // @hyzyla/pdfium 2.1.13 accepts a BGRA bitmap format but renders it with
+    // FPDF_REVERSE_BYTE_ORDER, so page.render() returns RGBA bytes for canvas consumers.
+    // Keep that verified order intact for Sharp; swapping red and blue here would corrupt colors.
+    const rgba = Buffer.from(rendered.data);
+
+    const normalized = await sharp(rgba, {
+      raw: {
+        width: rendered.width,
+        height: rendered.height,
+        channels: 4,
+      },
+    })
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: msg.jpegQuality || 90, mozjpeg: true })
+      .toBuffer();
+
+    return { buffer: normalized, width: rendered.width, height: rendered.height };
+  } catch (cause) {
+    if (msg.simulateRenderError && cause && cause.message === msg.simulateRenderError) {
+      throw cause;
+    }
+    const error = new Error('PDFium failed to render PDF page ' + msg.pageNumber + '.');
+    error.name = 'PdfiumRenderError';
+    error.code = 'PDFIUM_RENDER_FAILED';
+    error.cause = cause;
+    throw error;
+  } finally {
+    activeCancel = null;
+    if (resourcesAllocated) {
+      send({ type: 'canvasDisposed', id: msg.id, info: { width, height } });
+    }
+    if (document) {
+      try {
+        document.destroy();
+      } catch {
+        // Best-effort
+      }
+    }
+    if (library) {
+      try {
+        library.destroy();
+      } catch {
+        // Best-effort
+      }
+    }
+  }
+}
+
+async function executeRender(msg) {
+  if (msg.rendererEngine === 'pdfium') {
+    return executePdfiumRender(msg);
+  }
+  if (msg.rendererEngine === 'pdfjs') {
+    return executePdfJsRender(msg);
+  }
+  throw new Error('Unsupported PDF renderer engine.');
+}
+
+process.on('message', async (msg) => {
   if (msg.type === 'render') {
+    if (msg.simulateProcessExitCode) {
+      process.exit(msg.simulateProcessExitCode);
+    }
     try {
       const result = await executeRender(msg);
-      parentPort.postMessage({ type: 'success', id: msg.id, result });
+      send({ type: 'success', id: msg.id, result });
     } catch (err) {
-      parentPort.postMessage({
+      send({
         type: 'error',
         id: msg.id,
         error: err.message || String(err),
@@ -194,10 +328,12 @@ export interface PdfWorkerExecutionBoundary {
 }
 
 /**
- * Encapsulates a terminable Node.js worker_threads worker.
+ * Encapsulates PDFium/PDF.js and native image work in a child process. A process
+ * boundary is required because a native access violation in a worker thread
+ * terminates the entire Node.js host on Windows.
  */
 export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
-  private worker: Worker | null = null;
+  private worker: ChildProcess | null = null;
   private terminated = false;
   private activeReject: ((err: Error) => void) | null = null;
   private terminationPromise: Promise<void> | null = null;
@@ -207,12 +343,26 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
   }
 
   private initWorker() {
-    this.worker = new Worker(PDF_RENDER_WORKER_SCRIPT, { eval: true });
+    this.worker = spawn(process.execPath, ['-e', PDF_RENDER_WORKER_SCRIPT], {
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      serialization: 'advanced',
+      windowsHide: true,
+      env: {
+        ...process.env,
+        LOKSWAMI_PDFIUM_ENTRY: PDFIUM_PACKAGE_ENTRY,
+        LOKSWAMI_PDFIUM_WASM_PATH: PDFIUM_WASM_PATH,
+      },
+    });
     this.terminated = false;
   }
 
   isTerminated(): boolean {
-    return this.terminated || this.worker === null;
+    return (
+      this.terminated ||
+      this.worker === null ||
+      this.worker.exitCode !== null ||
+      this.worker.signalCode !== null
+    );
   }
 
   render(
@@ -265,12 +415,13 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
         reject(err);
       };
 
-      const onExit = (code: number) => {
+      const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
         cleanup();
         if (!this.terminated) {
           this.terminated = true;
           this.worker = null;
-          reject(new Error(`PDF worker exited unexpectedly with code ${code}`));
+          const exitDetail = code !== null ? `code ${code}` : `signal ${signal || 'unknown'}`;
+          reject(new Error(`PDF renderer process exited unexpectedly with ${exitDetail}`));
         }
       };
 
@@ -285,15 +436,17 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
       worker.on('error', onError);
       worker.on('exit', onExit);
 
-      worker.postMessage({
+      worker.send({
         type: 'render',
         id: task.id,
         pdfBuffer: task.pdfBuffer,
         pageNumber: task.pageNumber,
         targetWidth: task.targetWidth,
         jpegQuality: task.jpegQuality,
+        rendererEngine: task.rendererEngine,
         simulateNeverSettle: task.simulateNeverSettle,
         simulateRenderError: task.simulateRenderError,
+        simulateProcessExitCode: task.simulateProcessExitCode,
       });
     });
   }
@@ -301,7 +454,7 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
   cancel(taskId: number): void {
     if (this.worker && !this.terminated) {
       try {
-        this.worker.postMessage({ type: 'cancel', id: taskId });
+        this.worker.send({ type: 'cancel', id: taskId });
       } catch {
         // Ignore send errors during cancellation
       }
@@ -336,10 +489,32 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
 
     this.terminationPromise = (async () => {
       try {
-        await workerToKill.terminate();
+        if (workerToKill.exitCode === null && workerToKill.signalCode === null) {
+          const signalled = workerToKill.kill();
+          if (!signalled && workerToKill.exitCode === null && workerToKill.signalCode === null) {
+            throw new Error('Renderer process did not accept termination.');
+          }
+          await new Promise<void>((resolve, reject) => {
+            if (workerToKill.exitCode !== null || workerToKill.signalCode !== null) {
+              resolve();
+              return;
+            }
+            const timer = setTimeout(() => {
+              reject(new Error('Timed out waiting for renderer process termination.'));
+            }, 5_000);
+            workerToKill.once('exit', () => {
+              clearTimeout(timer);
+              resolve();
+            });
+            workerToKill.once('error', (error) => {
+              clearTimeout(timer);
+              reject(error);
+            });
+          });
+        }
       } catch (err) {
         throw new PdfWorkerTerminationError(
-          `Failed to terminate worker thread: ${(err as Error).message}`
+          `Failed to terminate renderer process: ${(err as Error).message}`
         );
       } finally {
         if (this.activeReject) {
