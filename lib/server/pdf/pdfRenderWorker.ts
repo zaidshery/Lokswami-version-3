@@ -1,7 +1,26 @@
 import 'server-only';
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import path from 'node:path';
 import v8 from 'v8';
+
+const PDFIUM_DIST_PATH = path.join(
+  process.cwd(),
+  'node_modules',
+  '@hyzyla',
+  'pdfium',
+  'dist'
+);
+const PDFIUM_PACKAGE_ENTRY = path.join(PDFIUM_DIST_PATH, 'index.cjs');
+const PDFIUM_WASM_PATH = path.join(PDFIUM_DIST_PATH, 'pdfium.wasm');
+
+export type PdfRendererEngine = 'pdfium' | 'pdfjs';
+
+export function selectPdfRendererEngine(
+  platform: NodeJS.Platform = process.platform
+): PdfRendererEngine {
+  return platform === 'win32' ? 'pdfium' : 'pdfjs';
+}
 
 export class PdfWorkerTerminationError extends Error {
   readonly code = 'PDF_WORKER_TERMINATION_FAILED';
@@ -33,6 +52,7 @@ export interface IsolatedRenderTask {
   pageNumber: number;
   targetWidth: number;
   jpegQuality: number;
+  rendererEngine: PdfRendererEngine;
   simulateNeverSettle?: boolean;
   simulateRenderError?: string;
   simulateProcessExitCode?: number;
@@ -46,10 +66,11 @@ export interface IsolatedRenderResult {
 
 /**
  * Renderer script executed in an isolated Node.js child process.
- * Native canvas allocation and PDF.js execution reside entirely within this boundary.
+ * Native renderer allocation and PDF execution reside entirely within this boundary.
  */
 export const PDF_RENDER_WORKER_SCRIPT = `
 const sharp = require('sharp');
+const fs = require('node:fs');
 
 let activeCancel = null;
 
@@ -59,8 +80,7 @@ const send = (message) => {
   }
 };
 
-async function executeRender(msg) {
-
+async function executePdfJsRender(msg) {
   const canvasModule = require('@napi-rs/canvas');
   globalThis.DOMMatrix = canvasModule.DOMMatrix;
   globalThis.ImageData = canvasModule.ImageData;
@@ -126,7 +146,7 @@ async function executeRender(msg) {
 
     try {
       if (msg.simulateNeverSettle) {
-        // Simulates an underlying native engine that never settles and ignores cancellation
+        // Simulates an underlying native engine that never settles and ignores cancellation.
         await new Promise(() => {});
       }
       if (msg.simulateRenderError) {
@@ -167,6 +187,107 @@ async function executeRender(msg) {
   }
 }
 
+async function executePdfiumRender(msg) {
+  let library = null;
+  let document = null;
+  let width = 0;
+  let height = 0;
+  let resourcesAllocated = false;
+
+  try {
+    if (!process.env.LOKSWAMI_PDFIUM_ENTRY || !process.env.LOKSWAMI_PDFIUM_WASM_PATH) {
+      throw new Error('Local PDFium renderer assets are unavailable.');
+    }
+
+    const { PDFiumLibrary } = require(process.env.LOKSWAMI_PDFIUM_ENTRY);
+    const wasmBuffer = fs.readFileSync(process.env.LOKSWAMI_PDFIUM_WASM_PATH);
+    const wasmBinary = wasmBuffer.buffer.slice(
+      wasmBuffer.byteOffset,
+      wasmBuffer.byteOffset + wasmBuffer.byteLength
+    );
+
+    library = await PDFiumLibrary.init({ wasmBinary });
+    document = await library.loadDocument(new Uint8Array(Buffer.from(msg.pdfBuffer)));
+
+    const pageCount = document.getPageCount();
+    if (msg.pageNumber < 1 || msg.pageNumber > pageCount) {
+      throw new Error('Requested PDF page is outside the document page range.');
+    }
+
+    const page = document.getPage(msg.pageNumber - 1);
+    const { originalWidth, originalHeight } = page.getOriginalSize();
+    width = Math.round(msg.targetWidth || 3000);
+    height = Math.round((width * originalHeight) / originalWidth);
+    resourcesAllocated = true;
+
+    if (msg.simulateNeverSettle) {
+      // PDFium has no cooperative page-render cancellation API; timeout recovery kills this process.
+      await new Promise(() => {});
+    }
+    if (msg.simulateRenderError) {
+      throw new Error(msg.simulateRenderError);
+    }
+
+    const rendered = await page.render({
+      width,
+      height,
+      colorSpace: 'BGRA',
+      transparent: false,
+    });
+
+    const normalized = await sharp(Buffer.from(rendered.data), {
+      raw: {
+        width: rendered.width,
+        height: rendered.height,
+        channels: 4,
+      },
+    })
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: msg.jpegQuality || 90, mozjpeg: true })
+      .toBuffer();
+
+    return { buffer: normalized, width: rendered.width, height: rendered.height };
+  } catch (cause) {
+    if (msg.simulateRenderError && cause && cause.message === msg.simulateRenderError) {
+      throw cause;
+    }
+    const error = new Error('PDFium failed to render PDF page ' + msg.pageNumber + '.');
+    error.name = 'PdfiumRenderError';
+    error.code = 'PDFIUM_RENDER_FAILED';
+    error.cause = cause;
+    throw error;
+  } finally {
+    activeCancel = null;
+    if (resourcesAllocated) {
+      send({ type: 'canvasDisposed', id: msg.id, info: { width, height } });
+    }
+    if (document) {
+      try {
+        document.destroy();
+      } catch {
+        // Best-effort
+      }
+    }
+    if (library) {
+      try {
+        library.destroy();
+      } catch {
+        // Best-effort
+      }
+    }
+  }
+}
+
+async function executeRender(msg) {
+  if (msg.rendererEngine === 'pdfium') {
+    return executePdfiumRender(msg);
+  }
+  if (msg.rendererEngine === 'pdfjs') {
+    return executePdfJsRender(msg);
+  }
+  throw new Error('Unsupported PDF renderer engine.');
+}
+
 process.on('message', async (msg) => {
   if (msg.type === 'render') {
     if (msg.simulateProcessExitCode) {
@@ -203,7 +324,7 @@ export interface PdfWorkerExecutionBoundary {
 }
 
 /**
- * Encapsulates PDF.js and native canvas work in a child process. A process
+ * Encapsulates PDFium/PDF.js and native image work in a child process. A process
  * boundary is required because a native access violation in a worker thread
  * terminates the entire Node.js host on Windows.
  */
@@ -222,6 +343,11 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
       serialization: 'advanced',
       windowsHide: true,
+      env: {
+        ...process.env,
+        LOKSWAMI_PDFIUM_ENTRY: PDFIUM_PACKAGE_ENTRY,
+        LOKSWAMI_PDFIUM_WASM_PATH: PDFIUM_WASM_PATH,
+      },
     });
     this.terminated = false;
   }
@@ -313,6 +439,7 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
         pageNumber: task.pageNumber,
         targetWidth: task.targetWidth,
         jpegQuality: task.jpegQuality,
+        rendererEngine: task.rendererEngine,
         simulateNeverSettle: task.simulateNeverSettle,
         simulateRenderError: task.simulateRenderError,
         simulateProcessExitCode: task.simulateProcessExitCode,

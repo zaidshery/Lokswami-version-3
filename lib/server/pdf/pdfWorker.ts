@@ -8,6 +8,8 @@ import {
   PdfWorkerMemoryExceededError,
   checkMemoryPressure,
   disposeCanvas,
+  selectPdfRendererEngine,
+  type PdfRendererEngine,
 } from '@/lib/server/pdf/pdfRenderWorker';
 
 export {
@@ -34,6 +36,7 @@ export interface PdfWorkerRenderOptions {
   _simulateNeverSettle?: boolean;
   _simulateTerminationFailure?: boolean;
   _simulateProcessExitCode?: number;
+  _rendererEngine?: PdfRendererEngine;
 }
 
 export interface PdfWorkerRenderResult {
@@ -336,6 +339,7 @@ export async function renderPdfPageWithWorkerIsolation(
         pageNumber: options.pageNumber,
         targetWidth: options.targetWidth ?? DEFAULT_TARGET_WIDTH,
         jpegQuality: options.jpegQuality ?? DEFAULT_JPEG_QUALITY,
+        rendererEngine: options._rendererEngine ?? selectPdfRendererEngine(),
         simulateNeverSettle: options._simulateNeverSettle,
         simulateRenderError: options._simulateRenderError?.message,
         simulateProcessExitCode: options._simulateProcessExitCode,
