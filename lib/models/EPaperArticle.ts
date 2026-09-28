@@ -23,6 +23,7 @@ export interface IEPaperArticle {
   hotspot: IEPaperArticleHotspot;
   workflow: WorkflowMeta;
   releasedSnapshot?: ReleasedEpaperStory | null;
+  revisionInitializationOwner?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +51,7 @@ const EPaperArticleSchema = new mongoose.Schema<IEPaperArticle>(
     hotspot: { type: HotspotSchema, required: true },
     workflow: { type: WorkflowMetaSchema, default: () => ({}) },
     releasedSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+    revisionInitializationOwner: { type: String, trim: true },
   },
   { timestamps: true }
 );

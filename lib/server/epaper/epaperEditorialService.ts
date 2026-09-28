@@ -18,7 +18,7 @@ import {
   normalizeCityName,
   normalizeCitySlug,
 } from '@/lib/constants/epaperCities';
-import { buildEpaperImageAutomationUpdates } from '@/lib/server/epaperImageAutomation';
+import { buildEpaperImageAutomationUpdates, hasCompletePageImages } from '@/lib/server/epaperImageAutomation';
 import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import { buildEpaperActivityMessage, listEpaperActivity, recordEpaperActivity } from '@/lib/server/epaperActivity';
 import { logEpaperMetric } from '@/lib/server/epaperObservability';
@@ -293,7 +293,7 @@ export class EpaperEditorialService {
     assertEpaperDraftEditable(current);
     const source = asObject(body);
     const currentVersion = Number(current.version || 1);
-    let expectedVersion: number | undefined;
+    let expectedVersion: number | undefined = currentVersion;
     if (source.expectedVersion !== undefined && source.expectedVersion !== null) {
       expectedVersion = Number(source.expectedVersion);
       if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
@@ -334,7 +334,26 @@ export class EpaperEditorialService {
       updates.publishDate = parsed;
     }
     const count = Math.min(1000, toPositiveInt(source.pageCount));
-    if (count) { updates.pageCount = count; updates.pages = buildPages(count, normalizeEpaperPages(current.pages)); }
+    if (count) {
+      const pages = buildPages(count, normalizeEpaperPages(current.pages));
+      updates.pageCount = count;
+      updates.pages = pages;
+      updates.qaCompletedAt = null;
+      if (current.productionStatus === 'ready_to_publish') {
+        updates.productionStatus = hasCompletePageImages({ pageCount: count, pages })
+          ? 'hotspot_mapping'
+          : 'draft_upload';
+      } else {
+        const imageUpdates = buildEpaperImageAutomationUpdates({
+          pageCount: count,
+          pages,
+          currentThumbnailPath: current.thumbnailPath,
+          currentProductionStatus: current.productionStatus,
+          currentStatus: current.status,
+        });
+        if (imageUpdates.productionStatus) updates.productionStatus = imageUpdates.productionStatus;
+      }
+    }
     if (updates.citySlug || updates.publishDate) {
       const duplicate = await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(publicationType),
         citySlug: String(updates.citySlug || current.citySlug || ''),

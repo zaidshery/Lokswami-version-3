@@ -532,6 +532,64 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
   });
 
   describe('Task 27: Optimistic Concurrency Control (CAS)', () => {
+    it.each([
+      {
+        label: 'increasing page count',
+        pageCount: 2,
+        initialPages: [{ pageNumber: 1, imagePath: '/page-1.jpg', processingStatus: 'ready' }],
+        expectedStage: 'draft_upload',
+        publicationType: 'epaper',
+      },
+      {
+        label: 'reducing page count',
+        pageCount: 1,
+        initialPages: [
+          { pageNumber: 1, imagePath: '/page-1.jpg', processingStatus: 'ready' },
+          { pageNumber: 2, imagePath: '/page-2.jpg', processingStatus: 'ready' },
+        ],
+        expectedStage: 'hotspot_mapping',
+        publicationType: 'emagazine',
+      },
+    ])('demotes ready drafts and CAS versions after $label', async ({ pageCount, initialPages, expectedStage, publicationType }) => {
+      let storedDoc: EpaperRecord = {
+        _id: '507f1f77bcf86cd799439011', publicationType, citySlug: 'global', cityName: 'Global',
+        title: 'Issue', publishDate: new Date('2026-09-01T00:00:00Z'), status: 'draft',
+        productionStatus: 'ready_to_publish', qaCompletedAt: new Date('2026-09-28T00:00:00Z'),
+        pageCount: initialPages.length, pages: initialPages, version: 7,
+      };
+      const mockRepo = {
+        connect: vi.fn(), isValidId: vi.fn(() => true),
+        findEditionById: vi.fn(async () => ({ ...storedDoc })),
+        findEdition: vi.fn().mockResolvedValue(null),
+        updateEditionWithCas: vi.fn(async (_id: string, updates: EpaperRecord, expectedVersion?: number) => {
+          expect(expectedVersion).toBe(7);
+          storedDoc = { ...storedDoc, ...updates, version: Number(storedDoc.version) + 1 };
+          return storedDoc;
+        }),
+      } as unknown as EpaperRepository;
+      const service = new EpaperEditorialService(mockRepo);
+
+      const result = await service.updateMetadata(superAdminActor, '507f1f77bcf86cd799439011', {
+        pageCount,
+        expectedVersion: 7,
+      });
+
+      expect(result.data.productionStatus).toBe(expectedStage);
+      expect(storedDoc.version).toBe(8);
+      expect(storedDoc.qaCompletedAt).toBeNull();
+      expect((storedDoc.pages as EpaperRecord[])).toHaveLength(pageCount);
+      expect(storedDoc.productionStatus).not.toBe('ready_to_publish');
+      expect(result.data.publishDate).toContain('2026-09');
+      expect(mockRepo.updateEditionWithCas).toHaveBeenCalledWith(
+        '507f1f77bcf86cd799439011', expect.objectContaining({
+          pageCount,
+          productionStatus: expectedStage,
+          qaCompletedAt: null,
+          pages: expect.any(Array),
+        }), 7,
+      );
+    });
+
     it('accepts metadata update when expectedVersion matches canonical version and increments version', async () => {
       let storedDoc = {
         _id: '507f1f77bcf86cd799439011',
