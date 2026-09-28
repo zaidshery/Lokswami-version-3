@@ -1,3 +1,5 @@
+import { NEWS_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCategories';
+
 export type ReaderNavigationLink = {
   name: string;
   nameEn: string;
@@ -15,6 +17,22 @@ export const READER_NAVIGATION = {
   search: { name: '\u0916\u094b\u091c\u0947\u0902', nameEn: 'Search', href: '/main/search' },
   contact: { name: '\u0938\u0902\u092a\u0930\u094d\u0915', nameEn: 'Contact', href: '/main/contact' },
 } as const satisfies Record<string, ReaderNavigationLink>;
+
+const categoryLink = (slug: string): ReaderNavigationLink => {
+  const category = NEWS_CATEGORIES.find((item) => item.slug === slug)!;
+  return { name: category.name, nameEn: category.nameEn, href: getNewsCategoryHref(category.slug) };
+};
+
+// Only canonical, supported destinations. State and More topics need domain routes first.
+export const HOMEPAGE_PRIMARY_NAVIGATION: ReaderNavigationLink[] = [
+  READER_NAVIGATION.home,
+  categoryLink('regional'),
+  { ...READER_NAVIGATION.videos, nameEn: 'Video' },
+  READER_NAVIGATION.epaper,
+  READER_NAVIGATION.emagazine,
+  ...['politics', 'national', 'international', 'sports', 'entertainment', 'technology', 'business'].map(categoryLink),
+  { ...READER_NAVIGATION.elections, nameEn: 'Election' },
+];
 
 export function isReaderNavigationActive(pathname: string, href: string): boolean {
   if (!pathname || !href) return false;

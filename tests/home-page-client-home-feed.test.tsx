@@ -174,7 +174,8 @@ describe('HomePageClient v1 home-feed integration', () => {
       }));
     });
     await waitFor(() => expect(mocks.fetchPublicArticlesPage).toHaveBeenCalledWith({ limit: 100 }));
-    expect(screen.getByTestId('hero-carousel')).toBeEmptyDOMElement();
+    expect(screen.queryByTestId('hero-carousel')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('lead-story')).queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
     expect(within(screen.getByTestId('live-updates-rail')).queryByRole('link')).not.toBeInTheDocument();
     expect(mocks.fetchMergedLiveArticles).not.toHaveBeenCalled();
   });
@@ -295,7 +296,7 @@ describe('HomePageClient v1 home-feed integration', () => {
       })
     );
 
-    expect(screen.getByTestId('hero-carousel')).toHaveTextContent(
+    expect(screen.getByTestId('lead-story')).toHaveTextContent(
       'Lead Story From Feed'
     );
     for (const link of screen.getAllByRole('link', { name: /Latest Story From Feed/ })) {
@@ -310,11 +311,9 @@ describe('HomePageClient v1 home-feed integration', () => {
     const liveUpdateLinks = within(screen.getByTestId('live-updates-rail')).getAllByRole('link');
     expect(liveUpdateLinks).toHaveLength(4);
     expect(liveUpdateLinks[0]).toHaveTextContent('Latest Story From Feed');
-    const popularNewsRail = screen.queryByTestId('popular-news-rail');
-    if (popularNewsRail) {
-      const popularNewsLinks = within(popularNewsRail).getAllByRole('link');
-      expect(popularNewsLinks).toHaveLength(6);
-    }
+    const popularNewsLinks = within(screen.getByTestId('popular-news-rail')).getAllByRole('link');
+    expect(popularNewsLinks).toHaveLength(4);
+    expect(screen.queryByTestId('hero-carousel')).not.toBeInTheDocument();
     expect(mocks.fetchHomeFeedForHomePage).not.toHaveBeenCalled();
     expect(mocks.fetchMergedLiveArticles).not.toHaveBeenCalled();
   });

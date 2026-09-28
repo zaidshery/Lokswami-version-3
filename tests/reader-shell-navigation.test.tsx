@@ -93,15 +93,15 @@ describe('Phase 3.3: Reader Shell & Navigation Contracts', () => {
     it('renders primary editorial navigation items', () => {
       render(<DesktopNav />);
       expect(screen.getByRole('link', { name: /होम/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /ताज़ा खबरें/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /क्षेत्रीय/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /चुनाव/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /राजनीति/i })).toBeInTheDocument();
     });
 
-    it('renders desktop product links with hidden lg:inline-flex', () => {
+    it('exposes product destinations across viewports', () => {
       render(<DesktopNav />);
       const epaperLink = screen.getByRole('link', { name: /ई-पेपर/i });
-      expect(epaperLink.className).toContain('hidden lg:inline-flex');
+      expect(epaperLink.className).not.toContain('hidden');
     });
 
     it('renders accessible More menu with proper ARIA contract and keyboard support', () => {

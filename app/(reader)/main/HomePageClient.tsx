@@ -9,16 +9,14 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   ArrowRight,
   BookOpen,
   CalendarDays,
   Clock3,
-  Flame,
 } from 'lucide-react';
-import HeroCarousel from '@/components/ui/HeroCarousel';
+import HomepageTopPackage from '@/components/home/HomepageTopPackage';
 import NewsCard from '@/components/ui/NewsCard';
 import ReaderImage from '@/components/ui/ReaderImage';
 import DesktopHeroEpaperCard from '@/components/ui/DesktopHeroEpaperCard';
@@ -259,9 +257,8 @@ function LiveUpdateStory({
   return (
     <Link
       href={href}
-      className="reader-focus-ring group relative grid min-h-[84px] grid-cols-[82px_minmax(0,1fr)] items-center gap-2.5 rounded-xl border border-zinc-200/80 bg-white p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-red-400/60 hover:shadow-[0_8px_20px_-6px_rgba(220,38,38,0.22)] dark:border-zinc-800 dark:bg-zinc-900/90 dark:hover:border-red-500/60 sm:min-h-[86px] sm:grid-cols-[86px_minmax(0,1fr)] xl:grid-cols-[88px_minmax(0,1fr)]"
+      className="editorial-focus-ring group grid min-h-[84px] grid-cols-[82px_minmax(0,1fr)] items-center gap-3 rounded-editorial-sm border border-zinc-200 bg-white p-3 transition-colors hover:border-brand-400 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-brand-500"
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div className="newsroom-image-bg relative h-[72px] w-[82px] overflow-hidden rounded-md bg-zinc-100 dark:bg-zinc-950 sm:h-[76px] sm:w-[86px] xl:h-[78px] xl:w-[88px]">
         <ReaderImage
           src={buildArticleImageVariantUrl(article.image, 'thumb')}
@@ -272,16 +269,16 @@ function LiveUpdateStory({
         />
       </div>
       <div className="flex min-w-0 flex-col">
-        <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
-          <span className="max-w-[8.75rem] truncate text-[9px] font-black uppercase leading-none text-red-500 dark:text-red-400">
+        <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="text-xs font-semibold leading-relaxed text-brand-600 dark:text-brand-400">
             {article.category}
           </span>
           <span className="newsroom-dot h-1 w-1 rounded-full" />
-          <span className="newsroom-muted truncate text-[9px] font-semibold">
+          <span className="newsroom-muted text-xs leading-relaxed">
             {timeLabel}
           </span>
         </div>
-        <p className="newsroom-card-title-match-sm newsroom-heading line-clamp-2 transition group-hover:text-red-600 dark:group-hover:text-red-400">
+        <p className="hindi-headline break-words text-base font-semibold leading-relaxed group-hover:text-brand-600 dark:group-hover:text-brand-400">
           {article.title}
         </p>
       </div>
@@ -334,106 +331,6 @@ function HeadlineImageCard({
   );
 }
 
-function RankedStoryList({
-  articles,
-  language,
-}: {
-  articles: Article[];
-  language: 'en' | 'hi';
-}) {
-  const safeArticles = Array.isArray(articles)
-    ? articles.filter((a): a is Article => Boolean(a && a.id))
-    : [];
-
-  return (
-    <div className="newsroom-panel newsroom-right-rail rounded-xl border border-orange-500/25 p-3 shadow-sm">
-      <NewsroomSectionHeader
-        title={getSectionCopy(language, 'लोकप्रिय खबरें', 'Popular News')}
-        href="/main/latest"
-        cta={getSectionCopy(language, 'सभी देखें', 'View All')}
-      />
-      <div className="space-y-2" data-testid="popular-news-rail">
-        {safeArticles.slice(0, 6).map((article) => (
-          <Link
-            key={article.id}
-            href={buildArticlePublicPath({ id: article.id, slug: article.slug })}
-            className="reader-focus-ring group grid min-h-[78px] grid-cols-[98px_minmax(0,1fr)] items-center gap-2.5 rounded-lg border border-transparent p-1.5 transition hover:border-orange-500/30 hover:bg-orange-500/5 dark:hover:bg-white/[0.045]"
-          >
-            <div className="newsroom-image-bg relative h-[62px] overflow-hidden rounded-md">
-              <ReaderImage
-                src={buildArticleImageVariantUrl(article.image, 'thumb')}
-                alt={article.title}
-                fill
-                className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                sizes="98px"
-              />
-            </div>
-            <div className="min-w-0">
-              <p className="newsroom-card-title-match-sm newsroom-heading line-clamp-2 group-hover:text-orange-600 dark:group-hover:text-orange-400">
-                {article.title}
-              </p>
-              <span className="newsroom-muted mt-1 inline-flex items-center gap-1 text-[10px] font-semibold">
-                <Clock3 className="h-3 w-3" />
-                {formatDesktopHeroDate(article.publishedAt, language)}
-              </span>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FeaturedStoryBand({
-  articles,
-  language,
-}: {
-  articles?: Article[] | null;
-  language: 'en' | 'hi';
-}) {
-  const safeArticles = Array.isArray(articles)
-    ? articles.filter((a): a is Article => Boolean(a && a.id))
-    : [];
-  const feature = safeArticles[0];
-
-  if (!feature) return null;
-
-  return (
-    <Link
-      href={buildArticlePublicPath({ id: feature.id, slug: feature.slug })}
-      className="reader-focus-ring newsroom-feature-band group relative grid min-h-[112px] overflow-hidden rounded-xl border border-zinc-200/80 p-4 transition hover:border-red-500/50 hover:shadow-[0_10px_28px_-6px_rgba(220,38,38,0.22)] dark:border-zinc-800 sm:grid-cols-[minmax(0,1fr)_220px] sm:p-5"
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 shadow-[0_1px_8px_rgba(225,29,72,0.35)]" />
-      <div className="relative z-10 min-w-0">
-        <span className="mb-2 inline-flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-[10px] font-black uppercase text-white">
-          <Flame className="h-3 w-3" />
-          {getSectionCopy(language, 'विशेष रिपोर्ट', 'Lead Story')}
-        </span>
-        <h2 className="newsroom-feature-title-match newsroom-heading line-clamp-2">
-          {feature.title}
-        </h2>
-        <p className="newsroom-card-summary-match newsroom-muted mt-2 line-clamp-1">
-          {feature.summary}
-        </p>
-      </div>
-      <div className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-[260px] opacity-70 sm:block">
-        <ReaderImage
-          src={buildArticleImageVariantUrl(feature.image, 'featured')}
-          alt={feature.title}
-          fill
-          className="object-cover object-center grayscale transition duration-500 group-hover:scale-105 group-hover:grayscale-0 dark:mix-blend-screen"
-          sizes="260px"
-        />
-        <div className="newsroom-feature-image-fade absolute inset-0" />
-      </div>
-      <span className="relative z-10 mt-4 inline-flex w-fit items-center gap-1 rounded-md bg-red-600 px-3 py-2 text-xs font-black text-white shadow-[0_16px_30px_rgba(185,28,28,0.28)] sm:mt-0 sm:self-end">
-        {getSectionCopy(language, 'पढ़ें', 'Read')}
-        <ArrowRight className="h-3.5 w-3.5" />
-      </span>
-    </Link>
-  );
-}
-
 const NewsPoll = dynamic(() => import('@/components/ui/NewsPoll'), {
   ssr: false,
   loading: NewsPollFallback,
@@ -453,26 +350,6 @@ function NewsPollFallback() {
   );
 }
 
-function TopSideStoriesFallback({ count }: { count: number }) {
-  return (
-    <>
-      {Array.from({ length: count }, (_, index) => (
-        <div
-          key={index}
-          className="newsroom-skeleton-card h-full animate-pulse rounded-lg border"
-        >
-          <div className="flex h-full items-center gap-3 p-3">
-            <div className="newsroom-skeleton-block h-[74px] w-[82px] flex-none rounded-md" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="newsroom-skeleton-block h-4 w-11/12 rounded" />
-              <div className="newsroom-skeleton-block h-4 w-7/12 rounded" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </>
-  );
-}
 
 function CategoryStoriesSkeleton() {
   return (
@@ -739,7 +616,7 @@ function fetchLatestEmagazinePreview() {
 
 export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
   const { language } = useAppStore();
-  const [isClientReady, setIsClientReady] = useState(false);
+
   const [isFeedLoading, setIsFeedLoading] = useState(!initialHomeFeed?.articles?.length);
   const [feedArticles, setFeedArticles] = useState<Article[]>(
     () => initialHomeFeed?.articles || []
@@ -766,11 +643,6 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
     );
   }, [feedArticles]);
 
-  const heroArticles = useMemo(() => {
-    const articles = latestPublishedArticles.slice(0, 5);
-    return articles;
-  }, [latestPublishedArticles]);
-
   const liveUpdateStories = useMemo(
     () =>
       buildHomepageRail(
@@ -778,17 +650,6 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
         (article) => Boolean(article?.isBreaking),
         4,
         (a, b) => getPublishedTimestamp(b) - getPublishedTimestamp(a)
-      ),
-    [latestPublishedArticles]
-  );
-
-  const featuredSidebar = useMemo(
-    () =>
-      buildHomepageRail(
-        latestPublishedArticles,
-        (article) => Boolean(article?.isTrending),
-        6,
-        (a, b) => (b?.views || 0) - (a?.views || 0) || getPublishedTimestamp(b) - getPublishedTimestamp(a)
       ),
     [latestPublishedArticles]
   );
@@ -815,9 +676,7 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
     });
   }, [categoryArticlesBySlug, latestPublishedArticles]);
 
-  useEffect(() => {
-    setIsClientReady(true);
-  }, []);
+
 
   const loadCategoryStories = useCallback((slug: string) => {
     if (requestedCategorySlugsRef.current.has(slug)) return;
@@ -1029,71 +888,7 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
   return (
     <div className="newsroom-home relative -mx-3 -mt-4 pb-6 [--section-gap:0.9rem] sm:-mx-5 sm:[--section-gap:1rem] lg:-mx-6 lg:[--section-gap:1.1rem] xl:-mx-8">
       <div className="mx-auto w-full max-w-[98rem] px-3 py-3 sm:px-4 lg:px-5">
-        <section className="newsroom-top-package rounded-[28px] border p-2 sm:p-3 lg:p-3.5">
-          <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)_minmax(15.5rem,17.5rem)] xl:items-stretch 2xl:grid-cols-[minmax(0,1fr)_minmax(18rem,20.5rem)_minmax(16.5rem,18rem)]">
-            <div className="newsroom-panel newsroom-hero-shell overflow-hidden rounded-[28px] p-1.5 sm:p-2 lg:p-2.5">
-              <div className="mb-1.5 flex items-center justify-start gap-2">
-                <span className="inline-flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-[10px] font-black uppercase text-white">
-                  <Flame className="h-3 w-3" />
-                  {getSectionCopy(language, 'टॉप स्टोरी', 'Top Story')}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <HeroCarousel articles={heroArticles} variant="modern" />
-                {heroArticles.length === 0 ? (
-                  <p role="status" className="newsroom-muted px-4 py-10 text-center text-sm">
-                    {isFeedLoading
-                      ? getSectionCopy(language, 'खबरें लोड हो रही हैं…', 'Loading stories…')
-                      : getSectionCopy(language, 'अभी खबरें उपलब्ध नहीं हैं। कृपया थोड़ी देर बाद फिर देखें।', 'Stories are unavailable right now. Please check again shortly.')}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <aside className="newsroom-panel newsroom-live-rail rounded-2xl p-3 lg:p-3.5">
-              <NewsroomSectionHeader
-                title={getSectionCopy(language, 'लाइव अपडेट्स', 'Live Updates')}
-                href="/main/latest"
-                cta={getSectionCopy(language, 'सभी देखें', 'View All')}
-              />
-              <div className="grid gap-2.5" data-testid="live-updates-rail">
-                {isClientReady ? (
-                  liveUpdateStories.map((article, index) => (
-                    <motion.div
-                      key={article.id}
-                      initial={{ opacity: 0, x: 16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.28, delay: index * 0.05 }}
-                    >
-                      <LiveUpdateStory article={article} language={language} />
-                    </motion.div>
-                  ))
-                ) : (
-                  <TopSideStoriesFallback count={4} />
-                )}
-              </div>
-            </aside>
-
-            <aside className="newsroom-panel newsroom-edition-rail hidden rounded-2xl p-3 xl:block xl:p-3.5">
-              <div className="min-h-[280px] xl:min-h-0">
-                <DesktopHeroEpaperCard
-                  href={epaperHref}
-                  dateLabel={desktopHeroEpaperDateLabel}
-                  thumbnailSrc={epaperThumbnail}
-                  thumbnailAlt={epaperThumbnailAlt}
-                  eyebrowLabel={desktopHeroEpaperEyebrow}
-                  title={desktopHeroEpaperTitle}
-                  editionLabel={desktopHeroEpaperEdition}
-                  supportLabel={desktopHeroEpaperSupport}
-                  ariaLabel={desktopHeroEpaperAriaLabel}
-                  primaryCtaLabel={desktopHeroEpaperPrimaryCta}
-                  shareLabel={language === 'hi' ? '\u0936\u0947\u092f\u0930' : 'Share'}
-                  language={language}
-                />
-              </div>
-            </aside>
-          </div>
-        </section>
+        <HomepageTopPackage articles={latestPublishedArticles} language={language} loading={isFeedLoading} />
 
         <section className="mt-[var(--section-gap)] grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.40fr)]">
           <div className="space-y-4">
@@ -1106,12 +901,11 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
                 cta={getSectionCopy(language, '\u0938\u092d\u0940 \u0926\u0947\u0916\u0947\u0902', 'View All')}
               />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {latestPublishedArticles.slice(0, 6).map((article, index) => (
+                {latestPublishedArticles.slice(0, 6).map((article) => (
                   <HeadlineImageCard
                     key={article.id}
                     article={article}
                     language={language}
-                    priority={index < 2}
                   />
                 ))}
               </div>
@@ -1119,6 +913,20 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <section className="rounded-editorial-md border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              <NewsroomSectionHeader title={getSectionCopy(language, 'लाइव अपडेट्स', 'Live Updates')} href="/main/latest" cta={getSectionCopy(language, 'सभी देखें', 'View All')} />
+              <div className="grid gap-3" data-testid="live-updates-rail">
+                {liveUpdateStories.map((article) => <LiveUpdateStory key={article.id} article={article} language={language} />)}
+              </div>
+            </section>
+            <DesktopHeroEpaperCard
+              href={epaperHref} dateLabel={desktopHeroEpaperDateLabel}
+              thumbnailSrc={epaperThumbnail} thumbnailAlt={epaperThumbnailAlt}
+              eyebrowLabel={desktopHeroEpaperEyebrow} title={desktopHeroEpaperTitle}
+              editionLabel={desktopHeroEpaperEdition} supportLabel={desktopHeroEpaperSupport}
+              ariaLabel={desktopHeroEpaperAriaLabel} primaryCtaLabel={desktopHeroEpaperPrimaryCta}
+              shareLabel={language === 'hi' ? 'शेयर' : 'Share'} language={language}
+            />
             <NewsPoll />
 
             <div className="newsroom-panel rounded-2xl border border-red-500/20 p-3.5 sm:p-4">

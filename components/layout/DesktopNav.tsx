@@ -7,80 +7,10 @@ import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/lib/store/appStore';
-import { getNewsCategoryHref } from '@/lib/constants/newsCategories';
-import { READER_NAVIGATION, isReaderNavigationActive } from '@/lib/constants/readerNavigation';
+import { HOMEPAGE_PRIMARY_NAVIGATION, READER_NAVIGATION, isReaderNavigationActive } from '@/lib/constants/readerNavigation';
 
-// Primary editorial links visible in main bar
-const PRIMARY_NAV_LINKS = [
-  READER_NAVIGATION.home,
-  READER_NAVIGATION.latest,
-  READER_NAVIGATION.elections,
-  {
-    name: 'राजनीति',
-    nameEn: 'Politics',
-    href: getNewsCategoryHref('politics'),
-  },
-  {
-    name: 'राष्ट्रीय',
-    nameEn: 'National',
-    href: getNewsCategoryHref('national'),
-  },
-  {
-    name: 'खेल',
-    nameEn: 'Sports',
-    href: getNewsCategoryHref('sports'),
-  },
-  {
-    name: 'बिजनेस',
-    nameEn: 'Business',
-    href: getNewsCategoryHref('business'),
-  },
-  {
-    name: 'मनोरंजन',
-    nameEn: 'Entertainment',
-    href: getNewsCategoryHref('entertainment'),
-  },
-];
-
-// Desktop-only products (E-Paper, E-Magazine, Video)
-const DESKTOP_PRODUCT_LINKS = [
-  {
-    name: 'ई-पेपर',
-    nameEn: 'E-Paper',
-    href: '/main/epaper',
-  },
-  {
-    name: 'ई-मैगज़ीन',
-    nameEn: 'E-Magazine',
-    href: '/main/e-magazine',
-  },
-  {
-    name: 'वीडियो',
-    nameEn: 'Video',
-    href: '/main/videos',
-  },
-];
-
-// Secondary / overflow links grouped under "More" (अन्य) dropdown
-const MORE_NAV_LINKS = [
-  {
-    name: 'टेक',
-    nameEn: 'Tech',
-    href: getNewsCategoryHref('technology'),
-  },
-  {
-    name: 'क्षेत्रीय',
-    nameEn: 'Regional',
-    href: getNewsCategoryHref('regional'),
-  },
-  {
-    name: 'अंतरराष्ट्रीय',
-    nameEn: 'International',
-    href: getNewsCategoryHref('international'),
-  },
-  READER_NAVIGATION.digitalNewsroom,
-  READER_NAVIGATION.contact,
-];
+const PRIMARY_NAV_LINKS = HOMEPAGE_PRIMARY_NAVIGATION;
+const MORE_NAV_LINKS = [READER_NAVIGATION.latest, READER_NAVIGATION.digitalNewsroom, READER_NAVIGATION.contact];
 
 interface DesktopNavProps {
   className?: string;
@@ -153,7 +83,7 @@ export default function DesktopNav({ className = '' }: DesktopNavProps) {
     <nav
       role="navigation"
       aria-label={language === 'hi' ? 'मुख्य नेविगेशन' : 'Main Navigation'}
-      className={`flex items-center gap-0.5 whitespace-nowrap sm:gap-1 xl:gap-1.5 ${className}`}
+      className={`flex items-center gap-0.5 whitespace-nowrap sm:gap-1 xl:gap-1.5 ${className} lg:min-w-0 lg:flex-wrap`}
     >
       {/* Primary Editorial Links */}
       {PRIMARY_NAV_LINKS.map((link) => {
@@ -190,40 +120,6 @@ export default function DesktopNav({ className = '' }: DesktopNavProps) {
         );
       })}
 
-      {/* Desktop-Only Products (E-Paper, E-Magazine, Video) */}
-      {DESKTOP_PRODUCT_LINKS.map((link) => {
-        const isActive = isReaderNavigationActive(pathname, link.href);
-
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            aria-current={isActive ? 'page' : undefined}
-            className={`cnp-motion editorial-focus-ring group relative hidden lg:inline-flex min-h-[44px] items-center rounded-editorial-sm px-2.5 py-1.5 text-xs font-semibold tracking-normal transition-colors sm:px-3 sm:text-[13px] md:text-sm xl:px-3.5 xl:text-[14.5px] ${
-              isActive
-                ? 'text-brand-500 font-bold dark:text-brand-400'
-                : 'text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100'
-            }`}
-          >
-            <motion.span
-              className="absolute inset-1 -z-10 rounded-editorial-sm bg-zinc-100/80 dark:bg-zinc-800/70"
-              initial={{ opacity: 0 }}
-              whileHover={{ opacity: 1 }}
-              transition={{ duration: 0.15 }}
-            />
-
-            <span>{language === 'hi' ? link.name : link.nameEn}</span>
-
-            {isActive ? (
-              <motion.span
-                layoutId="active-nav-line"
-                className="absolute bottom-1 left-2.5 right-2.5 h-0.5 rounded-full bg-brand-500 dark:bg-brand-400"
-                transition={{ type: 'spring', stiffness: 420, damping: 40 }}
-              />
-            ) : null}
-          </Link>
-        );
-      })}
 
       {/* "More" (अन्य / More) Accessible Dropdown Menu */}
       <div className="relative inline-flex items-center" ref={moreRef}>

@@ -171,6 +171,9 @@ describe('public home feed service', () => {
     );
     expect(result.feed.latest.map((item) => item.id)).toEqual(['article-2']);
     expect(result.feed.trending.map((item) => item.id)).toEqual(['article-1']);
+    expect(result.feed.topPackage.lead?.id).toBe('article-1');
+    expect(result.feed.topPackage.latest.map((item) => item.id)).toEqual(['article-2', 'article-1']);
+    expect(result.feed.topPackage.popular.map((item) => item.id)).not.toContain('draft-1');
     expect(result.feed.breaking.map((item) => item.id)).toEqual(['article-1']);
     expect(result.feed.videos[0]?.id).toBe('video-1');
     expect(result.feed.shorts[0]?.id).toBe('short-1');
