@@ -77,7 +77,7 @@ export class EpaperOcrService {
       version: 1, releasedAt: now.toISOString(), releasedById: actor.id, sourceUpdatedAt: now.toISOString() };
     let createdArticle: Record<string, unknown> | null = null;
     let suggestionUpdated = false;
-    const { article, reviewed } = await this.repo.withEditionReadinessMutation(id, async (repo) => {
+    const { article, reviewed } = await this.repo.withEditionReadinessMutation(id, Number(paper.version || 1), async (repo) => {
     const article = await repo.createArticle({ epaperId: id, pageNumber: suggestion.pageNumber, title: suggestion.title, slug,
       excerpt: suggestion.excerpt, contentHtml: suggestion.contentHtml, coverImagePath: '', hotspot: suggestion.hotspot, releasedSnapshot: snapshot,
       workflow: { status: 'published', publishedAt: now, reviewedBy: { id: actor.id, name: actor.name || actor.email || 'Admin', email: actor.email || '', role: actor.role } } });

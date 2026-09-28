@@ -39,7 +39,7 @@ describe('E-Paper repository standalone transaction fallback', () => {
     const created = { _id: 'story', toObject: () => ({ _id: 'story' }) };
     const create = vi.spyOn(EPaperArticle, 'create').mockResolvedValue([created] as never);
 
-    await new EpaperRepository().withEditionReadinessMutation(id, (repo) => repo.createArticle({ epaperId: id, title: 'Story' }));
+    await new EpaperRepository().withEditionReadinessMutation(id, 4, (repo) => repo.createArticle({ epaperId: id, title: 'Story' }));
 
     expect(create).toHaveBeenCalledWith([{ epaperId: id, title: 'Story' }], { session });
     expect(EPaper.updateOne).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), { session });
@@ -56,6 +56,7 @@ describe('E-Paper repository standalone transaction fallback', () => {
 
     const result = await new EpaperRepository().withEditionReadinessMutation(
       id,
+      4,
       (repo) => repo.createArticle({ epaperId: id, title: 'OCR accepted story' }),
     );
 
@@ -80,7 +81,7 @@ describe('E-Paper repository standalone transaction fallback', () => {
       lean: async () => ({ _id: 'suggestion', status: 'accepted' }),
     } as never);
 
-    await new EpaperRepository().withEditionReadinessMutation(id, async (repo) => {
+    await new EpaperRepository().withEditionReadinessMutation(id, 4, async (repo) => {
       const created = await repo.createArticle({ epaperId: id, title: 'Accepted OCR story' });
       const reviewed = await repo.updateOcrSuggestion('suggestion', {
         status: 'accepted', createdArticleId: repo.toObjectId(String(created._id)),
@@ -107,7 +108,7 @@ describe('E-Paper repository standalone transaction fallback', () => {
     vi.spyOn(EPaper.db, 'startSession').mockResolvedValue(session as never);
     const update = vi.spyOn(EPaper, 'updateOne');
 
-    await expect(new EpaperRepository().withEditionReadinessMutation(id, async () => 'never'))
+    await expect(new EpaperRepository().withEditionReadinessMutation(id, 4, async () => 'never'))
       .rejects.toThrow('replica set option invalid');
     expect(update).not.toHaveBeenCalled();
   });

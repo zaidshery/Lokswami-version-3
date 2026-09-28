@@ -162,7 +162,7 @@ export async function updateEpaperArticleById(
   }
 
   const parentEpaper = await EPaper.findById(current.epaperId)
-    .select('_id status productionStatus revisionInitializationStatus pageCount pages')
+    .select('_id version status productionStatus revisionInitializationStatus pageCount pages')
     .lean();
   if (!parentEpaper) {
     return {
@@ -238,7 +238,7 @@ export async function updateEpaperArticleById(
   // GAP-008: Editorial story saves must NOT mutate the public releasedSnapshot.
   // Draft edits remain private until the explicit release workflow is triggered.
 
-  const updated = await epaperRepository.withEditionReadinessMutation(String(current.epaperId), async (repo) => {
+  const updated = await epaperRepository.withEditionReadinessMutation(String(current.epaperId), Number(parentEpaper.version || 1), async (repo) => {
     const saved = await repo.updateArticle(id, updates);
     if (!saved || !actor) return saved;
     const changedPages = Array.from(
@@ -315,7 +315,7 @@ export async function deleteEpaperArticleById(
   }
 
   const parent = await EPaper.findById(existing.epaperId)
-    .select('_id status productionStatus revisionInitializationStatus pages')
+    .select('_id version status productionStatus revisionInitializationStatus pages')
     .lean();
   if (!parent) {
     return {
@@ -337,7 +337,7 @@ export async function deleteEpaperArticleById(
   }
 
   const pageNumber = Number(existing.pageNumber || 0);
-  const deleted = await epaperRepository.withEditionReadinessMutation(String(existing.epaperId), async (repo) => {
+  const deleted = await epaperRepository.withEditionReadinessMutation(String(existing.epaperId), Number(parent.version || 1), async (repo) => {
     const result = await repo.deleteArticleWhere({ _id: id, epaperId: existing.epaperId });
     if (result.deletedCount) {
       const pages = (parent.pages || []).map((page) =>

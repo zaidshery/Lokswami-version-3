@@ -104,6 +104,7 @@ export class EpaperRepository {
 
   async withEditionReadinessMutation<T>(
     id: string,
+    expectedVersion: number,
     mutate: (repo: EpaperRepository) => Promise<T>,
     rollback?: (repo: EpaperRepository) => Promise<void>,
   ): Promise<T> {
@@ -116,39 +117,51 @@ export class EpaperRepository {
           const current = await EPaper.findById(id).session(session).lean();
           if (!current) throw new EpaperConflictError('Edition no longer exists.');
           assertEpaperDraftEditable(current);
+          // The caller derived its mutation from this version, not from the
+          // newer document we may have read after a concurrent page upload.
+          if (Number(current.version || 1) !== expectedVersion) {
+            throw new EpaperVersionConflictError(Number(current.version || 1), expectedVersion);
+          }
           const locked = await EPaper.updateOne({
             _id: id, status: 'draft', productionStatus: current.productionStatus,
-            version: current.version == null ? { $exists: false } : current.version,
+            version: current.version == null ? { $exists: false } : expectedVersion,
             revisionInitializationStatus: { $nin: ['initializing', 'failed'] },
           }, {
-            $inc: { version: 1 },
+            ...(current.version == null ? {} : { $inc: { version: 1 } }),
             $set: { qaCompletedAt: null,
+              ...(current.version == null ? { version: expectedVersion + 1 } : {}),
               ...(current.productionStatus === 'ready_to_publish' ? { productionStatus: 'hotspot_mapping' } : {}),
             },
           }, { session });
           if (!locked.matchedCount) throw new EpaperConflictError('Edition changed during content mutation. Reload before retrying.');
           mutationStarted = true;
-          result = await mutate(new EpaperRepository(session));
+          result = await mutate(new EpaperRepository(session, undefined, {
+            id, version: expectedVersion + 1,
+          }));
         });
       } catch (error) {
         if (!isStandaloneTransactionUnsupported(error) || mutationStarted) throw error;
         const current = await EPaper.findById(id).lean();
         if (!current) throw new EpaperConflictError('Edition no longer exists.');
         assertEpaperDraftEditable(current);
+        if (Number(current.version || 1) !== expectedVersion) {
+          throw new EpaperVersionConflictError(Number(current.version || 1), expectedVersion);
+        }
         const locked = await EPaper.updateOne({
           _id: id, status: 'draft', productionStatus: current.productionStatus,
-          version: current.version == null ? { $exists: false } : current.version,
+          version: current.version == null ? { $exists: false } : expectedVersion,
           revisionInitializationStatus: { $nin: ['initializing', 'failed'] },
         }, {
-          $inc: { version: 1 },
+          ...(current.version == null ? {} : { $inc: { version: 1 } }),
           $set: { qaCompletedAt: null,
+            ...(current.version == null ? { version: expectedVersion + 1 } : {}),
             ...(current.productionStatus === 'ready_to_publish' ? { productionStatus: 'hotspot_mapping' } : {}),
           },
         });
         if (!locked.matchedCount) throw new EpaperConflictError('Edition changed during content mutation. Reload before retrying.');
         const fallbackRepo = new EpaperRepository(undefined, undefined, {
           id,
-          version: Number(current.version || 0) + 1,
+          version: expectedVersion + 1,
         });
         try {
           return await mutate(fallbackRepo);
@@ -621,7 +634,16 @@ export class EpaperRepository {
 
   async updateEditionWhere(query: EpaperRecord, updates: EpaperRecord) {
     await this.refreshInitializationLease();
-    return EPaper.updateOne(query, updates, { session: this.initializationSession });
+    // On standalone Mongo another writer can run after the readiness CAS.
+    // Never replace its newer pages using this mutation's locked snapshot.
+    const fencedQuery = this.readinessMutation
+      ? { ...query, _id: this.readinessMutation.id, status: 'draft', version: this.readinessMutation.version }
+      : query;
+    const result = await EPaper.updateOne(fencedQuery, updates, { session: this.initializationSession });
+    if (this.readinessMutation && !result.matchedCount) {
+      throw new EpaperConflictError('Edition changed during content mutation. Reload before retrying.');
+    }
+    return result;
   }
 
   async updateArticle(id: string, updates: EpaperRecord): Promise<EpaperRecord | null> {

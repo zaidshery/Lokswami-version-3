@@ -59,7 +59,7 @@ function buildRepo() {
     })),
     deleteArticleWhere: vi.fn().mockResolvedValue({ deletedCount: 1 }),
   };
-  return { ...repo, withEditionReadinessMutation: vi.fn(async (_id: string, mutate: (repository: typeof repo) => Promise<unknown>) => mutate(repo)) };
+  return { ...repo, withEditionReadinessMutation: vi.fn(async (_id: string, _expectedVersion: number, mutate: (repository: typeof repo) => Promise<unknown>) => mutate(repo)) };
 }
 
 describe('E-paper mapped story create regression', () => {

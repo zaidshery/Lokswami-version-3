@@ -79,7 +79,7 @@ export class EpaperArticleService {
     if (PROTECTED_EPAPER_AUTOMATION_IDS.has(id.toLowerCase())) {
       throw new EpaperConflictError('This preserved QA edition cannot receive stories.');
     }
-    const paper = await this.repo.findEditionById(id, '_id pageCount pages title cityName publishDate status productionStatus revisionInitializationStatus');
+    const paper = await this.repo.findEditionById(id, '_id version pageCount pages title cityName publishDate status productionStatus revisionInitializationStatus');
     if (!paper) throw new EpaperNotFoundError();
     try { assertEpaperDraftEditable(paper); } catch (error) {
       throw new EpaperConflictError(error instanceof Error ? error.message : 'Edition is immutable.');
@@ -127,7 +127,7 @@ export class EpaperArticleService {
     const count = requestedTitle ? 0 : await this.repo.countArticles({ epaperId: id, pageNumber });
     const title = requestedTitle || buildEpaperPlaceholderTitle(pageNumber, count + 1);
     const slug = await resolveUniqueSlug(slugInput || title, (candidate) => this.repo.articleExists({ epaperId: id, slug: candidate }));
-    const created = await this.repo.withEditionReadinessMutation(id, (repo) => repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
+    const created = await this.repo.withEditionReadinessMutation(id, Number(paper.version || 1), (repo) => repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
       releasedSnapshot: null,
       workflow: {
         status: 'draft',
@@ -145,7 +145,8 @@ export class EpaperArticleService {
       });
       await applyEpaperWorkflowAutomation({ epaperId: id, actor, reason: 'A mapped e-paper story was created.' });
     } catch (error) {
-      await this.repo.withEditionReadinessMutation(id, (repo) => repo.deleteArticleWhere({ _id: created._id, epaperId: id }));
+      const latest = await this.repo.findEditionById(id, '_id version');
+      if (latest) await this.repo.withEditionReadinessMutation(id, Number(latest.version || 1), (repo) => repo.deleteArticleWhere({ _id: created._id, epaperId: id }));
       throw error;
     }
     await recordEpaperActivity({ epaperId: id, actor, action: 'story_created', message: buildEpaperActivityMessage({ action: 'story_created' }),
