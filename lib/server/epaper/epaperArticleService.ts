@@ -127,7 +127,7 @@ export class EpaperArticleService {
     const count = requestedTitle ? 0 : await this.repo.countArticles({ epaperId: id, pageNumber });
     const title = requestedTitle || buildEpaperPlaceholderTitle(pageNumber, count + 1);
     const slug = await resolveUniqueSlug(slugInput || title, (candidate) => this.repo.articleExists({ epaperId: id, slug: candidate }));
-    const created = await this.repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
+    const created = await this.repo.withEditionReadinessMutation(id, (repo) => repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
       releasedSnapshot: null,
       workflow: {
         status: 'draft',
@@ -137,14 +137,15 @@ export class EpaperArticleService {
           email: actor.email || '',
           role: actor.role,
         },
-      } });
+      } }));
     try {
       await invalidateEpaperQa({
         epaperId: id, actor, reason: 'A mapped story was created.', pageNumbers: [pageNumber],
+        versionAlreadyIncremented: true,
       });
       await applyEpaperWorkflowAutomation({ epaperId: id, actor, reason: 'A mapped e-paper story was created.' });
     } catch (error) {
-      await this.repo.deleteArticleWhere({ _id: created._id, epaperId: id });
+      await this.repo.withEditionReadinessMutation(id, (repo) => repo.deleteArticleWhere({ _id: created._id, epaperId: id }));
       throw error;
     }
     await recordEpaperActivity({ epaperId: id, actor, action: 'story_created', message: buildEpaperActivityMessage({ action: 'story_created' }),

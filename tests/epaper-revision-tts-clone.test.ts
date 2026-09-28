@@ -107,8 +107,9 @@ describe('EpaperRevisionService manual TTS clone compatibility', () => {
       listReadyTtsAssets: vi.fn(async () => [sourceAsset]),
       createTtsAsset,
     } as unknown as EpaperRepository;
+    repo.withRevisionInitialization = vi.fn(async (_id, _owner, initialize) => initialize(repo));
 
-    await expect(new EpaperRevisionService(repo).create(actor, sourceId)).resolves.toEqual({
+    await expect(new EpaperRevisionService(repo).create(actor, sourceId)).resolves.toMatchObject({
       message: 'Draft revision 2 created.',
       data: { revisionId, familyId: 'family-1', revisionNumber: 2 },
     });

@@ -10,6 +10,7 @@ import EPaperProcessingJob from '@/lib/models/EPaperProcessingJob';
 import User from '@/lib/models/User';
 import TtsAsset from '@/lib/models/TtsAsset';
 import TtsAuditEvent from '@/lib/models/TtsAuditEvent';
+import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
 import {
   getStoredEPaperById,
   listAllStoredEPapers,
@@ -29,6 +30,7 @@ import {
   toDateLabel,
 } from './epaperMapper';
 import {
+  EpaperConflictError,
   EpaperVersionConflictError,
   type EpaperRecord,
   type EpaperStore,
@@ -87,6 +89,58 @@ function filterStoredRows(input: PublicEpaperListInput | PublicEpaperFeedInput) 
 }
 
 export class EpaperRepository {
+  constructor(private readonly initializationSession?: ClientSession) {}
+
+  async withEditionReadinessMutation<T>(id: string, mutate: (repo: EpaperRepository) => Promise<T>): Promise<T> {
+    const session = await EPaper.db.startSession();
+    let result: T | undefined;
+    try {
+      await session.withTransaction(async () => {
+        const current = await EPaper.findById(id).session(session).lean();
+        if (!current) throw new EpaperConflictError('Edition no longer exists.');
+        assertEpaperDraftEditable(current);
+        const locked = await EPaper.updateOne({
+          _id: id, status: 'draft', productionStatus: current.productionStatus,
+          version: current.version == null ? { $exists: false } : current.version,
+          revisionInitializationStatus: { $nin: ['initializing', 'failed'] },
+        }, {
+          $inc: { version: 1 },
+          $set: { qaCompletedAt: null,
+            ...(current.productionStatus === 'ready_to_publish' ? { productionStatus: 'hotspot_mapping' } : {}),
+          },
+        }, { session });
+        if (!locked.matchedCount) throw new EpaperConflictError('Edition changed during content mutation. Reload before retrying.');
+        result = await mutate(new EpaperRepository(session));
+      });
+      return result as T;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  async withRevisionInitialization(
+    id: string,
+    owner: string,
+    initialize: (repo: EpaperRepository) => Promise<void>
+  ): Promise<void> {
+    const session = await EPaper.db.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // The parent write fences clone writes against concurrent recovery.
+        // Losing ownership aborts the entire clone, including child records.
+        const locked = await EPaper.updateOne({
+          _id: id, status: 'draft', revisionInitializationStatus: 'initializing',
+          revisionInitializationOwner: owner,
+        }, { $set: { revisionInitializationStartedAt: new Date() } }, { session });
+        if (!locked.matchedCount) {
+          throw new EpaperConflictError('Draft revision initialization ownership changed. Retry from the published issue.');
+        }
+        await initialize(new EpaperRepository(session));
+      });
+    } finally {
+      await session.endSession();
+    }
+  }
   isValidId(id: string) {
     return Types.ObjectId.isValid(id);
   }
@@ -304,6 +358,7 @@ export class EpaperRepository {
 
   async listArticles(epaperId: string, projection?: string): Promise<EpaperRecord[]> {
     const cursor = EPaperArticle.find({ epaperId });
+    if (this.initializationSession) cursor.session(this.initializationSession);
     if (projection) cursor.select(projection);
     return cursor.lean() as Promise<EpaperRecord[]>;
   }
@@ -344,40 +399,42 @@ export class EpaperRepository {
   }
 
   async createArticle(data: EpaperRecord): Promise<EpaperRecord> {
-    const created = await EPaperArticle.create(data);
+    const created = this.initializationSession
+      ? (await EPaperArticle.create([data], { session: this.initializationSession }))[0]
+      : await EPaperArticle.create(data);
     return asObject(created.toObject());
   }
 
   async deleteArticleWhere(query: EpaperRecord) {
-    return EPaperArticle.deleteOne(query);
+    return EPaperArticle.deleteOne(query, { session: this.initializationSession });
   }
 
   async updateEdition(
     id: string,
     updates: EpaperRecord,
-    expectedVersion?: number
+    expectedVersion?: number,
+    expectedSnapshot?: { productionStatus: string; revisionNumber: number; processingGeneration: string }
   ): Promise<EpaperRecord | null> {
-    if (expectedVersion !== undefined) {
-      return this.updateEditionWithCas(id, updates, expectedVersion);
-    }
-    return EPaper.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-    }).lean() as Promise<EpaperRecord | null>;
+    return this.updateEditionWithCas(id, updates, expectedVersion, expectedSnapshot);
   }
 
   async updateEditionWithCas(
     id: string,
     updates: EpaperRecord,
-    expectedVersion?: number
+    expectedVersion?: number,
+    expectedSnapshot?: { productionStatus: string; revisionNumber: number; processingGeneration: string }
   ): Promise<EpaperRecord | null> {
-    const query: Record<string, unknown> = { _id: id };
+    const query: Record<string, unknown> = { _id: id, ...expectedSnapshot };
+    if (expectedSnapshot) {
+      query.status = 'draft';
+      query.revisionInitializationStatus = { $nin: ['initializing', 'failed'] };
+    }
     if (expectedVersion !== undefined) {
       query.version = expectedVersion;
     }
     const { $set, $inc, ...directFields } = updates;
     const finalSet = { ...directFields, ...(asObject($set)) };
-    const finalInc = { version: 1, ...(asObject($inc)) };
+    const finalInc = { ...(asObject($inc)), version: 1 };
     const mongoUpdate: Record<string, unknown> = {
       $inc: finalInc,
     };
@@ -388,6 +445,7 @@ export class EpaperRepository {
     const updated = (await EPaper.findOneAndUpdate(query, mongoUpdate, {
       new: true,
       runValidators: true,
+      ...(this.initializationSession ? { session: this.initializationSession } : {}),
     }).lean()) as EpaperRecord | null;
 
     if (!updated && expectedVersion !== undefined) {
@@ -411,6 +469,9 @@ export class EpaperRepository {
     expectedRevisionNumber: number;
     updates: EpaperRecord;
   }): Promise<EpaperRecord | null> {
+    if (input.updates.status === 'published' || input.updates.productionStatus === 'published') {
+      throw new EpaperConflictError('Automated transitions can never publish an edition.');
+    }
     const query: Record<string, unknown> = {
       _id: input.id,
       status: 'draft',
@@ -418,19 +479,20 @@ export class EpaperRepository {
       version: input.expectedVersion,
       revisionNumber: input.expectedRevisionNumber,
       processingGeneration: input.expectedGeneration,
+      revisionInitializationStatus: { $nin: ['initializing', 'failed'] },
     };
     const updated = (await EPaper.findOneAndUpdate(
       query,
       {
-        ['\u0024set']: input.updates,
-        ['\u0024inc']: { version: 1 },
+        ['$set']: input.updates,
+        ['$inc']: { version: 1 },
       },
       { new: true, runValidators: true }
     ).lean()) as EpaperRecord | null;
 
     if (!updated) {
       const current = await EPaper.findById(input.id)
-        .select('version status productionStatus processingGeneration revisionNumber')
+        .select('version status productionStatus processingGeneration revisionNumber revisionInitializationStatus')
         .lean();
       if (current) {
         throw new EpaperVersionConflictError(
@@ -442,12 +504,23 @@ export class EpaperRepository {
     return updated;
   }
 
+  async deleteArticles(epaperIdOrFilter: string | { epaperId: string }) {
+    const epaperId = typeof epaperIdOrFilter === 'string'
+      ? epaperIdOrFilter
+      : epaperIdOrFilter.epaperId;
+    return EPaperArticle.deleteMany({ epaperId }, { session: this.initializationSession });
+  }
+
+  async deleteTtsAssets(query: EpaperRecord) {
+    return TtsAsset.deleteMany(query, { session: this.initializationSession });
+  }
+
   async updateEditionWhere(query: EpaperRecord, updates: EpaperRecord) {
-    return EPaper.updateOne(query, updates);
+    return EPaper.updateOne(query, updates, { session: this.initializationSession });
   }
 
   async updateArticle(id: string, updates: EpaperRecord): Promise<EpaperRecord | null> {
-    return EPaperArticle.findByIdAndUpdate(id, updates, { new: true, runValidators: true }).lean() as Promise<EpaperRecord | null>;
+    return EPaperArticle.findByIdAndUpdate(id, updates, { new: true, runValidators: true, session: this.initializationSession }).lean() as Promise<EpaperRecord | null>;
   }
 
   async updateArticleConditional(query: EpaperRecord, updates: EpaperRecord): Promise<EpaperRecord | null> {
@@ -459,10 +532,13 @@ export class EpaperRepository {
   async markPageReady(epaperId: string, pageNumber: number, actor: { id: string; name: string; email: string; role: string }, reviewedAt: Date) {
     await EPaper.updateOne(
       { _id: epaperId, 'pages.pageNumber': pageNumber },
-      { $set: {
-        'pages.$.reviewStatus': 'ready', 'pages.$.reviewedAt': reviewedAt,
-        'pages.$.reviewedBy': actor,
-      } }
+      {
+        $set: {
+          'pages.$.reviewStatus': 'ready', 'pages.$.reviewedAt': reviewedAt,
+          'pages.$.reviewedBy': actor,
+        },
+        $inc: { version: 1 },
+      }
     );
   }
 
@@ -522,6 +598,7 @@ export class EpaperRepository {
       EPaperArticle.deleteMany({ epaperId: id }),
       EPaperProcessingJob.deleteMany({ epaperId: id }),
       EPaperOcrSuggestion.deleteMany({ epaperId: id }),
+      TtsAsset.deleteMany({ sourceParentId: id }),
     ]);
     return edition;
   }
@@ -634,7 +711,7 @@ export class EpaperRepository {
   }
 
   async updateOcrSuggestion(id: string, updates: EpaperRecord) {
-    return EPaperOcrSuggestion.findByIdAndUpdate(id, updates, { new: true, runValidators: true }).lean();
+    return EPaperOcrSuggestion.findByIdAndUpdate(id, updates, { new: true, runValidators: true, session: this.initializationSession }).lean();
   }
 
   async findLatestProcessingJob(epaperId: string) {
@@ -648,11 +725,15 @@ export class EpaperRepository {
   }
 
   async listReadyTtsAssets(query: EpaperRecord): Promise<EpaperTtsAssetCloneSource[]> {
-    return TtsAsset.find(query).lean() as unknown as Promise<EpaperTtsAssetCloneSource[]>;
+    const cursor = TtsAsset.find(query);
+    if (this.initializationSession) cursor.session(this.initializationSession);
+    return cursor.lean() as unknown as Promise<EpaperTtsAssetCloneSource[]>;
   }
 
   async createTtsAsset(data: CreateEpaperTtsAssetInput) {
-    const created = await TtsAsset.create(data);
+    const created = this.initializationSession
+      ? (await TtsAsset.create([data], { session: this.initializationSession }))[0]
+      : await TtsAsset.create(data);
     return asObject(created.toObject());
   }
 

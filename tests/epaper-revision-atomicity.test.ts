@@ -424,6 +424,7 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
         }),
         listReadyTtsAssets: vi.fn().mockResolvedValue([]),
       } as unknown as EpaperRepository;
+      mockRepo.withRevisionInitialization = vi.fn(async (_id, _owner, initialize) => initialize(mockRepo));
 
       const service = new EpaperRevisionService(mockRepo);
       const res = await service.create(superAdminActor, sourceId);
@@ -435,7 +436,7 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
       );
       expect(mockRepo.updateEditionWhere).toHaveBeenCalledWith(
         expect.objectContaining({ _id: 'rev-2-id', revisionInitializationStatus: 'initializing' }),
-        { $set: { revisionInitializationStatus: 'ready' }, $inc: { version: 1 } },
+        { $set: { revisionInitializationStatus: 'ready', revisionInitializationStartedAt: null, revisionInitializationOwner: '' }, $inc: { version: 1 } },
       );
 
       const clonedEdition = createdEditions[0];
@@ -500,7 +501,7 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
       } as unknown as EpaperRepository;
 
       const service = new EpaperRevisionService(mockRepo);
-      await expect(service.create(superAdminActor, sourceId)).resolves.toEqual({
+      await expect(service.create(superAdminActor, sourceId)).resolves.toMatchObject({
         message: 'Concurrent draft revision reused.',
         data: {
           revisionId: 'concurrent-draft-id',

@@ -336,10 +336,11 @@ describe('Phase 3.9A — E-Paper Draft Immutability & Central Policy', () => {
         findEditionById: vi.fn(),
         findEdition: vi.fn(),
         findLatestRevision: vi.fn(),
-        updateEditionWhere: vi.fn(),
+        updateEditionWhere: vi.fn().mockResolvedValue({ matchedCount: 1 }),
         createEdition: vi.fn(),
         listArticles: vi.fn().mockResolvedValue([]),
         listReadyTtsAssets: vi.fn().mockResolvedValue([]),
+        withRevisionInitialization: vi.fn(async (_id: string, _owner: string, initialize: (repo: any) => Promise<void>) => initialize(mockRepo)),
       };
       service = new EpaperRevisionService(mockRepo);
     });

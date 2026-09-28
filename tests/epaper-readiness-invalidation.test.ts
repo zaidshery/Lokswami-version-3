@@ -39,6 +39,20 @@ describe('canonical readiness invalidation CAS', () => {
     await expect(invalidateEpaperQa(input)).rejects.toThrow('changed during readiness invalidation');
   });
 
+  it('versions edits while already mapping even without completed QA', async () => {
+    load({ _id: input.epaperId, status: 'draft', productionStatus: 'hotspot_mapping', version: 4, qaCompletedAt: null });
+    const update = vi.spyOn(EPaper, 'findOneAndUpdate').mockResolvedValue({ version: 5 } as never);
+    await expect(invalidateEpaperQa(input)).resolves.toMatchObject({ changed: true, toStatus: 'hotspot_mapping' });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ version: 4 }), { $inc: { version: 1 } }, expect.any(Object));
+  });
+
+  it('records invalidation without double-incrementing a mutation that already advanced the version', async () => {
+    load({ _id: input.epaperId, status: 'draft', productionStatus: 'hotspot_mapping', version: 5, qaCompletedAt: null });
+    const update = vi.spyOn(EPaper, 'findOneAndUpdate');
+    await expect(invalidateEpaperQa({ ...input, versionAlreadyIncremented: true })).resolves.toMatchObject({ changed: true });
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it('never writes a published or protected edition', async () => {
     const update = vi.spyOn(EPaper, 'findOneAndUpdate');
     load({ _id: input.epaperId, status: 'published', productionStatus: 'published' });

@@ -16,6 +16,7 @@ import {
 } from '@/lib/utils/epaperArticles';
 import { isAllowedAssetPath } from '@/lib/utils/epaperStorage';
 import type { AdminSessionIdentity } from '@/lib/auth/admin';
+import { epaperRepository } from './epaperRepository';
 
 export function isEpaperKind(req: NextRequest): boolean {
   const kind = req.nextUrl.searchParams.get('kind');
@@ -237,10 +238,21 @@ export async function updateEpaperArticleById(
   // GAP-008: Editorial story saves must NOT mutate the public releasedSnapshot.
   // Draft edits remain private until the explicit release workflow is triggered.
 
-  const updated = await EPaperArticle.findByIdAndUpdate(id, updates, {
-    new: true,
-    runValidators: true,
-  }).lean();
+  const updated = await epaperRepository.withEditionReadinessMutation(String(current.epaperId), async (repo) => {
+    const saved = await repo.updateArticle(id, updates);
+    if (!saved || !actor) return saved;
+    const changedPages = Array.from(
+      new Set([Number(current.pageNumber || 0), Number(saved.pageNumber || 0)])
+    ).filter(Boolean);
+    const nextPages = (parentEpaper.pages || []).map((page) =>
+      changedPages.includes(Number(page.pageNumber || 0))
+        ? { ...page, reviewStatus: 'ready', reviewedAt: new Date(), reviewedBy: actor.id }
+        : page
+    );
+    const pageUpdate = await repo.updateEditionWhere({ _id: saved.epaperId }, { $set: { pages: nextPages } });
+    if (!pageUpdate.matchedCount) throw new Error('Edition changed during story update. Reload before retrying.');
+    return saved;
+  });
 
   if (!updated) {
     return {
@@ -254,22 +266,12 @@ export async function updateEpaperArticleById(
     const changedPages = Array.from(
       new Set([Number(current.pageNumber || 0), Number(updated.pageNumber || 0)])
     ).filter(Boolean);
-    const nextPages = (parentEpaper.pages || []).map((page) =>
-      changedPages.includes(Number(page.pageNumber || 0))
-        ? {
-            ...page,
-            reviewStatus: 'ready',
-            reviewedAt: new Date(),
-            reviewedBy: actor.id,
-          }
-        : page
-    );
-    await EPaper.findByIdAndUpdate(updated.epaperId, { pages: nextPages });
     await invalidateEpaperQa({
       epaperId: String(updated.epaperId || ''),
       actor,
       reason: 'Mapped story content or hotspot changed.',
       pageNumbers: changedPages,
+      versionAlreadyIncremented: true,
     });
     await applyEpaperWorkflowAutomation({
       epaperId: String(updated.epaperId || ''),
@@ -334,31 +336,33 @@ export async function deleteEpaperArticleById(
     };
   }
 
-  const deleted = await EPaperArticle.findByIdAndDelete(id).lean();
-  if (!deleted) {
+  const pageNumber = Number(existing.pageNumber || 0);
+  const deleted = await epaperRepository.withEditionReadinessMutation(String(existing.epaperId), async (repo) => {
+    const result = await repo.deleteArticleWhere({ _id: id, epaperId: existing.epaperId });
+    if (result.deletedCount) {
+      const pages = (parent.pages || []).map((page) =>
+        Number(page.pageNumber || 0) === pageNumber
+          ? { ...page, reviewStatus: 'pending', reviewedAt: null, reviewedBy: null }
+          : page
+      );
+      const pageUpdate = await repo.updateEditionWhere({ _id: existing.epaperId }, { $set: { pages } });
+      if (!pageUpdate.matchedCount) throw new Error('Edition changed during story deletion. Reload before retrying.');
+    }
+    return result;
+  });
+  if (!deleted.deletedCount) {
     return {
       status: 404,
       payload: { success: false, error: 'Article not found' },
     };
   }
 
-  const pageNumber = Number(existing.pageNumber || 0);
-  const pages = (parent.pages || []).map((page) =>
-    Number(page.pageNumber || 0) === pageNumber
-      ? {
-          ...page,
-          reviewStatus: 'pending',
-          reviewedAt: null,
-          reviewedBy: null,
-        }
-      : page
-  );
-  await EPaper.findByIdAndUpdate(existing.epaperId, { pages });
   await invalidateEpaperQa({
     epaperId: String(existing.epaperId),
     actor,
     reason: 'A mapped story was deleted.',
     pageNumbers: [pageNumber],
+    versionAlreadyIncremented: true,
   });
 
   return {

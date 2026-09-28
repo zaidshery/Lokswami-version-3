@@ -62,6 +62,8 @@ export interface IEPaper {
   qaCompletedAt: Date | null;
   processingGeneration?: string;
   revisionInitializationStatus?: 'initializing' | 'ready' | 'failed';
+  revisionInitializationStartedAt?: Date | null;
+  revisionInitializationOwner?: string;
   automationReconciledAt?: Date | null;
   version?: number;
   cleanupPending?: boolean;
@@ -147,6 +149,8 @@ const EPaperSchema = new mongoose.Schema<IEPaper>(
     qaCompletedAt: { type: Date, default: null },
     processingGeneration: { type: String, trim: true, default: '' },
     revisionInitializationStatus: { type: String, enum: ['initializing', 'ready', 'failed'], default: 'ready' },
+    revisionInitializationStartedAt: { type: Date, default: null },
+    revisionInitializationOwner: { type: String, trim: true, default: '' },
     automationReconciledAt: { type: Date, default: null },
     version: { type: Number, default: 1, min: 1 },
     cleanupPending: { type: Boolean, default: false },

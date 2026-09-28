@@ -229,6 +229,7 @@ export async function queueEpaperPageProcessing(input: {
   // Atomically set new generation on the edition document
   await EPaper.findByIdAndUpdate(input.epaperId, {
     processingGeneration: generation,
+    $inc: { version: 1 },
   });
 
   // Cancel prior active jobs for this edition
@@ -577,7 +578,7 @@ export async function processClaimedJob(
         status: 'draft',
         ...(job.generation ? { processingGeneration: job.generation } : {}),
       },
-      { pages }
+      { $set: { pages }, $inc: { version: 1 } }
     );
 
     try {
@@ -620,7 +621,10 @@ export async function processClaimedJob(
         updateFilter.processingGeneration = job.generation;
       }
 
-      const updateResult = await EPaper.updateOne(updateFilter, { pages });
+      const updateResult = await EPaper.updateOne(updateFilter, {
+        $set: { pages },
+        $inc: { version: 1 },
+      });
       if (updateResult.matchedCount === 0) {
         // Generation was superseded! Abort immediately
         logEpaperMetric('conversion_stale_aborted', {
@@ -686,7 +690,7 @@ export async function processClaimedJob(
         _id: job.epaperId, status: 'draft',
         ...(job.generation ? { processingGeneration: job.generation } : {}),
         revisionNumber: epaperRevision,
-      }, { pages });
+      }, { $set: { pages }, $inc: { version: 1 } });
     }
   }
 
@@ -725,8 +729,8 @@ export async function processClaimedJob(
     }
 
     await EPaper.updateOne(updateFilter, {
-      pages: sortedPages,
-      ...automationUpdates,
+      $set: { pages: sortedPages, ...automationUpdates },
+      $inc: { version: 1 },
     });
   }
 

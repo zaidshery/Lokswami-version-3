@@ -35,7 +35,7 @@ const articleId = '507f1f77bcf86cd799439012';
 const hotspot = { x: 0.1, y: 0.2, w: 0.3, h: 0.4 };
 
 function buildRepo() {
-  return {
+  const repo = {
     connect: vi.fn().mockResolvedValue(undefined),
     isValidId: vi.fn().mockReturnValue(true),
     findEditionById: vi.fn().mockResolvedValue({
@@ -59,6 +59,7 @@ function buildRepo() {
     })),
     deleteArticleWhere: vi.fn().mockResolvedValue({ deletedCount: 1 }),
   };
+  return { ...repo, withEditionReadinessMutation: vi.fn(async (_id: string, mutate: (repository: typeof repo) => Promise<unknown>) => mutate(repo)) };
 }
 
 describe('E-paper mapped story create regression', () => {

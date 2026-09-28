@@ -120,9 +120,22 @@ export class EpaperPageService {
 
     const automation = buildEpaperImageAutomationUpdates({ pageCount, pages, currentThumbnailPath: paper.thumbnailPath,
       currentProductionStatus: paper.productionStatus, currentStatus: paper.status });
-    const updated = await this.repo.updateEdition(id, { pageCount, pages, ...automation });
-    const contentChanged = [...new Set([...imagePages, ...classificationPages])];
-    if (contentChanged.length) await invalidateEpaperQa({ epaperId: id, actor, reason: 'Page image or page classification changed.', pageNumbers: contentChanged });
+    const contentChanged = [...new Set([...imagePages, ...classificationPages, ...reviewPages])];
+    const updated = await this.repo.updateEdition(id, {
+      pageCount, pages, ...automation,
+      ...(contentChanged.length ? {
+        qaCompletedAt: null,
+        ...(paper.productionStatus === 'ready_to_publish' ? { productionStatus: 'hotspot_mapping' } : {}),
+      } : {}),
+    }, Number(paper.version || 1), {
+      productionStatus: String(paper.productionStatus || 'draft_upload'),
+      revisionNumber: Number(paper.revisionNumber || 1),
+      processingGeneration: String(paper.processingGeneration || ''),
+    });
+    if (contentChanged.length) await invalidateEpaperQa({
+      epaperId: id, actor, reason: 'Page image or page classification changed.', pageNumbers: contentChanged,
+      versionAlreadyIncremented: true,
+    });
     await this.recordChanges(actor, id, imagePages, reviewPages, automation);
     const message = automation.productionStatus === 'pages_ready' ? 'Pages updated and edition moved to Pages Ready'
       : imagePages.length && reviewPages.length ? 'Page images and review details updated'

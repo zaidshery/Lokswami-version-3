@@ -461,7 +461,10 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
       expect(epaperUpdateOneSpy).toHaveBeenCalledWith(
         expect.objectContaining({ _id: '507f1f77bcf86cd799439011', status: 'draft', processingGeneration: 'gen-succ' }),
         expect.objectContaining({
-          thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page.jpg',
+          $set: expect.objectContaining({
+            thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page.jpg',
+          }),
+          $inc: { version: 1 },
         })
       );
     });
@@ -780,7 +783,10 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
       expect(epaperUpdateOneSpy).toHaveBeenCalledWith(
         expect.objectContaining({ _id: '507f1f77bcf86cd799439011', status: 'draft', processingGeneration: 'gen-single-1' }),
         expect.objectContaining({
-          thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page-1.jpg',
+          $set: expect.objectContaining({
+            thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page-1.jpg',
+          }),
+          $inc: { version: 1 },
         })
       );
     });

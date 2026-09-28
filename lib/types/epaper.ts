@@ -138,6 +138,8 @@ export interface EPaperRecord {
   version?: number;
   processingGeneration?: string;
   revisionInitializationStatus?: 'initializing' | 'ready' | 'failed';
+  revisionInitializationStartedAt?: string | Date | null;
+  revisionInitializationOwner?: string;
   cleanupPending?: boolean;
   cleanupReason?: string;
   cleanupKeys?: string[];
