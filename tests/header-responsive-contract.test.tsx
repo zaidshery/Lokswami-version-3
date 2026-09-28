@@ -48,7 +48,7 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(language).toHaveTextContent('HI');
       expect(language.className).toContain('md:hidden');
       expect(screen.getByRole('link', { name: /समाचार खोजें|Search news/i })).toHaveAttribute('href', '/main/search');
-      const strip = screen.getByTestId('reader-category-bar').firstElementChild!;
+      const strip = screen.getByTestId('reader-category-bar').querySelector('.reader-scroll-x')!;
       expect(strip.className).toContain('overflow-x-auto');
       expect(strip).toHaveAttribute('data-swipe-ignore', 'true');
       expect(screen.getByRole('navigation').className).not.toContain('flex-wrap');

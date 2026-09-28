@@ -19,6 +19,7 @@ import {
 import { useAppStore } from '@/lib/store/appStore';
 import DesktopNav from './DesktopNav';
 import { LogoWordmark } from '@/components/layout/Logo';
+import ReaderHeaderContainer from './ReaderHeaderContainer';
 
 /** Renders the main site header with reader auth actions. */
 export default function Header() {
@@ -78,8 +79,8 @@ export default function Header() {
   }
 
   return (
-    <header data-testid="reader-brand-navigation" className="relative z-40 w-full border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md transition-colors duration-500 dark:border-zinc-800 dark:bg-[#0e0e12]/95">
-      <div className="relative w-full min-w-0 px-2 min-[380px]:px-2.5 min-[412px]:px-3 sm:px-5 md:px-8">
+    <header data-testid="reader-brand-navigation" className="relative z-40 w-full border-b border-zinc-200/85 bg-white transition-colors dark:border-zinc-800 dark:bg-[#0e0e12]">
+      <ReaderHeaderContainer className="relative">
         <div className="relative flex h-14 min-w-0 items-center justify-between gap-1 sm:h-16 sm:gap-3">
           <div className="flex min-w-0 shrink-0 items-center gap-0 min-[360px]:gap-1 md:gap-2">
             <button type="button" onClick={toggleMobileMenu}
@@ -269,12 +270,14 @@ export default function Header() {
             </motion.button>
           </div>
         </div>
-      </div>
+      </ReaderHeaderContainer>
 
       <div data-testid="reader-category-bar" className="min-w-0 border-t border-zinc-200/80 dark:border-zinc-800">
-        <div className="scrollbar-hide reader-scroll-x flex h-11 min-w-0 items-center overflow-x-auto touch-pan-x px-2 sm:px-4 md:px-6 2xl:justify-center" data-swipe-ignore="true">
-          <DesktopNav className="min-w-max py-0" />
-        </div>
+        <ReaderHeaderContainer>
+          <div className="scrollbar-hide reader-scroll-x flex h-11 min-w-0 items-center overflow-x-auto overscroll-x-contain touch-pan-x" data-swipe-ignore="true">
+            <DesktopNav className="min-w-max py-0" />
+          </div>
+        </ReaderHeaderContainer>
       </div>
     </header>
   );

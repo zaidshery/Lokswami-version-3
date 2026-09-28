@@ -4,7 +4,7 @@ const path = require('path');
 const { chromium } = require('@playwright/test');
 const base = process.argv[2] || 'http://localhost:3112';
 if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Local server required');
-const out = path.resolve('artifacts/phase3-qa/phase311-header-polish');
+const out = path.resolve('artifacts/phase3-qa/phase311-header-final');
 async function main() {
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -29,7 +29,7 @@ async function main() {
           const geometry = await page.evaluate(() => {
             const live = document.querySelector('[data-testid="reader-live-bar"]');
             const header = document.querySelector('[data-testid="reader-brand-navigation"]');
-            const strip = document.querySelector('[data-testid="reader-category-bar"] > div');
+            const strip = document.querySelector('[data-testid="reader-category-bar"] .reader-scroll-x');
             const brand = header.firstElementChild;
             const controls = [...brand.querySelectorAll('button, a, [role="group"]')].filter((el) => el.getBoundingClientRect().width > 0);
             const boxes = controls.map((el) => { const r = el.getBoundingClientRect(); return { name: el.getAttribute('aria-label'), x: r.x, right: r.right, y: r.y, height: r.height }; });
@@ -37,10 +37,18 @@ async function main() {
             const right = brand.querySelector('a[href="/main/epaper"]').getBoundingClientRect();
             const logo = brand.querySelector('[data-logo-element="wordmark"] img');
             const logoBox = logo.getBoundingClientRect();
-            const layerBoxes = [live, header, strip.parentElement].map((el) => el.getBoundingClientRect());
+            const layerBoxes = [live, header, strip.closest('[data-testid="reader-category-bar"]')].map((el) => el.getBoundingClientRect());
+            const inners = [live.querySelector('[data-reader-header-inner]'), brand, strip.parentElement];
+            const grid = inners.map((el) => { const r = el.getBoundingClientRect(); return { x: r.x, width: r.width, start: r.x + parseFloat(getComputedStyle(el).paddingLeft) }; });
+            const navBoxes = [...strip.querySelectorAll('nav > a, nav > div > button')].map((el) => el.getBoundingClientRect());
             const lang = brand.querySelector('[data-testid="reader-mobile-language"]');
             return { pageOverflow: document.documentElement.scrollWidth > innerWidth,
               edgeToEdge: layerBoxes.every((r) => Math.abs(r.x) < 1 && Math.abs(r.width - innerWidth) < 1),
+              commonGrid: grid.every((r) => Math.abs(r.start - grid[0].start) < 1 && Math.abs(r.width - grid[0].width) < 1),
+              grid,
+              categorySingleRow: navBoxes.every((r) => Math.abs(r.y - navBoxes[0].y) < 1),
+              firstNavReachable: navBoxes[0].x >= strip.getBoundingClientRect().x - 1,
+              bodyClearance: document.querySelector('#main-content').getBoundingClientRect().top >= header.getBoundingClientRect().bottom - 1,
               canonicalLogo: logo.getAttribute('src').includes('logo-wordmark-final.png'),
               logoLoaded: logo.complete && logo.naturalWidth > 0,
               logoWidth: logoBox.width, logoHeight: logoBox.height,
@@ -54,7 +62,7 @@ async function main() {
               canScroll: strip.scrollWidth > strip.clientWidth,
               activeHome: !!strip.querySelector('a[href="/main"][aria-current="page"]') };
           });
-          const strip = page.getByTestId('reader-category-bar').locator('> div');
+          const strip = page.getByTestId('reader-category-bar').locator('.reader-scroll-x');
           await strip.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
           const more = page.getByTestId('reader-category-bar').getByRole('button');
           await more.click();
@@ -62,8 +70,18 @@ async function main() {
           await page.keyboard.press('Escape');
           const moreRestoresFocus = await more.evaluate((el) => document.activeElement === el);
           await strip.evaluate((el) => { el.scrollLeft = 0; });
+          const stickyStable = await page.evaluate(async () => {
+            const shell = document.querySelector('[data-testid="reader-live-bar"]').parentElement;
+            const before = shell.getBoundingClientRect();
+            window.scrollTo(0, 400);
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const after = shell.getBoundingClientRect();
+            const stable = getComputedStyle(shell).position === 'sticky' && Math.abs(after.top) < 1 && Math.abs(before.height - after.height) < 1;
+            window.scrollTo(0, 0);
+            return stable;
+          });
           await page.screenshot({ path: path.join(out, `${language}-${theme}-${width}.png`) });
-          results.push({ language, theme, width, ...geometry, moreRestoresFocus });
+          results.push({ language, theme, width, ...geometry, moreRestoresFocus, stickyStable });
         }
       }
     }
@@ -90,7 +108,8 @@ async function main() {
       .every((id) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect().height > 0));
     await context.close();
     const pass = results.every((r) => r.layersVisible && !r.pageOverflow && r.controlsInside && r.noBrandOverlap && r.scrollable && r.activeHome && r.moreRestoresFocus
-      && r.edgeToEdge && r.canonicalLogo && r.logoLoaded && r.logoProportional && r.mobileLanguageVisible && r.controlsSingleRow && r.logoWidth >= 119)
+      && r.edgeToEdge && r.commonGrid && r.categorySingleRow && r.firstNavReachable && r.bodyClearance && r.stickyStable
+      && r.canonicalLogo && r.logoLoaded && r.logoProportional && r.mobileLanguageVisible && r.controlsSingleRow && r.logoWidth >= 119)
       && drawerEscape && persistedLanguageReload && ssrLayers && !errors.length;
     fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify({ pass, results, mobileLanguageKeyboard, drawerEscape, persistedLanguageReload, ssrLayers, errors, consoleErrors, realLocalContentOnly: true }, null, 2));
     console.log(JSON.stringify({ pass, checks: results.length, mobileLanguageKeyboard, drawerEscape, persistedLanguageReload, ssrLayers, errors, consoleErrors, output: out }));
