@@ -18,9 +18,10 @@ interface DesktopNavProps {
 
 export default function DesktopNav({ className = '' }: DesktopNavProps) {
   const pathname = usePathname();
-  const { language } = useAppStore();
+  const { language: storedLanguage } = useAppStore();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const language = mounted ? storedLanguage : 'hi';
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
   const moreRef = useRef<HTMLDivElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -83,7 +84,7 @@ export default function DesktopNav({ className = '' }: DesktopNavProps) {
     <nav
       role="navigation"
       aria-label={language === 'hi' ? 'मुख्य नेविगेशन' : 'Main Navigation'}
-      className={`flex items-center gap-0.5 whitespace-nowrap sm:gap-1 xl:gap-1.5 ${className} lg:min-w-0 lg:flex-wrap`}
+      className={`flex shrink-0 items-center gap-0.5 whitespace-nowrap sm:gap-1 xl:gap-1.5 ${className}`}
     >
       {/* Primary Editorial Links */}
       {PRIMARY_NAV_LINKS.map((link) => {

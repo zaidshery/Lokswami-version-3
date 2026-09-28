@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('BreakingNews empty feed', () => {
-  it('hides the ticker when the API successfully returns no breaking articles', async () => {
+  it('preserves the live layer with an honest fallback when the feed is empty', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.startsWith('/api/breaking')) {
@@ -41,8 +41,10 @@ describe('BreakingNews empty feed', () => {
     render(<BreakingNews />);
 
     await waitFor(() => {
-      expect(screen.queryByRole('region', { name: /breaking news/i })).not.toBeInTheDocument();
+      expect(screen.getByText('No latest update available.')).toBeInTheDocument();
     });
     expect(fetchMock).toHaveBeenCalledWith('/api/breaking?limit=10');
+    expect(screen.getByRole('region', { name: /breaking news/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /breaking news voice/i })).toBeDisabled();
   });
 });
