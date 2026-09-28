@@ -85,10 +85,10 @@ export default function Header() {
         <div className="relative flex h-14 min-w-0 items-center justify-between gap-1 sm:h-16 sm:gap-3">
           <div className="flex min-w-0 shrink-0 items-center gap-0 min-[360px]:gap-1 md:gap-2">
             <button type="button" onClick={toggleMobileMenu}
-              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 lg:h-12 lg:w-12 lg:min-h-[48px] lg:min-w-[48px]"
               aria-label={language === 'hi' ? 'मेनू खोलें' : 'Open menu'}
               aria-controls="mobile-drawer" aria-expanded={isMobileMenuOpen}>
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5 lg:h-6 lg:w-6" strokeWidth={2.3} />
             </button>
             <Link href="/main" aria-label="Lokswami Home" className="editorial-focus-ring inline-flex shrink-0 items-center rounded-sm">
               <Logo size="headerDesktop" responsiveHeader />

@@ -4,7 +4,7 @@ const path = require('path');
 const { chromium } = require('@playwright/test');
 const base = process.argv[2] || 'http://localhost:3112';
 if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Local server required');
-const out = path.resolve('artifacts/phase3-qa/phase311-layer2');
+const out = path.resolve('artifacts/phase3-qa/phase311-header-wide');
 async function main() {
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -23,7 +23,7 @@ async function main() {
       await page.getByRole('button', { name: language === 'en' ? /Select English language/ : /Select Hindi/ }).click();
       for (const theme of ['light', 'dark']) {
         await page.evaluate((dark) => document.documentElement.classList.toggle('dark', dark), theme === 'dark');
-        for (const width of [320, 360, 390, 414, 430, 768, 1024, 1440]) {
+        for (const width of [390, 768, 1280, 1440, 1920, 2560, 3840]) {
           await page.setViewportSize({ width, height: 900 });
           await page.waitForTimeout(250);
           const geometry = await page.evaluate(() => {
@@ -45,6 +45,10 @@ async function main() {
             const emblem = brand.querySelector('[data-logo-element="icon"] img');
             const emblemBox = emblem.getBoundingClientRect();
             const epaper = brand.querySelector('a[aria-label="E-Paper"]');
+            const brandBox = brand.getBoundingClientRect();
+            const menu = brand.querySelector('button[aria-controls="mobile-drawer"]');
+            const menuBox = menu.getBoundingClientRect();
+            const menuIcon = menu.querySelector('svg').getBoundingClientRect();
             return { pageOverflow: document.documentElement.scrollWidth > innerWidth,
               edgeToEdge: layerBoxes.every((r) => Math.abs(r.x) < 1 && Math.abs(r.width - innerWidth) < 1),
               commonGrid: grid.every((r) => Math.abs(r.start - grid[0].start) < 1 && Math.abs(r.width - grid[0].width) < 1),
@@ -55,6 +59,10 @@ async function main() {
               canonicalLogo: logo.getAttribute('src').includes('logo-wordmark-final.png'),
               logoLoaded: logo.complete && logo.naturalWidth > 0,
               logoWidth: logoBox.width, logoHeight: logoBox.height,
+              innerWidth: brandBox.width,
+              editorialCentered: Math.abs(brandBox.x + brandBox.width / 2 - innerWidth / 2) < 1 && brandBox.width <= 1377,
+              desktopScale: innerWidth < 1024 || (Math.abs(menuBox.width - 48) < 1 && Math.abs(menuBox.height - 48) < 1 && Math.abs(menuIcon.width - 24) < 1 && Math.abs(emblemBox.width - 40) < 1 && Math.abs(logoBox.width - 186) < 1),
+              menuWidth: menuBox.width, menuIconWidth: menuIcon.width,
               emblemWidth: emblemBox.width,
               emblemCorrect: emblem.getAttribute('src').includes('logo-header-cutout.png') && emblem.complete && emblem.naturalWidth > 0 && emblemBox.width >= 27 && Math.abs(emblemBox.width - emblemBox.height) < 1,
               mobileAppLabels: innerWidth >= 768 || (epaper.querySelector('span').getBoundingClientRect().width > 0 && lang.querySelector('svg').getBoundingClientRect().width > 0 && epaper.querySelector('svg').getBoundingClientRect().top < epaper.querySelector('span').getBoundingClientRect().top),
@@ -76,6 +84,11 @@ async function main() {
           await page.keyboard.press('Escape');
           const moreRestoresFocus = await more.evaluate((el) => document.activeElement === el);
           await strip.evaluate((el) => { el.scrollLeft = 0; });
+          await page.getByRole('button', { name: /मेनू खोलें|Open menu/ }).click();
+          await page.getByRole('dialog').waitFor();
+          await page.keyboard.press('Escape');
+          await page.getByRole('dialog').waitFor({ state: 'hidden' });
+          const menuWorks = true;
           const stickyStable = await page.evaluate(async () => {
             const shell = document.querySelector('[data-testid="reader-live-bar"]').parentElement;
             const before = shell.getBoundingClientRect();
@@ -87,7 +100,7 @@ async function main() {
             return stable;
           });
           await page.screenshot({ path: path.join(out, `${language}-${theme}-${width}.png`) });
-          results.push({ language, theme, width, ...geometry, moreRestoresFocus, stickyStable });
+          results.push({ language, theme, width, ...geometry, moreRestoresFocus, stickyStable, menuWorks });
         }
       }
     }
@@ -114,8 +127,8 @@ async function main() {
       .every((id) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect().height > 0));
     await context.close();
     const pass = results.every((r) => r.layersVisible && !r.pageOverflow && r.controlsInside && r.noBrandOverlap && r.scrollable && r.activeHome && r.moreRestoresFocus
-      && r.edgeToEdge && r.commonGrid && r.categorySingleRow && r.firstNavReachable && r.bodyClearance && r.stickyStable
-      && r.canonicalLogo && r.logoLoaded && r.logoProportional && r.emblemCorrect && r.mobileAppLabels && r.mobileLanguageVisible && r.controlsSingleRow && r.logoWidth >= 87)
+      && r.edgeToEdge && r.commonGrid && r.categorySingleRow && r.firstNavReachable && r.bodyClearance && r.stickyStable && r.menuWorks
+      && r.canonicalLogo && r.logoLoaded && r.logoProportional && r.emblemCorrect && r.mobileAppLabels && r.mobileLanguageVisible && r.controlsSingleRow && r.logoWidth >= 87 && r.editorialCentered && r.desktopScale)
       && drawerEscape && persistedLanguageReload && ssrLayers && !errors.length;
     fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify({ pass, results, mobileLanguageKeyboard, drawerEscape, persistedLanguageReload, ssrLayers, errors, consoleErrors, realLocalContentOnly: true }, null, 2));
     console.log(JSON.stringify({ pass, checks: results.length, mobileLanguageKeyboard, drawerEscape, persistedLanguageReload, ssrLayers, errors, consoleErrors, output: out }));

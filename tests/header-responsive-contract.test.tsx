@@ -34,6 +34,17 @@ describe('Responsive Header & Language Refinement Contract', () => {
   });
 
   describe('Unified brand and category layers', () => {
+    it('strengthens the desktop hamburger and caps the smaller desktop logo', () => {
+      render(<Header />);
+      const menu = screen.getByRole('button', { name: /मेनू खोलें|Open menu/i });
+      expect(menu.className).toContain('lg:min-w-[48px]');
+      expect(menu.className).toContain('lg:min-h-[48px]');
+      expect(menu.querySelector('svg')).toHaveAttribute('stroke-width', '2.3');
+      expect(menu.querySelector('svg')?.classList.contains('lg:h-6')).toBe(true);
+      const logo = screen.getByLabelText('Lokswami Home').querySelector('[data-logo-root]')!;
+      expect(logo.className).toContain('lg:[--reader-logo-icon:40px]');
+      expect(logo.className).toContain('lg:[--reader-logo-wordmark:186px]');
+    });
     it.each([320, 390, 768, 1024, 1440])('keeps required controls in the same DOM at %i pixels', (width) => {
       window.innerWidth = width;
       render(<Header />);
