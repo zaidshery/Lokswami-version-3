@@ -66,7 +66,7 @@ async function POSTHandler(req: NextRequest) {
       await connectDB();
       const epaperId = body.epaperId.trim();
       const paper = await EPaper.findById(epaperId)
-        .select('_id status productionStatus familyId revisionNumber')
+        .select('_id status productionStatus revisionInitializationStatus familyId revisionNumber')
         .lean();
       if (!paper) {
         return NextResponse.json({ success: false, error: 'E-paper not found' }, { status: 404 });

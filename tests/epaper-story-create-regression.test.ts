@@ -185,6 +185,22 @@ describe('E-paper mapped story create regression', () => {
     expect(repo.createArticle).not.toHaveBeenCalled();
   });
 
+  it.each(['initializing', 'failed'])('rejects manual story creation on a %s revision before any writes', async (revisionInitializationStatus) => {
+    const repo = buildRepo();
+    repo.findEditionById.mockResolvedValue({
+      _id: epaperId, status: 'draft', productionStatus: 'hotspot_mapping',
+      revisionInitializationStatus, pageCount: 2, pages: [],
+    } as never);
+    await expect(new EpaperArticleService(repo as never).create(actor, epaperId, {
+      pageNumber: 2, title: 'Manual story', contentHtml: '<p>Copy.</p>', hotspot,
+    })).rejects.toThrow(EpaperConflictError);
+    expect(repo.findEditionById).toHaveBeenCalledWith(epaperId, expect.stringContaining('revisionInitializationStatus'));
+    expect(repo.findArticle).not.toHaveBeenCalled();
+    expect(repo.createArticle).not.toHaveBeenCalled();
+    expect(workflowMocks.invalidate).not.toHaveBeenCalled();
+    expect(workflowMocks.automate).not.toHaveBeenCalled();
+  });
+
   it('refreshes mapped stories and shows a recovery message in the page editor', () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), 'app/(admin)/admin/epapers/[id]/page/[pageNumber]/page.tsx'),

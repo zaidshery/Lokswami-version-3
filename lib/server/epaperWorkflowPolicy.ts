@@ -17,7 +17,8 @@ export function assertEpaperDraftEditable(epaper: {
   _id?: unknown;
   status?: unknown;
   productionStatus?: unknown;
-}) {
+  revisionInitializationStatus?: unknown;
+}, options: { allowFailedInitialization?: boolean } = {}) {
   if (!epaper) {
     throw new EpaperConflictError('EPAPER_IMMUTABLE: Edition is immutable.');
   }
@@ -40,6 +41,12 @@ export function assertEpaperDraftEditable(epaper: {
   if (status === 'archived' || productionStatus === 'archived') {
     throw new EpaperConflictError('EPAPER_IMMUTABLE: Archived editions are immutable.');
   }
+  if (epaper.revisionInitializationStatus === 'initializing') {
+    throw new EpaperConflictError('Revision initialization is in progress. Wait before editing.');
+  }
+  if (epaper.revisionInitializationStatus === 'failed' && !options.allowFailedInitialization) {
+    throw new EpaperConflictError('Revision initialization failed. Delete the failed draft and retry from the published issue.');
+  }
 }
 
 export async function invalidateEpaperQa(input: {
@@ -49,7 +56,7 @@ export async function invalidateEpaperQa(input: {
   pageNumbers?: number[];
 }) {
   const current = await EPaper.findById(input.epaperId)
-    .select('_id status productionStatus qaCompletedAt version')
+    .select('_id status productionStatus revisionInitializationStatus qaCompletedAt version')
     .lean();
   if (!current) return { changed: false, fromStatus: null, toStatus: null };
 

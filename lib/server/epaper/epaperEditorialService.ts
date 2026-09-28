@@ -518,7 +518,7 @@ export class EpaperEditorialService {
     if (!edition) throw new EpaperNotFoundError();
 
     // Draft immutability & protection: published editions or current revisions cannot be deleted
-    assertEpaperDraftEditable(edition);
+    assertEpaperDraftEditable(edition, { allowFailedInitialization: true });
     if (edition.isCurrentRevision) {
       throw new EpaperConflictError('Current published revision cannot be deleted.');
     }

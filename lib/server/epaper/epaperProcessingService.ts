@@ -53,7 +53,7 @@ export class EpaperProcessingService {
 
   async retry(actor: AdminSessionIdentity, id: string, body: unknown) {
     this.authorize(actor); this.assertId(id); await this.repo.connect();
-    const paper = await this.repo.findEditionById(id, '_id publicationType citySlug status pageCount pages productionStatus');
+    const paper = await this.repo.findEditionById(id, '_id publicationType citySlug status pageCount pages productionStatus revisionInitializationStatus');
     if (!paper) throw new EpaperNotFoundError('E-paper not found.');
     assertEpaperDraftEditable(paper);
     const citySlug = shouldUseGlobalPublicationScope(paper.publicationType) ? undefined : String(paper.citySlug || '');

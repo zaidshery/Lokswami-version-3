@@ -79,7 +79,7 @@ export class EpaperArticleService {
     if (PROTECTED_EPAPER_AUTOMATION_IDS.has(id.toLowerCase())) {
       throw new EpaperConflictError('This preserved QA edition cannot receive stories.');
     }
-    const paper = await this.repo.findEditionById(id, '_id pageCount pages title cityName publishDate status productionStatus');
+    const paper = await this.repo.findEditionById(id, '_id pageCount pages title cityName publishDate status productionStatus revisionInitializationStatus');
     if (!paper) throw new EpaperNotFoundError();
     try { assertEpaperDraftEditable(paper); } catch (error) {
       throw new EpaperConflictError(error instanceof Error ? error.message : 'Edition is immutable.');

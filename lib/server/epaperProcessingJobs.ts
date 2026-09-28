@@ -376,6 +376,12 @@ export async function processClaimedJob(
   if (!epaper) {
     return abortStaleJob('EPAPER_SOURCE_INVALID: E-paper not found.', 'failed');
   }
+  if (
+    epaper.revisionInitializationStatus === 'initializing' ||
+    epaper.revisionInitializationStatus === 'failed'
+  ) {
+    return abortStaleJob('EPAPER_REVISION_INCOMPLETE: Revision initialization must complete before processing.');
+  }
 
   // 2. Draft immutability: published or archived editions can NEVER be modified
   const currentStatus = String(epaper.status || '').toLowerCase();

@@ -161,7 +161,7 @@ export async function updateEpaperArticleById(
   }
 
   const parentEpaper = await EPaper.findById(current.epaperId)
-    .select('_id status productionStatus pageCount pages')
+    .select('_id status productionStatus revisionInitializationStatus pageCount pages')
     .lean();
   if (!parentEpaper) {
     return {
@@ -313,7 +313,7 @@ export async function deleteEpaperArticleById(
   }
 
   const parent = await EPaper.findById(existing.epaperId)
-    .select('_id status productionStatus pages')
+    .select('_id status productionStatus revisionInitializationStatus pages')
     .lean();
   if (!parent) {
     return {

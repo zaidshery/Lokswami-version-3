@@ -53,7 +53,9 @@ export async function queueEpaperOcr(
     PROTECTED_EPAPER_AUTOMATION_IDS.has(epaperId.toLowerCase()) ||
     paper.status !== 'draft' ||
     paper.productionStatus === 'published' ||
-    paper.productionStatus === 'archived'
+    paper.productionStatus === 'archived' ||
+    paper.revisionInitializationStatus === 'initializing' ||
+    paper.revisionInitializationStatus === 'failed'
   ) return [];
   const jobs: string[] = [];
 
@@ -76,11 +78,15 @@ export async function queueEpaperOcr(
     const job = await EPaperProcessingJob.findOneAndUpdate(
       identity,
       {
+        // The source key identifies this exact revision/generation. Repair old
+        // jobs on reuse without resetting their status, lease, or OCR results.
+        $set: {
+          generation: paper.processingGeneration || '',
+          revisionNumber: paper.revisionNumber || 1,
+        },
         $setOnInsert: {
           ...identity,
           epaperId,
-          generation: paper.processingGeneration || '',
-          revisionNumber: paper.revisionNumber || 1,
           pageNumbers: [page.pageNumber],
           sourceImagePath: page.imagePath,
           totalItems: 1,
@@ -149,6 +155,7 @@ export async function processQueuedEpaperOcrJobs() {
     const eligiblePaperQuery = {
       status: 'draft',
       productionStatus: { ['\u0024nin']: ['published', 'archived'] },
+      revisionInitializationStatus: { $nin: ['initializing', 'failed'] },
       _id: { ['\u0024nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
       ...(allowlist.length ? {
         $or: [{ publicationType: 'emagazine' }, { citySlug: { $in: allowlist } }],
@@ -219,6 +226,8 @@ export async function processQueuedEpaperOcrJobs() {
       paper.status === 'draft' &&
       paper.productionStatus !== 'published' &&
       paper.productionStatus !== 'archived' &&
+      paper.revisionInitializationStatus !== 'initializing' &&
+      paper.revisionInitializationStatus !== 'failed' &&
       (!job.generation || paper.processingGeneration === job.generation) &&
       (!job.revisionNumber || paper.revisionNumber === job.revisionNumber) &&
       page &&

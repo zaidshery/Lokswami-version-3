@@ -39,6 +39,69 @@ describe('E-Paper OCR Coordination, Idempotency & Lifecycle (Phase 3.9D)', () =>
   });
 
   describe('queueEpaperOcr', () => {
+    it('repairs legacy revision metadata on reuse without resetting the lease or results', async () => {
+      const paper = {
+        _id: '665000000000000000000020', status: 'draft',
+        productionStatus: 'pages_ready', revisionNumber: 2,
+        processingGeneration: 'generation-2',
+        pages: [{ pageNumber: 1, imagePath: '/p1.jpg', pageType: 'editorial' }],
+      };
+      vi.spyOn(EPaper, 'findById').mockReturnValue({
+        lean: vi.fn().mockResolvedValue(paper),
+      } as never);
+      const existing = { _id: 'legacy-job', revisionNumber: 1, generation: '',
+        status: 'processing', leaseOwner: 'current-worker', checkpoint: [{ title: 'Existing result' }] };
+      const upsert = vi.spyOn(EPaperProcessingJob, 'findOneAndUpdate').mockImplementation(
+        (_query: unknown, update: unknown) => {
+          Object.assign(existing, (update as { $set: object }).$set);
+          return Promise.resolve(existing) as never;
+        }
+      );
+      await expect(queueEpaperOcr(String(paper._id))).resolves.toEqual(['legacy-job']);
+      expect(existing).toEqual(expect.objectContaining({
+        revisionNumber: 2, generation: 'generation-2', status: 'processing',
+        leaseOwner: 'current-worker', checkpoint: [{ title: 'Existing result' }],
+      }));
+      const update = upsert.mock.calls[0][1] as { $set: object; $setOnInsert: object };
+      expect(update.$set).toEqual({ revisionNumber: 2, generation: 'generation-2' });
+      expect(update.$setOnInsert).not.toHaveProperty('revisionNumber');
+      expect(update.$setOnInsert).not.toHaveProperty('generation');
+    });
+
+    it.each(['initializing', 'failed'])('does not queue OCR on a %s revision', async (revisionInitializationStatus) => {
+      vi.spyOn(EPaper, 'findById').mockReturnValue({
+        lean: vi.fn().mockResolvedValue({
+          status: 'draft', productionStatus: 'hotspot_mapping', revisionInitializationStatus,
+          pages: [{ pageNumber: 1, imagePath: '/p1.jpg' }],
+        }),
+      } as never);
+      const createJob = vi.spyOn(EPaperProcessingJob, 'findOneAndUpdate');
+      await expect(queueEpaperOcr('665000000000000000000020')).resolves.toEqual([]);
+      expect(createJob).not.toHaveBeenCalled();
+    });
+
+    it('repairs cancelled legacy metadata before explicitly retrying the job', async () => {
+      vi.spyOn(EPaper, 'findById').mockReturnValue({
+        lean: vi.fn().mockResolvedValue({
+          status: 'draft', productionStatus: 'pages_ready', revisionNumber: 2,
+          processingGeneration: 'generation-2',
+          pages: [{ pageNumber: 1, imagePath: '/p1.jpg' }],
+        }),
+      } as never);
+      const upsert = vi.spyOn(EPaperProcessingJob, 'findOneAndUpdate').mockResolvedValue({
+        _id: 'legacy-cancelled', status: 'cancelled',
+      } as never);
+      const retry = vi.spyOn(EPaperProcessingJob, 'updateOne').mockResolvedValue({ modifiedCount: 1 } as never);
+      await queueEpaperOcr('665000000000000000000020', [1], true);
+      expect(upsert).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
+        $set: { revisionNumber: 2, generation: 'generation-2' },
+      }), expect.any(Object));
+      expect(retry).toHaveBeenCalledWith(expect.objectContaining({
+        status: { $in: ['failed', 'completed_with_errors', 'cancelled'] },
+      }), expect.objectContaining({ $set: expect.objectContaining({ status: 'queued', attemptCount: 0 }) }));
+      expect(upsert.mock.invocationCallOrder[0]).toBeLessThan(retry.mock.invocationCallOrder[0]);
+    });
+
     it('queues OCR jobs only for eligible editorial pages and skips failed or non-editorial pages', async () => {
       const mockEdition = {
         _id: '665000000000000000000020',
