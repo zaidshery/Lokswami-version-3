@@ -41,11 +41,12 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(menu).toHaveAttribute('aria-controls', 'mobile-drawer');
       expect(menu.className).not.toContain('hidden');
       expect(screen.getByLabelText('Lokswami Home')).toHaveAttribute('href', '/main');
-      const epaper = screen.getByRole('link', { name: /ई-पेपर पढ़ें|Read E-Paper/i });
+      const epaper = screen.getByLabelText('E-Paper');
       expect(epaper).toHaveAttribute('href', '/main/epaper');
       expect(epaper.className).not.toContain('hidden');
-      const language = screen.getByRole('group', { name: /भाषा चयन|Language selection/i });
-      expect(language.className).not.toContain('hidden');
+      const language = screen.getByTestId('reader-mobile-language');
+      expect(language).toHaveTextContent('HI');
+      expect(language.className).toContain('md:hidden');
       expect(screen.getByRole('link', { name: /समाचार खोजें|Search news/i })).toHaveAttribute('href', '/main/search');
       const strip = screen.getByTestId('reader-category-bar').firstElementChild!;
       expect(strip.className).toContain('overflow-x-auto');
@@ -61,6 +62,34 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(en).toHaveAttribute('aria-pressed', 'true');
       fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
       expect(useAppStore.getState().isMobileMenuOpen).toBe(true);
+    });
+
+    it('uses one mobile language action that toggles both directions', () => {
+      render(<Header />);
+      const toggle = screen.getByTestId('reader-mobile-language');
+      expect(toggle).toHaveAccessibleName('Language: HI. Switch to English');
+      fireEvent.click(toggle);
+      expect(toggle).toHaveTextContent('EN');
+      expect(useAppStore.getState().language).toBe('en');
+      fireEvent.click(toggle);
+      expect(useAppStore.getState().language).toBe('hi');
+      expect(toggle.className).toContain('h-10');
+      expect(toggle.className).toContain('w-10');
+    });
+
+    it('uses the canonical proportional wordmark and compact mobile E-Paper action', () => {
+      render(<Header />);
+      const logo = screen.getByLabelText('Lokswami Home').querySelector('img')!;
+      expect(logo.getAttribute('src')).toContain('logo-wordmark-final.png');
+      expect(logo).toHaveAttribute('width', '847');
+      expect(logo).toHaveAttribute('height', '181');
+      expect(logo.className).toContain('h-auto');
+      expect(logo.closest('[data-logo-element="wordmark"]')?.className).toContain('w-[120px]');
+      const epaper = screen.getByLabelText('E-Paper');
+      expect(epaper.querySelector('svg')).toBeInTheDocument();
+      expect(epaper.querySelector('span')?.className).toContain('hidden');
+      expect(epaper.className).toContain('h-10');
+      expect(epaper.className).toContain('md:bg-brand-500');
     });
 
     it('preserves desktop account and theme actions', () => {

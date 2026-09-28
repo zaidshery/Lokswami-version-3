@@ -81,34 +81,41 @@ export default function Header() {
     <header data-testid="reader-brand-navigation" className="relative z-40 w-full border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md transition-colors duration-500 dark:border-zinc-800 dark:bg-[#0e0e12]/95">
       <div className="relative w-full min-w-0 px-2 min-[380px]:px-2.5 min-[412px]:px-3 sm:px-5 md:px-8">
         <div className="relative flex h-14 min-w-0 items-center justify-between gap-1 sm:h-16 sm:gap-3">
-          <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-2">
+          <div className="flex min-w-0 shrink-0 items-center gap-0 min-[360px]:gap-1 md:gap-2">
             <button type="button" onClick={toggleMobileMenu}
               className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               aria-label={language === 'hi' ? 'मेनू खोलें' : 'Open menu'}
               aria-controls="mobile-drawer" aria-expanded={isMobileMenuOpen}>
               <Menu className="h-5 w-5" />
             </button>
-            <Link href="/main" aria-label="Lokswami Home" className="editorial-focus-ring inline-flex w-[76px] shrink-0 items-center rounded-sm min-[360px]:w-[100px] sm:w-[154px] lg:w-[208px]">
-              <LogoWordmark size="headerDesktop" className="w-full" />
+            <Link href="/main" aria-label="Lokswami Home" className="editorial-focus-ring inline-flex shrink-0 items-center rounded-sm">
+              <LogoWordmark size="headerDesktop" responsiveHeader />
             </Link>
           </div>
 
-          <div className="relative ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-2">
+          <div className="relative ml-auto flex shrink-0 items-center justify-end gap-1 md:gap-2">
             {/* Required actions remain visible at every width. */}
             <Link
               href="/main/epaper"
-              className="cnp-motion editorial-focus-ring inline-flex h-11 min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border border-brand-500/30 bg-brand-500 px-1.5 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-600 active:scale-95 dark:border-brand-500/40 sm:px-3 order-0"
-              aria-label={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
+              className="editorial-focus-ring inline-flex h-10 w-10 min-w-[40px] shrink-0 items-center justify-center gap-1.5 rounded-lg text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40 md:h-11 md:w-auto md:rounded-xl md:border md:border-brand-500/30 md:bg-brand-500 md:px-3 md:text-xs md:font-semibold md:text-white md:shadow-sm md:hover:bg-brand-600 md:dark:text-white order-0"
+              aria-label="E-Paper"
+              title={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
             >
-              <Newspaper className="hidden h-3.5 w-3.5 shrink-0 sm:block" strokeWidth={2} />
-              <span className="leading-none tracking-normal">{language === 'hi' ? 'ई-पेपर' : 'e-Paper'}</span>
+              <Newspaper className="h-5 w-5 shrink-0 md:h-4 md:w-4" strokeWidth={2} />
+              <span className="hidden leading-none tracking-normal md:inline">{language === 'hi' ? 'ई-पेपर' : 'E-Paper'}</span>
             </Link>
 
-            {/* One language selector across all breakpoints. */}
+            {/* One app-style mobile action; segmented controls start at tablet width. */}
+            <button type="button" onClick={() => setLanguage(language === 'hi' ? 'en' : 'hi')}
+              data-testid="reader-mobile-language"
+              aria-label={language === 'hi' ? 'Language: HI. Switch to English' : 'Language: EN. Switch to Hindi'}
+              className="editorial-focus-ring inline-flex h-10 w-10 !min-w-[40px] shrink-0 items-center justify-center rounded-lg text-xs font-bold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 md:hidden order-1">
+              {language === 'hi' ? 'HI' : 'EN'}
+            </button>
             <div
               role="group"
               aria-label={language === 'hi' ? 'भाषा चयन' : 'Language selection'}
-              className="inline-flex h-11 items-center rounded-xl border border-zinc-200/90 bg-zinc-100/90 p-0.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90 order-1"
+              className="hidden h-11 items-center rounded-xl border border-zinc-200/90 bg-zinc-100/90 p-0.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90 md:inline-flex order-1"
             >
               <button
                 type="button"

@@ -62,7 +62,6 @@ export function MobileHeaderLogoIcon({ className = '' }: MobileHeaderLogoIconPro
 /** Standalone targetable 'लो' Logo Emblem component */
 export function LogoIcon({
   size = 'md',
-  variant: _variant = 'standard',
   className = '',
   priority,
 }: LogoIconProps) {
@@ -97,7 +96,11 @@ export interface LogoWordmarkProps {
   variant?: 'standard' | 'white' | 'dark';
   className?: string;
   priority?: boolean;
+  /** Header-only sizing uses the real asset ratio and leaves other logo placements unchanged. */
+  responsiveHeader?: boolean;
 }
+
+export const LOKSWAMI_WORDMARK = { src: '/logo-wordmark-final.png', width: 847, height: 181 } as const;
 
 /** Standalone targetable 'लोकस्वामी' Wordmark component */
 export function LogoWordmark({
@@ -105,6 +108,7 @@ export function LogoWordmark({
   variant = 'standard',
   className = '',
   priority,
+  responsiveHeader = false,
 }: LogoWordmarkProps) {
   const sizeConfig = LOGO_SIZES[size];
   const isPriority = priority ?? (size === 'headerCompact' || size === 'headerMobile' || size === 'headerDesktop');
@@ -119,37 +123,37 @@ export function LogoWordmark({
   return (
     <span
       data-logo-element="wordmark"
-      className={`lokswami-logo-wordmark relative inline-flex items-center justify-center overflow-hidden ${className}`}
+      className={`lokswami-logo-wordmark relative inline-flex shrink-0 items-center justify-center ${responsiveHeader ? 'w-[120px] min-[360px]:w-[136px] min-[390px]:w-[144px] md:w-[172px] lg:w-[208px] overflow-visible' : 'overflow-hidden'} ${className}`}
       style={{ transform: `translateY(${sizeConfig.wordmarkY}px)` }}
     >
       <div
-        className={`relative block max-w-full ${maxWClass}`}
+        className={`relative block max-w-full ${responsiveHeader ? 'w-full' : maxWClass}`}
         style={{
-          width: `${sizeConfig.wordmarkW}px`,
-          height: `${sizeConfig.wordmarkH}px`,
+          width: responsiveHeader ? '100%' : `${sizeConfig.wordmarkW}px`,
+          height: responsiveHeader ? 'auto' : `${sizeConfig.wordmarkH}px`,
           maxWidth: '100%',
         }}
       >
         <Image
-          src="/logo-wordmark-final.png"
+          src={LOKSWAMI_WORDMARK.src}
           alt="Lokswami"
-          width={sizeConfig.wordmarkW}
-          height={sizeConfig.wordmarkH}
-          className={`block h-full w-full object-contain ${variant === 'white'
+          width={responsiveHeader ? LOKSWAMI_WORDMARK.width : sizeConfig.wordmarkW}
+          height={responsiveHeader ? LOKSWAMI_WORDMARK.height : sizeConfig.wordmarkH}
+          className={`block ${responsiveHeader ? 'h-auto' : 'h-full'} w-full object-contain ${variant === 'white'
             ? 'brightness-0 invert'
             : variant === 'dark'
               ? 'brightness-0'
               : 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)] dark:brightness-0 dark:invert'
             }`}
           priority={isPriority}
-          sizes="(max-width: 639px) 154px, (max-width: 1023px) 172px, 208px"
+          sizes={responsiveHeader ? '(min-width: 1024px) 208px, (min-width: 768px) 172px, (min-width: 390px) 144px, (min-width: 360px) 136px, 120px' : '(max-width: 639px) 154px, (max-width: 1023px) 172px, 208px'}
         />
       </div>
 
-      <span
+      {!responsiveHeader ? <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 -left-1/3 hidden w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/70 to-transparent opacity-0 transition-all duration-700 motion-reduce:transition-none motion-safe:group-hover/logo:left-[125%] motion-safe:group-hover/logo:opacity-100 dark:via-zinc-200/35 md:block"
-      />
+      /> : null}
     </span>
   );
 }

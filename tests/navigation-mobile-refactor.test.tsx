@@ -41,7 +41,7 @@ describe('Mobile Layout Refactor', () => {
     render(<Header />);
 
     // E-Paper link exists in header
-    const epaperLink = screen.getByRole('link', { name: /ई-पेपर पढ़ें|Read E-Paper/i });
+    const epaperLink = screen.getByLabelText('E-Paper');
     expect(epaperLink).toBeInTheDocument();
     expect(epaperLink).toHaveAttribute('href', '/main/epaper');
 
