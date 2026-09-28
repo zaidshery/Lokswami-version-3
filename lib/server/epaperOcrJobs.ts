@@ -146,13 +146,15 @@ export async function processQueuedEpaperOcrJobs() {
       .map((value) => value.trim())
       .filter(Boolean);
 
-    const papers = await EPaper.find({
+    const eligiblePaperQuery = {
       status: 'draft',
       productionStatus: { ['\u0024nin']: ['published', 'archived'] },
       _id: { ['\u0024nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
-      isCurrentRevision: { $ne: false },
-      ...(allowlist.length ? { citySlug: { $in: allowlist } } : {}),
-    })
+      ...(allowlist.length ? {
+        $or: [{ publicationType: 'emagazine' }, { citySlug: { $in: allowlist } }],
+      } : {}),
+    };
+    const papers = await EPaper.find(eligiblePaperQuery)
       .sort({ updatedAt: -1 })
       .limit(20)
       .select('_id')
@@ -161,7 +163,11 @@ export async function processQueuedEpaperOcrJobs() {
     for (const paper of papers) {
       await queueEpaperOcr(String(paper._id));
     }
-    const allowedIds = papers.map((paper) => paper._id);
+    // The small queue-maintenance batch must not define claim eligibility:
+    // otherwise older queued revisions can starve behind the first 20 papers.
+    const allowedIds = allowlist.length
+      ? await EPaper.distinct('_id', eligiblePaperQuery)
+      : [];
 
     const jobQuery: Record<string, unknown> = {
       kind: 'ocr',

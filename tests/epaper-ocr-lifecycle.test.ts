@@ -130,6 +130,34 @@ describe('E-Paper OCR Coordination, Idempotency & Lifecycle (Phase 3.9D)', () =>
   });
 
   describe('processQueuedEpaperOcrJobs - Execution, Deduplication & Generation Safety', () => {
+    it('allows monthly magazines and non-current draft revisions under city-scoped OCR without batch starvation', async () => {
+      vi.stubEnv('EPAPER_LOCAL_OCR_CITY_ALLOWLIST', 'indore');
+      Object.defineProperty(mongoose.connection, 'db', {
+        value: { collection: () => ({
+          updateOne: vi.fn().mockResolvedValue({ acknowledged: true }),
+          deleteOne: vi.fn().mockResolvedValue({ acknowledged: true }),
+        }) },
+        configurable: true, writable: true,
+      });
+      const find = vi.spyOn(EPaper, 'find').mockReturnValue({
+        sort: () => ({ limit: () => ({ select: () => ({ lean: async () => [] }) }) }),
+      } as never);
+      const distinct = vi.spyOn(EPaper, 'distinct').mockResolvedValue(['older-monthly-draft'] as never);
+      const claim = vi.spyOn(EPaperProcessingJob, 'findOneAndUpdate').mockResolvedValue(null);
+      await processQueuedEpaperOcrJobs();
+      expect(find).toHaveBeenCalledWith(expect.objectContaining({
+        status: 'draft',
+        $or: [{ publicationType: 'emagazine' }, { citySlug: { $in: ['indore'] } }],
+      }));
+      const query = (find.mock.calls as unknown as unknown[][])[0][0];
+      expect(query).not.toHaveProperty('isCurrentRevision');
+      expect(distinct).toHaveBeenCalledWith('_id', query);
+      expect(claim).toHaveBeenCalledWith(
+        expect.objectContaining({ epaperId: { $in: ['older-monthly-draft'] } }),
+        expect.any(Object), expect.any(Object),
+      );
+      vi.unstubAllEnvs();
+    });
     it('claims a queued job, runs isolated OCR, deduplicates suggestions, and marks completed', async () => {
       const mockJob = {
         _id: 'ocr-job-1',
