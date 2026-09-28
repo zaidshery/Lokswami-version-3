@@ -2,27 +2,25 @@
 
 import dynamic from 'next/dynamic';
 import {
-  useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
-  type CSSProperties,
 } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
   BookOpen,
   CalendarDays,
-  Clock3,
 } from 'lucide-react';
 import HomepageTopPackage from '@/components/home/HomepageTopPackage';
-import NewsCard from '@/components/ui/NewsCard';
+import Container from '@/components/layout/Container';
+import CategorySection from '@/components/home/CategorySection';
+import HomeVideosSection from '@/components/home/HomeVideosSection';
+import { selectHomepageCategories, type HomepageDiscovery } from '@/lib/content/homepageDiscovery';
 import ReaderImage from '@/components/ui/ReaderImage';
 import DesktopHeroEpaperCard from '@/components/ui/DesktopHeroEpaperCard';
 import HomeShortsSection from '@/components/video/HomeShortsSection';
 import type { Article } from '@/lib/mock/data';
-import { categoryMatches } from '@/lib/content/liveArticles';
 import {
   fetchHomeFeedForHomePage,
   type HomePageEpaperPreview,
@@ -32,12 +30,6 @@ import {
   fetchPublicArticlesPage,
   mapPublicArticlesToUiArticles,
 } from '@/lib/content/publicArticles';
-import {
-  getNewsCategoryHref,
-  NEWS_CATEGORY_DEFINITIONS,
-  type NewsCategory,
-  resolveNewsCategory,
-} from '@/lib/constants/newsCategories';
 import { useAppStore } from '@/lib/store/appStore';
 import {
   buildArticleImageVariantUrl,
@@ -45,20 +37,6 @@ import {
 import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 import { formatUiDate } from '@/lib/utils/dateFormat';
 import { normalizePublicationIssueMonth } from '@/lib/utils/epaperPublication';
-
-function hexToRgba(hex?: string | null, alpha = 1) {
-  const cleaned = String(hex || '').replace('#', '').trim();
-  const normalized = cleaned.length === 3
-    ? cleaned.split('').map((token) => token + token).join('')
-    : cleaned;
-  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
-    return `rgba(249, 115, 22, ${alpha})`;
-  }
-  const r = Number.parseInt(normalized.slice(0, 2), 16);
-  const g = Number.parseInt(normalized.slice(2, 4), 16);
-  const b = Number.parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
 
 function formatDesktopHeroDate(value: string | undefined, language: 'en' | 'hi') {
   if (!value) return '';
@@ -153,10 +131,6 @@ function buildHomepageRail(
   return combined.slice(0, Math.max(0, limit));
 }
 
-const CATEGORY_INITIAL_STORIES_COUNT = 4;
-const CATEGORY_STORIES_PAGE_STEP = 4;
-const CATEGORY_FETCH_LIMIT = 12;
-const CATEGORY_VIEWPORT_ROOT_MARGIN = '700px 0px';
 const HOME_EPAPER_CITY_SLUG = 'indore';
 const HI_EPAPER_CITY_LABELS: Record<string, string> = {
   indore: '\u0907\u0902\u0926\u094c\u0930',
@@ -171,6 +145,7 @@ type HomeEpaperResponse = {
 
 type HomePageProps = {
   initialHomeFeed?: HomePageFeedState | null;
+  initialDiscovery?: HomepageDiscovery | null;
 };
 
 function isIndoreEpaperPreview(paper: HomePageEpaperPreview | null | undefined) {
@@ -179,19 +154,6 @@ function isIndoreEpaperPreview(paper: HomePageEpaperPreview | null | undefined) 
   const cityName = String(paper.cityName || '').trim().toLowerCase();
   return citySlug === HOME_EPAPER_CITY_SLUG || (!citySlug && cityName === 'indore');
 }
-
-type CategorySectionViewModel = {
-  slug: string;
-  category: NewsCategory | undefined;
-  items: Article[];
-  accent: string;
-};
-
-type ArticleTileProps = {
-  article: Article;
-  language: 'en' | 'hi';
-  priority?: boolean;
-};
 
 type PublicationPromoCard = {
   href: string;
@@ -286,51 +248,6 @@ function LiveUpdateStory({
   );
 }
 
-function HeadlineImageCard({
-  article,
-  language,
-  priority = false,
-}: ArticleTileProps) {
-  if (!article || !article.id) return null;
-
-  const href = buildArticlePublicPath({ id: article.id, slug: article.slug });
-  const timeLabel = formatDesktopHeroDate(article.publishedAt, language);
-
-  return (
-    <Link
-      href={href}
-      className="reader-focus-ring group relative block h-full overflow-hidden rounded-xl border border-zinc-200/80 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-red-400/60 hover:shadow-[0_10px_28px_-6px_rgba(220,38,38,0.22)] dark:border-zinc-800 dark:bg-zinc-900/90 dark:hover:border-red-500/60"
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[2px] bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      <div className="newsroom-image-bg relative aspect-[16/9] overflow-hidden">
-        <ReaderImage
-          src={buildArticleImageVariantUrl(article.image, 'card')}
-          alt={article.title}
-          fill
-          priority={priority}
-          className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 767px) 100vw, (max-width: 1279px) 33vw, 360px"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/12 to-transparent" />
-        <span className="absolute right-2 top-2 max-w-[8.5rem] truncate rounded bg-red-700 px-2 py-1 text-[10px] font-black leading-none text-white">
-          {article.category}
-        </span>
-      </div>
-      <div className="flex min-h-[112px] flex-col p-3">
-        <h3 className="newsroom-card-title-match newsroom-heading line-clamp-2 min-h-[2.65rem] transition group-hover:text-red-600 dark:group-hover:text-red-400">
-          {article.title}
-        </h3>
-        <div className="newsroom-muted mt-auto flex min-w-0 items-center justify-between gap-2 pt-2 text-[11px] font-semibold">
-          <span className="inline-flex min-w-0 items-center gap-1">
-            <Clock3 className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{timeLabel}</span>
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 const NewsPoll = dynamic(() => import('@/components/ui/NewsPoll'), {
   ssr: false,
   loading: NewsPollFallback,
@@ -350,25 +267,6 @@ function NewsPollFallback() {
   );
 }
 
-
-function CategoryStoriesSkeleton() {
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {[0, 1].map((item) => (
-        <div
-          key={item}
-          className="newsroom-skeleton-card min-h-24 animate-pulse rounded-lg border"
-        >
-          <div className="space-y-2 p-4">
-            <div className="newsroom-skeleton-block h-3 w-20 rounded" />
-            <div className="newsroom-skeleton-block h-4 w-11/12 rounded" />
-            <div className="newsroom-skeleton-block h-4 w-8/12 rounded" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function MagazinePromoTile({ promo }: { promo: PublicationPromoCard }) {
   return (
@@ -439,140 +337,6 @@ function MagazinePromoTile({ promo }: { promo: PublicationPromoCard }) {
   );
 }
 
-function useNearViewport() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [isNearViewport, setIsNearViewport] = useState(false);
-
-  useEffect(() => {
-    if (isNearViewport) return;
-
-    const node = ref.current;
-    if (!node) return;
-
-    if (typeof IntersectionObserver === 'undefined') {
-      setIsNearViewport(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setIsNearViewport(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: CATEGORY_VIEWPORT_ROOT_MARGIN, threshold: 0.01 }
-    );
-
-    observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isNearViewport]);
-
-  return { ref, isNearViewport };
-}
-
-type LazyCategorySectionProps = {
-  section: CategorySectionViewModel;
-  language: 'en' | 'hi';
-  visibleCount: number;
-  onVisible: (slug: string) => void;
-  onShowMore: (slug: string, totalItems: number) => void;
-};
-
-function LazyCategorySection({
-  section,
-  language,
-  visibleCount,
-  onVisible,
-  onShowMore,
-}: LazyCategorySectionProps) {
-  const { ref, isNearViewport } = useNearViewport();
-  const categoryLabel = section.category
-    ? language === 'hi'
-      ? section.category.name
-      : section.category.nameEn
-    : section.slug;
-  const safeItems = Array.isArray(section?.items) ? section.items : [];
-  const visibleArticles = isNearViewport
-    ? safeItems.slice(0, visibleCount)
-    : [];
-  const hasMoreStories = isNearViewport && visibleCount < safeItems.length;
-  const categoryHref = getNewsCategoryHref(section.slug);
-  const headerStyle: CSSProperties = {
-    borderColor: hexToRgba(section.accent, 0.28),
-    boxShadow: `0 18px 55px -44px ${hexToRgba(section.accent, 0.75)}`,
-  };
-  const accentStyle: CSSProperties = {
-    backgroundColor: section.accent,
-  };
-
-  useEffect(() => {
-    if (isNearViewport) {
-      onVisible(section.slug);
-    }
-  }, [isNearViewport, onVisible, section.slug]);
-
-  return (
-    <div
-      ref={ref}
-      style={headerStyle}
-      className="newsroom-panel overflow-hidden rounded-lg border px-3 py-4 sm:px-5 sm:py-5 md:px-6"
-    >
-      <div className="newsroom-divider mb-3 flex flex-wrap items-center justify-between gap-2 border-b pb-3 sm:mb-4 sm:pb-4">
-        <div className="min-w-0">
-          <h2 className="newsroom-heading flex items-center gap-2 text-[1.05rem] font-black sm:text-2xl">
-            <span style={accentStyle} className="h-5 w-1 rounded-sm sm:h-6 sm:w-1.5" />
-            <span className="truncate">{categoryLabel}</span>
-          </h2>
-          <p className="newsroom-muted mt-1 text-xs font-medium sm:text-sm">
-            {language === 'hi'
-              ? '\u0938\u092c\u0938\u0947 \u0928\u0908 \u092a\u094d\u0930\u0915\u093e\u0936\u093f\u0924 \u0916\u092c\u0930\u0947\u0902'
-              : 'Top latest published stories'}
-          </p>
-        </div>
-        <Link
-          href={categoryHref}
-          className="reader-touch-link reader-focus-ring newsroom-soft-button inline-flex min-h-10 items-center gap-1 rounded-md border px-3 py-2 text-[11px] font-semibold transition sm:text-sm"
-        >
-          {language === 'hi' ? '\u0936\u094d\u0930\u0947\u0923\u0940 \u0926\u0947\u0916\u0947\u0902' : 'View Category'}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </div>
-
-      {!isNearViewport ? (
-        <CategoryStoriesSkeleton />
-      ) : visibleArticles.length ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {visibleArticles.map((article, index) => (
-            <NewsCard key={article.id} article={article} size="sm" index={index} />
-          ))}
-        </div>
-      ) : (
-        <div className="newsroom-empty rounded-lg border border-dashed px-4 py-8 text-center text-sm font-medium">
-          {language === 'hi'
-            ? '\u0907\u0938 \u0936\u094d\u0930\u0947\u0923\u0940 \u092e\u0947\u0902 \u0905\u092d\u0940 \u0915\u094b\u0908 \u0924\u093e\u091c\u093c\u093e \u0916\u092c\u0930 \u0928\u0939\u0940\u0902 \u0939\u0948.'
-            : 'No latest stories are published in this category yet.'}
-        </div>
-      )}
-
-      {hasMoreStories ? (
-        <div className="flex justify-center pt-4 sm:pt-5">
-          <button
-            type="button"
-            onClick={() => onShowMore(section.slug, section.items.length)}
-            className="reader-touch-button reader-focus-ring newsroom-soft-button min-h-12 w-full rounded-md border px-6 py-3 text-[13px] font-semibold transition-all hover:-translate-y-0.5 sm:w-auto sm:px-8 sm:text-sm"
-          >
-            Load more Stories
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 async function fetchLatestPublicationPreview(
   publicationType: 'epaper' | 'emagazine'
 ): Promise<HomePageEpaperPreview | null> {
@@ -614,7 +378,7 @@ function fetchLatestEmagazinePreview() {
   return fetchLatestPublicationPreview('emagazine');
 }
 
-export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
+export default function HomePage({ initialHomeFeed = null, initialDiscovery = null }: HomePageProps) {
   const { language } = useAppStore();
 
   const [isFeedLoading, setIsFeedLoading] = useState(!initialHomeFeed?.articles?.length);
@@ -630,10 +394,6 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
   const hasInitialArticles = Boolean(initialHomeFeed?.articles?.length);
   const hasInitialEpaper = isIndoreEpaperPreview(initialHomeFeed?.epaper);
   const hasInitialEmagazine = Boolean(initialHomeFeed?.emagazine);
-  const [visibleCategoryStoryCounts, setVisibleCategoryStoryCounts] = useState<Record<string, number>>({});
-  const [categoryArticlesBySlug, setCategoryArticlesBySlug] = useState<Record<string, Article[]>>({});
-  const requestedCategorySlugsRef = useRef<Set<string>>(new Set());
-  const categoryRequestGenerationRef = useRef(0);
   const latestPublishedArticles = useMemo(() => {
     const safeSource = (Array.isArray(feedArticles) ? feedArticles : []).filter(
       (a): a is Article => Boolean(a && typeof a === 'object' && a.id)
@@ -654,65 +414,10 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
     [latestPublishedArticles]
   );
 
-  const categorySections = useMemo(() => {
-    return NEWS_CATEGORY_DEFINITIONS.map((definition) => {
-      const slug = definition.slug;
-      const category = resolveNewsCategory(slug);
-      const fetchedItems = Array.isArray(categoryArticlesBySlug[slug]) ? categoryArticlesBySlug[slug] : [];
-      const feedItems = latestPublishedArticles.filter(
-        (article) => article && categoryMatches(article.category, slug, NEWS_CATEGORY_DEFINITIONS)
-      );
-      const rawItems = fetchedItems.length ? fetchedItems : feedItems;
-      const items = (Array.isArray(rawItems) ? rawItems : [])
-        .filter((a): a is Article => Boolean(a && a.id))
-        .slice(0, CATEGORY_FETCH_LIMIT);
-
-      return {
-        slug,
-        category,
-        items,
-        accent: category?.color || '#F97316',
-      };
-    });
-  }, [categoryArticlesBySlug, latestPublishedArticles]);
-
-
-
-  const loadCategoryStories = useCallback((slug: string) => {
-    if (requestedCategorySlugsRef.current.has(slug)) return;
-    requestedCategorySlugsRef.current.add(slug);
-    const generation = categoryRequestGenerationRef.current;
-
-    void (async () => {
-      const page = await fetchPublicArticlesPage({
-        category: slug,
-        limit: CATEGORY_FETCH_LIMIT,
-      });
-      const articles = page
-        ? mapPublicArticlesToUiArticles(page.items).sort(
-          (a, b) => getPublishedTimestamp(b) - getPublishedTimestamp(a)
-        )
-        : [];
-
-      if (generation !== categoryRequestGenerationRef.current) return;
-
-      setCategoryArticlesBySlug((current) => ({
-        ...current,
-        [slug]: articles,
-      }));
-    })();
-  }, []);
-
-  const showMoreCategoryStories = useCallback((slug: string, totalItems: number) => {
-    setVisibleCategoryStoryCounts((current) => {
-      const visibleCount = current[slug] || CATEGORY_INITIAL_STORIES_COUNT;
-
-      return {
-        ...current,
-        [slug]: Math.min(visibleCount + CATEGORY_STORIES_PAGE_STEP, totalItems),
-      };
-    });
-  }, []);
+  const categorySections = useMemo(
+    () => selectHomepageCategories(latestPublishedArticles, initialDiscovery?.categoryArticles),
+    [latestPublishedArticles, initialDiscovery?.categoryArticles]
+  );
 
   useEffect(() => {
     let active = true;
@@ -769,13 +474,6 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
       active = false;
     };
   }, [hasInitialArticles, hasInitialEpaper, hasInitialEmagazine]);
-
-  useEffect(() => {
-    setVisibleCategoryStoryCounts({});
-    setCategoryArticlesBySlug({});
-    requestedCategorySlugsRef.current.clear();
-    categoryRequestGenerationRef.current += 1;
-  }, [feedArticles]);
 
   const epaperHref = (() => {
     if (!latestEpaper) return '/main/epaper';
@@ -887,29 +585,14 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
 
   return (
     <div className="newsroom-home relative -mx-3 -mt-4 pb-6 [--section-gap:0.9rem] sm:-mx-5 sm:[--section-gap:1rem] lg:-mx-6 lg:[--section-gap:1.1rem] xl:-mx-8">
-      <div className="mx-auto w-full max-w-[98rem] px-3 py-3 sm:px-4 lg:px-5">
+      <Container variant="wide" className="py-3">
         <HomepageTopPackage articles={latestPublishedArticles} language={language} loading={isFeedLoading} />
 
         <section className="mt-[var(--section-gap)] grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.40fr)]">
-          <div className="space-y-4">
-            <HomeShortsSection shorts={initialHomeFeed?.shorts} language={language} />
-
-            <div>
-              <NewsroomSectionHeader
-                title={getSectionCopy(language, '\u0924\u093e\u091c\u093e \u0914\u0930 \u092e\u0941\u0916\u094d\u092f \u0916\u092c\u0930\u0947\u0902', 'Top Story')}
-                href="/main/latest"
-                cta={getSectionCopy(language, '\u0938\u092d\u0940 \u0926\u0947\u0916\u0947\u0902', 'View All')}
-              />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {latestPublishedArticles.slice(0, 6).map((article) => (
-                  <HeadlineImageCard
-                    key={article.id}
-                    article={article}
-                    language={language}
-                  />
-                ))}
-              </div>
-            </div>
+          <div className="min-w-0 space-y-4">
+            {categorySections.map((section) => <CategorySection key={section.category.slug} {...section} language={language} />)}
+            <HomeVideosSection videos={initialDiscovery?.videos || []} error={initialDiscovery?.videoError} language={language} />
+            <HomeShortsSection shorts={initialDiscovery?.shorts || []} language={language} />
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -940,23 +623,7 @@ export default function HomePage({ initialHomeFeed = null }: HomePageProps) {
           </aside>
         </section>
 
-        {categorySections.length ? (
-          <section className="relative mt-[var(--section-gap)] space-y-4 sm:space-y-5">
-            {categorySections.map((section) => (
-              <LazyCategorySection
-                key={section.slug}
-                section={section}
-                language={language}
-                visibleCount={
-                  visibleCategoryStoryCounts[section.slug] || CATEGORY_INITIAL_STORIES_COUNT
-                }
-                onVisible={loadCategoryStories}
-                onShowMore={showMoreCategoryStories}
-              />
-            ))}
-          </section>
-        ) : null}
-      </div>
+      </Container>
     </div>
   );
 }

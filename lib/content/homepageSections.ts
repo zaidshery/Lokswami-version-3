@@ -8,12 +8,12 @@ export type HomepageArticle = {
   isTrending?: boolean;
 };
 
-function timestamp(article: HomepageArticle) {
+function timestamp(article: Pick<HomepageArticle, 'publishedAt'>) {
   const value = Date.parse(article.publishedAt);
   return Number.isFinite(value) ? value : 0;
 }
 
-export function compareHomepageRecency(a: HomepageArticle, b: HomepageArticle) {
+export function compareHomepageRecency(a: Pick<HomepageArticle, 'id' | 'publishedAt'>, b: Pick<HomepageArticle, 'id' | 'publishedAt'>) {
   return timestamp(b) - timestamp(a) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
 }
 

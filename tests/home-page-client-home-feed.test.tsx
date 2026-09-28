@@ -318,137 +318,22 @@ describe('HomePageClient v1 home-feed integration', () => {
     expect(mocks.fetchMergedLiveArticles).not.toHaveBeenCalled();
   });
 
-  it('loads category stories only when a category section nears the viewport', async () => {
-    const HomePageClient = (await import('@/app/(reader)/main/HomePageClient'))
-      .default;
-
-    render(
-      createElement(HomePageClient, {
-        initialHomeFeed: {
-          articles: [
-            {
-              id: 'article-1',
-              slug: 'lead-story',
-              title: 'Lead Story From Feed',
-              summary: 'Lead summary',
-              image: '/lead.jpg',
-              category: 'Regional',
-              author: { id: 'desk', name: 'Desk', avatar: '/logo-icon-final.png' },
-              publishedAt: '2026-05-09T10:00:00.000Z',
-              views: 20,
-              isTrending: true,
-            },
-            {
-              id: 'article-2',
-              slug: 'latest-story',
-              title: 'Second Story From Feed',
-              summary: 'Latest summary',
-              image: '/latest.jpg',
-              category: 'National',
-              author: {
-                id: 'reporter',
-                name: 'Reporter',
-                avatar: '/logo-icon-final.png',
-              },
-              publishedAt: '2026-05-09T09:00:00.000Z',
-              views: 8,
-            },
-            {
-              id: 'article-3',
-              title: 'Third Story From Feed',
-              summary: 'Third summary',
-              image: '/third.jpg',
-              category: 'National',
-              author: {
-                id: 'reporter',
-                name: 'Reporter',
-                avatar: '/logo-icon-final.png',
-              },
-              publishedAt: '2026-05-09T08:00:00.000Z',
-              views: 7,
-            },
-            {
-              id: 'article-4',
-              title: 'Fourth Story From Feed',
-              summary: 'Fourth summary',
-              image: '/fourth.jpg',
-              category: 'National',
-              author: {
-                id: 'reporter',
-                name: 'Reporter',
-                avatar: '/logo-icon-final.png',
-              },
-              publishedAt: '2026-05-09T07:00:00.000Z',
-              views: 6,
-            },
-            {
-              id: 'article-5',
-              title: 'Fifth Story From Feed',
-              summary: 'Fifth summary',
-              image: '/fifth.jpg',
-              category: 'National',
-              author: {
-                id: 'reporter',
-                name: 'Reporter',
-                avatar: '/logo-icon-final.png',
-              },
-              publishedAt: '2026-05-09T06:00:00.000Z',
-              views: 5,
-            },
-            {
-              id: 'article-6',
-              title: 'Latest Story From Feed',
-              summary: 'Sixth summary',
-              image: '/sixth.jpg',
-              category: 'National',
-              author: {
-                id: 'reporter',
-                name: 'Reporter',
-                avatar: '/logo-icon-final.png',
-              },
-              publishedAt: '2026-05-09T05:00:00.000Z',
-              views: 4,
-            },
-          ],
-          epaper: {
-            _id: 'paper-1',
-            citySlug: 'indore',
-            cityName: 'Indore',
-            title: 'Indore Edition',
-            publishDate: '2026-05-09',
-            thumbnailPath: '/paper.jpg',
-            pageCount: 12,
-          },
-          emagazine: {
-            _id: 'magazine-1',
-            publicationType: 'emagazine',
-            citySlug: 'global',
-            cityName: 'Lokswami',
-            title: 'Lokswami E-Magazine',
-            publishDate: '2026-05-01',
-            thumbnailPath: '/magazine.jpg',
-            pageCount: 36,
-          },
-        },
-      })
-    );
-
-    await waitFor(() => expect(intersectionCallbacks.length).toBeGreaterThan(0));
+  it('renders server discovery categories immediately without viewport-triggered fetches', async () => {
+    const { default: HomePageClient } = await import('@/app/(reader)/main/HomePageClient');
+    const article = {
+      id: 'regional-public', slug: 'regional-public', title: 'Published Regional Story',
+      summary: 'Summary', image: '/image.jpg', category: 'Regional', views: 0,
+      publishedAt: '2026-01-01', author: { id: 'desk', name: 'Desk', avatar: '' },
+    };
+    render(createElement(HomePageClient, {
+      initialHomeFeed: { articles: [article], epaper: { _id: 'paper', citySlug: 'indore', cityName: 'Indore', title: 'Edition', publishDate: '2026-01-01', thumbnailPath: '', pageCount: 1 },
+        emagazine: { _id: 'magazine', citySlug: 'global', cityName: 'Lokswami', title: 'Issue', publishDate: '2026-01-01', thumbnailPath: '', pageCount: 1 } },
+      initialDiscovery: { categoryArticles: { regional: [article] }, videos: [], shorts: [], videoError: false },
+    }));
+    expect(screen.getByTestId('home-category-regional')).toHaveTextContent('Published Regional Story');
     expect(mocks.fetchPublicArticlesPage).not.toHaveBeenCalled();
-
-    act(() => {
-      intersectionCallbacks[0](
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        {} as IntersectionObserver
-      );
-    });
-
-    await waitFor(() =>
-      expect(mocks.fetchPublicArticlesPage).toHaveBeenCalledWith({
-        category: 'regional',
-        limit: 12,
-      })
-    );
-    expect(mocks.fetchPublicArticlesPage).toHaveBeenCalledTimes(1);
+    expect(intersectionCallbacks).toHaveLength(0);
+    expect(screen.queryByTestId('home-shorts-section')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('home-videos-section')).not.toBeInTheDocument();
   });
 });
