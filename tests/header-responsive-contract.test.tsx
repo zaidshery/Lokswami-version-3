@@ -70,25 +70,34 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(toggle).toHaveAccessibleName('Language: HI. Switch to English');
       fireEvent.click(toggle);
       expect(toggle).toHaveTextContent('EN');
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
       expect(useAppStore.getState().language).toBe('en');
       fireEvent.click(toggle);
       expect(useAppStore.getState().language).toBe('hi');
-      expect(toggle.className).toContain('h-10');
-      expect(toggle.className).toContain('w-10');
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      expect(toggle.querySelector('svg')).toBeInTheDocument();
+      expect(toggle.className).toContain('h-11');
+      expect(toggle.className).toContain('w-[42px]');
     });
 
     it('uses the canonical proportional wordmark and compact mobile E-Paper action', () => {
       render(<Header />);
-      const logo = screen.getByLabelText('Lokswami Home').querySelector('img')!;
+      const home = screen.getByLabelText('Lokswami Home');
+      const logo = home.querySelector('[data-logo-element="wordmark"] img')!;
+      const emblem = home.querySelector('[data-logo-element="icon"] img')!;
+      expect(emblem.getAttribute('src')).toContain('logo-header-cutout.png');
+      expect(home.querySelector('[data-logo-root]')).toBeInTheDocument();
       expect(logo.getAttribute('src')).toContain('logo-wordmark-final.png');
       expect(logo).toHaveAttribute('width', '847');
       expect(logo).toHaveAttribute('height', '181');
       expect(logo.className).toContain('h-auto');
-      expect(logo.closest('[data-logo-element="wordmark"]')?.className).toContain('w-[120px]');
+      expect(logo.closest('[data-logo-element="wordmark"]')).toHaveStyle({ width: 'var(--reader-logo-wordmark)' });
       const epaper = screen.getByLabelText('E-Paper');
       expect(epaper.querySelector('svg')).toBeInTheDocument();
-      expect(epaper.querySelector('span')?.className).toContain('hidden');
-      expect(epaper.className).toContain('h-10');
+      expect(epaper.querySelector('span')).toHaveTextContent('ePaper');
+      expect(epaper.querySelector('span')?.className).toContain('md:hidden');
+      expect(epaper.className).toContain('flex-col');
+      expect(epaper.className).toContain('h-11');
       expect(epaper.className).toContain('md:bg-brand-500');
     });
 

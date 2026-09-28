@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Volume2, VolumeX } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
-import ReaderHeaderContainer from '@/components/layout/ReaderHeaderContainer';
+import Container from '@/components/layout/Container';
 import { type BreakingNewsItem } from '@/lib/types/breaking';
 import styles from './BreakingNews.module.css';
 import { useBreakingNewsController } from './useBreakingNewsController';
@@ -126,11 +126,11 @@ export default function BreakingNews({
   return (
     <div
       data-testid="reader-live-bar"
-      className="relative z-[45] w-full bg-[#97131a] text-white"
+      className="relative z-[45] w-full bg-gradient-to-r from-[#7f1116] via-[#97131a] to-[#7f1116] shadow-[inset_0_-1px_0_rgba(255,255,255,0.08),inset_0_1px_0_rgba(0,0,0,0.28),0_8px_24px_rgba(0,0,0,0.22)]"
       role="region"
       aria-label={language === 'hi' ? 'Breaking news' : 'Breaking News'}
     >
-      <ReaderHeaderContainer>
+      <Container>
         <div className="flex h-9 min-w-0 items-center gap-2 md:h-10 md:gap-3">
           <div className="flex h-full items-center">
             <span className={styles.liveBadge}>
@@ -160,8 +160,8 @@ export default function BreakingNews({
             ) : (
               <div className={styles.inlineShell}>
                 <div className={styles.marqueeStatic}>
-                  <span className={`${styles.marqueeEntry} min-w-0 max-w-full`}>
-                    <span className={`${styles.marqueeTitle} truncate`}>
+                  <span className={styles.marqueeEntry}>
+                    <span className={styles.marqueeTitle}>
                       {isLoading
                         ? language === 'hi' ? 'ताज़ा समाचार लोड हो रहे हैं...' : 'Loading latest updates...'
                         : language === 'hi' ? 'ताज़ा अपडेट उपलब्ध नहीं है।' : 'No latest update available.'}
@@ -206,7 +206,7 @@ export default function BreakingNews({
             )}
           </button>
         </div>
-      </ReaderHeaderContainer>
+      </Container>
     </div>
   );
 }

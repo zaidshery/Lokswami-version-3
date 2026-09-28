@@ -4,7 +4,7 @@ const path = require('path');
 const { chromium } = require('@playwright/test');
 const base = process.argv[2] || 'http://localhost:3112';
 if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Local server required');
-const out = path.resolve('artifacts/phase3-qa/phase311-header-final');
+const out = path.resolve('artifacts/phase3-qa/phase311-layer2');
 async function main() {
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -38,10 +38,13 @@ async function main() {
             const logo = brand.querySelector('[data-logo-element="wordmark"] img');
             const logoBox = logo.getBoundingClientRect();
             const layerBoxes = [live, header, strip.closest('[data-testid="reader-category-bar"]')].map((el) => el.getBoundingClientRect());
-            const inners = [live.querySelector('[data-reader-header-inner]'), brand, strip.parentElement];
+            const inners = [brand, strip.parentElement];
             const grid = inners.map((el) => { const r = el.getBoundingClientRect(); return { x: r.x, width: r.width, start: r.x + parseFloat(getComputedStyle(el).paddingLeft) }; });
             const navBoxes = [...strip.querySelectorAll('nav > a, nav > div > button')].map((el) => el.getBoundingClientRect());
             const lang = brand.querySelector('[data-testid="reader-mobile-language"]');
+            const emblem = brand.querySelector('[data-logo-element="icon"] img');
+            const emblemBox = emblem.getBoundingClientRect();
+            const epaper = brand.querySelector('a[aria-label="E-Paper"]');
             return { pageOverflow: document.documentElement.scrollWidth > innerWidth,
               edgeToEdge: layerBoxes.every((r) => Math.abs(r.x) < 1 && Math.abs(r.width - innerWidth) < 1),
               commonGrid: grid.every((r) => Math.abs(r.start - grid[0].start) < 1 && Math.abs(r.width - grid[0].width) < 1),
@@ -52,6 +55,9 @@ async function main() {
               canonicalLogo: logo.getAttribute('src').includes('logo-wordmark-final.png'),
               logoLoaded: logo.complete && logo.naturalWidth > 0,
               logoWidth: logoBox.width, logoHeight: logoBox.height,
+              emblemWidth: emblemBox.width,
+              emblemCorrect: emblem.getAttribute('src').includes('logo-header-cutout.png') && emblem.complete && emblem.naturalWidth > 0 && emblemBox.width >= 27 && Math.abs(emblemBox.width - emblemBox.height) < 1,
+              mobileAppLabels: innerWidth >= 768 || (epaper.querySelector('span').getBoundingClientRect().width > 0 && lang.querySelector('svg').getBoundingClientRect().width > 0 && epaper.querySelector('svg').getBoundingClientRect().top < epaper.querySelector('span').getBoundingClientRect().top),
               logoProportional: Math.abs(logoBox.width / logoBox.height - 847 / 181) < 0.03,
               mobileLanguageVisible: innerWidth >= 768 || lang.getBoundingClientRect().width >= 40,
               controlsSingleRow: boxes.every((r) => Math.abs((r.y + r.height / 2) - (left.y + left.height / 2)) < 2),
@@ -109,7 +115,7 @@ async function main() {
     await context.close();
     const pass = results.every((r) => r.layersVisible && !r.pageOverflow && r.controlsInside && r.noBrandOverlap && r.scrollable && r.activeHome && r.moreRestoresFocus
       && r.edgeToEdge && r.commonGrid && r.categorySingleRow && r.firstNavReachable && r.bodyClearance && r.stickyStable
-      && r.canonicalLogo && r.logoLoaded && r.logoProportional && r.mobileLanguageVisible && r.controlsSingleRow && r.logoWidth >= 119)
+      && r.canonicalLogo && r.logoLoaded && r.logoProportional && r.emblemCorrect && r.mobileAppLabels && r.mobileLanguageVisible && r.controlsSingleRow && r.logoWidth >= 87)
       && drawerEscape && persistedLanguageReload && ssrLayers && !errors.length;
     fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify({ pass, results, mobileLanguageKeyboard, drawerEscape, persistedLanguageReload, ssrLayers, errors, consoleErrors, realLocalContentOnly: true }, null, 2));
     console.log(JSON.stringify({ pass, checks: results.length, mobileLanguageKeyboard, drawerEscape, persistedLanguageReload, ssrLayers, errors, consoleErrors, output: out }));

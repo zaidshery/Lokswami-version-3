@@ -8,6 +8,7 @@ import { signOut, useSession } from 'next-auth/react';
 import {
   Bookmark,
   LogOut,
+  Languages,
   Menu,
   Moon,
   Newspaper,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import DesktopNav from './DesktopNav';
-import { LogoWordmark } from '@/components/layout/Logo';
+import Logo from '@/components/layout/Logo';
 import ReaderHeaderContainer from './ReaderHeaderContainer';
 
 /** Renders the main site header with reader auth actions. */
@@ -90,7 +91,7 @@ export default function Header() {
               <Menu className="h-5 w-5" />
             </button>
             <Link href="/main" aria-label="Lokswami Home" className="editorial-focus-ring inline-flex shrink-0 items-center rounded-sm">
-              <LogoWordmark size="headerDesktop" responsiveHeader />
+              <Logo size="headerDesktop" responsiveHeader />
             </Link>
           </div>
 
@@ -98,11 +99,12 @@ export default function Header() {
             {/* Required actions remain visible at every width. */}
             <Link
               href="/main/epaper"
-              className="editorial-focus-ring inline-flex h-10 w-10 min-w-[40px] shrink-0 items-center justify-center gap-1.5 rounded-lg text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40 md:h-11 md:w-auto md:rounded-xl md:border md:border-brand-500/30 md:bg-brand-500 md:px-3 md:text-xs md:font-semibold md:text-white md:shadow-sm md:hover:bg-brand-600 md:dark:text-white order-0"
+              className="editorial-focus-ring inline-flex h-11 w-[42px] min-w-[42px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40 md:w-auto md:flex-row md:gap-1.5 md:rounded-xl md:border md:border-brand-500/30 md:bg-brand-500 md:px-3 md:text-xs md:font-semibold md:text-white md:shadow-sm md:hover:bg-brand-600 md:dark:text-white order-0"
               aria-label="E-Paper"
               title={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
             >
               <Newspaper className="h-5 w-5 shrink-0 md:h-4 md:w-4" strokeWidth={2} />
+              <span className="text-[9px] font-semibold leading-none md:hidden">ePaper</span>
               <span className="hidden leading-none tracking-normal md:inline">{language === 'hi' ? 'ई-पेपर' : 'E-Paper'}</span>
             </Link>
 
@@ -110,8 +112,10 @@ export default function Header() {
             <button type="button" onClick={() => setLanguage(language === 'hi' ? 'en' : 'hi')}
               data-testid="reader-mobile-language"
               aria-label={language === 'hi' ? 'Language: HI. Switch to English' : 'Language: EN. Switch to Hindi'}
-              className="editorial-focus-ring inline-flex h-10 w-10 !min-w-[40px] shrink-0 items-center justify-center rounded-lg text-xs font-bold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 md:hidden order-1">
-              {language === 'hi' ? 'HI' : 'EN'}
+              aria-pressed={language === 'en'}
+              className="editorial-focus-ring inline-flex h-11 w-[42px] !min-w-[42px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 md:hidden order-1">
+              <Languages className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+              <span className="text-[9px] leading-none">{language === 'hi' ? 'HI' : 'EN'}</span>
             </button>
             <div
               role="group"
@@ -149,11 +153,11 @@ export default function Header() {
             {/* Search Entry Button - Accessible across all viewports */}
             <Link
               href="/main/search"
-              className="cnp-motion editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl border border-zinc-200/90 bg-white text-zinc-800 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-brand-500/40 dark:hover:bg-brand-950/40 dark:hover:text-brand-300 order-2"
+              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800 md:rounded-xl md:border md:border-zinc-200/90 md:bg-white md:shadow-sm md:dark:border-zinc-800 md:dark:bg-zinc-900 order-2"
               aria-label={language === 'hi' ? 'समाचार खोजें' : 'Search news'}
               title={language === 'hi' ? 'खोजें' : 'Search'}
             >
-              <Search className="h-4 w-4" strokeWidth={2.2} />
+              <Search className="h-5 w-5" strokeWidth={2} />
             </Link>
 
             <div className="relative hidden lg:block order-3" ref={userMenuRef}>

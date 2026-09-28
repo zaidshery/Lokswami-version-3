@@ -26,6 +26,7 @@ export const LOGO_SIZES: Record<LogoSize, LogoSizeConfig> = {
 };
 
 export interface LogoIconProps {
+  inHeaderLogo?: boolean;
   size?: LogoSize;
   variant?: 'standard';
   className?: string;
@@ -61,6 +62,7 @@ export function MobileHeaderLogoIcon({ className = '' }: MobileHeaderLogoIconPro
 
 /** Standalone targetable 'लो' Logo Emblem component */
 export function LogoIcon({
+  inHeaderLogo = false,
   size = 'md',
   className = '',
   priority,
@@ -73,9 +75,9 @@ export function LogoIcon({
       data-logo-element="icon"
       className={`lokswami-logo-icon relative inline-flex shrink-0 items-center justify-center overflow-visible ${className}`}
       style={{
-        transform: `translate(${sizeConfig.iconX}px, ${sizeConfig.iconY}px)`,
-        width: `${sizeConfig.icon}px`,
-        height: `${sizeConfig.icon}px`,
+        transform: inHeaderLogo ? undefined : `translate(${sizeConfig.iconX}px, ${sizeConfig.iconY}px)`,
+        width: inHeaderLogo ? 'var(--reader-logo-icon)' : `${sizeConfig.icon}px`,
+        height: inHeaderLogo ? 'var(--reader-logo-icon)' : `${sizeConfig.icon}px`,
       }}
     >
       <Image
@@ -92,6 +94,7 @@ export function LogoIcon({
 }
 
 export interface LogoWordmarkProps {
+  inHeaderLogo?: boolean;
   size?: LogoSize;
   variant?: 'standard' | 'white' | 'dark';
   className?: string;
@@ -104,6 +107,7 @@ export const LOKSWAMI_WORDMARK = { src: '/logo-wordmark-final.png', width: 847, 
 
 /** Standalone targetable 'लोकस्वामी' Wordmark component */
 export function LogoWordmark({
+  inHeaderLogo = false,
   size = 'md',
   variant = 'standard',
   className = '',
@@ -123,8 +127,8 @@ export function LogoWordmark({
   return (
     <span
       data-logo-element="wordmark"
-      className={`lokswami-logo-wordmark relative inline-flex shrink-0 items-center justify-center ${responsiveHeader ? 'w-[120px] min-[360px]:w-[136px] min-[390px]:w-[144px] md:w-[172px] lg:w-[208px] overflow-visible' : 'overflow-hidden'} ${className}`}
-      style={{ transform: `translateY(${sizeConfig.wordmarkY}px)` }}
+      className={`lokswami-logo-wordmark relative inline-flex shrink-0 items-center justify-center ${inHeaderLogo ? 'overflow-visible' : responsiveHeader ? 'w-[120px] min-[360px]:w-[136px] min-[390px]:w-[144px] md:w-[172px] lg:w-[208px] overflow-visible' : 'overflow-hidden'} ${className}`}
+      style={{ transform: `translateY(${sizeConfig.wordmarkY}px)`, width: inHeaderLogo ? 'var(--reader-logo-wordmark)' : undefined }}
     >
       <div
         className={`relative block max-w-full ${responsiveHeader ? 'w-full' : maxWClass}`}
@@ -159,6 +163,7 @@ export function LogoWordmark({
 }
 
 export interface LogoProps {
+  responsiveHeader?: boolean;
   size?: LogoSize;
   href?: string;
   className?: string;
@@ -173,6 +178,7 @@ export interface LogoProps {
 
 /** Complete Lokswami Brand Logo with separately targetable Emblem & Wordmark sub-elements */
 export default function Logo({
+  responsiveHeader = false,
   size = 'md',
   href,
   className = '',
@@ -190,15 +196,15 @@ export default function Logo({
   const logoContent = (
     <motion.div
       data-logo-root="true"
-      className={`group/logo flex max-w-full shrink-0 items-center ${className}`}
-      whileHover={reduceMotion ? undefined : { scale: 1.012, y: -1 }}
-      whileTap={{ scale: 0.985 }}
+      className={`group/logo flex max-w-full shrink-0 items-center ${responsiveHeader ? '[--reader-logo-icon:28px] [--reader-logo-wordmark:88px] [--reader-logo-gap:2px] min-[360px]:[--reader-logo-icon:32px] min-[360px]:[--reader-logo-wordmark:100px] min-[360px]:[--reader-logo-gap:4px] min-[390px]:[--reader-logo-wordmark:112px] md:[--reader-logo-icon:46px] md:[--reader-logo-wordmark:172px] md:[--reader-logo-gap:10px] lg:[--reader-logo-icon:44px] lg:[--reader-logo-wordmark:208px]' : ''} ${className}`}
+      whileHover={reduceMotion || responsiveHeader ? undefined : { scale: 1.012, y: -1 }}
+      whileTap={responsiveHeader ? undefined : { scale: 0.985 }}
       transition={{ type: 'spring', stiffness: 420, damping: 32 }}
     >
       <motion.div
         className="flex items-center"
-        style={{ gap: `${sizeConfig.gap}px` }}
-        animate={reduceMotion ? undefined : { y: [0, -1, 0] }}
+        style={{ gap: responsiveHeader ? 'var(--reader-logo-gap)' : `${sizeConfig.gap}px` }}
+        animate={reduceMotion || responsiveHeader ? undefined : { y: [0, -1, 0] }}
         transition={
           reduceMotion
             ? undefined
@@ -207,17 +213,17 @@ export default function Logo({
       >
         {showIcon ? (
           <motion.div
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.9, y: 2 }}
+            initial={reduceMotion || responsiveHeader ? false : { opacity: 0, scale: 0.9, y: 2 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: reduceMotion ? 0.01 : 0.32, ease: [0.22, 1, 0.36, 1] }}
           >
-            <LogoIcon size={size} variant={iconVariant} className={iconClassName} priority={priority} />
+            <LogoIcon size={size} variant={iconVariant} className={iconClassName} priority={priority} inHeaderLogo={responsiveHeader} />
           </motion.div>
         ) : null}
 
         {showWordmark ? (
           <motion.div
-            initial={reduceMotion ? false : { opacity: 0, x: -10 }}
+            initial={reduceMotion || responsiveHeader ? false : { opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{
               duration: reduceMotion ? 0.01 : 0.42,
@@ -225,7 +231,7 @@ export default function Logo({
               delay: reduceMotion ? 0 : 0.08,
             }}
           >
-            <LogoWordmark size={size} variant={wordmarkVariant} className={wordmarkClassName} priority={priority} />
+            <LogoWordmark size={size} variant={wordmarkVariant} className={wordmarkClassName} priority={priority} responsiveHeader={responsiveHeader} inHeaderLogo={responsiveHeader} />
           </motion.div>
         ) : null}
       </motion.div>
