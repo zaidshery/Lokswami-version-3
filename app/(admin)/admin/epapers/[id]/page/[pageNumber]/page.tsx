@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import EpaperStoryReleaseButton from '@/components/admin/EpaperStoryReleaseButton';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import {
   PointerEvent as ReactPointerEvent,
   useCallback,
@@ -324,6 +324,7 @@ function buildCropOcrReview(result: EpaperCropTextOcrResult): CropOcrReview {
 export default function EPaperPageHotspotEditor() {
   const params = useParams();
   const pathname = usePathname();
+  const router = useRouter();
   const epaperId = String(params.id || '');
   const pageNumber = parsePageNumber(params.pageNumber);
   const publicationType = resolveEPaperPublicationType(
@@ -345,6 +346,7 @@ export default function EPaperPageHotspotEditor() {
 
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [creatingRevision, setCreatingRevision] = useState(false);
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [creatingSuggestions, setCreatingSuggestions] = useState(false);
   const [croppingTarget, setCroppingTarget] = useState('');
@@ -411,6 +413,49 @@ export default function EPaperPageHotspotEditor() {
     [suggestions]
   );
   const canCreateManualDraft = Boolean(draftHotspot);
+
+  const addStory = async () => {
+    if (!epaper) return;
+    if (!isImmutable) {
+      document.getElementById('add-story')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+      return;
+    }
+    if (epaper.status !== 'published') return;
+
+    setCreatingRevision(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/admin/epapers/${epaper._id}/revisions`, {
+        method: 'POST',
+        headers: { ...getAuthHeader() },
+      });
+      const payload = await response.json().catch(() => ({}));
+      const revisionId = String(payload?.data?.revisionId || '');
+      if ((!response.ok && response.status !== 409) || !revisionId) {
+        throw new Error(payload?.error || 'Failed to create draft revision.');
+      }
+      router.push(
+        `${labels.adminBasePath}/${revisionId}/page/${pageNumber}?mode=add-story`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create draft revision.');
+      setCreatingRevision(false);
+    }
+  };
+
+  useEffect(() => {
+    if (loading || isImmutable || typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('mode') !== 'add-story') return;
+    window.requestAnimationFrame(() => {
+      document.getElementById('add-story')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }, [isImmutable, loading, pageNumber]);
 
   useEffect(() => {
     setPageType(pageImageMeta?.pageType || 'editorial');
@@ -1478,6 +1523,21 @@ export default function EPaperPageHotspotEditor() {
           Back to {labels.singular}
         </Link>
         <div className="flex items-center gap-2">
+          {epaper.productionStatus !== 'archived' ? (
+            <button
+              type="button"
+              onClick={() => void addStory()}
+              disabled={creatingRevision}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-70"
+            >
+              {creatingRevision ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+              {epaper.status === 'published' ? 'Add Story in Draft' : 'Add Story'}
+            </button>
+          ) : null}
           {pageNumber > 1 ? (
             <Link
               href={`${labels.adminBasePath}/${epaperId}/page/${pageNumber - 1}`}
@@ -1932,7 +1992,7 @@ export default function EPaperPageHotspotEditor() {
               </p>
             ) : null}
 
-            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div id="add-story" className="mt-4 scroll-mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Manual Draft</p>

@@ -333,12 +333,12 @@ describe('app/api/admin mutation inventory', () => {
       stubCount,
       wrappedMutationCount,
     }).toEqual({
-      handlerCount: 96,
-      browserMutationCount: 90,
+      handlerCount: 97,
+      browserMutationCount: 91,
       machineSecretCount: 2,
       dualModeCount: 2,
       stubCount: 2,
-      wrappedMutationCount: 94,
+      wrappedMutationCount: 95,
     });
   });
 });

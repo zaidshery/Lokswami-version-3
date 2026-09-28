@@ -8,10 +8,15 @@ import { EpaperConflictError } from '@/lib/server/epaper/epaperTypes';
 const workflowMocks = vi.hoisted(() => ({
   automate: vi.fn(),
   activity: vi.fn(),
+  invalidate: vi.fn(),
 }));
 
 vi.mock('@/lib/server/epaperWorkflowAutomation', () => ({
   applyEpaperWorkflowAutomation: workflowMocks.automate,
+}));
+vi.mock('@/lib/server/epaperWorkflowPolicy', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/server/epaperWorkflowPolicy')>(),
+  invalidateEpaperQa: workflowMocks.invalidate,
 }));
 vi.mock('@/lib/server/epaperActivity', () => ({
   buildEpaperActivityMessage: vi.fn(() => 'A mapped e-paper story was created.'),
@@ -61,6 +66,7 @@ describe('E-paper mapped story create regression', () => {
     vi.clearAllMocks();
     workflowMocks.automate.mockResolvedValue({ changed: true, nextStatus: 'ocr_review' });
     workflowMocks.activity.mockResolvedValue(undefined);
+    workflowMocks.invalidate.mockResolvedValue({ changed: true, toStatus: 'hotspot_mapping' });
   });
 
   it('reproduces the original reviewedBy embedded-schema validation failure', () => {
@@ -97,6 +103,11 @@ describe('E-paper mapped story create regression', () => {
 
     expect(created.workflow?.status).toBe('draft');
     expect(repo.createArticle).toHaveBeenCalledTimes(1);
+    expect(workflowMocks.invalidate).toHaveBeenCalledWith(expect.objectContaining({
+      epaperId, pageNumbers: [2],
+    }));
+    expect(workflowMocks.invalidate.mock.invocationCallOrder[0])
+      .toBeLessThan(workflowMocks.automate.mock.invocationCallOrder[0]);
     const input = repo.createArticle.mock.calls[0][0];
     expect(input.workflow).toEqual({
       status: 'draft',

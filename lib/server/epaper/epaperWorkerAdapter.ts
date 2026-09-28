@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { reconcileDueEpaperAutomation } from '@/lib/server/epaperAutomationPipeline';
 import { processQueuedEpaperOcrJobs, queueEpaperOcr } from '@/lib/server/epaperOcrJobs';
 import {
   cleanupAbandonedEpaperUploads,
@@ -36,7 +37,8 @@ export class EpaperWorkerAdapter {
       cleanupAbandonedEpaperUploads(),
     ]);
     const ocr = await processQueuedEpaperOcrJobs();
-    return { processing, cleanup, ocr };
+    const automation = await reconcileDueEpaperAutomation();
+    return { processing, cleanup, ocr, automation };
   }
 }
 

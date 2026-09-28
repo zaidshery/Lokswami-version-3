@@ -42,6 +42,8 @@ describe('E-Paper OCR Coordination, Idempotency & Lifecycle (Phase 3.9D)', () =>
     it('queues OCR jobs only for eligible editorial pages and skips failed or non-editorial pages', async () => {
       const mockEdition = {
         _id: '665000000000000000000020',
+        status: 'draft',
+        productionStatus: 'draft_upload',
         revisionNumber: 1,
         processingGeneration: 'gen-1',
         pages: [
@@ -87,6 +89,8 @@ describe('E-Paper OCR Coordination, Idempotency & Lifecycle (Phase 3.9D)', () =>
     it('honors selected page numbers when provided', async () => {
       const mockEdition = {
         _id: '665000000000000000000021',
+        status: 'draft',
+        productionStatus: 'pages_ready',
         revisionNumber: 1,
         pages: [
           { pageNumber: 1, imagePath: '/p1.jpg', pageType: 'editorial' },
@@ -104,6 +108,25 @@ describe('E-Paper OCR Coordination, Idempotency & Lifecycle (Phase 3.9D)', () =>
 
       expect(jobs).toHaveLength(1);
     });
+    it('does not queue OCR for the protected QA edition or any published edition', async () => {
+      const findById = vi.spyOn(EPaper, 'findById');
+      findById.mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue({
+          _id: '665000000000000000000099',
+          status: 'published',
+          productionStatus: 'published',
+          pages: [{ pageNumber: 1, imagePath: '/published.jpg' }],
+        }),
+      } as never);
+      const createJob = vi.spyOn(EPaperProcessingJob, 'findOneAndUpdate');
+
+      await expect(queueEpaperOcr('6ab0da70c6aab6a2a6cab44e')).resolves.toEqual([]);
+      await expect(queueEpaperOcr('6AB0DA70C6AAB6A2A6CAB44E')).resolves.toEqual([]);
+      expect(findById).not.toHaveBeenCalled();
+      await expect(queueEpaperOcr('665000000000000000000099')).resolves.toEqual([]);
+      expect(createJob).not.toHaveBeenCalled();
+    });
+
   });
 
   describe('processQueuedEpaperOcrJobs - Execution, Deduplication & Generation Safety', () => {
@@ -120,6 +143,7 @@ describe('E-Paper OCR Coordination, Idempotency & Lifecycle (Phase 3.9D)', () =>
 
       const mockEdition = {
         _id: '665000000000000000000022',
+        status: 'draft',
         revisionNumber: 1,
         productionStatus: 'ocr_review',
         processingGeneration: 'gen-1',

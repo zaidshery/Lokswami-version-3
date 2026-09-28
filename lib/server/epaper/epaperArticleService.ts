@@ -4,8 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { canEditEpaper, canPublishEpaper, canViewPage } from '@/lib/auth/permissions';
 import { makeReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
 import { buildEpaperActivityMessage, recordEpaperActivity } from '@/lib/server/epaperActivity';
+import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import { applyEpaperWorkflowAutomation } from '@/lib/server/epaperWorkflowAutomation';
-import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
+import { assertEpaperDraftEditable, invalidateEpaperQa } from '@/lib/server/epaperWorkflowPolicy';
 import { buildEpaperStoryTtsText, findReadyManualTtsAsset } from '@/lib/server/ttsAssets';
 import {
   buildEpaperPlaceholderTitle,
@@ -75,6 +76,9 @@ export class EpaperArticleService {
   async create(actor: AdminSessionIdentity, id: string, body: unknown) {
     if (!canEditEpaper(actor.role)) throw new EpaperForbiddenError();
     this.assertId(id); await this.repo.connect();
+    if (PROTECTED_EPAPER_AUTOMATION_IDS.has(id.toLowerCase())) {
+      throw new EpaperConflictError('This preserved QA edition cannot receive stories.');
+    }
     const paper = await this.repo.findEditionById(id, '_id pageCount pages title cityName publishDate status productionStatus');
     if (!paper) throw new EpaperNotFoundError();
     try { assertEpaperDraftEditable(paper); } catch (error) {
@@ -107,6 +111,9 @@ export class EpaperArticleService {
       hotspot,
     });
     if (matchingArticle) {
+      await invalidateEpaperQa({
+        epaperId: id, actor, reason: 'A mapped story create retry was recovered.', pageNumbers: [pageNumber],
+      });
       await applyEpaperWorkflowAutomation({
         epaperId: id,
         actor,
@@ -132,6 +139,9 @@ export class EpaperArticleService {
         },
       } });
     try {
+      await invalidateEpaperQa({
+        epaperId: id, actor, reason: 'A mapped story was created.', pageNumbers: [pageNumber],
+      });
       await applyEpaperWorkflowAutomation({ epaperId: id, actor, reason: 'A mapped e-paper story was created.' });
     } catch (error) {
       await this.repo.deleteArticleWhere({ _id: created._id, epaperId: id });
@@ -144,6 +154,9 @@ export class EpaperArticleService {
 
   async release(actor: AdminSessionIdentity, id: string, articleId: string, expectedUpdatedAt: unknown) {
     if (!canPublishEpaper(actor.role)) throw new EpaperForbiddenError('Only admins can release reader stories.');
+    if (PROTECTED_EPAPER_AUTOMATION_IDS.has(id.toLowerCase())) {
+      throw new EpaperConflictError('This preserved QA edition cannot be mutated.');
+    }
     if (!this.repo.isValidId(id) || !this.repo.isValidId(articleId)) throw new EpaperValidationError('Invalid publication or story ID.');
     const expected = new Date(String(expectedUpdatedAt || ''));
     if (!Number.isFinite(expected.getTime())) throw new EpaperValidationError('Save and reload the story before releasing it.');

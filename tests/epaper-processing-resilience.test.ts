@@ -457,11 +457,10 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
       expect(result.processed).toBe(2);
       expect(result.failed).toBe(0);
 
-      // Verify that pages_ready and thumbnail updates were persisted
+      // Rendering persists the cover; canonical reconciliation advances workflow after job completion.
       expect(epaperUpdateOneSpy).toHaveBeenCalledWith(
         expect.objectContaining({ _id: '507f1f77bcf86cd799439011', status: 'draft', processingGeneration: 'gen-succ' }),
         expect.objectContaining({
-          productionStatus: 'pages_ready',
           thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page.jpg',
         })
       );
@@ -781,7 +780,6 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
       expect(epaperUpdateOneSpy).toHaveBeenCalledWith(
         expect.objectContaining({ _id: '507f1f77bcf86cd799439011', status: 'draft', processingGeneration: 'gen-single-1' }),
         expect.objectContaining({
-          productionStatus: 'pages_ready',
           thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page-1.jpg',
         })
       );

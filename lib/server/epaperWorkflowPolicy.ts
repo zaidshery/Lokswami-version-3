@@ -1,6 +1,7 @@
 import 'server-only';
 
 import EPaper from '@/lib/models/EPaper';
+import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import {
   buildEpaperActivityMessage,
   recordEpaperActivity,
@@ -13,11 +14,15 @@ import { EpaperConflictError } from '@/lib/server/epaper/epaperTypes';
 type Actor = Pick<AdminSessionIdentity, 'id' | 'name' | 'email' | 'role'>;
 
 export function assertEpaperDraftEditable(epaper: {
+  _id?: unknown;
   status?: unknown;
   productionStatus?: unknown;
 }) {
   if (!epaper) {
     throw new EpaperConflictError('EPAPER_IMMUTABLE: Edition is immutable.');
+  }
+  if (PROTECTED_EPAPER_AUTOMATION_IDS.has(String(epaper._id || '').toLowerCase())) {
+    throw new EpaperConflictError('This preserved QA edition cannot be mutated.');
   }
 
   const status = typeof epaper.status === 'string' ? epaper.status.trim().toLowerCase() : '';
@@ -44,7 +49,7 @@ export async function invalidateEpaperQa(input: {
   pageNumbers?: number[];
 }) {
   const current = await EPaper.findById(input.epaperId)
-    .select('_id status productionStatus qaCompletedAt')
+    .select('_id status productionStatus qaCompletedAt version')
     .lean();
   if (!current) return { changed: false, fromStatus: null, toStatus: null };
 
@@ -58,10 +63,21 @@ export async function invalidateEpaperQa(input: {
   }
 
   const toStatus = shouldReturnToMapping ? 'hotspot_mapping' : fromStatus;
-  await EPaper.findByIdAndUpdate(input.epaperId, {
-    ...(shouldReturnToMapping ? { productionStatus: 'hotspot_mapping' } : {}),
-    qaCompletedAt: null,
-  });
+  const invalidated = await EPaper.findOneAndUpdate({
+    _id: input.epaperId,
+    status: 'draft',
+    productionStatus: current.productionStatus,
+    version: current.version == null ? { $exists: false } : current.version,
+  }, {
+    $set: {
+      ...(shouldReturnToMapping ? { productionStatus: 'hotspot_mapping' } : {}),
+      qaCompletedAt: null,
+    },
+    $inc: { version: 1 },
+  }, { new: true, runValidators: true });
+  if (!invalidated) {
+    throw new EpaperConflictError('Edition changed during readiness invalidation. Reload before retrying.');
+  }
 
   await recordEpaperActivity({
     epaperId: input.epaperId,

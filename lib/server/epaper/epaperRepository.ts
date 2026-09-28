@@ -3,7 +3,7 @@ import 'server-only';
 import { Types, type ClientSession } from 'mongoose';
 import connectDB from '@/lib/db/mongoose';
 import { isMongoAvailable, reportMongoUnavailable } from '@/lib/db/mongoAvailability';
-import EPaper from '@/lib/models/EPaper';
+import EPaper, { EPAPER_ACTIVE_DRAFT_INDEX } from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
 import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
 import EPaperProcessingJob from '@/lib/models/EPaperProcessingJob';
@@ -331,6 +331,14 @@ export class EpaperRepository {
   }
 
   async createEdition(data: EpaperRecord): Promise<EpaperRecord> {
+    if (data.status === 'draft' && data.familyId) {
+      // createIndex is idempotent. Fail closed if legacy duplicate drafts
+      // prevent installing the constraint rather than creating another draft.
+      await EPaper.collection.createIndex(
+        { publicationType: 1, familyId: 1 },
+        EPAPER_ACTIVE_DRAFT_INDEX
+      );
+    }
     const created = await EPaper.create(data);
     return asObject(created.toObject());
   }
@@ -392,6 +400,45 @@ export class EpaperRepository {
       }
     }
 
+    return updated;
+  }
+
+  async advanceEditionAutomation(input: {
+    id: string;
+    fromStatus: string;
+    expectedVersion: number;
+    expectedGeneration: string;
+    expectedRevisionNumber: number;
+    updates: EpaperRecord;
+  }): Promise<EpaperRecord | null> {
+    const query: Record<string, unknown> = {
+      _id: input.id,
+      status: 'draft',
+      productionStatus: input.fromStatus,
+      version: input.expectedVersion,
+      revisionNumber: input.expectedRevisionNumber,
+      processingGeneration: input.expectedGeneration,
+    };
+    const updated = (await EPaper.findOneAndUpdate(
+      query,
+      {
+        ['\u0024set']: input.updates,
+        ['\u0024inc']: { version: 1 },
+      },
+      { new: true, runValidators: true }
+    ).lean()) as EpaperRecord | null;
+
+    if (!updated) {
+      const current = await EPaper.findById(input.id)
+        .select('version status productionStatus processingGeneration revisionNumber')
+        .lean();
+      if (current) {
+        throw new EpaperVersionConflictError(
+          Number(current.version || 1),
+          input.expectedVersion
+        );
+      }
+    }
     return updated;
   }
 
@@ -542,7 +589,7 @@ export class EpaperRepository {
             return;
           }
           await EPaper.updateMany(
-            { familyId, _id: { $ne: id }, isCurrentRevision: true },
+            { $or: [{ familyId }, { _id: familyId }], _id: { $ne: id }, isCurrentRevision: { $ne: false }, status: 'published' },
             { $set: { isCurrentRevision: false } },
             { session }
           );
@@ -572,7 +619,7 @@ export class EpaperRepository {
       return null;
     }
     await EPaper.updateMany(
-      { familyId, _id: { $ne: id }, isCurrentRevision: true },
+      { $or: [{ familyId }, { _id: familyId }], _id: { $ne: id }, isCurrentRevision: { $ne: false }, status: 'published' },
       { $set: { isCurrentRevision: false } }
     );
     return updated;
@@ -591,7 +638,9 @@ export class EpaperRepository {
   }
 
   async findLatestProcessingJob(epaperId: string) {
-    return EPaperProcessingJob.findOne({ epaperId }).sort({ createdAt: -1 }).lean();
+    // PDF generation/lease blockers must not accidentally use an optional OCR
+    // job as the latest page-conversion job.
+    return EPaperProcessingJob.findOne({ epaperId, kind: 'pdf_pages' }).sort({ createdAt: -1 }).lean();
   }
 
   async listFamilyEditions(familyId: string) {

@@ -31,6 +31,7 @@ export type MinimalEpaperRecord = {
   status?: string;
   productionStatus?: string;
   processingGeneration?: string;
+  revisionInitializationStatus?: string;
   isStaleGeneration?: boolean;
 };
 
@@ -243,6 +244,11 @@ export function buildEpaperReadiness(params: {
 
   const blockers: string[] = [];
   const warnings: string[] = [];
+  if (epaper.revisionInitializationStatus === 'initializing') {
+    blockers.push('Draft revision cloning is still in progress.');
+  } else if (epaper.revisionInitializationStatus === 'failed') {
+    blockers.push('Draft revision cloning failed. Recover or delete this incomplete draft before publishing.');
+  }
 
   if (!nonEmptyString(epaper.thumbnailPath)) {
     blockers.push('Thumbnail is missing.');

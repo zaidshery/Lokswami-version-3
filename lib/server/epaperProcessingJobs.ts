@@ -6,6 +6,7 @@ import EPaper from '@/lib/models/EPaper';
 import EPaperProcessingJob from '@/lib/models/EPaperProcessingJob';
 import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
 import { epaperRepository } from '@/lib/server/epaper/epaperRepository';
+import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import {
   buildEpaperActivityMessage,
   recordEpaperActivity,
@@ -268,6 +269,7 @@ export async function claimJob(options: { jobId?: string; workerId?: string } = 
   const leaseOwner = options.workerId || `epaper-worker-${process.pid}-${crypto.randomUUID()}`;
   const query: Record<string, unknown> = {
     kind: 'pdf_pages',
+    epaperId: { ['$nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
     status: { $in: ['queued', 'processing'] },
     nextAttemptAt: { $lte: now },
     $or: [
@@ -344,6 +346,9 @@ function normalizePages(epaper: {
 export async function processClaimedJob(
   job: NonNullable<Awaited<ReturnType<typeof claimJob>>>
 ) {
+  if (PROTECTED_EPAPER_AUTOMATION_IDS.has(String(job.epaperId).toLowerCase())) {
+    return { jobId: String(job._id), status: 'cancelled' as const, processed: 0, failed: 0 };
+  }
   const startedAt = Date.now();
 
   const abortStaleJob = async (
@@ -671,7 +676,11 @@ export async function processClaimedJob(
         processingStatus: 'failed',
         processingError: message,
       };
-      await EPaper.updateOne({ _id: job.epaperId, status: 'draft' }, { pages });
+      await EPaper.updateOne({
+        _id: job.epaperId, status: 'draft',
+        ...(job.generation ? { processingGeneration: job.generation } : {}),
+        revisionNumber: epaperRevision,
+      }, { pages });
     }
   }
 
@@ -698,6 +707,7 @@ export async function processClaimedJob(
     currentThumbnailPath: epaper.thumbnailPath,
     currentProductionStatus: epaper.productionStatus,
     currentStatus: epaper.status,
+    deferWorkflow: true,
   });
   if (allPagesReady || Object.keys(automationUpdates).length > 0) {
     const updateFilter: Record<string, unknown> = {
@@ -1008,6 +1018,7 @@ export async function cleanupAbandonedEpaperUploads(
       });
 
       const candidates = await EPaper.find({
+        _id: { ['$nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
         status: 'draft',
         productionStatus: 'draft_upload',
         isCurrentRevision: { $ne: true },

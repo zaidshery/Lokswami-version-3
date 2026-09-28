@@ -430,6 +430,13 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
 
       expect(res.data.revisionNumber).toBe(2);
       expect(res.data.familyId).toBe('family-clone-1');
+      expect(mockRepo.updateEditionWhere).not.toHaveBeenCalledWith(
+        expect.objectContaining({ _id: sourceId }), expect.anything(),
+      );
+      expect(mockRepo.updateEditionWhere).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'rev-2-id', revisionInitializationStatus: 'initializing' }),
+        { $set: { revisionInitializationStatus: 'ready' }, $inc: { version: 1 } },
+      );
 
       const clonedEdition = createdEditions[0];
       expect(clonedEdition.status).toBe('draft');
@@ -457,6 +464,52 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
       // Mutating cloned hotspot must NOT mutate source hotspot
       (clonedArticle.hotspot as { x: number }).x = 999;
       expect((sourceArticles[0].hotspot as { x: number }).x).toBe(10);
+    });
+
+    it('reuses the single draft when concurrent revision creation loses the unique-index race', async () => {
+      const sourceId = 'published-race-source';
+      const duplicateKey = Object.assign(new Error('duplicate revision'), { code: 11000 });
+      const findEdition = vi
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          _id: 'concurrent-draft-id',
+          familyId: 'family-race-draft',
+          revisionNumber: 2,
+          status: 'draft',
+          productionStatus: 'hotspot_mapping',
+        });
+      const mockRepo = {
+        connect: vi.fn(),
+        isValidId: vi.fn(() => true),
+        findEditionById: vi.fn().mockResolvedValue({
+          _id: sourceId,
+          familyId: 'family-race-draft',
+          revisionNumber: 1,
+          status: 'published',
+          productionStatus: 'published',
+          publicationType: 'epaper',
+          citySlug: 'indore',
+          cityName: 'Indore',
+          pages: [],
+        }),
+        updateEditionWhere: vi.fn().mockResolvedValue({}),
+        findEdition,
+        findLatestRevision: vi.fn().mockResolvedValue({ revisionNumber: 1 }),
+        createEdition: vi.fn().mockRejectedValue(duplicateKey),
+      } as unknown as EpaperRepository;
+
+      const service = new EpaperRevisionService(mockRepo);
+      await expect(service.create(superAdminActor, sourceId)).resolves.toEqual({
+        message: 'Concurrent draft revision reused.',
+        data: {
+          revisionId: 'concurrent-draft-id',
+          familyId: 'family-race-draft',
+          revisionNumber: 2,
+          reused: true,
+        },
+      });
+      expect(findEdition).toHaveBeenCalledTimes(2);
     });
 
     it('rejects revision creation if the source edition is not published', async () => {

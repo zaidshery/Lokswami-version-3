@@ -9,6 +9,7 @@ import {
   runIsolatedLocalOcr,
 } from '@/lib/server/epaperLocalOcr';
 import { logEpaperMetric } from '@/lib/server/epaperObservability';
+import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 
 type SourcePage = {
   pageNumber: number;
@@ -45,8 +46,15 @@ export async function queueEpaperOcr(
   selected: number[] = [],
   retry = false
 ) {
+  if (PROTECTED_EPAPER_AUTOMATION_IDS.has(epaperId.toLowerCase())) return [];
   const paper = await EPaper.findById(epaperId).lean();
   if (!paper) throw new Error('Publication not found.');
+  if (
+    PROTECTED_EPAPER_AUTOMATION_IDS.has(epaperId.toLowerCase()) ||
+    paper.status !== 'draft' ||
+    paper.productionStatus === 'published' ||
+    paper.productionStatus === 'archived'
+  ) return [];
   const jobs: string[] = [];
 
   for (const page of paper.pages) {
@@ -71,6 +79,8 @@ export async function queueEpaperOcr(
         $setOnInsert: {
           ...identity,
           epaperId,
+          generation: paper.processingGeneration || '',
+          revisionNumber: paper.revisionNumber || 1,
           pageNumbers: [page.pageNumber],
           sourceImagePath: page.imagePath,
           totalItems: 1,
@@ -137,6 +147,9 @@ export async function processQueuedEpaperOcrJobs() {
       .filter(Boolean);
 
     const papers = await EPaper.find({
+      status: 'draft',
+      productionStatus: { ['\u0024nin']: ['published', 'archived'] },
+      _id: { ['\u0024nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
       isCurrentRevision: { $ne: false },
       ...(allowlist.length ? { citySlug: { $in: allowlist } } : {}),
     })
@@ -152,6 +165,7 @@ export async function processQueuedEpaperOcrJobs() {
 
     const jobQuery: Record<string, unknown> = {
       kind: 'ocr',
+      epaperId: { $nin: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
       nextAttemptAt: { $lte: new Date() },
       $or: [
         { status: 'queued' },
@@ -195,7 +209,12 @@ export async function processQueuedEpaperOcrJobs() {
     );
     const current =
       paper &&
+      !PROTECTED_EPAPER_AUTOMATION_IDS.has(String(paper._id)) &&
+      paper.status === 'draft' &&
+      paper.productionStatus !== 'published' &&
       paper.productionStatus !== 'archived' &&
+      (!job.generation || paper.processingGeneration === job.generation) &&
+      (!job.revisionNumber || paper.revisionNumber === job.revisionNumber) &&
       page &&
       page.imagePath === job.sourceImagePath &&
       epaperOcrSourceKey(

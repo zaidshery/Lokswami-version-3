@@ -61,6 +61,8 @@ export interface IEPaper {
   productionNotes: WorkflowComment[];
   qaCompletedAt: Date | null;
   processingGeneration?: string;
+  revisionInitializationStatus?: 'initializing' | 'ready' | 'failed';
+  automationReconciledAt?: Date | null;
   version?: number;
   cleanupPending?: boolean;
   cleanupReason?: string;
@@ -144,6 +146,8 @@ const EPaperSchema = new mongoose.Schema<IEPaper>(
     productionNotes: { type: [WorkflowCommentSchema], default: [] },
     qaCompletedAt: { type: Date, default: null },
     processingGeneration: { type: String, trim: true, default: '' },
+    revisionInitializationStatus: { type: String, enum: ['initializing', 'ready', 'failed'], default: 'ready' },
+    automationReconciledAt: { type: Date, default: null },
     version: { type: Number, default: 1, min: 1 },
     cleanupPending: { type: Boolean, default: false },
     cleanupReason: { type: String, trim: true, default: '' },
@@ -174,6 +178,19 @@ EPaperSchema.index(
     },
   }
 );
+export const EPAPER_ACTIVE_DRAFT_INDEX = {
+  name: 'publicationType_1_familyId_1_active_draft',
+  unique: true,
+  partialFilterExpression: {
+    familyId: { $type: 'string', $gt: '' },
+    status: 'draft',
+    productionStatus: { $in: [
+      'draft_upload', 'pages_ready', 'ocr_review', 'hotspot_mapping',
+      'ready_to_publish', 'qa_review', 'processing',
+    ] },
+  },
+};
+EPaperSchema.index({ publicationType: 1, familyId: 1 }, EPAPER_ACTIVE_DRAFT_INDEX);
 EPaperSchema.index(
   { publicationType: 1, citySlug: 1, publishDate: 1, isCurrentRevision: 1 },
   {
