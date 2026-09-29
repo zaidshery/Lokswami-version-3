@@ -751,6 +751,16 @@ export class EpaperRepository {
       $set: publishUpdates,
       $inc: { version: 1 },
     };
+    // New families use UUIDs; only legacy ObjectId families can match _id.
+    // Build this once so both transaction and standalone queries cast safely.
+    const familyMatches: EpaperRecord[] = [{ familyId }];
+    if (Types.ObjectId.isValid(familyId)) familyMatches.push({ _id: familyId });
+    const previousRevisionFilter = {
+      $or: familyMatches,
+      _id: { $ne: id },
+      isCurrentRevision: { $ne: false },
+      status: 'published',
+    };
 
     const throwVersionConflict = async () => {
       const currentDoc = await EPaper.findById(id).select('version').lean();
@@ -776,7 +786,7 @@ export class EpaperRepository {
             return;
           }
           await EPaper.updateMany(
-            { $or: [{ familyId }, { _id: familyId }], _id: { $ne: id }, isCurrentRevision: { $ne: false }, status: 'published' },
+            previousRevisionFilter,
             { $set: { isCurrentRevision: false } },
             { session }
           );
@@ -806,7 +816,7 @@ export class EpaperRepository {
       return null;
     }
     await EPaper.updateMany(
-      { $or: [{ familyId }, { _id: familyId }], _id: { $ne: id }, isCurrentRevision: { $ne: false }, status: 'published' },
+      previousRevisionFilter,
       { $set: { isCurrentRevision: false } }
     );
     return updated;
