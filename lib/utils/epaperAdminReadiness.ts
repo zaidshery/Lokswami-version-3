@@ -32,6 +32,7 @@ export type MinimalEpaperRecord = {
   productionStatus?: string;
   processingGeneration?: string;
   revisionInitializationStatus?: string;
+  supersedesId?: string;
   isStaleGeneration?: boolean;
 };
 
@@ -242,8 +243,22 @@ export function buildEpaperReadiness(params: {
     return page?.processingStatus === 'processing';
   });
 
+  // A draft cloned from a published source must have fresh page QA before
+  // readiness can return. Initial publications retain their legacy policy.
+  const requiresRevisionQa = epaper.status !== 'published' && Boolean(nonEmptyString(epaper.supersedesId));
+  const pendingQaPages = requiresRevisionQa ? pageNumbers.filter((pageNumber) => {
+    const reviewStatus = pageByNumber.get(pageNumber)?.reviewStatus;
+    return reviewStatus !== 'ready' && reviewStatus !== 'needs_attention';
+  }) : [];
+  const attentionQaPages = requiresRevisionQa ? pageNumbers.filter(
+    (pageNumber) => pageByNumber.get(pageNumber)?.reviewStatus === 'needs_attention'
+  ) : [];
   const blockers: string[] = [];
   const warnings: string[] = [];
+  const unreviewedRevisionPages = [...pendingQaPages, ...attentionQaPages].sort((a, b) => a - b);
+  if (unreviewedRevisionPages.length) {
+    blockers.push(`Draft revision page QA is required for page${unreviewedRevisionPages.length === 1 ? '' : 's'} ${unreviewedRevisionPages.join(', ')}.`);
+  }
   if (epaper.revisionInitializationStatus === 'initializing') {
     blockers.push('Draft revision cloning is still in progress.');
   } else if (epaper.revisionInitializationStatus === 'failed') {
@@ -330,12 +345,12 @@ export function buildEpaperReadiness(params: {
     articlesMissingReadableText,
     editorialPages: editorialPageNumbers.length,
     nonEditorialPages: nonEditorialPageNumbers.length,
-    pagesReadyForPublish: pageCount,
-    pagesPendingQa: 0,
-    pagesNeedingAttention: 0,
+    pagesReadyForPublish: pageCount - unreviewedRevisionPages.length,
+    pagesPendingQa: pendingQaPages.length,
+    pagesNeedingAttention: attentionQaPages.length,
     missingImagePages,
     missingHotspotPages,
-    pendingQaPages: [],
+    pendingQaPages,
     invalidBlankPages,
   };
 }

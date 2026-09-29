@@ -44,6 +44,14 @@ Concurrent Add Story requests retry the same initializing draft rather than
 creating another. A failed clone remains explicitly blocked; recover it or
 delete the incomplete draft through the canonical CMS workflow before retrying.
 
+Draft revisions cloned from published sources require fresh page QA before
+automation or an explicit publish transition can make them ready. Adding a story
+clears its page review and keeps the revision in hotspot mapping until that page
+is reviewed again. Initial publications retain their existing readiness policy.
+The shared E-Paper/E-Magazine page editor exposes revision page QA. Review writes
+must carry the inspected edition version; a stale review is rejected with a
+conflict instead of approving content saved after the reviewer loaded the page.
+
 The preserved QA edition `6ab0da70c6aab6a2a6cab44e` is excluded from automation,
 revisions, and story mutation. Use separate temporary staging editions for QA.
 

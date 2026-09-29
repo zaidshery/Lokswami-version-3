@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import EpaperStoryReleaseButton from '@/components/admin/EpaperStoryReleaseButton';
+import EpaperRevisionPageQa from '@/components/admin/EpaperRevisionPageQa';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import {
   PointerEvent as ReactPointerEvent,
@@ -1745,6 +1746,8 @@ export default function EPaperPageHotspotEditor() {
             <p className="text-xs text-emerald-700">All mapped stories on this page have readable text.</p>
           )}
         </div>
+
+        <EpaperRevisionPageQa epaper={epaper} pageNumber={pageNumber} onReviewed={fetchData} />
 
         {pageQuality.issues.length > 0 ? (
           <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">

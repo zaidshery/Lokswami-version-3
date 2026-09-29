@@ -121,6 +121,7 @@ function normalizeEpaper(epaper: Record<string, unknown>): EPaperRecord {
     status: epaper.status === 'published' ? 'published' : 'draft',
     productionStatus: String(epaper.productionStatus || 'draft_upload'),
     revisionInitializationStatus: epaper.revisionInitializationStatus,
+    supersedesId: String(epaper.supersedesId || ''),
   } as EPaperRecord;
 }
 

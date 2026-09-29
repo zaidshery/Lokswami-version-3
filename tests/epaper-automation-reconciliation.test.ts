@@ -137,4 +137,20 @@ describe('background publication reconciliation behavior', () => {
     expect(transition).not.toHaveBeenCalled();
     expect('snapshot' in result && result.snapshot?.blockers.join(' ')).toContain('revision cloning');
   });
+
+  it.each(['epaper', 'emagazine'])('waits for page QA before advancing a changed %s draft revision', async (publicationType) => {
+    paper.publicationType = publicationType;
+    paper.supersedesId = '665000000000000000000001';
+    paper.productionStatus = 'hotspot_mapping';
+    paper.pages = [{ pageNumber: 1, imagePath: '/uploads/page.jpg',
+      processingStatus: 'ready', reviewStatus: 'pending' }];
+    const blocked = await applyEpaperWorkflowAutomation({ epaperId: id, reason: 'New draft mapping' });
+    expect(transition).not.toHaveBeenCalled();
+    expect('snapshot' in blocked && blocked.snapshot?.blockers.join(' ')).toContain('Draft revision page QA');
+    paper.pages = [{ pageNumber: 1, imagePath: '/uploads/page.jpg',
+      processingStatus: 'ready', reviewStatus: 'ready' }];
+    const ready = await applyEpaperWorkflowAutomation({ epaperId: id, reason: 'Page QA completed' });
+    expect(ready.nextStatus).toBe('ready_to_publish');
+    expect(paper.status).toBe('draft');
+  });
 });
