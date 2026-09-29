@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { createElement } from 'react';
+import { createElement, type ComponentType } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getSystemControlErrorMessage } from '@/lib/admin/systemControlFeedback';
-import Modal from '@/components/ui/modal/Modal';
+import Modal, { type ModalProps } from '@/components/ui/modal/Modal';
 import LeadershipReportDeliveryPanel from '@/app/(admin)/admin/analytics/LeadershipReportDeliveryPanel';
 
 function readSource(relativePath: string) {
@@ -179,19 +179,19 @@ describe('Phase 3.10E accessibility and system UX', () => {
 
     const { rerender } = render(
       createElement(
-        Modal,
+        Modal as ComponentType<Omit<ModalProps, 'children'>>,
         {
           isOpen: true,
           onClose,
           title: 'Confirm action',
           description: 'Review the action.',
-          children: createElement(
-            'div',
-            null,
-            createElement('button', { type: 'button' }, 'First action'),
-            createElement('button', { type: 'button' }, 'Last action')
-          ),
-        }
+        },
+        createElement(
+          'div',
+          null,
+          createElement('button', { type: 'button' }, 'First action'),
+          createElement('button', { type: 'button' }, 'Last action')
+        )
       )
     );
 
@@ -210,14 +210,14 @@ describe('Phase 3.10E accessibility and system UX', () => {
 
     rerender(
       createElement(
-        Modal,
+        Modal as ComponentType<Omit<ModalProps, 'children'>>,
         {
           isOpen: false,
           onClose,
           title: 'Confirm action',
           description: 'Review the action.',
-          children: createElement('button', { type: 'button' }, 'First action'),
-        }
+        },
+        createElement('button', { type: 'button' }, 'First action')
       )
     );
     await waitFor(() => expect(trigger).toHaveFocus());
