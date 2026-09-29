@@ -23,7 +23,7 @@ import {
 } from '@/lib/utils/publicEpaperFilters';
 import { buildPublicationTypeMongoFilter } from '@/lib/utils/epaperPublication';
 import { cursorPage, type CursorPageResult } from '@/lib/utils/cursorPage';
-import { mutationSnapshotFilter } from './epaperMutationCompensation';
+import { StandaloneEpaperMutation, recoverEditionContentMutation } from './epaperStandaloneMutation';
 import {
   asObject,
   mapPublicFeedFile,
@@ -100,8 +100,8 @@ export class EpaperRepository {
   constructor(
     private readonly initializationSession?: ClientSession,
     private readonly revisionInitializationOwner?: { id: string; owner: string },
-    private readonly readinessMutation?: { id: string; version: number; parentCommitted?: boolean; snapshot?: EpaperRecord },
-    private readonly compensation?: Array<() => Promise<unknown>>,
+    private readonly readinessMutation?: { id: string; version: number },
+    private readonly standaloneMutation?: StandaloneEpaperMutation,
   ) {}
 
   async withEditionReadinessMutation<T>(
@@ -144,53 +144,16 @@ export class EpaperRepository {
         if (!isStandaloneTransactionUnsupported(error) || mutationStarted) throw error;
         const current = await EPaper.findById(id).lean();
         if (!current) throw new EpaperConflictError('Edition no longer exists.');
+        if (asObject(current.contentMutation).id) {
+          await recoverEditionContentMutation(id);
+          throw new EpaperConflictError('A prior content change was recovered or is still in progress. Reload before retrying.');
+        }
         assertEpaperDraftEditable(current);
         if (Number(current.version || 1) !== expectedVersion) {
           throw new EpaperVersionConflictError(Number(current.version || 1), expectedVersion);
         }
-        const locked = await EPaper.updateOne({
-          _id: id, status: 'draft', productionStatus: current.productionStatus,
-          version: current.version == null ? { $exists: false } : expectedVersion,
-          revisionInitializationStatus: { $nin: ['initializing', 'failed'] },
-        }, {
-          ...(current.version == null ? {} : { $inc: { version: 1 } }),
-          // On standalone, defer readiness changes until the final parent
-          // fence. A losing operation must not leave its QA invalidation in
-          // a concurrently committed parent document.
-          ...(current.version == null ? { $set: { version: expectedVersion + 1 } } : {}),
-        });
-        if (!locked.matchedCount) throw new EpaperConflictError('Edition changed during content mutation. Reload before retrying.');
-        const compensation: Array<() => Promise<unknown>> = [];
-        const fence = {
-          id,
-          version: expectedVersion + 1,
-          parentCommitted: false,
-          snapshot: { ...current, version: expectedVersion + 1 },
-        };
-        const fallbackRepo = new EpaperRepository(undefined, undefined, fence, compensation);
-        try {
-          const value = await mutate(fallbackRepo);
-          // Create has no page write. It still needs a final parent fence;
-          // update/delete/OCR linearize at their final fenced page write.
-          if (!fence.parentCommitted) await fallbackRepo.updateEditionWhere({ _id: id }, { $set: { qaCompletedAt: null } });
-          return value;
-        } catch (mutationError) {
-          const failures: unknown[] = [];
-          for (const undo of compensation.reverse()) {
-            try { await undo(); } catch (error) { failures.push(error); }
-          }
-          // Advance the fence after undo if no independent parent write has
-          // committed. Losing this CAS must never suppress child undo.
-          try {
-            await EPaper.updateOne({ _id: id, status: 'draft', version: fence.version }, { $inc: { version: 1 } });
-          } catch (error) { failures.push(error); }
-          if (failures.length) {
-            const failure = new AggregateError([mutationError, ...failures], 'Standalone content compensation incomplete. Reload and inspect the edition before retrying.');
-            console.error('[epaper] standalone compensation failed', { epaperId: id, failure });
-            throw failure;
-          }
-          throw mutationError;
-        }
+        const saga = new StandaloneEpaperMutation(id, expectedVersion, asObject(current));
+        return saga.execute(() => mutate(new EpaperRepository(undefined, undefined, undefined, saga)));
       }
       return result as T;
     } finally {
@@ -450,8 +413,15 @@ export class EpaperRepository {
 
   async findEditionById(id: string, projection?: string): Promise<EpaperRecord | null> {
     const query = EPaper.findById(id);
-    const selected = projection ? query.select(projection) : query;
-    return resolveLeanValue<EpaperRecord | null>(selected);
+    const selected = projection ? query.select(`${projection} contentMutation`) : query;
+    const edition = await resolveLeanValue<EpaperRecord | null>(selected);
+    const journal = asObject(edition?.contentMutation);
+    if (journal.id && (journal.phase !== 'running' || new Date(String(journal.leaseUntil)).getTime() <= Date.now())) {
+      await recoverEditionContentMutation(id);
+      const refreshed = EPaper.findById(id);
+      return resolveLeanValue<EpaperRecord | null>(projection ? refreshed.select(`${projection} contentMutation`) : refreshed);
+    }
+    return edition;
   }
 
   async findEdition(query: EpaperRecord, projection?: string): Promise<EpaperRecord | null> {
@@ -515,6 +485,7 @@ export class EpaperRepository {
   }
 
   async createArticle(data: EpaperRecord): Promise<EpaperRecord> {
+    if (this.standaloneMutation) return this.standaloneMutation.createArticle(data);
     await this.refreshInitializationLease();
     const articleData = this.revisionInitializationOwner
       ? { ...data, revisionInitializationOwner: this.revisionInitializationOwner.owner }
@@ -522,25 +493,11 @@ export class EpaperRepository {
     const created = this.initializationSession
       ? (await EPaperArticle.create([articleData], { session: this.initializationSession }))[0]
       : await EPaperArticle.create(articleData);
-    const snapshot = asObject(created.toObject());
-    if (this.compensation) this.compensation.push(async () => {
-      const result = await EPaperArticle.deleteOne(mutationSnapshotFilter(snapshot, EPaperArticle.schema.paths));
-      if (!result.deletedCount) throw new EpaperConflictError('Created story changed concurrently; compensation retained the newer record.');
-    });
-    return snapshot;
+    return asObject(created.toObject());
   }
 
   async deleteArticleWhere(query: EpaperRecord) {
-    if (this.compensation) {
-      const before = await EPaperArticle.findOne(query).lean();
-      if (!before) return { deletedCount: 0 };
-      const result = await EPaperArticle.deleteOne({ ...query, ...mutationSnapshotFilter(asObject(before), EPaperArticle.schema.paths) });
-      if (!result.deletedCount) throw new EpaperConflictError('Story changed during deletion. Reload before retrying.');
-      // insertOne preserves the original BSON/timestamps. Both _id and the
-      // edition/slug unique index prevent overwriting a valid successor.
-      this.compensation.push(() => EPaperArticle.collection.insertOne(before as never));
-      return result;
-    }
+    if (this.standaloneMutation) return this.standaloneMutation.deleteArticle(query);
     return EPaperArticle.deleteOne(query, { session: this.initializationSession });
   }
 
@@ -657,48 +614,22 @@ export class EpaperRepository {
   }
 
   async updateEditionWhere(query: EpaperRecord, updates: EpaperRecord) {
+    if (this.standaloneMutation) return this.standaloneMutation.stageParent(updates);
     await this.refreshInitializationLease();
     // On standalone Mongo another writer can run after the readiness CAS.
     // Never replace its newer pages using this mutation's locked snapshot.
     const fencedQuery = this.readinessMutation
       ? { ...query, _id: this.readinessMutation.id, status: 'draft', version: this.readinessMutation.version }
       : query;
-    if (this.compensation && this.readinessMutation) {
-      updates = { ...updates, $set: { ...asObject(updates.$set), qaCompletedAt: null,
-        ...(this.readinessMutation.snapshot?.productionStatus === 'ready_to_publish' ? { productionStatus: 'hotspot_mapping' } : {}),
-      } };
-      const before = this.readinessMutation.snapshot || {};
-      const fields = Object.keys(asObject(updates.$set));
-      const restoreSet = Object.fromEntries(fields.filter((field) => before[field] !== undefined).map((field) => [field, before[field]]));
-      const restoreUnset = Object.fromEntries(fields.filter((field) => before[field] === undefined).map((field) => [field, '']));
-      this.compensation.push(() => EPaper.updateOne(fencedQuery, {
-        ...(Object.keys(restoreSet).length ? { $set: restoreSet } : {}),
-        ...(Object.keys(restoreUnset).length ? { $unset: restoreUnset } : {}),
-      }, { timestamps: false }));
-    }
     const result = await EPaper.updateOne(fencedQuery, updates, { session: this.initializationSession });
     if (this.readinessMutation && !result.matchedCount) {
       throw new EpaperConflictError('Edition changed during content mutation. Reload before retrying.');
-    }
-    if (this.readinessMutation) {
-      this.readinessMutation.parentCommitted = true;
-      Object.assign(this.readinessMutation.snapshot || {}, asObject(updates.$set));
     }
     return result;
   }
 
   async updateArticle(id: string, updates: EpaperRecord): Promise<EpaperRecord | null> {
-    if (this.compensation) {
-      const before = await EPaperArticle.findById(id).lean();
-      if (!before) return null;
-      const saved = await EPaperArticle.findOneAndUpdate(mutationSnapshotFilter(asObject(before), EPaperArticle.schema.paths), updates, { new: true, runValidators: true }).lean();
-      if (!saved) throw new EpaperConflictError('Story changed during update. Reload before retrying.');
-      this.compensation.push(async () => {
-        const restored = await EPaperArticle.collection.replaceOne(mutationSnapshotFilter(asObject(saved), EPaperArticle.schema.paths) as never, before as never);
-        if (!restored.matchedCount) throw new EpaperConflictError('Updated story changed concurrently; compensation retained the newer record.');
-      });
-      return asObject(saved);
-    }
+    if (this.standaloneMutation) return this.standaloneMutation.updateArticle(id, updates);
     return EPaperArticle.findByIdAndUpdate(id, updates, { new: true, runValidators: true, session: this.initializationSession }).lean() as Promise<EpaperRecord | null>;
   }
 
@@ -890,17 +821,7 @@ export class EpaperRepository {
   }
 
   async updateOcrSuggestion(id: string, updates: EpaperRecord) {
-    if (this.compensation) {
-      const before = await EPaperOcrSuggestion.findById(id).lean();
-      if (!before) throw new EpaperConflictError('OCR suggestion no longer exists.');
-      const saved = await EPaperOcrSuggestion.findOneAndUpdate(mutationSnapshotFilter(asObject(before), EPaperOcrSuggestion.schema.paths), updates, { new: true, runValidators: true }).lean();
-      if (!saved) throw new EpaperConflictError('OCR suggestion changed during acceptance.');
-      this.compensation.push(async () => {
-        const restored = await EPaperOcrSuggestion.collection.replaceOne(mutationSnapshotFilter(asObject(saved), EPaperOcrSuggestion.schema.paths) as never, before as never);
-        if (!restored.matchedCount) throw new EpaperConflictError('OCR suggestion changed concurrently; compensation retained the newer record.');
-      });
-      return saved;
-    }
+    if (this.standaloneMutation) return this.standaloneMutation.updateSuggestion(id, updates);
     return EPaperOcrSuggestion.findByIdAndUpdate(id, updates, { new: true, runValidators: true, session: this.initializationSession }).lean();
   }
 

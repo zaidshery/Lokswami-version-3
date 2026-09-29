@@ -47,34 +47,39 @@ delete the incomplete draft through the canonical CMS workflow before retrying.
 The preserved QA edition `6ab0da70c6aab6a2a6cab44e` is excluded from automation,
 revisions, and story mutation. Use separate temporary staging editions for QA.
 
-## Standalone Mongo content compensation
+## Standalone Mongo content recovery
 
-Hostinger and local development can run the Next server and automation worker
-in separate Node processes; multiple owners can share Mongo. Content mutations
-therefore use database CAS and conditional compensation, not a process mutex.
-Replica sets continue using real driver transactions. Fallback is allowed only
-for code 20 / IllegalOperation with the recognized transaction-unavailable
-message, before transactional mutation work starts.
+Hostinger and local development run the Next server and automation worker in
+separate Node processes. Standalone content mutations use a database-visible
+edition owner and durable write-ahead journal. Replica sets retain real driver
+transactions. Fallback requires code 20 / IllegalOperation and the recognized
+transaction-unavailable message before transactional mutation work starts.
 
-Create, legacy story update/delete, and OCR acceptance pass the caller's edition
-version. Standalone CAS advances that version before child writes. QA clearing
-and ready-stage demotion occur at the final fenced parent write. Create also
-performs that final fence even though it has no replacement page array.
-Update/delete/OCR finish at their final fenced page write.
+Caller-version CAS acquires ownership and advances the edition version. Before
+each child command, the journal stores its undo intent and original BSON state.
+Child reservations carry unique tokens and monotonic content counters. Parent
+page changes, QA clearing and ready-stage demotion are staged until the final
+owned parent commit. Creating a story marks its page pending and clears its
+review attribution, requiring another editorial review.
 
-On a reported failure, child undo runs in reverse order independently of parent
-rollback. Created articles are deleted only if their complete stored snapshot
-still matches; updates restore the prior BSON document only if the written
-snapshot still matches. Deleted objects are reinserted with the original ID and
-timestamps, subject to Mongo's ID and edition/slug uniqueness constraints. OCR
-suggestion restoration and article cleanup belong to the same undo sequence.
-Newer independent parent writes are preserved. A callback failure after a parent
-write restores its affected fields only while its version fence still holds;
-versions remain monotonic even when compensation succeeds.
+Ordinary model writes cannot modify an owned edition or reserved child. Readers
+hide temporary reservations and pending deletions. Rollback runs undo intents in
+reverse order, preserving original IDs and timestamps while advancing child
+counters so delayed commands cannot reuse old snapshots. Conditional restoration
+respects unique indexes and independent successors. Aborted creations retain a
+hidden reservation for 24 hours; only these temporary records receive a TTL date.
+Live stories do not receive that expiration.
 
-Compensation cannot overwrite a newer child or a valid successor. A failed undo
-is logged and raised as incomplete compensation; all remaining undo steps are
-still attempted. Compensation is not a substitute for transaction isolation or
-durable crash recovery. Audit and reconciliation effects run after commit;
-their failures are logged without reporting a committed content save as failed.
-No unsafe mutation retry or additional notification/TTS write is introduced.
+The running lease lasts ten minutes. Worker cycles recover expired owners,
+rollback journals and committed cleanup before processing other jobs. Eligible
+journals are also recovered when an edition is loaded or automation is applied.
+Failed repair remains durable, logs an error and blocks edits/publication until
+recovery succeeds. This is recoverable compensation, not Mongo transaction
+isolation. Maintenance using native collections must quiesce application writers
+and preserve ownership/counter fences; application writes use the fenced models.
+
+After commit, cleanup releases child tokens and physically removes hidden
+deletions. Cleanup failure retains the committed journal for retry without
+reporting a coherent save as failed. Audit and reconciliation effects run after
+commit and log failures. Arbitrary Mongo errors never trigger fallback, and no
+unsafe content mutation retry is introduced. Protected QA editions are excluded.

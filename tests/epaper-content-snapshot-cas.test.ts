@@ -9,6 +9,7 @@ import { EpaperArticleService } from '@/lib/server/epaper/epaperArticleService';
 import { EpaperOcrService } from '@/lib/server/epaper/epaperOcrService';
 import { EpaperRepository } from '@/lib/server/epaper/epaperRepository';
 import { PATCH, DELETE } from '@/app/api/admin/articles/[id]/route';
+import { arrangeMutationMongo, suggestionId as fixtureSuggestionId } from './helpers/epaperMutationMongoFixture';
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/db/mongoose', () => ({ default: vi.fn() }));
@@ -38,6 +39,16 @@ function arrange(mode: 'transaction' | 'standalone', concurrentUpload = true) {
     revisionInitializationStatus: 'ready', pageCount: 1,
     pages: [{ pageNumber: 1, imagePath: '/old-page.jpg', reviewStatus: 'pending' }],
   };
+  if (mode === 'standalone' && !concurrentUpload) {
+    const durable = arrangeMutationMongo(); durable.seed();
+    const suggestion = durable.suggestions.get(fixtureSuggestionId)!;
+    durable.suggestions.clear(); suggestion._id = articleId; durable.suggestions.set(articleId, suggestion);
+    return { current: durable.parent as unknown as typeof snapshot, editionWrite: durable.editionWrite,
+      storyUpdate: vi.mocked(EPaperArticle.findByIdAndUpdate), standaloneStoryUpdate: vi.mocked(EPaperArticle.findOneAndUpdate),
+      storyDelete: vi.mocked(EPaperArticle.deleteOne), storyCreate: vi.mocked(EPaperArticle.create),
+      suggestionWrite: vi.mocked(EPaperOcrSuggestion.findByIdAndUpdate), standaloneSuggestionWrite: vi.mocked(EPaperOcrSuggestion.findOneAndUpdate), select: vi.fn(),
+    };
+  }
   // A page upload commits after the service loads its snapshot, before the
   // readiness wrapper starts. Its newer image must survive the stale request.
   const current = concurrentUpload
@@ -109,10 +120,14 @@ describe.each(['transaction', 'standalone'] as const)('Content snapshot CAS on %
     await expect(request(operation)).resolves.toBeDefined();
     const calls = state.editionWrite.mock.calls as unknown as unknown[][];
     expect(calls[0][0]).toMatchObject({ _id: id, version: 4 });
-    expect(calls[0][1]).toMatchObject({ $inc: { version: 1 }, ...(mode === 'transaction' ? { $set: { qaCompletedAt: null } } : {}) });
-    if (mode === 'standalone') expect(calls[1][1]).toMatchObject({ $set: { qaCompletedAt: null } });
-    if (operation !== 'create') {
+    if (mode === 'transaction') {
+      expect(calls[0][1]).toMatchObject({ $inc: { version: 1 }, $set: { qaCompletedAt: null } });
       expect(calls[1][0]).toMatchObject({ _id: id, version: 5 });
+    } else {
+      expect(calls[0][1]).toMatchObject({ $set: { version: 5, contentMutation: { phase: 'running' } } });
+      const committed = calls.find((call) => (call[1] as { $set?: Record<string, unknown> }).$set?.['contentMutation.phase'] === 'committed')!;
+      expect(committed[0]).toMatchObject({ _id: id, version: 5 });
+      expect(committed[1]).toMatchObject({ $set: { qaCompletedAt: null } });
     }
   });
 
@@ -155,15 +170,6 @@ describe('Content snapshot API conflicts', () => {
 describe('Standalone writes after the readiness lock', () => {
   it('does not replace pages if another writer advances the version after the lock', async () => {
     const state = arrange('standalone', false);
-    vi.mocked(EPaper.updateOne).mockImplementation((async (filter: { version: number }, change: { $inc?: { version: number }; $set?: { pages?: unknown } }) => {
-      if (filter.version !== state.current.version) return { matchedCount: 0 };
-      if (change.$inc?.version) {
-        state.current.version += change.$inc.version;
-        return { matchedCount: 1 };
-      }
-      state.current.pages = change.$set?.pages as typeof state.current.pages;
-      return { matchedCount: 1 };
-    }) as never);
     await expect(new EpaperRepository().withEditionReadinessMutation(id, 4, async (repo) => {
       // Another upload commits while this standalone mutation is running.
       state.current.version += 1;

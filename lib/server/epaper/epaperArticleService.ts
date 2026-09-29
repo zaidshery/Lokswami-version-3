@@ -128,7 +128,8 @@ export class EpaperArticleService {
     const count = requestedTitle ? 0 : await this.repo.countArticles({ epaperId: id, pageNumber });
     const title = requestedTitle || buildEpaperPlaceholderTitle(pageNumber, count + 1);
     const slug = await resolveUniqueSlug(slugInput || title, (candidate) => this.repo.articleExists({ epaperId: id, slug: candidate }));
-    const created = await this.repo.withEditionReadinessMutation(id, Number(paper.version || 1), (repo) => repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
+    const created = await this.repo.withEditionReadinessMutation(id, Number(paper.version || 1), async (repo) => {
+      const article = await repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
       releasedSnapshot: null,
       workflow: {
         status: 'draft',
@@ -138,7 +139,13 @@ export class EpaperArticleService {
           email: actor.email || '',
           role: actor.role,
         },
-      } }));
+      } });
+      await repo.updateEditionWhere({ _id: id }, { $set: { pages: (Array.isArray(paper.pages) ? paper.pages : []).map((entry) => {
+        const page = asObject(entry);
+        return Number(page.pageNumber) === pageNumber ? { ...page, reviewStatus: 'pending', reviewedAt: null, reviewedBy: null } : page;
+      }) } });
+      return article;
+    });
     await afterEpaperMutationCommit(id, async () => {
       await invalidateEpaperQa({
         epaperId: id, actor, reason: 'A mapped story was created.', pageNumbers: [pageNumber],

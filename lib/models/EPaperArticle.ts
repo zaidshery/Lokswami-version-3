@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { addEpaperMutationFence } from './schemas/epaperMutationFence';
 import { WorkflowMetaSchema } from '@/lib/models/schemas/workflow';
 import type { WorkflowMeta } from '@/lib/workflow/types';
 import type { ReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
@@ -24,6 +25,10 @@ export interface IEPaperArticle {
   workflow: WorkflowMeta;
   releasedSnapshot?: ReleasedEpaperStory | null;
   revisionInitializationOwner?: string;
+  readinessContentVersion?: number;
+  readinessMutationToken?: string;
+  readinessMutationHidden?: boolean;
+  readinessDiscardAfter?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +57,10 @@ const EPaperArticleSchema = new mongoose.Schema<IEPaperArticle>(
     workflow: { type: WorkflowMetaSchema, default: () => ({}) },
     releasedSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
     revisionInitializationOwner: { type: String, trim: true },
+    readinessContentVersion: { type: Number, min: 0, default: 0 },
+    readinessMutationToken: { type: String },
+    readinessMutationHidden: { type: Boolean, default: false },
+    readinessDiscardAfter: { type: Date },
   },
   { timestamps: true }
 );
@@ -60,6 +69,8 @@ EPaperArticleSchema.index({ epaperId: 1, slug: 1 }, { unique: true });
 EPaperArticleSchema.index({ epaperId: 1, pageNumber: 1 });
 EPaperArticleSchema.index({ epaperId: 1, pageNumber: 1, createdAt: 1 });
 EPaperArticleSchema.index({ 'workflow.status': 1, updatedAt: -1 });
+EPaperArticleSchema.index({ readinessDiscardAfter: 1 }, { expireAfterSeconds: 0 });
+addEpaperMutationFence(EPaperArticleSchema, 'readinessMutationToken', true);
 
 const EPaperArticle =
   (mongoose.models.EPaperArticle as mongoose.Model<IEPaperArticle> | undefined) ||

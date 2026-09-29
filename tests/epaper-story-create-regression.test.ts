@@ -58,6 +58,7 @@ function buildRepo() {
       updatedAt: new Date('2026-09-26T00:00:00.000Z'),
     })),
     deleteArticleWhere: vi.fn().mockResolvedValue({ deletedCount: 1 }),
+    updateEditionWhere: vi.fn().mockResolvedValue({ matchedCount: 1 }),
   };
   return { ...repo, withEditionReadinessMutation: vi.fn(async (_id: string, _expectedVersion: number, mutate: (repository: typeof repo) => Promise<unknown>) => mutate(repo)) };
 }
@@ -68,6 +69,16 @@ describe('E-paper mapped story create regression', () => {
     workflowMocks.automate.mockResolvedValue({ changed: true, nextStatus: 'ocr_review' });
     workflowMocks.activity.mockResolvedValue(undefined);
     workflowMocks.invalidate.mockResolvedValue({ changed: true, toStatus: 'hotspot_mapping' });
+  });
+
+  it('marks an already reviewed page pending inside the story creation mutation', async () => {
+    const repo = buildRepo();
+    repo.findEditionById.mockResolvedValueOnce({ _id: epaperId, status: 'draft', productionStatus: 'ready_to_publish', pageCount: 2,
+      pages: [{ pageNumber: 1, imagePath: '/page-1.jpg' }, { pageNumber: 2, imagePath: '/page-2.jpg', reviewStatus: 'ready', reviewedAt: new Date(), reviewedBy: { id: actor.id } }] } as never);
+    await new EpaperArticleService(repo as never).create(actor, epaperId, { pageNumber: 2, title: 'New readable mapping', contentHtml: '<p>Copy.</p>', hotspot });
+    expect(repo.updateEditionWhere).toHaveBeenCalledWith({ _id: epaperId }, { $set: { pages: [
+      { pageNumber: 1, imagePath: '/page-1.jpg' }, { pageNumber: 2, imagePath: '/page-2.jpg', reviewStatus: 'pending', reviewedAt: null, reviewedBy: null },
+    ] } });
   });
 
   it('reproduces the original reviewedBy embedded-schema validation failure', () => {

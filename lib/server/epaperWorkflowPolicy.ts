@@ -49,12 +49,16 @@ export function assertEpaperDraftEditable(epaper: {
   revisionInitializationStatus?: unknown;
   revisionInitializationStartedAt?: unknown;
   createdAt?: unknown;
+  contentMutation?: unknown;
 }, options: { allowFailedInitialization?: boolean } = {}) {
   if (!epaper) {
     throw new EpaperConflictError('EPAPER_IMMUTABLE: Edition is immutable.');
   }
   if (PROTECTED_EPAPER_AUTOMATION_IDS.has(String(epaper._id || '').toLowerCase())) {
     throw new EpaperConflictError('This preserved QA edition cannot be mutated.');
+  }
+  if (epaper.contentMutation && typeof epaper.contentMutation === 'object' && 'id' in epaper.contentMutation) {
+    throw new EpaperConflictError('A content change is being saved or recovered. Retry once it finishes.');
   }
 
   const status = typeof epaper.status === 'string' ? epaper.status.trim().toLowerCase() : '';
@@ -91,7 +95,7 @@ export async function invalidateEpaperQa(input: {
   versionAlreadyIncremented?: boolean;
 }) {
   const current = await EPaper.findById(input.epaperId)
-    .select('_id status productionStatus revisionInitializationStatus revisionInitializationStartedAt createdAt qaCompletedAt version')
+    .select('_id status productionStatus revisionInitializationStatus revisionInitializationStartedAt createdAt qaCompletedAt version contentMutation')
     .lean();
   if (!current) return { changed: false, fromStatus: null, toStatus: null };
 

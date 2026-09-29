@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { addEpaperMutationFence } from './schemas/epaperMutationFence';
 import {
   EPaperProductionStatusSchema,
   WorkflowActorRefSchema,
@@ -60,6 +61,7 @@ export interface IEPaper {
   productionAssignee: WorkflowActorRef | null;
   productionNotes: WorkflowComment[];
   qaCompletedAt: Date | null;
+  contentMutation?: Record<string, unknown> | null;
   processingGeneration?: string;
   revisionInitializationStatus?: 'initializing' | 'ready' | 'failed';
   revisionInitializationStartedAt?: Date | null;
@@ -147,6 +149,7 @@ const EPaperSchema = new mongoose.Schema<IEPaper>(
     productionAssignee: { type: WorkflowActorRefSchema, default: null },
     productionNotes: { type: [WorkflowCommentSchema], default: [] },
     qaCompletedAt: { type: Date, default: null },
+    contentMutation: { type: mongoose.Schema.Types.Mixed, default: null },
     processingGeneration: { type: String, trim: true, default: '' },
     revisionInitializationStatus: { type: String, enum: ['initializing', 'ready', 'failed'], default: 'ready' },
     revisionInitializationStartedAt: { type: Date, default: null },
@@ -214,6 +217,8 @@ EPaperSchema.index({ publishDate: -1, _id: -1 });
 EPaperSchema.index({ publicationType: 1, status: 1, citySlug: 1, publishDate: -1, _id: -1 });
 EPaperSchema.index({ status: 1, publishDate: -1, createdAt: -1 });
 EPaperSchema.index({ updatedAt: -1, _id: -1 });
+EPaperSchema.index({ 'contentMutation.phase': 1, 'contentMutation.leaseUntil': 1 });
+addEpaperMutationFence(EPaperSchema, 'contentMutation.id');
 
 const EPaper =
   (mongoose.models.EPaper as mongoose.Model<IEPaper> | undefined) ||

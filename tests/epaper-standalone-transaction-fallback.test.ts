@@ -5,6 +5,7 @@ import EPaperArticle from '@/lib/models/EPaperArticle';
 import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
 import TtsAsset from '@/lib/models/TtsAsset';
 import { EpaperRepository } from '@/lib/server/epaper/epaperRepository';
+import { arrangeMutationMongo, suggestionId } from './helpers/epaperMutationMongoFixture';
 
 vi.mock('server-only', () => ({}));
 
@@ -46,47 +47,34 @@ describe('E-Paper repository standalone transaction fallback', () => {
     expect(session.endSession).toHaveBeenCalledOnce();
   });
 
-  it('falls back narrowly on standalone Mongo and still applies the readiness CAS before a story write', async () => {
-    const session = { withTransaction: vi.fn(async (work: () => Promise<void>) => work()), endSession: vi.fn() };
-    vi.spyOn(EPaper.db, 'startSession').mockResolvedValue(session as never);
-    vi.spyOn(EPaper, 'findById').mockReturnValueOnce(query(null, true) as never).mockReturnValue(query(draft) as never);
-    const update = vi.spyOn(EPaper, 'updateOne').mockResolvedValue({ matchedCount: 1 } as never);
-    const created = { _id: 'story', toObject: () => ({ _id: 'story' }) };
-    const create = vi.spyOn(EPaperArticle, 'create').mockResolvedValue(created as never);
-
-    const result = await new EpaperRepository().withEditionReadinessMutation(
-      id,
-      4,
-      (repo) => repo.createArticle({ epaperId: id, title: 'OCR accepted story' }),
-    );
-
-    expect(result).toMatchObject({ _id: 'story' });
-    expect(update).toHaveBeenCalledTimes(2);
-    const [filter, change, options] = (update.mock.calls as unknown as unknown[][])[0];
-    expect(filter).toMatchObject({ _id: id, status: 'draft', version: 4 });
-    expect(change).toEqual({ $inc: { version: 1 } });
-    expect((update.mock.calls as unknown as unknown[][])[1][1]).toMatchObject({ $set: { qaCompletedAt: null } });
-    expect(options).toBeUndefined();
-    expect(update.mock.calls[1][0]).toMatchObject({ _id: id, version: 5 });
-    expect(create).toHaveBeenCalledWith({ epaperId: id, title: 'OCR accepted story' });
-    expect(session.endSession).toHaveBeenCalledOnce();
+  it('falls back narrowly and durably records intent before a story write', async () => {
+    const state = arrangeMutationMongo();
+    const result = await new EpaperRepository().withEditionReadinessMutation(id, 4, (repo) => repo.createArticle({
+      epaperId: id, pageNumber: 1, title: 'OCR accepted story', slug: 'accepted',
+      contentHtml: '<p>Story</p>', hotspot: { x: 0, y: 0, w: 0.5, h: 0.5 },
+    }));
+    expect(result).toMatchObject({ title: 'OCR accepted story' });
+    expect(result._id).toBeDefined();
+    const first = state.events[0];
+    expect(first.filter).toMatchObject({ _id: id, status: 'draft', version: 4 });
+    expect(first.payload).toMatchObject({ $set: { version: 5, contentMutation: { phase: 'running', undo: [] } } });
+    const intentIndex = state.events.findIndex((event) => event.phase === 'after' && event.payload.$push);
+    const childIndex = state.events.findIndex((event) => event.collection === 'article');
+    expect(intentIndex).toBeGreaterThan(0);
+    expect(intentIndex).toBeLessThan(childIndex);
+    expect(state.parent).toMatchObject({ version: 5, qaCompletedAt: null });
+    expect(state.parent.contentMutation).toBeUndefined();
+    expect(state.visible()[0].readinessMutationToken).toBeUndefined();
+    expect(state.visible()[0].readinessDiscardAfter).toBeUndefined();
+    expect(state.session.endSession).toHaveBeenCalledOnce();
   });
 
-  it('applies OCR acceptance story, suggestion, and page-readiness writes through the standalone fallback', async () => {
-    const session = { withTransaction: vi.fn(async (work: () => Promise<void>) => work()), endSession: vi.fn() };
-    vi.spyOn(EPaper.db, 'startSession').mockResolvedValue(session as never);
-    vi.spyOn(EPaper, 'findById').mockReturnValueOnce(query(null, true) as never).mockReturnValue(query(draft) as never);
-    const update = vi.spyOn(EPaper, 'updateOne').mockResolvedValue({ matchedCount: 1 } as never);
-    const article = { _id: '507f1f77bcf86cd799439012', toObject: () => ({ _id: '507f1f77bcf86cd799439012' }) };
-    const createArticle = vi.spyOn(EPaperArticle, 'create').mockResolvedValue(article as never);
-    vi.spyOn(EPaperOcrSuggestion, 'findById').mockReturnValue({ lean: async () => ({ _id: 'suggestion', status: 'pending' }) } as never);
-    const suggestionUpdate = vi.spyOn(EPaperOcrSuggestion, 'findOneAndUpdate').mockReturnValue({
-      lean: async () => ({ _id: 'suggestion', status: 'accepted' }),
-    } as never);
-
-    await new EpaperRepository().withEditionReadinessMutation(id, 4, async (repo) => {
-      const created = await repo.createArticle({ epaperId: id, title: 'Accepted OCR story' });
-      const reviewed = await repo.updateOcrSuggestion('suggestion', {
+  it('commits OCR article, suggestion and page readiness through the standalone journal', async () => {
+    const state = arrangeMutationMongo();
+    const result = await new EpaperRepository().withEditionReadinessMutation(id, 4, async (repo) => {
+      const created = await repo.createArticle({ epaperId: id, pageNumber: 1, title: 'Accepted OCR story',
+        slug: 'accepted', contentHtml: '<p>Story</p>', hotspot: { x: 0, y: 0, w: 0.5, h: 0.5 } });
+      const reviewed = await repo.updateOcrSuggestion(suggestionId, {
         status: 'accepted', createdArticleId: repo.toObjectId(String(created._id)),
       });
       await repo.updateEditionWhere({ _id: id }, {
@@ -94,13 +82,17 @@ describe('E-Paper repository standalone transaction fallback', () => {
       });
       return { created, reviewed };
     });
-
-    expect(createArticle).toHaveBeenCalledWith({ epaperId: id, title: 'Accepted OCR story' });
-    expect(suggestionUpdate).toHaveBeenCalledWith(expect.objectContaining({ _id: 'suggestion', $and: expect.any(Array) }), expect.objectContaining({ status: 'accepted' }), expect.objectContaining({ new: true, runValidators: true }));
-    expect(update).toHaveBeenCalledTimes(2);
-    expect((update.mock.calls as unknown as unknown[][])[1][1]).toMatchObject({
-      $set: { pages: [{ pageNumber: 1, reviewStatus: 'ready' }], qaCompletedAt: null },
-    });
+    expect(result.reviewed).not.toBeNull();
+    expect(String(result.reviewed?.createdArticleId)).toBe(String(result.created._id));
+    expect(state.suggestions.get(suggestionId)).toMatchObject({ status: 'accepted' });
+    expect(state.parent).toMatchObject({ version: 5, qaCompletedAt: null, pages: [{ pageNumber: 1, reviewStatus: 'ready' }] });
+    expect(state.parent.contentMutation).toBeUndefined();
+    expect(EPaperOcrSuggestion.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ readinessMutationToken: expect.any(String), readinessContentVersion: 1, $expr: expect.any(Object) }),
+      expect.objectContaining({ status: 'accepted' }), expect.objectContaining({ new: true, runValidators: true }));
+    expect(state.events.filter((event) => event.phase === 'after' && event.payload.$push)).toHaveLength(2);
+    expect(state.events.some((event) => event.filter.version === 5 &&
+      (event.payload.$set as Record<string, unknown>)?.['contentMutation.phase'] === 'committed')).toBe(true);
   });
 
   it('does not fall back for an unrelated transaction error', async () => {

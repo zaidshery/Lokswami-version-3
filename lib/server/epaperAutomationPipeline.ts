@@ -1,4 +1,5 @@
 import 'server-only';
+import { recoverEditionContentMutation } from '@/lib/server/epaper/epaperStandaloneMutation';
 
 import EPaper from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
@@ -247,6 +248,9 @@ async function loadAutomationState(epaperId: string) {
         ' remain for optional editorial review.'
     );
   }
+  if (epaper.contentMutation && typeof epaper.contentMutation === 'object' && 'id' in epaper.contentMutation) {
+    processingBlockers.push('A content change is being saved or recovered.');
+  }
   const blockers = [...new Set([...readiness.blockers, ...processingBlockers])];
   const base = {
     epaperId,
@@ -342,6 +346,10 @@ export async function applyEpaperWorkflowAutomation(input: {
   let changed = false;
   let nextStatus: EPaperProductionStatus | null = null;
   let current = await loadAutomationState(input.epaperId);
+  if (current.epaper.contentMutation) {
+    await recoverEditionContentMutation(input.epaperId);
+    current = await loadAutomationState(input.epaperId);
+  }
 
   if (
     current.epaper.status !== 'draft' ||
@@ -381,6 +389,7 @@ export async function reconcileDueEpaperAutomation(options: { limit?: number } =
   const limit = Math.min(Math.max(Number(options.limit || 20), 1), 100);
   const editions = await EPaper.find({
     status: 'draft',
+    'contentMutation.id': { $exists: false },
     productionStatus: { ['\u0024nin']: ['published', 'archived', 'ready_to_publish'] },
     _id: { ['\u0024nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
   })
