@@ -128,7 +128,7 @@ export function StoryCollaborationBar({
                   aria-label="Confirm Lease Takeover"
                   className="flex flex-wrap items-center gap-1.5 rounded border border-amber-600/80 bg-amber-950/90 p-1 text-xs text-amber-200"
                 >
-                  <span>Take over lock? Current editor's uncommitted draft will not be saved.</span>
+                  <span>Take over lock? Current editor&apos;s uncommitted draft will not be saved.</span>
                   <button
                     type="button"
                     onClick={() => {
