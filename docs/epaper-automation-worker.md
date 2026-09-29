@@ -46,3 +46,35 @@ delete the incomplete draft through the canonical CMS workflow before retrying.
 
 The preserved QA edition `6ab0da70c6aab6a2a6cab44e` is excluded from automation,
 revisions, and story mutation. Use separate temporary staging editions for QA.
+
+## Standalone Mongo content compensation
+
+Hostinger and local development can run the Next server and automation worker
+in separate Node processes; multiple owners can share Mongo. Content mutations
+therefore use database CAS and conditional compensation, not a process mutex.
+Replica sets continue using real driver transactions. Fallback is allowed only
+for code 20 / IllegalOperation with the recognized transaction-unavailable
+message, before transactional mutation work starts.
+
+Create, legacy story update/delete, and OCR acceptance pass the caller's edition
+version. Standalone CAS advances that version before child writes. QA clearing
+and ready-stage demotion occur at the final fenced parent write. Create also
+performs that final fence even though it has no replacement page array.
+Update/delete/OCR finish at their final fenced page write.
+
+On a reported failure, child undo runs in reverse order independently of parent
+rollback. Created articles are deleted only if their complete stored snapshot
+still matches; updates restore the prior BSON document only if the written
+snapshot still matches. Deleted objects are reinserted with the original ID and
+timestamps, subject to Mongo's ID and edition/slug uniqueness constraints. OCR
+suggestion restoration and article cleanup belong to the same undo sequence.
+Newer independent parent writes are preserved. A callback failure after a parent
+write restores its affected fields only while its version fence still holds;
+versions remain monotonic even when compensation succeeds.
+
+Compensation cannot overwrite a newer child or a valid successor. A failed undo
+is logged and raised as incomplete compensation; all remaining undo steps are
+still attempted. Compensation is not a substitute for transaction isolation or
+durable crash recovery. Audit and reconciliation effects run after commit;
+their failures are logged without reporting a committed content save as failed.
+No unsafe mutation retry or additional notification/TTS write is introduced.

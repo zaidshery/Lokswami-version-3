@@ -123,21 +123,20 @@ describe('E-paper mapped story create regression', () => {
     expect(input.releasedSnapshot).toBeNull();
   });
 
-  it('compensates only the newly inserted story when required workflow automation fails', async () => {
+  it('reports a committed creation as success when a post-commit automation effect fails', async () => {
     const repo = buildRepo();
     workflowMocks.automate.mockRejectedValueOnce(new Error('workflow update failed'));
 
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     await expect(new EpaperArticleService(repo as never).create(actor, epaperId, {
       pageNumber: 2,
       title: 'Atomic story',
       contentHtml: '<p>Readable copy.</p>',
       hotspot,
-    })).rejects.toThrow('workflow update failed');
+    })).resolves.toMatchObject({ _id: articleId });
 
-    expect(repo.deleteArticleWhere).toHaveBeenCalledWith({
-      _id: articleId,
-      epaperId,
-    });
+    expect(repo.deleteArticleWhere).not.toHaveBeenCalled();
+    expect(logged).toHaveBeenCalledWith('[epaper] post-commit effects failed', expect.objectContaining({ epaperId }));
   });
 
   it('recovers an exact prior partial story instead of inserting a duplicate on retry', async () => {

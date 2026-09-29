@@ -62,17 +62,21 @@ function arrange(mode: 'transaction' | 'standalone', concurrentUpload = true) {
   const editionWrite = vi.spyOn(EPaper, 'updateOne').mockResolvedValue({ matchedCount: 1 } as never);
   const article = { _id: articleId, epaperId: id, pageNumber: 1, title: 'Story' };
   vi.spyOn(EPaperArticle, 'findById').mockReturnValue({ lean: async () => article } as never);
-  vi.spyOn(EPaperArticle, 'findOne').mockReturnValue({ select: () => ({ lean: async () => null }), lean: async () => null } as never);
+  vi.spyOn(EPaperArticle, 'findOne').mockImplementation(((query: { _id?: unknown }) => ({ select: () => ({ lean: async () => null }), lean: async () => query._id ? article : null })) as never);
   vi.spyOn(EPaperArticle, 'exists').mockResolvedValue(null);
   const storyUpdate = vi.spyOn(EPaperArticle, 'findByIdAndUpdate').mockReturnValue({ lean: async () => article } as never);
+  const standaloneStoryUpdate = vi.spyOn(EPaperArticle, 'findOneAndUpdate').mockReturnValue({ lean: async () => article } as never);
   const storyDelete = vi.spyOn(EPaperArticle, 'deleteOne').mockResolvedValue({ deletedCount: 1 } as never);
   const storyCreate = vi.spyOn(EPaperArticle, 'create').mockImplementation((async (data: unknown) => {
     const created = { toObject: () => article };
     return Array.isArray(data) ? [created] : created;
   }) as never);
-  vi.spyOn(EPaperOcrSuggestion, 'findOne').mockReturnValue({ lean: async () => ({ _id: articleId, epaperId: id, pageNumber: 1, title: 'OCR story' }) } as never);
+  const suggestion = { _id: articleId, epaperId: id, pageNumber: 1, title: 'OCR story' };
+  vi.spyOn(EPaperOcrSuggestion, 'findOne').mockReturnValue({ lean: async () => suggestion } as never);
+  vi.spyOn(EPaperOcrSuggestion, 'findById').mockReturnValue({ lean: async () => suggestion } as never);
+  const standaloneSuggestionWrite = vi.spyOn(EPaperOcrSuggestion, 'findOneAndUpdate').mockReturnValue({ lean: async () => ({ status: 'accepted' }) } as never);
   const suggestionWrite = vi.spyOn(EPaperOcrSuggestion, 'findByIdAndUpdate').mockReturnValue({ lean: async () => ({ status: 'accepted' }) } as never);
-  return { current, editionWrite, storyUpdate, storyDelete, storyCreate, suggestionWrite, select };
+  return { current, editionWrite, storyUpdate, standaloneStoryUpdate, storyDelete, storyCreate, suggestionWrite, standaloneSuggestionWrite, select };
 }
 
 function request(operation: 'update' | 'delete' | 'ocr' | 'create') {
@@ -91,9 +95,11 @@ describe.each(['transaction', 'standalone'] as const)('Content snapshot CAS on %
     await expect(request(operation)).rejects.toThrow('EPAPER_VERSION_CONFLICT');
     expect(state.editionWrite).not.toHaveBeenCalled();
     expect(state.storyUpdate).not.toHaveBeenCalled();
+    expect(state.standaloneStoryUpdate).not.toHaveBeenCalled();
     expect(state.storyDelete).not.toHaveBeenCalled();
     expect(state.storyCreate).not.toHaveBeenCalled();
     expect(state.suggestionWrite).not.toHaveBeenCalled();
+    expect(state.standaloneSuggestionWrite).not.toHaveBeenCalled();
     expect(state.current.pages).toEqual([{ pageNumber: 1, imagePath: '/new-page.jpg', reviewStatus: 'needs_attention' }]);
     if (operation !== 'ocr') expect(state.select).toHaveBeenCalledWith(expect.stringContaining('version'));
   });
@@ -103,7 +109,8 @@ describe.each(['transaction', 'standalone'] as const)('Content snapshot CAS on %
     await expect(request(operation)).resolves.toBeDefined();
     const calls = state.editionWrite.mock.calls as unknown as unknown[][];
     expect(calls[0][0]).toMatchObject({ _id: id, version: 4 });
-    expect(calls[0][1]).toMatchObject({ $inc: { version: 1 }, $set: { qaCompletedAt: null } });
+    expect(calls[0][1]).toMatchObject({ $inc: { version: 1 }, ...(mode === 'transaction' ? { $set: { qaCompletedAt: null } } : {}) });
+    if (mode === 'standalone') expect(calls[1][1]).toMatchObject({ $set: { qaCompletedAt: null } });
     if (operation !== 'create') {
       expect(calls[1][0]).toMatchObject({ _id: id, version: 5 });
     }
@@ -120,7 +127,7 @@ describe.each(['transaction', 'standalone'] as const)('Content snapshot CAS on %
       lean: async () => ({ status: 'draft', productionStatus: 'hotspot_mapping', version }),
     }) as never);
     vi.mocked(EPaper.updateOne).mockImplementation((async (_filter: unknown, updates: { $set: { version: number } }) => {
-      version = updates.$set.version;
+      if (updates.$set?.version !== undefined) version = updates.$set.version;
       return { matchedCount: 1 };
     }) as never);
     const mutate = vi.fn(async () => 'saved');

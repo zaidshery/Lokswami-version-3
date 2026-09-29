@@ -5,6 +5,7 @@ import EPaper from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
 import { canEditEpaper } from '@/lib/auth/permissions';
 import { applyEpaperWorkflowAutomation } from '@/lib/server/epaperWorkflowAutomation';
+import { afterEpaperMutationCommit } from './epaperMutationCompensation';
 import {
   assertEpaperDraftEditable,
   invalidateEpaperQa,
@@ -266,17 +267,19 @@ export async function updateEpaperArticleById(
     const changedPages = Array.from(
       new Set([Number(current.pageNumber || 0), Number(updated.pageNumber || 0)])
     ).filter(Boolean);
-    await invalidateEpaperQa({
-      epaperId: String(updated.epaperId || ''),
-      actor,
-      reason: 'Mapped story content or hotspot changed.',
-      pageNumbers: changedPages,
-      versionAlreadyIncremented: true,
-    });
-    await applyEpaperWorkflowAutomation({
-      epaperId: String(updated.epaperId || ''),
-      actor,
-      reason: 'A mapped e-paper story was updated.',
+    await afterEpaperMutationCommit(String(updated.epaperId), async () => {
+      await invalidateEpaperQa({
+        epaperId: String(updated.epaperId || ''),
+        actor,
+        reason: 'Mapped story content or hotspot changed.',
+        pageNumbers: changedPages,
+        versionAlreadyIncremented: true,
+      });
+      await applyEpaperWorkflowAutomation({
+        epaperId: String(updated.epaperId || ''),
+        actor,
+        reason: 'A mapped e-paper story was updated.',
+      });
     });
   }
 
@@ -357,13 +360,13 @@ export async function deleteEpaperArticleById(
     };
   }
 
-  await invalidateEpaperQa({
+  await afterEpaperMutationCommit(String(existing.epaperId), () => invalidateEpaperQa({
     epaperId: String(existing.epaperId),
     actor,
     reason: 'A mapped story was deleted.',
     pageNumbers: [pageNumber],
     versionAlreadyIncremented: true,
-  });
+  }));
 
   return {
     status: 200,

@@ -7,6 +7,7 @@ import { buildEpaperActivityMessage, recordEpaperActivity } from '@/lib/server/e
 import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import { applyEpaperWorkflowAutomation } from '@/lib/server/epaperWorkflowAutomation';
 import { assertEpaperDraftEditable, invalidateEpaperQa } from '@/lib/server/epaperWorkflowPolicy';
+import { afterEpaperMutationCommit } from './epaperMutationCompensation';
 import { buildEpaperStoryTtsText, findReadyManualTtsAsset } from '@/lib/server/ttsAssets';
 import {
   buildEpaperPlaceholderTitle,
@@ -138,19 +139,15 @@ export class EpaperArticleService {
           role: actor.role,
         },
       } }));
-    try {
+    await afterEpaperMutationCommit(id, async () => {
       await invalidateEpaperQa({
         epaperId: id, actor, reason: 'A mapped story was created.', pageNumbers: [pageNumber],
         versionAlreadyIncremented: true,
       });
       await applyEpaperWorkflowAutomation({ epaperId: id, actor, reason: 'A mapped e-paper story was created.' });
-    } catch (error) {
-      const latest = await this.repo.findEditionById(id, '_id version');
-      if (latest) await this.repo.withEditionReadinessMutation(id, Number(latest.version || 1), (repo) => repo.deleteArticleWhere({ _id: created._id, epaperId: id }));
-      throw error;
-    }
-    await recordEpaperActivity({ epaperId: id, actor, action: 'story_created', message: buildEpaperActivityMessage({ action: 'story_created' }),
-      metadata: { articleId: String(created._id || ''), pageNumber, title } });
+    });
+    await afterEpaperMutationCommit(id, () => recordEpaperActivity({ epaperId: id, actor, action: 'story_created', message: buildEpaperActivityMessage({ action: 'story_created' }),
+      metadata: { articleId: String(created._id || ''), pageNumber, title } }));
     return { ...mapAdminEpaperArticle(created), recovered: false };
   }
 

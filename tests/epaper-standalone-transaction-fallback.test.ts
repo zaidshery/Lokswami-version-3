@@ -61,11 +61,13 @@ describe('E-Paper repository standalone transaction fallback', () => {
     );
 
     expect(result).toMatchObject({ _id: 'story' });
-    expect(update).toHaveBeenCalledOnce();
+    expect(update).toHaveBeenCalledTimes(2);
     const [filter, change, options] = (update.mock.calls as unknown as unknown[][])[0];
     expect(filter).toMatchObject({ _id: id, status: 'draft', version: 4 });
-    expect(change).toMatchObject({ $inc: { version: 1 }, $set: { qaCompletedAt: null } });
+    expect(change).toEqual({ $inc: { version: 1 } });
+    expect((update.mock.calls as unknown as unknown[][])[1][1]).toMatchObject({ $set: { qaCompletedAt: null } });
     expect(options).toBeUndefined();
+    expect(update.mock.calls[1][0]).toMatchObject({ _id: id, version: 5 });
     expect(create).toHaveBeenCalledWith({ epaperId: id, title: 'OCR accepted story' });
     expect(session.endSession).toHaveBeenCalledOnce();
   });
@@ -77,7 +79,8 @@ describe('E-Paper repository standalone transaction fallback', () => {
     const update = vi.spyOn(EPaper, 'updateOne').mockResolvedValue({ matchedCount: 1 } as never);
     const article = { _id: '507f1f77bcf86cd799439012', toObject: () => ({ _id: '507f1f77bcf86cd799439012' }) };
     const createArticle = vi.spyOn(EPaperArticle, 'create').mockResolvedValue(article as never);
-    const suggestionUpdate = vi.spyOn(EPaperOcrSuggestion, 'findByIdAndUpdate').mockReturnValue({
+    vi.spyOn(EPaperOcrSuggestion, 'findById').mockReturnValue({ lean: async () => ({ _id: 'suggestion', status: 'pending' }) } as never);
+    const suggestionUpdate = vi.spyOn(EPaperOcrSuggestion, 'findOneAndUpdate').mockReturnValue({
       lean: async () => ({ _id: 'suggestion', status: 'accepted' }),
     } as never);
 
@@ -93,7 +96,7 @@ describe('E-Paper repository standalone transaction fallback', () => {
     });
 
     expect(createArticle).toHaveBeenCalledWith({ epaperId: id, title: 'Accepted OCR story' });
-    expect(suggestionUpdate).toHaveBeenCalledWith('suggestion', expect.objectContaining({ status: 'accepted' }), expect.objectContaining({ session: undefined }));
+    expect(suggestionUpdate).toHaveBeenCalledWith(expect.objectContaining({ _id: 'suggestion', $and: expect.any(Array) }), expect.objectContaining({ status: 'accepted' }), expect.objectContaining({ new: true, runValidators: true }));
     expect(update).toHaveBeenCalledTimes(2);
     expect((update.mock.calls as unknown as unknown[][])[1][1]).toMatchObject({
       $set: { pages: [{ pageNumber: 1, reviewStatus: 'ready' }], qaCompletedAt: null },
