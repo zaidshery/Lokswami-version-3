@@ -302,6 +302,7 @@ export default function AdminEPaperDetailPage() {
   const [creatingRevision, setCreatingRevision] = useState(false);
   const [epaperTtsByStoryId, setEpaperTtsByStoryId] = useState<Record<string, TtsAssetRecord>>({});
   const [processingData, setProcessingData] = useState<ProcessingData | null>(null);
+  const [processingRefreshPending, setProcessingRefreshPending] = useState(false);
 
   const [title, setTitle] = useState('');
   const [publishDate, setPublishDate] = useState('');
@@ -326,7 +327,6 @@ export default function AdminEPaperDetailPage() {
       });
       const payload = (await response.json().catch(() => ({}))) as ProcessingResponse;
       if (!response.ok || !payload.success || !payload.data) return null;
-      setProcessingData(payload.data);
       const status = payload.data.job?.status;
       const automationStage = payload.data.automation?.stage;
       const isTerminal =
@@ -339,6 +339,7 @@ export default function AdminEPaperDetailPage() {
         status === 'cancelled';
 
       if (isTerminal) {
+        setProcessingRefreshPending(true);
         const editionResponse = await fetch(
           `/api/admin/epapers/${epaperId}?publicationType=${publicationType}`,
           {
@@ -349,12 +350,14 @@ export default function AdminEPaperDetailPage() {
         const editionPayload = (await editionResponse
           .json()
           .catch(() => ({}))) as EpaperResponse;
-        if (editionResponse.ok && editionPayload.success && editionPayload.data) {
+        if (!editionResponse.ok || !editionPayload.success || !editionPayload.data) return null;
+        if (editionPayload.data) {
           setEpaper(editionPayload.data);
           setProductionStatus(
             editionPayload.data.productionStatus || 'draft_upload'
           );
         }
+        setProcessingRefreshPending(false);
       } else {
         if (payload.data.productionStatus) setProductionStatus(payload.data.productionStatus);
         setEpaper((current) =>
@@ -369,6 +372,9 @@ export default function AdminEPaperDetailPage() {
             : current
         );
       }
+      // Keep the previous active stage polling until canonical workflow state
+      // has refreshed successfully, including after transient detail failures.
+      setProcessingData(payload.data);
       return payload.data;
     } catch {
       return null;
@@ -522,7 +528,7 @@ export default function AdminEPaperDetailPage() {
         automationStage !== 'published' &&
         automationStage !== 'archived'
     );
-    if (!processingActive && !automationActive) return;
+    if (!processingActive && !automationActive && !processingRefreshPending) return;
     const timer = window.setInterval(() => {
       void loadProcessing();
     }, 5000);
@@ -531,6 +537,7 @@ export default function AdminEPaperDetailPage() {
     loadProcessing,
     processingData?.automation?.stage,
     processingData?.job?.status,
+    processingRefreshPending,
   ]);
 
   useEffect(() => {
