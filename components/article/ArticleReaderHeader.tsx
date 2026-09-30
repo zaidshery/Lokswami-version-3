@@ -42,7 +42,7 @@ export default function ArticleReaderHeader({
 
   return (
     <header className={styles.header}>
-      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         {category ? (
           <Link href={getNewsCategoryHref(category.slug)} className={categoryClass}>
             {categoryLabel}
@@ -53,29 +53,31 @@ export default function ArticleReaderHeader({
       </div>
       <h1 className={styles.headline}>{article.title}</h1>
       {article.summary.trim() ? <p className={styles.summary}>{article.summary}</p> : null}
-      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-zinc-200 pb-5 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
-        {authorName ? (
-          <div className="flex min-w-0 items-center gap-3">
-            <button type="button" onClick={onAuthorClick}
-              className="reader-focus-ring relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-zinc-200 dark:border-zinc-700"
-              aria-label={language === 'hi' ? `${authorName} की प्रोफाइल फोटो देखें` : `View profile picture of ${authorName}`}>
-              {article.author.avatar ? (
-                <Image src={article.author.avatar} alt={authorName} fill sizes="44px" unoptimized className="object-cover" />
-              ) : <span className="flex h-full w-full items-center justify-center bg-red-700 font-bold text-white">{authorName.charAt(0)}</span>}
-            </button>
-            <div className="min-w-0">
-              <p className="break-words font-bold text-zinc-900 dark:text-zinc-100">{authorName}</p>
-              {article.author.programName ? <p className="break-words text-xs">{article.author.programName}</p> : null}
+      <div className={styles.byline}>
+        <div className={styles.authorDetails}>
+          {authorName ? (
+            <div className="flex min-w-0 items-center gap-3">
+              <button type="button" onClick={onAuthorClick}
+                className="reader-focus-ring relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-zinc-200 dark:border-zinc-700"
+                aria-label={language === 'hi' ? `${authorName} की प्रोफाइल फोटो देखें` : `View profile picture of ${authorName}`}>
+                {article.author.avatar ? (
+                  <Image src={article.author.avatar} alt={authorName} fill sizes="44px" unoptimized className="object-cover" />
+                ) : <span className="flex h-full w-full items-center justify-center bg-red-700 font-bold text-white">{authorName.charAt(0)}</span>}
+              </button>
+              <div className="min-w-0">
+                <p className="break-words font-bold text-zinc-900 dark:text-zinc-100">{authorName}</p>
+                {article.author.programName ? <p className="break-words text-xs">{article.author.programName}</p> : null}
+              </div>
             </div>
-          </div>
-        ) : null}
-        <div className="min-w-0 space-y-1">
+          ) : null}
+        </div>
+        <div className={styles.headerActions}>{children}</div>
+        <div className={styles.publicationDetails}>
           {published ? <p>{language === 'hi' ? 'प्रकाशित: ' : 'Published: '}<time dateTime={published.iso}>{published.text}</time> <span className="text-xs">IST</span></p> : null}
           {showUpdated ? <p>{language === 'hi' ? 'अपडेट: ' : 'Updated: '}<time dateTime={updated.iso}>{updated.text}</time> <span className="text-xs">IST</span></p> : null}
           <p className="text-xs">{language === 'hi' ? `${readMinutes} मिनट में पढ़ें` : `${readMinutes} min read`}</p>
         </div>
       </div>
-      <div className="pt-4">{children}</div>
     </header>
   );
 }

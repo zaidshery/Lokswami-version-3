@@ -18,6 +18,8 @@ describe('article reader header', () => {
     expect(screen.getByRole('link', { name: language === 'hi' ? 'क्षेत्रीय' : 'Regional' })).toHaveAttribute('href', '/main/category/regional');
     expect(screen.getByText('Actual Writer')).toBeInTheDocument();
     expect(screen.getByText('City desk')).toBeInTheDocument();
+    const authorRow = screen.getByRole('button', { name: /Actual Writer/ }).parentElement?.parentElement?.parentElement;
+    expect(screen.getByRole('button', { name: 'Share' }).parentElement?.parentElement).toBe(authorRow);
     expect(container.querySelectorAll('time')).toHaveLength(2);
     expect(container.querySelector('time')).toHaveAttribute('datetime', article.publishedAt);
     expect(container.textContent).toContain(language === 'hi' ? 'प्रकाशित:' : 'Published:');

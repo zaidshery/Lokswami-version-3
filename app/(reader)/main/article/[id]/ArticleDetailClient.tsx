@@ -81,8 +81,9 @@ export default function ArticleDetailClient({
   const articleRegionRef = useRef<HTMLElement | null>(null);
   const [aiBullets, setAiBullets] = useState<string[]>([]);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [, setAiSummaryError] = useState('');
+  const [aiSummaryError, setAiSummaryError] = useState('');
   const [isAuthorImageModalOpen, setIsAuthorImageModalOpen] = useState(false);
+  const authorCloseRef = useRef<HTMLButtonElement>(null);
   const [isSavingBookmark, setIsSavingBookmark] = useState(false);
   const summaryAbortControllerRef = useRef<AbortController | null>(null);
   const hasTrackedReadRef = useRef(false);
@@ -107,13 +108,23 @@ export default function ArticleDetailClient({
 
   useEffect(() => {
     if (!isAuthorImageModalOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    authorCloseRef.current?.focus();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsAuthorImageModalOpen(false);
       }
+      // The image dialog has one control. Keep keyboard focus inside it.
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        authorCloseRef.current?.focus();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
   }, [isAuthorImageModalOpen]);
 
 
@@ -147,6 +158,12 @@ export default function ArticleDetailClient({
   useEffect(() => {
     hasTrackedReadRef.current = false;
     readingProgressRef.current = 0;
+    summaryAbortControllerRef.current?.abort();
+    summaryAbortControllerRef.current = null;
+    setAiBullets([]);
+    setAiSummaryError('');
+    setIsGeneratingSummary(false);
+    setIsAuthorImageModalOpen(false);
   }, [article?.id]);
 
   useEffect(() => {
@@ -232,9 +249,9 @@ export default function ArticleDetailClient({
 
       if (controller.signal.aborted) return;
       setAiBullets(bullets.slice(0, 3));
-    } catch (error) {
+    } catch {
       if (controller.signal.aborted) return;
-      setAiSummaryError(error instanceof Error ? error.message : 'Failed to generate summary');
+      setAiSummaryError('unavailable');
     } finally {
       if (summaryAbortControllerRef.current === controller) {
         summaryAbortControllerRef.current = null;
@@ -387,7 +404,7 @@ export default function ArticleDetailClient({
 
               <Link
                 href="/main/epaper"
-                className="attention-pulsate-bck reader-touch-link reader-focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-3 text-sm font-semibold leading-none text-orange-700 transition hover:bg-orange-100 dark:border-orange-500/45 dark:bg-orange-500/12 dark:text-orange-300 dark:hover:bg-orange-500/20 sm:min-h-11 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
+                className="reader-touch-link reader-focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-3 text-sm font-semibold leading-none text-orange-700 transition hover:bg-orange-100 dark:border-orange-500/45 dark:bg-orange-500/12 dark:text-orange-300 dark:hover:bg-orange-500/20 sm:min-h-11 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
                 aria-label={language === 'hi' ? '\u0908-\u092a\u0947\u092a\u0930' : 'E-Paper'}
               >
                 <Newspaper className="h-3.5 w-3.5 max-[420px]:hidden sm:h-4 sm:w-4" />
@@ -399,7 +416,7 @@ export default function ArticleDetailClient({
         <figure>
           <div className="relative aspect-[16/10] max-h-[480px] w-full overflow-hidden bg-zinc-950 sm:aspect-[16/9] lg:aspect-[2/1]">
             <Image src={buildArticleImageVariantUrl(article.image, 'detail')} alt={article.seo?.featuredImageAlt || article.title}
-              fill className="object-contain" sizes="(max-width: 1023px) 94vw, 1024px" priority />
+              fill className="object-contain" sizes="(max-width: 639px) calc(100vw - 24px), (max-width: 1023px) calc(100vw - 40px), (max-width: 1071px) calc(100vw - 48px), 1024px" priority />
           </div>
           {article.seo?.featuredImageCaption || article.seo?.featuredImageCredit ? (
             <figcaption className="border-b border-zinc-200 px-4 py-3 text-xs leading-relaxed text-zinc-600 dark:border-white/10 dark:text-zinc-400 sm:px-6">
@@ -410,17 +427,24 @@ export default function ArticleDetailClient({
         </figure>
         <div className={`${styles.readingColumn} space-y-6 px-4 py-6 sm:px-6 sm:py-8`}>
 
-          <ArticleAudioPlayer key={article.id} articleId={article.id} text={articlePlainText} contentLanguage={articleContentLanguage} language={language} />
-          <section aria-label={language === 'hi' ? 'लोकस्वामी AI उपकरण' : 'Lokswami AI tools'}>
+          <ArticleAudioPlayer key={article.id} articleId={article.id} text={articlePlainText} contentLanguage={articleContentLanguage} language={language} secondaryAction={
             <button type="button" onClick={() => void handleGenerateSummary()} disabled={isGeneratingSummary}
-              className="reader-focus-ring inline-flex min-h-11 items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-bold text-red-700 disabled:opacity-60 dark:border-red-900 dark:text-red-300">
+              aria-busy={isGeneratingSummary}
+              className="reader-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40">
               {isGeneratingSummary ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Sparkles aria-hidden="true" className="h-4 w-4" />}
               {language === 'hi' ? 'सारांश' : 'Summary'}
             </button>
+          }>
+          <section aria-label={language === 'hi' ? 'लोकस्वामी AI उपकरण' : 'Lokswami AI tools'} aria-busy={isGeneratingSummary}
+            className={isGeneratingSummary || aiSummaryError || aiBullets.length ? 'mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800' : 'sr-only'}>
+            <p role="status" aria-live="polite" className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              {isGeneratingSummary ? (language === 'hi' ? 'सारांश तैयार हो रहा है…' : 'Preparing summary…') : aiSummaryError ? (language === 'hi' ? 'सारांश उपलब्ध नहीं है। फिर कोशिश करें या लेख पढ़ें।' : 'Summary unavailable. Try again or continue reading.') : aiBullets.length ? (language === 'hi' ? 'सारांश तैयार है।' : 'Summary ready.') : ''}
+            </p>
             {aiBullets.length ? <ul className="mt-3 space-y-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
               {aiBullets.map(bullet => <li key={bullet} className="flex gap-2"><span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" /><span>{bullet}</span></li>)}
             </ul> : null}
           </section>
+          </ArticleAudioPlayer>
 
           <div className="h-px w-full bg-zinc-200 dark:bg-zinc-800" />
 
@@ -438,18 +462,19 @@ export default function ArticleDetailClient({
           role="dialog"
           aria-modal="true"
           aria-label={article.author.name || 'Author Profile'}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200 motion-reduce:animate-none"
           onClick={() => setIsAuthorImageModalOpen(false)}
         >
           <div
-            className="relative flex w-full max-w-sm flex-col items-center rounded-3xl border border-zinc-700/80 bg-zinc-900/95 p-6 text-center shadow-2xl backdrop-blur-xl animate-in zoom-in-95 duration-200"
+            className="relative flex w-full max-w-sm flex-col items-center rounded-3xl border border-zinc-700/80 bg-zinc-900/95 p-6 text-center shadow-2xl backdrop-blur-xl animate-in zoom-in-95 duration-200 motion-reduce:animate-none"
             onClick={(e) => e.stopPropagation()}
           >
             <button
+              ref={authorCloseRef}
               type="button"
               onClick={() => setIsAuthorImageModalOpen(false)}
-              className="absolute right-4 top-4 rounded-full border border-zinc-700 bg-zinc-800 p-1.5 text-zinc-400 transition hover:bg-zinc-700 hover:text-white"
-              aria-label="Close"
+              className="reader-focus-ring absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white"
+              aria-label={language === 'hi' ? 'बंद करें' : 'Close'}
             >
               <X className="h-4 w-4" />
             </button>
@@ -473,9 +498,9 @@ export default function ArticleDetailClient({
             </div>
 
             <div className="mt-5 space-y-1">
-              <h3 className="text-xl font-black tracking-tight text-white sm:text-2xl">
+              <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
                 {article.author.name || 'Digital News Desk'}
-              </h3>
+              </h2>
               {article.author.programName ? (
                 <p className="text-sm font-semibold text-orange-400">
                   {article.author.programName}

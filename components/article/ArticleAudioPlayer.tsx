@@ -1,17 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Headphones, Loader2, Pause, Play, RotateCcw, Square } from 'lucide-react';
 import { useArticleTts } from '@/lib/hooks/useArticleTts';
 import { buildTtsAudioSource, requestArticleTtsAudio } from '@/lib/ai/ttsClient';
+import styles from './ArticleReader.module.css';
 
 const labels = {
   en: { title: 'Listen to article', idle: 'Audio plays only when you choose Listen.', preparing: 'Preparing audio…', listen: 'Listen', pause: 'Pause', resume: 'Resume', again: 'Listen again', restart: 'Restart', stop: 'Stop', playing: 'Playing', paused: 'Paused', complete: 'Audio complete', unavailable: 'Audio unavailable. Try again or continue reading.', fallback: 'Reading with your browser voice', progress: 'Article audio progress' },
   hi: { title: 'लेख सुनें', idle: 'सुनें चुनने पर ही ऑडियो चलेगा।', preparing: 'ऑडियो तैयार हो रहा है…', listen: 'सुनें', pause: 'रोकें', resume: 'जारी रखें', again: 'फिर सुनें', restart: 'शुरू से सुनें', stop: 'बंद करें', playing: 'ऑडियो चल रहा है', paused: 'ऑडियो रुका है', complete: 'ऑडियो पूरा हुआ', unavailable: 'ऑडियो उपलब्ध नहीं है। फिर कोशिश करें या लेख पढ़ें।', fallback: 'ब्राउज़र की आवाज़ में पढ़ा जा रहा है', progress: 'लेख के ऑडियो की प्रगति' },
 };
 
-export default function ArticleAudioPlayer({ articleId, text, contentLanguage, language }: {
+export default function ArticleAudioPlayer({ articleId, text, contentLanguage, language, secondaryAction, children }: {
   articleId: string; text: string; contentLanguage: 'hi' | 'en'; language: 'hi' | 'en';
+  secondaryAction?: ReactNode;
+  children?: ReactNode;
 }) {
   const copy = labels[language];
   const [preparing, setPreparing] = useState(false);
@@ -105,15 +108,17 @@ export default function ArticleAudioPlayer({ articleId, text, contentLanguage, l
           className={`${controlClass} border-red-700 bg-red-700 text-white hover:bg-red-800 dark:border-red-500 dark:bg-red-600 dark:hover:bg-red-700`}>
           {preparing ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : tts.isSpeaking ? <Pause aria-hidden="true" className="h-4 w-4" /> : <Play aria-hidden="true" className="h-4 w-4" />}{action}
         </button>
+        {secondaryAction}
         {active || preparing ? <>
           {active ? <button type="button" disabled={preparing} onClick={() => { stop(); void start(); }} className={`${controlClass} border-zinc-300 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100`}><RotateCcw aria-hidden="true" className="h-4 w-4" />{copy.restart}</button> : null}
           <button type="button" onClick={() => { cancelRequest(); stop(); setPreparing(false); setFailed(false); }} className={`${controlClass} border-zinc-300 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100`}><Square aria-hidden="true" className="h-4 w-4" />{copy.stop}</button>
         </> : null}
       </div>
       {active || complete ? <div className="mt-4 flex items-center gap-3">
-        <progress aria-label={copy.progress} value={tts.playbackProgress} max={100} className="h-1.5 min-w-0 flex-1 accent-red-600" />
+        <progress aria-label={copy.progress} value={tts.playbackProgress} max={100} className={`${styles.audioProgress} h-1.5 min-w-0 flex-1`} />
         <span aria-hidden="true" className="text-xs tabular-nums text-zinc-600 dark:text-zinc-400">{tts.playbackProgress}%</span>
       </div> : null}
+      {children}
     </section>
   );
 }

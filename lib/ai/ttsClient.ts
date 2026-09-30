@@ -89,8 +89,9 @@ export async function requestArticleTtsAudio(
   });
   const payload = (await response.json().catch(() => ({}))) as TtsAudioResponse;
 
-  if (!response.ok || !payload.success || !payload.data) {
-    throw new Error(payload.error || 'Unable to load article audio.');
+  if (!response.ok || !payload?.success || !payload.data ||
+      typeof payload.data.audioUrl !== 'string' || !payload.data.audioUrl.trim()) {
+    throw new Error(typeof payload?.error === 'string' ? payload.error : 'Unable to load article audio.');
   }
 
   return payload.data as TtsAudioData;

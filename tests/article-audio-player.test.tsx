@@ -31,6 +31,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('article audio player using the real playback hook', () => {
+  it('places the secondary action immediately after Listen and keeps it usable without audio', () => {
+    const summarize = vi.fn();
+    render(<ArticleAudioPlayer {...props} text="" secondaryAction={<button onClick={summarize}>Summary</button>} />);
+    const listen = screen.getByRole('button', { name: 'Listen to article' });
+    const summary = screen.getByRole('button', { name: 'Summary' });
+    expect(listen).toBeDisabled();
+    expect(listen.nextElementSibling).toBe(summary);
+    fireEvent.click(summary);
+    expect(summarize).toHaveBeenCalledOnce();
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it.each(['hi', 'en'] as const)('renders localized idle controls without requesting or playing audio in %s', language => {
     mount(language);
     expect(screen.getByRole('button', { name: language === 'hi' ? 'लेख सुनें' : 'Listen to article' })).toBeEnabled();
@@ -180,12 +192,31 @@ describe('article audio player using the real playback hook', () => {
     expect(ControlledAudio.instances[0].onended).toBeNull();
   });
 
-  it('times out a stalled audio lookup and leaves loading through the fallback', async () => {
+  it('times out a stalled audio lookup and clears loading safely', async () => {
     vi.useFakeTimers();
     request.mockImplementation((_: string, signal: AbortSignal) => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')))));
     mount(); fireEvent.click(screen.getByRole('button', { name: 'Listen to article' }));
     await act(async () => vi.advanceTimersByTimeAsync(15_000));
     expect(screen.getByRole('button', { name: 'Listen to article' })).toBeEnabled();
     expect(screen.getByRole('status')).toHaveTextContent('Audio unavailable');
+  });
+
+  it('times out stalled media preparation and ignores its late settlement', async () => {
+    vi.useFakeTimers();
+    let resolve!: () => void;
+    class StalledAudio extends ControlledAudio {
+      play = vi.fn().mockReturnValue(new Promise<void>(value => { resolve = value; }));
+    }
+    vi.stubGlobal('Audio', StalledAudio);
+    mount(); fireEvent.click(screen.getByRole('button', { name: 'Listen to article' }));
+    await act(async () => { await Promise.resolve(); });
+    expect(ControlledAudio.instances).toHaveLength(1);
+    await act(async () => vi.advanceTimersByTimeAsync(15_000));
+    expect(screen.getByRole('status')).toHaveTextContent('Audio unavailable');
+    expect(ControlledAudio.instances[0].pause).toHaveBeenCalled();
+    expect(ControlledAudio.instances[0].onended).toBeNull();
+    await act(async () => resolve());
+    expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Listen to article' })).toBeEnabled();
   });
 });
