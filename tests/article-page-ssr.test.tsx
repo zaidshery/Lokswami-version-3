@@ -141,6 +141,12 @@ describe('article page server rendering', () => {
     container.innerHTML = html;
 
     expect(container.querySelector('h1')?.textContent).toBe('Published story headline');
+    expect(container.querySelector('[data-article-reading-progress]')).toHaveAttribute('aria-hidden', 'true');
+    expect(container.querySelector('article > header h1')).not.toBeNull();
+    expect(container.querySelector('article > figure img')).toHaveAttribute('alt', 'Public featured image alt');
+    expect(container.querySelector('article > figure figcaption')).toHaveTextContent('Public featured image caption');
+    expect(container.querySelector('article > figure figcaption')).toHaveTextContent('Public featured image credit');
+    expect(container.querySelectorAll('article > header time')).toHaveLength(2);
     expect(container.querySelector('[data-article-body]')?.textContent).toContain(
       'Substantive published article body text.'
     );

@@ -130,12 +130,12 @@ describe('article reader actions', () => {
     });
     expect(mocks.requestArticleTtsAudio).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: 'Listen' }));
+    await user.click(screen.getByRole('button', { name: 'Listen to article' }));
 
     await waitFor(() => {
       expect(mocks.requestArticleTtsAudio).toHaveBeenCalledTimes(1);
       expect(mocks.requestArticleTtsAudio).toHaveBeenCalledWith(
-        '507f1f77bcf86cd799439011'
+        '507f1f77bcf86cd799439011', expect.any(AbortSignal)
       );
     });
   });
@@ -152,6 +152,10 @@ describe('article reader actions', () => {
 
     expect(mocks.routerPush).toHaveBeenCalledWith('/signin?redirect=/main/saved');
     expect(screen.getByRole('button', { name: 'Share article' })).toBeInTheDocument();
+    const actions = screen.getByRole('button', { name: 'Save article' }).parentElement!;
+    expect(actions).toContainElement(screen.getByRole('button', { name: 'Share article' }));
+    expect(actions).toContainElement(screen.getByRole('link', { name: 'E-Paper' }));
+    expect(actions.parentElement?.parentElement).toContainElement(screen.getByRole('button', { name: 'View profile picture of News Desk' }));
     expect(mocks.shareProps).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Reader story headline',
@@ -176,10 +180,12 @@ describe('article reader actions', () => {
 
     render(createElement(ArticleDetailClient, { article, relatedArticles }));
     expect(fetchMock).not.toHaveBeenCalledWith('/api/ai/summary', expect.anything());
+    expect(screen.getByRole('button', { name: 'Listen to article' }).nextElementSibling).toBe(screen.getByRole('button', { name: 'Summary' }));
 
     await user.click(screen.getByRole('button', { name: 'Summary' }));
 
     expect(await screen.findByText('First verified point')).toBeInTheDocument();
+    expect(mocks.requestArticleTtsAudio).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/ai/summary',
       expect.objectContaining({ method: 'POST' })
@@ -207,7 +213,6 @@ describe('article reader actions', () => {
     };
     const view = render(
       createElement(ArticleDetailClient, {
-        key: article.id,
         article,
         relatedArticles,
       })
@@ -218,7 +223,6 @@ describe('article reader actions', () => {
 
     view.rerender(
       createElement(ArticleDetailClient, {
-        key: articleB.id,
         article: articleB,
         relatedArticles: [],
       })
@@ -247,7 +251,6 @@ describe('article reader actions', () => {
     };
     const view = render(
       createElement(ArticleDetailClient, {
-        key: article.id,
         article,
         relatedArticles,
       })
@@ -261,7 +264,6 @@ describe('article reader actions', () => {
 
     view.rerender(
       createElement(ArticleDetailClient, {
-        key: articleB.id,
         article: articleB,
         relatedArticles: [],
       })
@@ -291,6 +293,8 @@ describe('article reader actions', () => {
     const clientHeightSpy = vi
       .spyOn(document.documentElement, 'clientHeight', 'get')
       .mockReturnValue(100);
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(100);
+    const articleBounds = () => ({ top: -scrollY, height: 1000 } as DOMRect);
     const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetchMock);
@@ -311,6 +315,7 @@ describe('article reader actions', () => {
       })
     );
 
+    vi.spyOn(view.container.querySelector('article')!, 'getBoundingClientRect').mockImplementation(articleBounds);
     scrollY = 810;
     fireEvent.scroll(window);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -326,6 +331,7 @@ describe('article reader actions', () => {
         relatedArticles: [],
       })
     );
+    vi.spyOn(view.container.querySelector('article')!, 'getBoundingClientRect').mockImplementation(articleBounds);
     await act(async () => {
       await Promise.resolve();
     });
@@ -414,6 +420,35 @@ describe('article reader actions', () => {
     expect(screen.getAllByRole('link', { name: /Related story/ })).toHaveLength(10);
   });
 
+  it('announces summary preparation and a safe failure with retry available', async () => {
+    let resolve!: (value: Response) => void;
+    const fetchMock = vi.fn().mockReturnValue(new Promise<Response>(value => { resolve = value; }));
+    vi.stubGlobal('fetch', fetchMock);
+    const ArticleDetailClient = (await import('@/app/(reader)/main/article/[id]/ArticleDetailClient')).default;
+    render(createElement(ArticleDetailClient, { article, relatedArticles }));
+    fireEvent.click(screen.getByRole('button', { name: 'Summary' }));
+    expect(screen.getByText('Preparing summary…')).toHaveAttribute('role', 'status');
+    await act(async () => resolve(Response.json({ success: false, error: 'PRIVATE provider detail' }, { status: 503 })));
+    expect(screen.getByText('Summary unavailable. Try again or continue reading.')).toHaveAttribute('role', 'status');
+    expect(screen.queryByText(/PRIVATE/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Summary' })).toBeEnabled();
+  });
+
+  it('focuses the author dialog, traps Tab and restores focus on Escape', async () => {
+    const ArticleDetailClient = (await import('@/app/(reader)/main/article/[id]/ArticleDetailClient')).default;
+    const user = userEvent.setup();
+    render(createElement(ArticleDetailClient, { article, relatedArticles }));
+    const trigger = screen.getByRole('button', { name: 'View profile picture of News Desk' });
+    await user.click(trigger);
+    const close = screen.getByRole('button', { name: 'Close' });
+    expect(close).toHaveFocus();
+    await user.tab(); expect(close).toHaveFocus();
+    await user.tab({ shift: true }); expect(close).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
   it('does not render font size controls or print button in article reader actions', async () => {
     const ArticleDetailClient = (
       await import('@/app/(reader)/main/article/[id]/ArticleDetailClient')
@@ -433,6 +468,7 @@ describe('article reader actions', () => {
     expect(screen.getByRole('button', { name: 'Save article' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Share article' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'E-Paper' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'E-Paper' })).not.toHaveClass('attention-pulsate-bck');
   });
 });
 
