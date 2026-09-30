@@ -9,7 +9,7 @@ import { isEPaperPageReviewStatus, isEPaperPageType, type EPaperPageType } from 
 import { isTrustedEpaperAssetPath } from '@/lib/utils/epaperStorage';
 import { asObject, toPositiveInt } from './epaperMapper';
 import { epaperRepository, EpaperRepository } from './epaperRepository';
-import { EpaperConflictError, EpaperForbiddenError, EpaperNotFoundError, EpaperValidationError, InvalidEpaperIdError, type AdminSessionIdentity, type EpaperRecord } from './epaperTypes';
+import { EpaperConflictError, EpaperForbiddenError, EpaperNotFoundError, EpaperValidationError, EpaperVersionConflictError, InvalidEpaperIdError, type AdminSessionIdentity, type EpaperRecord } from './epaperTypes';
 
 type Page = {
   pageNumber: number; imagePath: string; width?: number; height?: number; pageType: EPaperPageType;
@@ -66,6 +66,16 @@ export class EpaperPageService {
     const source = asObject(body);
     const entries = Array.isArray(source.pages) ? source.pages : [];
     if (!entries.length) throw new EpaperValidationError('pages[] is required');
+    const currentVersion = Number(paper.version || 1);
+    const marksRevisionReviewed = Boolean(paper.supersedesId) && entries.some((entry) => asObject(entry).reviewStatus === 'ready');
+    if (marksRevisionReviewed && source.expectedVersion == null) {
+      throw new EpaperValidationError('Reload the draft revision before page QA; expectedVersion is required.');
+    }
+    if (source.expectedVersion != null) {
+      const expectedVersion = Number(source.expectedVersion);
+      if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new EpaperValidationError('expectedVersion must be a positive integer.');
+      if (expectedVersion !== currentVersion) throw new EpaperVersionConflictError(currentVersion, expectedVersion);
+    }
     let pageCount = Number(paper.pageCount || 0);
     let pages = mapPages(paper.pages, Math.max(pageCount, 1));
     const imagePages: number[] = [];
@@ -120,9 +130,22 @@ export class EpaperPageService {
 
     const automation = buildEpaperImageAutomationUpdates({ pageCount, pages, currentThumbnailPath: paper.thumbnailPath,
       currentProductionStatus: paper.productionStatus, currentStatus: paper.status });
-    const updated = await this.repo.updateEdition(id, { pageCount, pages, ...automation });
-    const contentChanged = [...new Set([...imagePages, ...classificationPages])];
-    if (contentChanged.length) await invalidateEpaperQa({ epaperId: id, actor, reason: 'Page image or page classification changed.', pageNumbers: contentChanged });
+    const contentChanged = [...new Set([...imagePages, ...classificationPages, ...reviewPages])];
+    const updated = await this.repo.updateEdition(id, {
+      pageCount, pages, ...automation,
+      ...(contentChanged.length ? {
+        qaCompletedAt: null,
+        ...(paper.productionStatus === 'ready_to_publish' ? { productionStatus: 'hotspot_mapping' } : {}),
+      } : {}),
+    }, Number(paper.version || 1), {
+      productionStatus: String(paper.productionStatus || 'draft_upload'),
+      revisionNumber: Number(paper.revisionNumber || 1),
+      processingGeneration: String(paper.processingGeneration || ''),
+    });
+    if (contentChanged.length) await invalidateEpaperQa({
+      epaperId: id, actor, reason: 'Page image or page classification changed.', pageNumbers: contentChanged,
+      versionAlreadyIncremented: true,
+    });
     await this.recordChanges(actor, id, imagePages, reviewPages, automation);
     const message = automation.productionStatus === 'pages_ready' ? 'Pages updated and edition moved to Pages Ready'
       : imagePages.length && reviewPages.length ? 'Page images and review details updated'

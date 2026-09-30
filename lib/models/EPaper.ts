@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { addEpaperMutationFence } from './schemas/epaperMutationFence';
 import {
   EPaperProductionStatusSchema,
   WorkflowActorRefSchema,
@@ -60,7 +61,12 @@ export interface IEPaper {
   productionAssignee: WorkflowActorRef | null;
   productionNotes: WorkflowComment[];
   qaCompletedAt: Date | null;
+  contentMutation?: Record<string, unknown> | null;
   processingGeneration?: string;
+  revisionInitializationStatus?: 'initializing' | 'ready' | 'failed';
+  revisionInitializationStartedAt?: Date | null;
+  revisionInitializationOwner?: string;
+  automationReconciledAt?: Date | null;
   version?: number;
   cleanupPending?: boolean;
   cleanupReason?: string;
@@ -143,7 +149,12 @@ const EPaperSchema = new mongoose.Schema<IEPaper>(
     productionAssignee: { type: WorkflowActorRefSchema, default: null },
     productionNotes: { type: [WorkflowCommentSchema], default: [] },
     qaCompletedAt: { type: Date, default: null },
+    contentMutation: { type: mongoose.Schema.Types.Mixed, default: null },
     processingGeneration: { type: String, trim: true, default: '' },
+    revisionInitializationStatus: { type: String, enum: ['initializing', 'ready', 'failed'], default: 'ready' },
+    revisionInitializationStartedAt: { type: Date, default: null },
+    revisionInitializationOwner: { type: String, trim: true, default: '' },
+    automationReconciledAt: { type: Date, default: null },
     version: { type: Number, default: 1, min: 1 },
     cleanupPending: { type: Boolean, default: false },
     cleanupReason: { type: String, trim: true, default: '' },
@@ -174,6 +185,19 @@ EPaperSchema.index(
     },
   }
 );
+export const EPAPER_ACTIVE_DRAFT_INDEX = {
+  name: 'publicationType_1_familyId_1_active_draft',
+  unique: true,
+  partialFilterExpression: {
+    familyId: { $type: 'string', $gt: '' },
+    status: 'draft',
+    productionStatus: { $in: [
+      'draft_upload', 'pages_ready', 'ocr_review', 'hotspot_mapping',
+      'ready_to_publish', 'qa_review', 'processing',
+    ] },
+  },
+};
+EPaperSchema.index({ publicationType: 1, familyId: 1 }, EPAPER_ACTIVE_DRAFT_INDEX);
 EPaperSchema.index(
   { publicationType: 1, citySlug: 1, publishDate: 1, isCurrentRevision: 1 },
   {
@@ -193,6 +217,8 @@ EPaperSchema.index({ publishDate: -1, _id: -1 });
 EPaperSchema.index({ publicationType: 1, status: 1, citySlug: 1, publishDate: -1, _id: -1 });
 EPaperSchema.index({ status: 1, publishDate: -1, createdAt: -1 });
 EPaperSchema.index({ updatedAt: -1, _id: -1 });
+EPaperSchema.index({ 'contentMutation.phase': 1, 'contentMutation.leaseUntil': 1 });
+addEpaperMutationFence(EPaperSchema, 'contentMutation.id');
 
 const EPaper =
   (mongoose.models.EPaper as mongoose.Model<IEPaper> | undefined) ||

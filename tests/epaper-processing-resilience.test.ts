@@ -444,25 +444,25 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
       } as any);
       vi.spyOn(epaperOcrJobs, 'queueEpaperOcr').mockResolvedValue([]);
 
-      const epaperUpdateOneSpy = vi.spyOn(EPaper, 'updateOne').mockResolvedValue({
-        matchedCount: 1,
-        modifiedCount: 1,
-        acknowledged: true,
-        upsertedId: null,
-        upsertedCount: 0,
-      });
+      const epaperUpdateOneSpy = vi.spyOn(EPaper, 'updateOne').mockImplementation((async (_filter: unknown, updates: { $set?: Record<string, unknown> }) => {
+        Object.assign(mockEdition, updates.$set || {});
+        Object.assign(mockEdition, { version: Number((mockEdition as Record<string, unknown>).version || 0) + 1 });
+        return { matchedCount: 1, modifiedCount: 1, acknowledged: true, upsertedId: null, upsertedCount: 0 };
+      }) as never);
 
       const result = await processClaimedJob(job);
       expect(result.status).toBe('completed');
       expect(result.processed).toBe(2);
       expect(result.failed).toBe(0);
 
-      // Verify that pages_ready and thumbnail updates were persisted
+      // Rendering persists the cover; canonical reconciliation advances workflow after job completion.
       expect(epaperUpdateOneSpy).toHaveBeenCalledWith(
         expect.objectContaining({ _id: '507f1f77bcf86cd799439011', status: 'draft', processingGeneration: 'gen-succ' }),
         expect.objectContaining({
-          productionStatus: 'pages_ready',
-          thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page.jpg',
+          $set: expect.objectContaining({
+            thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page.jpg',
+          }),
+          $inc: { version: 1 },
         })
       );
     });
@@ -514,6 +514,7 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
       );
 
       // Page 1 and 3 succeed, Page 2 throws error
+      vi.spyOn(epaperOcrJobs, 'queueEpaperOcr').mockResolvedValue([]);
       vi.spyOn(epaperPdfRenderer, 'renderPdfPageToJpeg').mockImplementation(async (opts) => {
         if (opts.pageNumber === 2) {
           throw new Error('Simulated rasterization crash on page 2');
@@ -530,13 +531,11 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
         publicId: 'test-public-id',
       } as any);
 
-      const epaperUpdateOneSpy = vi.spyOn(EPaper, 'updateOne').mockResolvedValue({
-        matchedCount: 1,
-        modifiedCount: 1,
-        acknowledged: true,
-        upsertedId: null,
-        upsertedCount: 0,
-      });
+      const epaperUpdateOneSpy = vi.spyOn(EPaper, 'updateOne').mockImplementation((async (_filter: unknown, updates: { $set?: Record<string, unknown> }) => {
+        Object.assign(mockEdition, updates.$set || {});
+        Object.assign(mockEdition, { version: Number((mockEdition as Record<string, unknown>).version || 0) + 1 });
+        return { matchedCount: 1, modifiedCount: 1, acknowledged: true, upsertedId: null, upsertedCount: 0 };
+      }) as never);
 
       const result = await processClaimedJob(job);
       // Attempt 1 < maxAttempts 4 -> job is requeued for failed page 2
@@ -766,13 +765,11 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
       } as any);
       vi.spyOn(epaperOcrJobs, 'queueEpaperOcr').mockResolvedValue([]);
 
-      const epaperUpdateOneSpy = vi.spyOn(EPaper, 'updateOne').mockResolvedValue({
-        matchedCount: 1,
-        modifiedCount: 1,
-        acknowledged: true,
-        upsertedId: null,
-        upsertedCount: 0,
-      });
+      const epaperUpdateOneSpy = vi.spyOn(EPaper, 'updateOne').mockImplementation((async (_filter: unknown, updates: { $set?: Record<string, unknown> }) => {
+        Object.assign(mockEdition, updates.$set || {});
+        Object.assign(mockEdition, { version: Number((mockEdition as Record<string, unknown>).version || 0) + 1 });
+        return { matchedCount: 1, modifiedCount: 1, acknowledged: true, upsertedId: null, upsertedCount: 0 };
+      }) as never);
 
       const result = await processClaimedJob(job);
       expect(result.status).toBe('completed');
@@ -781,8 +778,10 @@ describe('Phase 3.9B — E-Paper Processing Lifecycle & Page Generation Resilien
       expect(epaperUpdateOneSpy).toHaveBeenCalledWith(
         expect.objectContaining({ _id: '507f1f77bcf86cd799439011', status: 'draft', processingGeneration: 'gen-single-1' }),
         expect.objectContaining({
-          productionStatus: 'pages_ready',
-          thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page-1.jpg',
+          $set: expect.objectContaining({
+            thumbnailPath: 'https://lokswami.blr1.digitaloceanspaces.com/rendered-page-1.jpg',
+          }),
+          $inc: { version: 1 },
         })
       );
     });

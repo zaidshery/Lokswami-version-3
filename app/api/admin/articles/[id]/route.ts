@@ -20,6 +20,7 @@ import {
   isEpaperKind,
   updateEpaperArticleById,
 } from '@/lib/server/epaper/adminArticleCompat';
+import { EpaperConflictError } from '@/lib/server/epaper/epaperTypes';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -30,6 +31,10 @@ function handleEditorialError(
   fallbackMessage: string,
   fallbackStatus = 500
 ): NextResponse {
+  if (error instanceof EpaperConflictError) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 409 });
+  }
+
   if (error instanceof InvalidArticleIdError) {
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }

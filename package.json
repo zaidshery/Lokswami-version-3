@@ -70,6 +70,7 @@
     "migrate:epaper-workflow-v3": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts",
     "migrate:epaper-workflow-v3:write": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts --write",
     "migrate:epaper-workflow-v3:indexes": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-epaper-workflow-v3.ts --indexes-only",
+    "epaper:automation-worker": "node scripts/epaper/run-automation-worker.js",
     "epaper:worker:staging": "ts-node --files -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/epaper/process-staging-edition.ts",
     "migrate:swipe-videos": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/migrate-swipe-videos.ts",
     "migrate:swipe-videos:write": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/migrate-swipe-videos.ts --write",
@@ -119,6 +120,8 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.4.0",
     "tesseract.js": "7.0.0",
+    "ts-node": "^10.9.0",
+    "tsconfig-paths": "^3.15.0",
     "typescript": "^5.0.0",
     "zustand": "^4.5.0"
   },
@@ -133,7 +136,6 @@
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.1",
     "tailwindcss-animate": "^1.0.7",
-    "ts-node": "^10.9.0",
     "vitest": "^4.1.1"
   },
   "overrides": {

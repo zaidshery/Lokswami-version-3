@@ -66,6 +66,27 @@ describe('Phase 3.9A — E-Paper Draft Immutability & Central Policy', () => {
       ).toThrow(EpaperConflictError);
     });
 
+    it.each(['initializing', 'failed'])('rejects edits while revision initialization is %s', (revisionInitializationStatus) => {
+      expect(() => assertEpaperDraftEditable({
+        status: 'draft', productionStatus: 'hotspot_mapping', revisionInitializationStatus,
+      })).toThrow(EpaperConflictError);
+    });
+
+    it('allows initialized drafts and only failed-draft deletion recovery', () => {
+      expect(() => assertEpaperDraftEditable({
+        status: 'draft', revisionInitializationStatus: 'ready',
+      })).not.toThrow();
+      expect(() => assertEpaperDraftEditable({
+        status: 'draft', revisionInitializationStatus: 'failed',
+      }, { allowFailedInitialization: true })).not.toThrow();
+      expect(() => assertEpaperDraftEditable({
+        status: 'draft', revisionInitializationStatus: 'initializing',
+      }, { allowFailedInitialization: true })).toThrow(EpaperConflictError);
+      expect(() => assertEpaperDraftEditable({
+        status: 'published', revisionInitializationStatus: 'failed',
+      }, { allowFailedInitialization: true })).toThrow(EpaperConflictError);
+    });
+
     it('rejects mutation when status or productionStatus is archived', () => {
       expect(() =>
         assertEpaperDraftEditable({ status: 'archived', productionStatus: 'archived' })
@@ -315,10 +336,11 @@ describe('Phase 3.9A — E-Paper Draft Immutability & Central Policy', () => {
         findEditionById: vi.fn(),
         findEdition: vi.fn(),
         findLatestRevision: vi.fn(),
-        updateEditionWhere: vi.fn(),
+        updateEditionWhere: vi.fn().mockResolvedValue({ matchedCount: 1 }),
         createEdition: vi.fn(),
         listArticles: vi.fn().mockResolvedValue([]),
         listReadyTtsAssets: vi.fn().mockResolvedValue([]),
+        withRevisionInitialization: vi.fn(async (_id: string, _owner: string, initialize: (repo: any) => Promise<void>) => initialize(mockRepo)),
       };
       service = new EpaperRevisionService(mockRepo);
     });

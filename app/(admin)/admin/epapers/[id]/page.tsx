@@ -96,6 +96,34 @@ type ProcessingData = {
   stuckWarning?: string;
   jobState?: string;
   statusMessage?: string;
+  automation?: {
+    stage: EPaperProductionStatus;
+    generation: string;
+    revisionNumber: number;
+    page: {
+      total: number;
+      ready: number;
+      processing: number;
+      failed: number;
+      missing: number;
+    };
+    ocr: {
+      enabled: boolean;
+      eligible: number;
+      queued: number;
+      processing: number;
+      completed: number;
+      failed: number;
+      skipped: number;
+      pendingSuggestions: number;
+      terminal: boolean;
+    };
+    mappedStories: number;
+    blockers: string[];
+    warnings: string[];
+    nextAutomaticAction: string;
+    lastReconciledAt: string;
+  };
 };
 
 type ProcessingResponse = {
@@ -269,10 +297,12 @@ export default function AdminEPaperDetailPage() {
   const [uploadingPage, setUploadingPage] = useState<number | null>(null);
   const [generatingPages, setGeneratingPages] = useState(false);
   const [runningOcrAutomation, setRunningOcrAutomation] = useState(false);
+  const [reconcilingAutomation, setReconcilingAutomation] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [creatingRevision, setCreatingRevision] = useState(false);
   const [epaperTtsByStoryId, setEpaperTtsByStoryId] = useState<Record<string, TtsAssetRecord>>({});
   const [processingData, setProcessingData] = useState<ProcessingData | null>(null);
+  const [processingRefreshPending, setProcessingRefreshPending] = useState(false);
 
   const [title, setTitle] = useState('');
   const [publishDate, setPublishDate] = useState('');
@@ -297,15 +327,19 @@ export default function AdminEPaperDetailPage() {
       });
       const payload = (await response.json().catch(() => ({}))) as ProcessingResponse;
       if (!response.ok || !payload.success || !payload.data) return null;
-      setProcessingData(payload.data);
       const status = payload.data.job?.status;
+      const automationStage = payload.data.automation?.stage;
       const isTerminal =
+        automationStage === 'ready_to_publish' ||
+        automationStage === 'published' ||
+        automationStage === 'archived' ||
         status === 'completed' ||
         status === 'completed_with_errors' ||
         status === 'failed' ||
         status === 'cancelled';
 
       if (isTerminal) {
+        setProcessingRefreshPending(true);
         const editionResponse = await fetch(
           `/api/admin/epapers/${epaperId}?publicationType=${publicationType}`,
           {
@@ -316,13 +350,16 @@ export default function AdminEPaperDetailPage() {
         const editionPayload = (await editionResponse
           .json()
           .catch(() => ({}))) as EpaperResponse;
-        if (editionResponse.ok && editionPayload.success && editionPayload.data) {
+        if (!editionResponse.ok || !editionPayload.success || !editionPayload.data) return null;
+        if (editionPayload.data) {
           setEpaper(editionPayload.data);
           setProductionStatus(
             editionPayload.data.productionStatus || 'draft_upload'
           );
         }
+        setProcessingRefreshPending(false);
       } else {
+        if (payload.data.productionStatus) setProductionStatus(payload.data.productionStatus);
         setEpaper((current) =>
           current
             ? {
@@ -335,6 +372,9 @@ export default function AdminEPaperDetailPage() {
             : current
         );
       }
+      // Keep the previous active stage polling until canonical workflow state
+      // has refreshed successfully, including after transient detail failures.
+      setProcessingData(payload.data);
       return payload.data;
     } catch {
       return null;
@@ -480,12 +520,25 @@ export default function AdminEPaperDetailPage() {
 
   useEffect(() => {
     const status = processingData?.job?.status;
-    if (status !== 'queued' && status !== 'processing') return;
+    const automationStage = processingData?.automation?.stage;
+    const processingActive = status === 'queued' || status === 'processing';
+    const automationActive = Boolean(
+      automationStage &&
+        automationStage !== 'ready_to_publish' &&
+        automationStage !== 'published' &&
+        automationStage !== 'archived'
+    );
+    if (!processingActive && !automationActive && !processingRefreshPending) return;
     const timer = window.setInterval(() => {
       void loadProcessing();
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [loadProcessing, processingData?.job?.status]);
+  }, [
+    loadProcessing,
+    processingData?.automation?.stage,
+    processingData?.job?.status,
+    processingRefreshPending,
+  ]);
 
   useEffect(() => {
     if (!epaper) {
@@ -829,7 +882,7 @@ export default function AdminEPaperDetailPage() {
     }
   };
 
-  const createDraftRevision = async () => {
+  const createDraftRevision = async (pageNumber?: number) => {
     if (!epaper) return;
     setCreatingRevision(true);
     setError('');
@@ -843,10 +896,37 @@ export default function AdminEPaperDetailPage() {
       if ((!response.ok && response.status !== 409) || !revisionId) {
         throw new Error(payload?.error || 'Failed to create draft revision.');
       }
-      router.push(`${labels.adminBasePath}/${revisionId}`);
+      router.push(
+        pageNumber
+          ? `${labels.adminBasePath}/${revisionId}/page/${pageNumber}?mode=add-story`
+          : `${labels.adminBasePath}/${revisionId}`
+      );
     } catch (err) {
       setError(toErrorMessage(err, 'Failed to create draft revision.'));
       setCreatingRevision(false);
+    }
+  };
+
+  const reconcileAutomation = async () => {
+    if (!epaper) return;
+    setReconcilingAutomation(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await fetch(
+        `/api/admin/epapers/${epaper._id}/automation/reconcile`,
+        { method: 'POST', headers: { ...getAuthHeader() } }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to reconcile automation.');
+      }
+      setNotice('Automation state reconciled against the current edition.');
+      await Promise.all([loadProcessing(), fetchData()]);
+    } catch (err) {
+      setError(toErrorMessage(err, 'Failed to reconcile automation.'));
+    } finally {
+      setReconcilingAutomation(false);
     }
   };
 
@@ -1047,13 +1127,16 @@ export default function AdminEPaperDetailPage() {
   const readiness = epaper.readiness;
   const automation = epaper.automation;
   const activeProductionStatus = productionStatus || epaper.productionStatus || 'draft_upload';
+  const pipeline = processingData?.automation;
   const hasPdf = Boolean(String(epaper.pdfPath || '').trim());
   const canUploadPdf = epaper.status !== 'published';
   const allowedProductionTransitions = getAllowedEpaperProductionTransitions(
     activeProductionStatus
   ).filter(
     (nextStatus) =>
-      canPublishPublication || (nextStatus !== 'published' && nextStatus !== 'archived')
+      ((nextStatus === 'published' && activeProductionStatus === 'ready_to_publish') ||
+        (nextStatus === 'archived' && activeProductionStatus === 'published')) &&
+      canPublishPublication
   );
   const processingBlockers = buildEpaperProcessingBlockers({
     processingGeneration: epaper.processingGeneration,
@@ -1338,6 +1421,116 @@ export default function AdminEPaperDetailPage() {
               </section>
             ) : null}
 
+            {pipeline ? (
+              <section className="rounded-xl border border-indigo-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                      Automatic production
+                    </p>
+                    <h2 className="mt-1 text-base font-semibold text-gray-950">
+                      {formatProductionStatusLabel(pipeline.stage)}
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {pipeline.nextAutomaticAction}
+                    </p>
+                    <p className="mt-1 break-all text-xs text-gray-500">
+                      Revision {pipeline.revisionNumber} ? Generation {pipeline.generation || 'not assigned'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Last reconciled: {pipeline.lastReconciledAt
+                        ? new Date(pipeline.lastReconciledAt).toLocaleString()
+                        : 'Awaiting first worker cycle'}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                    {pipeline.stage === 'ready_to_publish'
+                      ? 'Awaiting human publish'
+                      : 'Worker managed'}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {EPAPER_WORKFLOW_STEPS.filter(
+                    (step) => step !== 'published' && step !== 'archived'
+                  ).map((step, index, stages) => {
+                    const activeIndex = EPAPER_WORKFLOW_STEPS.indexOf(pipeline.stage);
+                    const isCurrent = step === pipeline.stage;
+                    const isComplete = activeIndex >= 0 && index < activeIndex;
+                    return (
+                      <div key={step} className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                            isCurrent
+                              ? 'border-indigo-300 bg-indigo-50 text-indigo-800'
+                              : isComplete
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : 'border-gray-200 bg-gray-50 text-gray-500'
+                          }`}
+                        >
+                          {isComplete ? <CheckCircle2 className="h-3 w-3" /> : null}
+                          {formatProductionStatusLabel(step)}
+                        </span>
+                        {index < stages.length - 1 ? (
+                          <span className="h-px w-3 bg-gray-200" aria-hidden="true" />
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="font-bold text-gray-950">
+                      {pipeline.page.ready}/{pipeline.page.total}
+                    </p>
+                    <p className="text-gray-500">Pages ready</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="font-bold text-gray-950">
+                      {pipeline.ocr.completed + pipeline.ocr.failed + pipeline.ocr.skipped}/{pipeline.ocr.eligible}
+                    </p>
+                    <p className="text-gray-500">OCR terminal</p>
+                    <p className="mt-1 text-gray-500">
+                      {pipeline.ocr.completed} completed ? {pipeline.ocr.failed} failed ? {pipeline.ocr.skipped} skipped
+                    </p>
+                    <p className="text-gray-500">
+                      {pipeline.ocr.queued} queued ? {pipeline.ocr.processing} processing
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="font-bold text-gray-950">{pipeline.mappedStories}</p>
+                    <p className="text-gray-500">Mapped stories</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="font-bold text-gray-950">{pipeline.blockers.length}</p>
+                    <p className="text-gray-500">Blocking issues</p>
+                  </div>
+                </div>
+
+                {pipeline.blockers.length > 0 ? (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                    <p className="font-semibold">Blocking issues</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-4">
+                      {pipeline.blockers.map((blocker) => (
+                        <li key={blocker}>{blocker}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {pipeline.warnings.length > 0 ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <p className="font-semibold">Warnings</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-4">
+                      {pipeline.warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
             {processingData?.job ? (
               <section className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1362,22 +1555,6 @@ export default function AdminEPaperDetailPage() {
                         : ''}
                     </p>
                   </div>
-                  {processingData.job.status !== 'queued' &&
-                  processingData.job.status !== 'processing' ? (
-                    <button
-                      type="button"
-                      onClick={() => void generatePageImages()}
-                      disabled={generatingPages}
-                      className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-70"
-                    >
-                      {generatingPages ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <UploadCloud className="h-3.5 w-3.5" />
-                      )}
-                      Retry Missing Pages
-                    </button>
-                  ) : null}
                 </div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-blue-100">
                   <div
@@ -1441,13 +1618,18 @@ export default function AdminEPaperDetailPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Batch actions
+                    Page selection
                   </p>
                   <p className="mt-1 text-sm text-gray-600">
-                    Manage conversion retries, OCR, and page selection from one place.
+                    Select pages for review. Automated processing runs in the background.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <details className="w-full rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <summary className="cursor-pointer text-xs font-semibold text-gray-700">
+                      Advanced / Recovery
+                    </summary>
+                    <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => void generatePageImages()}
@@ -1491,6 +1673,16 @@ export default function AdminEPaperDetailPage() {
                     )}
                     OCR Selected
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => void reconcileAutomation()}
+                    disabled={reconcilingAutomation}
+                    className="inline-flex min-h-10 items-center rounded-md border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-70"
+                  >
+                    {reconcilingAutomation ? 'Reconciling...' : 'Reconcile Automation'}
+                  </button>
+                    </div>
+                  </details>
                   <button
                     type="button"
                     onClick={() => toggleSelectAllPages(pageNumbers)}
@@ -1757,6 +1949,26 @@ export default function AdminEPaperDetailPage() {
                             Note: {page.reviewNote}
                           </p>
                         ) : null}
+                        {hasImage && epaper.productionStatus !== 'archived' &&
+                          (epaper.status !== 'published' || epaper.isCurrentRevision !== false) ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (epaper.status === 'published') {
+                                void createDraftRevision(pageNumber);
+                              } else {
+                                router.push(`${editHref}?mode=add-story`);
+                              }
+                            }}
+                            disabled={epaper.status === 'published' && creatingRevision}
+                            className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-70"
+                          >
+                            {creatingRevision && epaper.status === 'published'
+                              ? 'Opening draft revision...'
+                              : 'Add Story'}
+                          </button>
+                        ) : null}
                       </div>
                     </article>
                   );
@@ -1864,7 +2076,12 @@ export default function AdminEPaperDetailPage() {
                     })}
                     {allowedProductionTransitions.length === 0 ? (
                       <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600">
-                        No workflow action available.
+                        {activeProductionStatus === 'ready_to_publish'
+                          ? 'A Super Admin must publish this edition.'
+                          : activeProductionStatus === 'published' ||
+                              activeProductionStatus === 'archived'
+                            ? 'No workflow action available.'
+                            : 'Automatic workflow is in progress. Use Advanced / Recovery only if it stalls.'}
                       </div>
                     ) : null}
                   </div>

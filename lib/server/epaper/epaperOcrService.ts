@@ -7,6 +7,7 @@ import { logEpaperMetric } from '@/lib/server/epaperObservability';
 import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
 import { resolveUniqueSlug } from '@/lib/utils/epaperArticles';
 import { asObject } from './epaperMapper';
+import { afterEpaperMutationCommit } from './epaperMutationCompensation';
 import { epaperRepository, EpaperRepository } from './epaperRepository';
 import { epaperWorkerAdapter, EpaperWorkerAdapter } from './epaperWorkerAdapter';
 import { EpaperConflictError, EpaperForbiddenError, EpaperNotFoundError, EpaperValidationError, type AdminSessionIdentity } from './epaperTypes';
@@ -75,14 +76,21 @@ export class EpaperOcrService {
     const snapshot = { title: suggestion.title, slug, pageNumber: suggestion.pageNumber, excerpt: suggestion.excerpt || '',
       contentHtml: suggestion.contentHtml || '', coverImagePath: '', pageImagePath: String(page?.imagePath || ''), hotspot: { ...asObject(suggestion.hotspot) },
       version: 1, releasedAt: now.toISOString(), releasedById: actor.id, sourceUpdatedAt: now.toISOString() };
-    const article = await this.repo.createArticle({ epaperId: id, pageNumber: suggestion.pageNumber, title: suggestion.title, slug,
+    const { article, reviewed } = await this.repo.withEditionReadinessMutation(id, Number(paper.version || 1), async (repo) => {
+    const article = await repo.createArticle({ epaperId: id, pageNumber: suggestion.pageNumber, title: suggestion.title, slug,
       excerpt: suggestion.excerpt, contentHtml: suggestion.contentHtml, coverImagePath: '', hotspot: suggestion.hotspot, releasedSnapshot: snapshot,
       workflow: { status: 'published', publishedAt: now, reviewedBy: { id: actor.id, name: actor.name || actor.email || 'Admin', email: actor.email || '', role: actor.role } } });
-    const reviewed = await this.repo.updateOcrSuggestion(suggestionId, { status: 'accepted', reviewedById: actor.id, reviewedAt: now,
-      createdArticleId: this.repo.toObjectId(String(article._id)) });
-    await this.repo.updateEdition(id, { pages: pages.map((entry) => Number(entry.pageNumber) === Number(suggestion.pageNumber)
-      ? { ...entry, reviewStatus: 'ready', reviewedAt: now, reviewedBy: actor.id } : entry) });
-    await this.recordReview(actor, id, suggestionId, Number(suggestion.pageNumber), 'accepted', String(article._id));
+    const reviewed = await repo.updateOcrSuggestion(suggestionId, { status: 'accepted', reviewedById: actor.id, reviewedAt: now,
+      createdArticleId: repo.toObjectId(String(article._id)) });
+    await repo.updateEditionWhere({ _id: id }, { $set: { pages: pages.map((entry) => Number(entry.pageNumber) === Number(suggestion.pageNumber)
+      ? paper.supersedesId
+        ? { ...entry, reviewStatus: 'pending', reviewedAt: null, reviewedBy: null }
+        : { ...entry, reviewStatus: 'ready', reviewedAt: now, reviewedBy: { id: actor.id, name: actor.name, email: actor.email, role: actor.role } } : entry),
+      qaCompletedAt: null,
+      } });
+    return { article, reviewed };
+    });
+    await afterEpaperMutationCommit(id, () => this.recordReview(actor, id, suggestionId, Number(suggestion.pageNumber), 'accepted', String(article._id)));
     return { message: 'OCR suggestion accepted and mapped story created.', data: { suggestion: reviewed, article } };
   }
 

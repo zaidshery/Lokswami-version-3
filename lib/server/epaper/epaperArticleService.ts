@@ -4,8 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { canEditEpaper, canPublishEpaper, canViewPage } from '@/lib/auth/permissions';
 import { makeReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
 import { buildEpaperActivityMessage, recordEpaperActivity } from '@/lib/server/epaperActivity';
+import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import { applyEpaperWorkflowAutomation } from '@/lib/server/epaperWorkflowAutomation';
-import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
+import { assertEpaperDraftEditable, invalidateEpaperQa } from '@/lib/server/epaperWorkflowPolicy';
+import { afterEpaperMutationCommit } from './epaperMutationCompensation';
 import { buildEpaperStoryTtsText, findReadyManualTtsAsset } from '@/lib/server/ttsAssets';
 import {
   buildEpaperPlaceholderTitle,
@@ -75,7 +77,10 @@ export class EpaperArticleService {
   async create(actor: AdminSessionIdentity, id: string, body: unknown) {
     if (!canEditEpaper(actor.role)) throw new EpaperForbiddenError();
     this.assertId(id); await this.repo.connect();
-    const paper = await this.repo.findEditionById(id, '_id pageCount pages title cityName publishDate status productionStatus');
+    if (PROTECTED_EPAPER_AUTOMATION_IDS.has(id.toLowerCase())) {
+      throw new EpaperConflictError('This preserved QA edition cannot receive stories.');
+    }
+    const paper = await this.repo.findEditionById(id, '_id version pageCount pages title cityName publishDate status productionStatus revisionInitializationStatus');
     if (!paper) throw new EpaperNotFoundError();
     try { assertEpaperDraftEditable(paper); } catch (error) {
       throw new EpaperConflictError(error instanceof Error ? error.message : 'Edition is immutable.');
@@ -107,6 +112,9 @@ export class EpaperArticleService {
       hotspot,
     });
     if (matchingArticle) {
+      await invalidateEpaperQa({
+        epaperId: id, actor, reason: 'A mapped story create retry was recovered.', pageNumbers: [pageNumber],
+      });
       await applyEpaperWorkflowAutomation({
         epaperId: id,
         actor,
@@ -120,7 +128,8 @@ export class EpaperArticleService {
     const count = requestedTitle ? 0 : await this.repo.countArticles({ epaperId: id, pageNumber });
     const title = requestedTitle || buildEpaperPlaceholderTitle(pageNumber, count + 1);
     const slug = await resolveUniqueSlug(slugInput || title, (candidate) => this.repo.articleExists({ epaperId: id, slug: candidate }));
-    const created = await this.repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
+    const created = await this.repo.withEditionReadinessMutation(id, Number(paper.version || 1), async (repo) => {
+      const article = await repo.createArticle({ epaperId: id, pageNumber, title, slug, excerpt, contentHtml, coverImagePath, hotspot,
       releasedSnapshot: null,
       workflow: {
         status: 'draft',
@@ -131,19 +140,29 @@ export class EpaperArticleService {
           role: actor.role,
         },
       } });
-    try {
+      await repo.updateEditionWhere({ _id: id }, { $set: { pages: (Array.isArray(paper.pages) ? paper.pages : []).map((entry) => {
+        const page = asObject(entry);
+        return Number(page.pageNumber) === pageNumber ? { ...page, reviewStatus: 'pending', reviewedAt: null, reviewedBy: null } : page;
+      }) } });
+      return article;
+    });
+    await afterEpaperMutationCommit(id, async () => {
+      await invalidateEpaperQa({
+        epaperId: id, actor, reason: 'A mapped story was created.', pageNumbers: [pageNumber],
+        versionAlreadyIncremented: true,
+      });
       await applyEpaperWorkflowAutomation({ epaperId: id, actor, reason: 'A mapped e-paper story was created.' });
-    } catch (error) {
-      await this.repo.deleteArticleWhere({ _id: created._id, epaperId: id });
-      throw error;
-    }
-    await recordEpaperActivity({ epaperId: id, actor, action: 'story_created', message: buildEpaperActivityMessage({ action: 'story_created' }),
-      metadata: { articleId: String(created._id || ''), pageNumber, title } });
+    });
+    await afterEpaperMutationCommit(id, () => recordEpaperActivity({ epaperId: id, actor, action: 'story_created', message: buildEpaperActivityMessage({ action: 'story_created' }),
+      metadata: { articleId: String(created._id || ''), pageNumber, title } }));
     return { ...mapAdminEpaperArticle(created), recovered: false };
   }
 
   async release(actor: AdminSessionIdentity, id: string, articleId: string, expectedUpdatedAt: unknown) {
     if (!canPublishEpaper(actor.role)) throw new EpaperForbiddenError('Only admins can release reader stories.');
+    if (PROTECTED_EPAPER_AUTOMATION_IDS.has(id.toLowerCase())) {
+      throw new EpaperConflictError('This preserved QA edition cannot be mutated.');
+    }
     if (!this.repo.isValidId(id) || !this.repo.isValidId(articleId)) throw new EpaperValidationError('Invalid publication or story ID.');
     const expected = new Date(String(expectedUpdatedAt || ''));
     if (!Number.isFinite(expected.getTime())) throw new EpaperValidationError('Save and reload the story before releasing it.');

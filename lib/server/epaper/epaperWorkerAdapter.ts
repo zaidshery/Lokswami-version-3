@@ -1,5 +1,7 @@
 import 'server-only';
+import { recoverPendingEditionContentMutations } from './epaperStandaloneMutation';
 
+import { reconcileDueEpaperAutomation } from '@/lib/server/epaperAutomationPipeline';
 import { processQueuedEpaperOcrJobs, queueEpaperOcr } from '@/lib/server/epaperOcrJobs';
 import {
   cleanupAbandonedEpaperUploads,
@@ -31,12 +33,14 @@ export class EpaperWorkerAdapter {
   }
 
   async processDueJobs() {
+    const contentRecovery = await recoverPendingEditionContentMutations();
     const [processing, cleanup] = await Promise.all([
       processQueuedEpaperJobs({ limit: 1 }),
       cleanupAbandonedEpaperUploads(),
     ]);
     const ocr = await processQueuedEpaperOcrJobs();
-    return { processing, cleanup, ocr };
+    const automation = await reconcileDueEpaperAutomation();
+    return { processing, cleanup, ocr, automation, contentRecovery };
   }
 }
 

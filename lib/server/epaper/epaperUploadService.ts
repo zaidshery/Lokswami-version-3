@@ -169,6 +169,7 @@ export class EpaperUploadService {
               sourceType: 'manual-upload',
               sourceLabel: `Direct Spaces upload (${labels.singular})`,
             },
+            $inc: { version: 1 },
           }
         );
 

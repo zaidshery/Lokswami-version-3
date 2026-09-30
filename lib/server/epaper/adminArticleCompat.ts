@@ -5,6 +5,7 @@ import EPaper from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
 import { canEditEpaper } from '@/lib/auth/permissions';
 import { applyEpaperWorkflowAutomation } from '@/lib/server/epaperWorkflowAutomation';
+import { afterEpaperMutationCommit } from './epaperMutationCompensation';
 import {
   assertEpaperDraftEditable,
   invalidateEpaperQa,
@@ -16,6 +17,7 @@ import {
 } from '@/lib/utils/epaperArticles';
 import { isAllowedAssetPath } from '@/lib/utils/epaperStorage';
 import type { AdminSessionIdentity } from '@/lib/auth/admin';
+import { epaperRepository } from './epaperRepository';
 
 export function isEpaperKind(req: NextRequest): boolean {
   const kind = req.nextUrl.searchParams.get('kind');
@@ -161,7 +163,7 @@ export async function updateEpaperArticleById(
   }
 
   const parentEpaper = await EPaper.findById(current.epaperId)
-    .select('_id status productionStatus pageCount pages')
+    .select('_id version status productionStatus revisionInitializationStatus pageCount pages')
     .lean();
   if (!parentEpaper) {
     return {
@@ -237,10 +239,21 @@ export async function updateEpaperArticleById(
   // GAP-008: Editorial story saves must NOT mutate the public releasedSnapshot.
   // Draft edits remain private until the explicit release workflow is triggered.
 
-  const updated = await EPaperArticle.findByIdAndUpdate(id, updates, {
-    new: true,
-    runValidators: true,
-  }).lean();
+  const updated = await epaperRepository.withEditionReadinessMutation(String(current.epaperId), Number(parentEpaper.version || 1), async (repo) => {
+    const saved = await repo.updateArticle(id, updates);
+    if (!saved) return saved;
+    const changedPages = Array.from(
+      new Set([Number(current.pageNumber || 0), Number(saved.pageNumber || 0)])
+    ).filter(Boolean);
+    const nextPages = (parentEpaper.pages || []).map((page) =>
+      changedPages.includes(Number(page.pageNumber || 0))
+        ? { ...page, reviewStatus: 'pending', reviewedAt: null, reviewedBy: null }
+        : page
+    );
+    const pageUpdate = await repo.updateEditionWhere({ _id: saved.epaperId }, { $set: { pages: nextPages } });
+    if (!pageUpdate.matchedCount) throw new Error('Edition changed during story update. Reload before retrying.');
+    return saved;
+  });
 
   if (!updated) {
     return {
@@ -254,27 +267,19 @@ export async function updateEpaperArticleById(
     const changedPages = Array.from(
       new Set([Number(current.pageNumber || 0), Number(updated.pageNumber || 0)])
     ).filter(Boolean);
-    const nextPages = (parentEpaper.pages || []).map((page) =>
-      changedPages.includes(Number(page.pageNumber || 0))
-        ? {
-            ...page,
-            reviewStatus: 'ready',
-            reviewedAt: new Date(),
-            reviewedBy: actor.id,
-          }
-        : page
-    );
-    await EPaper.findByIdAndUpdate(updated.epaperId, { pages: nextPages });
-    await invalidateEpaperQa({
-      epaperId: String(updated.epaperId || ''),
-      actor,
-      reason: 'Mapped story content or hotspot changed.',
-      pageNumbers: changedPages,
-    });
-    await applyEpaperWorkflowAutomation({
-      epaperId: String(updated.epaperId || ''),
-      actor,
-      reason: 'A mapped e-paper story was updated.',
+    await afterEpaperMutationCommit(String(updated.epaperId), async () => {
+      await invalidateEpaperQa({
+        epaperId: String(updated.epaperId || ''),
+        actor,
+        reason: 'Mapped story content or hotspot changed.',
+        pageNumbers: changedPages,
+        versionAlreadyIncremented: true,
+      });
+      await applyEpaperWorkflowAutomation({
+        epaperId: String(updated.epaperId || ''),
+        actor,
+        reason: 'A mapped e-paper story was updated.',
+      });
     });
   }
 
@@ -313,7 +318,7 @@ export async function deleteEpaperArticleById(
   }
 
   const parent = await EPaper.findById(existing.epaperId)
-    .select('_id status productionStatus pages')
+    .select('_id version status productionStatus revisionInitializationStatus pages')
     .lean();
   if (!parent) {
     return {
@@ -334,32 +339,34 @@ export async function deleteEpaperArticleById(
     };
   }
 
-  const deleted = await EPaperArticle.findByIdAndDelete(id).lean();
-  if (!deleted) {
+  const pageNumber = Number(existing.pageNumber || 0);
+  const deleted = await epaperRepository.withEditionReadinessMutation(String(existing.epaperId), Number(parent.version || 1), async (repo) => {
+    const result = await repo.deleteArticleWhere({ _id: id, epaperId: existing.epaperId });
+    if (result.deletedCount) {
+      const pages = (parent.pages || []).map((page) =>
+        Number(page.pageNumber || 0) === pageNumber
+          ? { ...page, reviewStatus: 'pending', reviewedAt: null, reviewedBy: null }
+          : page
+      );
+      const pageUpdate = await repo.updateEditionWhere({ _id: existing.epaperId }, { $set: { pages } });
+      if (!pageUpdate.matchedCount) throw new Error('Edition changed during story deletion. Reload before retrying.');
+    }
+    return result;
+  });
+  if (!deleted.deletedCount) {
     return {
       status: 404,
       payload: { success: false, error: 'Article not found' },
     };
   }
 
-  const pageNumber = Number(existing.pageNumber || 0);
-  const pages = (parent.pages || []).map((page) =>
-    Number(page.pageNumber || 0) === pageNumber
-      ? {
-          ...page,
-          reviewStatus: 'pending',
-          reviewedAt: null,
-          reviewedBy: null,
-        }
-      : page
-  );
-  await EPaper.findByIdAndUpdate(existing.epaperId, { pages });
-  await invalidateEpaperQa({
+  await afterEpaperMutationCommit(String(existing.epaperId), () => invalidateEpaperQa({
     epaperId: String(existing.epaperId),
     actor,
     reason: 'A mapped story was deleted.',
     pageNumbers: [pageNumber],
-  });
+    versionAlreadyIncremented: true,
+  }));
 
   return {
     status: 200,

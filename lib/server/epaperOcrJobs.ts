@@ -9,6 +9,7 @@ import {
   runIsolatedLocalOcr,
 } from '@/lib/server/epaperLocalOcr';
 import { logEpaperMetric } from '@/lib/server/epaperObservability';
+import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 
 type SourcePage = {
   pageNumber: number;
@@ -45,8 +46,17 @@ export async function queueEpaperOcr(
   selected: number[] = [],
   retry = false
 ) {
+  if (PROTECTED_EPAPER_AUTOMATION_IDS.has(epaperId.toLowerCase())) return [];
   const paper = await EPaper.findById(epaperId).lean();
   if (!paper) throw new Error('Publication not found.');
+  if (
+    PROTECTED_EPAPER_AUTOMATION_IDS.has(epaperId.toLowerCase()) ||
+    paper.status !== 'draft' ||
+    paper.productionStatus === 'published' ||
+    paper.productionStatus === 'archived' ||
+    paper.revisionInitializationStatus === 'initializing' ||
+    paper.revisionInitializationStatus === 'failed'
+  ) return [];
   const jobs: string[] = [];
 
   for (const page of paper.pages) {
@@ -68,6 +78,12 @@ export async function queueEpaperOcr(
     const job = await EPaperProcessingJob.findOneAndUpdate(
       identity,
       {
+        // The source key identifies this exact revision/generation. Repair old
+        // jobs on reuse without resetting their status, lease, or OCR results.
+        $set: {
+          generation: paper.processingGeneration || '',
+          revisionNumber: paper.revisionNumber || 1,
+        },
         $setOnInsert: {
           ...identity,
           epaperId,
@@ -136,10 +152,16 @@ export async function processQueuedEpaperOcrJobs() {
       .map((value) => value.trim())
       .filter(Boolean);
 
-    const papers = await EPaper.find({
-      isCurrentRevision: { $ne: false },
-      ...(allowlist.length ? { citySlug: { $in: allowlist } } : {}),
-    })
+    const eligiblePaperQuery = {
+      status: 'draft',
+      productionStatus: { ['\u0024nin']: ['published', 'archived'] },
+      revisionInitializationStatus: { $nin: ['initializing', 'failed'] },
+      _id: { ['\u0024nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
+      ...(allowlist.length ? {
+        $or: [{ publicationType: 'emagazine' }, { citySlug: { $in: allowlist } }],
+      } : {}),
+    };
+    const papers = await EPaper.find(eligiblePaperQuery)
       .sort({ updatedAt: -1 })
       .limit(20)
       .select('_id')
@@ -148,10 +170,15 @@ export async function processQueuedEpaperOcrJobs() {
     for (const paper of papers) {
       await queueEpaperOcr(String(paper._id));
     }
-    const allowedIds = papers.map((paper) => paper._id);
+    // The small queue-maintenance batch must not define claim eligibility:
+    // otherwise older queued revisions can starve behind the first 20 papers.
+    const allowedIds = allowlist.length
+      ? await EPaper.distinct('_id', eligiblePaperQuery)
+      : [];
 
     const jobQuery: Record<string, unknown> = {
       kind: 'ocr',
+      epaperId: { $nin: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
       nextAttemptAt: { $lte: new Date() },
       $or: [
         { status: 'queued' },
@@ -195,7 +222,14 @@ export async function processQueuedEpaperOcrJobs() {
     );
     const current =
       paper &&
+      !PROTECTED_EPAPER_AUTOMATION_IDS.has(String(paper._id)) &&
+      paper.status === 'draft' &&
+      paper.productionStatus !== 'published' &&
       paper.productionStatus !== 'archived' &&
+      paper.revisionInitializationStatus !== 'initializing' &&
+      paper.revisionInitializationStatus !== 'failed' &&
+      (!job.generation || paper.processingGeneration === job.generation) &&
+      (!job.revisionNumber || Number(paper.revisionNumber || 1) === Number(job.revisionNumber)) &&
       page &&
       page.imagePath === job.sourceImagePath &&
       epaperOcrSourceKey(
