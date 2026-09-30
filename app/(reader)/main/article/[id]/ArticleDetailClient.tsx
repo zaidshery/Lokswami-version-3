@@ -9,22 +9,17 @@ import {
   Bookmark,
   Loader2,
   Newspaper,
-  Pause,
-  PauseCircle,
-  Play,
   Sparkles,
-  Square,
-  Volume2,
   X,
 } from 'lucide-react';
-import NewsCard from '@/components/ui/NewsCard';
+import ArticleAudioPlayer from '@/components/article/ArticleAudioPlayer';
+import ArticleRelatedStories from '@/components/article/ArticleRelatedStories';
 import ShareMenu from '@/components/ui/ShareMenu';
 import ArticleReaderHeader from '@/components/article/ArticleReaderHeader';
 import ArticleReadingProgress from '@/components/article/ArticleReadingProgress';
 import styles from '@/components/article/ArticleReader.module.css';
 import { getNewsCategoryHref, resolveNewsCategory } from '@/lib/constants/newsCategories';
 import type { Article } from '@/lib/mock/data';
-import { useArticleTts } from '@/lib/hooks/useArticleTts';
 import { useAppStore } from '@/lib/store/appStore';
 import {
   buildArticleSharePath,
@@ -34,29 +29,8 @@ import {
   buildArticleImageVariantUrl,
 } from '@/lib/utils/articleMedia';
 import { renderArticleRichContent } from '@/lib/utils/articleRichContent';
-import {
-  TTS_LANGUAGE_OPTIONS,
-  TTS_VOICE_OPTIONS,
-} from '@/lib/constants/tts';
-import {
-  buildTtsAudioSource,
-  requestArticleTtsAudio,
-  type TtsAudioData,
-} from '@/lib/ai/ttsClient';
-
 const MONGO_OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/;
 const DEVANAGARI_REGEX = /[\u0900-\u097F]/;
-const RELATED_STORIES_INITIAL_COUNT = 4;
-const RELATED_STORIES_LOAD_STEP = 4;
-
-type PreparedArticleAudio = {
-  sourceId: string;
-  languageCode: string;
-  voice: string;
-  src: string;
-  payload: TtsAudioData;
-};
-
 function toPlainText(html: string) {
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -91,10 +65,6 @@ function inferArticleContentLanguage(article: ReaderArticle | null): 'hi' | 'en'
   return DEVANAGARI_REGEX.test(sample) ? 'hi' : 'en';
 }
 
-function getPreferredListenLanguageCode(article: ReaderArticle | null) {
-  return inferArticleContentLanguage(article) === 'hi' ? 'hi-IN' : 'en-IN';
-}
-
 type ArticleDetailClientProps = {
   article: ReaderArticle | null;
   relatedArticles: ReaderArticle[];
@@ -108,24 +78,12 @@ export default function ArticleDetailClient({
   const language = useAppStore((state) => state.language);
   const currentUser = useAppStore((state) => state.currentUser);
   const savedArticleIds = currentUser?.savedArticles ?? null;
-  const [visibleRelatedCount, setVisibleRelatedCount] = useState(
-    RELATED_STORIES_INITIAL_COUNT
-  );
   const articleRegionRef = useRef<HTMLElement | null>(null);
   const [aiBullets, setAiBullets] = useState<string[]>([]);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [, setAiSummaryError] = useState('');
   const [isAuthorImageModalOpen, setIsAuthorImageModalOpen] = useState(false);
-  const [listenLanguageCode, setListenLanguageCode] = useState('hi-IN');
-  const [listenVoiceId, setListenVoiceId] = useState('');
-  const [isPreparingListen, setIsPreparingListen] = useState(false);
   const [isSavingBookmark, setIsSavingBookmark] = useState(false);
-  const [listenError, setListenError] = useState('');
-  const [preparedListenAudio, setPreparedListenAudio] = useState<PreparedArticleAudio | null>(null);
-  const preloadedListenAudioRef = useRef<HTMLAudioElement | null>(null);
-  const listenRequestIdRef = useRef(0);
-  const listenPrefetchRequestIdRef = useRef(0);
-  const listenPrefetchPromiseRef = useRef<Promise<PreparedArticleAudio | null> | null>(null);
   const summaryAbortControllerRef = useRef<AbortController | null>(null);
   const hasTrackedReadRef = useRef(false);
   const readingProgressRef = useRef(0);
@@ -135,19 +93,7 @@ export default function ArticleDetailClient({
   const isBookmarked = Boolean(
     article && Array.isArray(savedArticleIds) && savedArticleIds.includes(article.id)
   );
-  const visibleRelatedArticles = relatedArticles.slice(0, visibleRelatedCount);
-  const hasMoreRelatedStories = visibleRelatedCount < relatedArticles.length;
   const articleCategory = article ? resolveNewsCategory(article.category) : undefined;
-  const canPrepareListen = true;
-  const currentListenSourceId = article?.id || '';
-  const currentListenVoice = listenVoiceId || '';
-  const canUsePreparedListenAudio = Boolean(
-    preparedListenAudio &&
-      preparedListenAudio.sourceId === currentListenSourceId &&
-      preparedListenAudio.languageCode === listenLanguageCode &&
-      preparedListenAudio.voice === currentListenVoice
-  );
-  const listenButtonTitle = language === 'hi' ? 'लेख सुनें' : 'Listen to article';
 
   const articlePlainText = useMemo(() => {
     if (!article) return '';
@@ -158,20 +104,6 @@ export default function ArticleDetailClient({
     ].filter(Boolean);
     return parts.join('। ');
   }, [article]);
-
-  const tts = useArticleTts({
-    audioUrl: preparedListenAudio?.src || null,
-    text: articlePlainText,
-    title: article?.title,
-    lang: listenLanguageCode,
-    onError: (err) => {
-      setListenError(
-        language === 'hi'
-          ? 'ऑडियो चलाने में त्रुटि हुई।'
-          : err || 'Unable to play article audio right now.'
-      );
-    },
-  });
 
   useEffect(() => {
     if (!isAuthorImageModalOpen) return;
@@ -215,7 +147,6 @@ export default function ArticleDetailClient({
   useEffect(() => {
     hasTrackedReadRef.current = false;
     readingProgressRef.current = 0;
-    setVisibleRelatedCount(RELATED_STORIES_INITIAL_COUNT);
   }, [article?.id]);
 
   useEffect(() => {
@@ -255,111 +186,6 @@ export default function ArticleDetailClient({
 
     return { readMinutes };
   }, [article]);
-
-  const listenLanguageOptions = useMemo(() => {
-    return TTS_LANGUAGE_OPTIONS;
-  }, []);
-
-  const listenVoiceOptions = useMemo(() => {
-    return TTS_VOICE_OPTIONS;
-  }, []);
-
-  useEffect(() => {
-    if (!listenLanguageOptions.length) return;
-    const exists = listenLanguageOptions.some((item) => item.code === listenLanguageCode);
-    if (!exists) {
-      setListenLanguageCode(listenLanguageOptions[0].code);
-    }
-  }, [listenLanguageCode, listenLanguageOptions]);
-
-  useEffect(() => {
-    const preferredCode = getPreferredListenLanguageCode(article);
-    setListenLanguageCode((current) =>
-      current === preferredCode ? current : preferredCode
-    );
-  }, [article]);
-
-  useEffect(() => {
-    if (!listenVoiceId) return;
-    const exists = listenVoiceOptions.some((voice) => voice.id === listenVoiceId);
-    if (!exists) {
-      setListenVoiceId('');
-    }
-  }, [listenVoiceId, listenVoiceOptions]);
-
-  const stopListening = useCallback((suppressState = false) => {
-    listenRequestIdRef.current += 1;
-    tts.stop();
-    if (!suppressState) {
-      setIsPreparingListen(false);
-    }
-  }, [tts]);
-
-  const prepareArticleListenAudio = useCallback(
-    async (options?: { force?: boolean }) => {
-      if (!article) {
-        return null;
-      }
-
-      const sourceId = article.id;
-      const languageCode = listenLanguageCode;
-      const voice = listenVoiceId || '';
-
-      if (
-        !options?.force &&
-        preparedListenAudio &&
-        preparedListenAudio.sourceId === sourceId &&
-        preparedListenAudio.languageCode === languageCode &&
-        preparedListenAudio.voice === voice
-      ) {
-        return preparedListenAudio;
-      }
-
-      if (!options?.force && listenPrefetchPromiseRef.current) {
-        return await listenPrefetchPromiseRef.current;
-      }
-
-      const requestId = listenPrefetchRequestIdRef.current + 1;
-      listenPrefetchRequestIdRef.current = requestId;
-
-      const promise = requestArticleTtsAudio(sourceId)
-        .then((payload) => {
-          if (requestId !== listenPrefetchRequestIdRef.current) {
-            return null;
-          }
-
-          const src = buildTtsAudioSource(payload);
-          if (!src) {
-            return null;
-          }
-
-          const prepared = {
-            sourceId,
-            languageCode,
-            voice,
-            src,
-            payload,
-          } satisfies PreparedArticleAudio;
-
-          const preloaded = new Audio(src);
-          preloaded.preload = 'auto';
-          preloaded.load();
-          preloadedListenAudioRef.current = preloaded;
-          setPreparedListenAudio(prepared);
-          return prepared;
-        })
-        .catch(() => null)
-        .finally(() => {
-          if (requestId === listenPrefetchRequestIdRef.current) {
-            listenPrefetchPromiseRef.current = null;
-          }
-        });
-
-      listenPrefetchPromiseRef.current = promise;
-      return await promise;
-    },
-    [article, listenLanguageCode, listenVoiceId, preparedListenAudio]
-  );
 
   const handleGenerateSummary = async () => {
     if (!article) return;
@@ -417,77 +243,10 @@ export default function ArticleDetailClient({
     }
   };
 
-  const handleListen = async () => {
-    if (!article) return;
-
-    if (tts.isSpeaking) {
-      tts.pause();
-      return;
-    }
-
-    if (tts.isPaused) {
-      tts.resume();
-      return;
-    }
-
-    const requestId = listenRequestIdRef.current + 1;
-    listenRequestIdRef.current = requestId;
-    setListenError('');
-    setIsPreparingListen(true);
-
-    const articleListenSourceId = article.id;
-
-    try {
-      let audioSource = preparedListenAudio?.src || null;
-      if (!audioSource && articleListenSourceId) {
-        try {
-          const preparedAudio = await prepareArticleListenAudio();
-          if (requestId === listenRequestIdRef.current && preparedAudio?.src) {
-            audioSource = preparedAudio.src;
-          }
-        } catch {
-          audioSource = null;
-        }
-      }
-
-      if (requestId !== listenRequestIdRef.current) return;
-
-      await tts.play({
-        audioUrl: audioSource,
-        text: articlePlainText,
-        lang: listenLanguageCode,
-      });
-    } catch (error) {
-      if (requestId !== listenRequestIdRef.current) return;
-      setListenError(
-        error instanceof Error && error.message.trim()
-          ? error.message
-          : language === 'hi'
-            ? 'ऑडियो चलाने में त्रुटि हुई।'
-            : 'Unable to play article audio right now.'
-      );
-    } finally {
-      if (requestId === listenRequestIdRef.current) {
-        setIsPreparingListen(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      summaryAbortControllerRef.current?.abort();
-      summaryAbortControllerRef.current = null;
-      stopListening(true);
-    };
+  useEffect(() => () => {
+    summaryAbortControllerRef.current?.abort();
+    summaryAbortControllerRef.current = null;
   }, []);
-
-  useEffect(() => {
-    listenPrefetchRequestIdRef.current += 1;
-    listenPrefetchPromiseRef.current = null;
-    preloadedListenAudioRef.current = null;
-    setPreparedListenAudio(null);
-    stopListening(true);
-  }, [article?.id, listenLanguageCode, listenVoiceId]);
 
   const handleBookmarkToggle = async () => {
     if (!article) return;
@@ -651,112 +410,16 @@ export default function ArticleDetailClient({
         </figure>
         <div className={`${styles.readingColumn} space-y-6 px-4 py-6 sm:px-6 sm:py-8`}>
 
-          <section
-            aria-label={language === 'hi' ? 'लोकस्वामी AI उपकरण' : 'Lokswami AI tools'}
-            className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-          >
-            <div
-              className={`flex items-center gap-1.5 bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/70 sm:gap-2 sm:px-4 sm:py-2.5 ${
-                aiBullets.length || listenError
-                  ? 'border-b border-zinc-200 dark:border-zinc-800'
-                  : ''
-              }`}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="relative h-[50px] w-[50px] shrink-0 overflow-hidden rounded-xl sm:h-[65px] sm:w-[65px]">
-                  <Image
-                    src="/ai-logo-shery-lokswami-cutout.png"
-                    alt="Lokswami AI"
-                    fill
-                    sizes="(max-width: 639px) 50px, 65px"
-                    className="object-contain object-center drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
-                    priority={false}
-                  />
-                </div>
-                <div className="hidden min-w-0 sm:flex sm:flex-col sm:gap-1">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-bold tracking-wide text-zinc-900 dark:text-zinc-100">
-                      Lokswami
-                    </span>
-                    <span className="inline-flex h-5 items-center rounded-full border border-red-200 bg-red-50 px-2 text-[10px] font-black uppercase tracking-[0.12em] text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
-                      AI
-                    </span>
-                  </div>
-                  <p className="truncate text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    {language === 'hi' ? 'इस लेख के ऑडियो उपकरण' : 'Audio tools for this article'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleListen()}
-                  disabled={isPreparingListen || !canPrepareListen}
-                  title={listenButtonTitle}
-                  className={`reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1 rounded-full border px-2.5 text-[10px] font-bold leading-none transition disabled:opacity-60 sm:min-h-8 sm:gap-1.5 sm:px-3 sm:text-xs ${
-                    tts.isSpeaking
-                      ? 'border-orange-400 bg-orange-100 text-orange-800 hover:bg-orange-200 dark:border-orange-600 dark:bg-orange-950/60 dark:text-orange-200'
-                      : canUsePreparedListenAudio
-                        ? 'border-emerald-300 bg-emerald-100 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-200 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
-                        : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300'
-                  }`}
-                >
-                  {isPreparingListen ? (
-                    <Loader2 className="h-3 w-3 animate-spin sm:h-3.5 sm:w-3.5" />
-                  ) : tts.isSpeaking ? (
-                    <PauseCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  ) : (
-                    <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  )}
-                  {tts.isSpeaking
-                    ? language === 'hi'
-                      ? 'रोकें'
-                      : 'Pause'
-                    : language === 'hi'
-                      ? 'सुनें'
-                      : 'Listen'}
-                </button>
-
-                {tts.isSpeaking || tts.isPaused ? (
-                  <button
-                    type="button"
-                    onClick={() => stopListening()}
-                    className="reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1 rounded-full border border-zinc-300 bg-white px-2.5 text-[10px] font-bold leading-none text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800 sm:min-h-8 sm:gap-1.5 sm:px-3 sm:text-xs"
-                  >
-                    <Square className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    {language === 'hi' ? 'बंद करें' : 'Stop'}
-                  </button>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateSummary()}
-                  disabled={isGeneratingSummary}
-                  className="reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1 rounded-full border border-red-200 bg-white px-2.5 text-[10px] font-bold leading-none text-red-700 shadow-sm transition hover:border-red-300 hover:bg-red-50 disabled:opacity-60 dark:border-red-900/70 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30 sm:min-h-8 sm:gap-1.5 sm:px-3 sm:text-xs"
-                >
-                  {isGeneratingSummary ? <Loader2 className="h-3 w-3 animate-spin sm:h-3.5 sm:w-3.5" /> : <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
-                  {language === 'hi' ? 'सारांश' : 'Summary'}
-                </button>
-              </div>
-            </div>
-
-            {aiBullets.length ? (
-              <ul className="space-y-2 px-3 py-3 text-sm leading-6 text-zinc-700 dark:text-zinc-300 sm:px-4">
-                {aiBullets.map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-2.5">
-                    <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-red-600" />
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            {listenError ? (
-              <p className="border-t border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300 sm:px-4">
-                {listenError}
-              </p>
-            ) : null}
+          <ArticleAudioPlayer key={article.id} articleId={article.id} text={articlePlainText} contentLanguage={articleContentLanguage} language={language} />
+          <section aria-label={language === 'hi' ? 'लोकस्वामी AI उपकरण' : 'Lokswami AI tools'}>
+            <button type="button" onClick={() => void handleGenerateSummary()} disabled={isGeneratingSummary}
+              className="reader-focus-ring inline-flex min-h-11 items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-bold text-red-700 disabled:opacity-60 dark:border-red-900 dark:text-red-300">
+              {isGeneratingSummary ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Sparkles aria-hidden="true" className="h-4 w-4" />}
+              {language === 'hi' ? 'सारांश' : 'Summary'}
+            </button>
+            {aiBullets.length ? <ul className="mt-3 space-y-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+              {aiBullets.map(bullet => <li key={bullet} className="flex gap-2"><span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" /><span>{bullet}</span></li>)}
+            </ul> : null}
           </section>
 
           <div className="h-px w-full bg-zinc-200 dark:bg-zinc-800" />
@@ -769,34 +432,7 @@ export default function ArticleDetailClient({
         </div>
       </article>
 
-      {relatedArticles.length ? (
-        <section data-related-articles className={`${styles.readingColumn} mt-10 space-y-4 px-4 sm:px-6`}>
-          <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-100 sm:text-xl">
-            {language === 'hi' ? 'संबंधित खबरें' : 'Related News'}
-          </h2>
-          <div className="space-y-3">
-            {visibleRelatedArticles.map((item, index) => (
-              <NewsCard key={item.id} article={item} variant="horizontal" index={index} />
-            ))}
-          </div>
-
-          {hasMoreRelatedStories ? (
-            <div className="flex justify-center pt-3 sm:pt-4">
-              <button
-                type="button"
-                onClick={() =>
-                  setVisibleRelatedCount((current) =>
-                    Math.min(current + RELATED_STORIES_LOAD_STEP, relatedArticles.length)
-                  )
-                }
-                className="reader-touch-button reader-focus-ring min-h-12 w-full rounded-full border border-zinc-300 bg-white px-6 py-3 text-[13px] font-semibold text-zinc-900 transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-50 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-orange-700 dark:hover:bg-zinc-800 sm:w-auto sm:px-8 sm:text-sm"
-              >
-                {language === 'hi' ? '\u0914\u0930 \u0916\u092c\u0930\u0947\u0902 \u0932\u094b\u0921 \u0915\u0930\u0947\u0902' : 'Load More Stories'}
-              </button>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
+      <ArticleRelatedStories key={article.id} articles={relatedArticles} language={language} />
       {isAuthorImageModalOpen ? (
         <div
           role="dialog"
@@ -851,66 +487,6 @@ export default function ArticleDetailClient({
         </div>
       ) : null}
 
-      {/* Floating Audio Mini-Player */}
-      {tts.isSpeaking || tts.isPaused ? (
-        <aside
-          aria-label={language === 'hi' ? 'ऑडियो प्लेयर' : 'Audio player'}
-          className="fixed bottom-4 left-3 right-3 z-50 mx-auto max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-300"
-        >
-          <div className="flex items-center gap-3 rounded-2xl border border-zinc-200/90 bg-white/95 p-3 shadow-2xl backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-900/95 sm:px-4">
-            {/* Status Icon */}
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400">
-              {tts.isSpeaking ? (
-                <Volume2 className="h-5 w-5 animate-pulse" />
-              ) : (
-                <Volume2 className="h-5 w-5 opacity-60" />
-              )}
-            </div>
-
-            {/* Title & Mode */}
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-hindi text-xs font-bold text-zinc-900 dark:text-zinc-100 sm:text-sm">
-                {article?.title}
-              </p>
-              <div className="mt-1 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                  <div
-                    className="h-full bg-orange-500 transition-all duration-300"
-                    style={{ width: `${Math.max(0, Math.min(100, tts.playbackProgress))}%` }}
-                  />
-                </div>
-                <span className="shrink-0 text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
-                  {tts.currentMode === 'audio' ? 'HQ Audio' : 'AI Speech'}
-                </span>
-              </div>
-            </div>
-
-            {/* Controls: Play/Pause and Stop */}
-            <div className="flex shrink-0 items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => (tts.isPaused ? tts.resume() : tts.pause())}
-                aria-label={tts.isPaused ? 'Resume audio' : 'Pause audio'}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-              >
-                {tts.isPaused ? (
-                  <Play className="ml-0.5 h-4 w-4 fill-current" />
-                ) : (
-                  <Pause className="h-4 w-4 fill-current" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => stopListening()}
-                aria-label="Stop audio"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-red-50 hover:text-red-600 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-              >
-                <Square className="h-3.5 w-3.5 fill-current" />
-              </button>
-            </div>
-          </div>
-        </aside>
-      ) : null}
     </div>
   );
 }

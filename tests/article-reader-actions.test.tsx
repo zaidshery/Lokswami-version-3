@@ -130,12 +130,12 @@ describe('article reader actions', () => {
     });
     expect(mocks.requestArticleTtsAudio).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: 'Listen' }));
+    await user.click(screen.getByRole('button', { name: 'Listen to article' }));
 
     await waitFor(() => {
       expect(mocks.requestArticleTtsAudio).toHaveBeenCalledTimes(1);
       expect(mocks.requestArticleTtsAudio).toHaveBeenCalledWith(
-        '507f1f77bcf86cd799439011'
+        '507f1f77bcf86cd799439011', expect.any(AbortSignal)
       );
     });
   });

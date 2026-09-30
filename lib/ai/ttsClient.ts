@@ -77,10 +77,12 @@ export async function fetchTtsStatus() {
 }
 
 export async function requestArticleTtsAudio(
-  articleId: string
+  articleId: string,
+  signal?: AbortSignal
 ) {
   const response = await fetch(`/api/articles/${encodeURIComponent(articleId)}/tts`, {
     method: 'POST',
+    signal,
     headers: {
       'Content-Type': 'application/json',
     },
