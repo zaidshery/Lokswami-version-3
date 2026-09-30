@@ -7,6 +7,7 @@ import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
 import { epaperEditorialService } from '@/lib/server/epaper/epaperEditorialService';
 import * as ocr from '@/lib/server/epaperOcrJobs';
 import { applyEpaperWorkflowAutomation } from '@/lib/server/epaperAutomationPipeline';
+import { matches, change, type Row } from './helpers/epaperMutationMongoFixture';
 
 vi.mock('server-only', () => ({}));
 
@@ -59,6 +60,22 @@ describe('background publication reconciliation behavior', () => {
   });
 
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
+
+  it.each(['epaper','emagazine'])('stamps blocked legacy %s drafts without accepting newer snapshots', async(publicationType)=>{
+    paper.publicationType=publicationType;paper.pages=[];pdfJob=null;
+    delete paper.version;delete paper.revisionNumber;delete paper.processingGeneration;
+    vi.mocked(EPaper.updateOne).mockImplementation((async(filter:Row,updates:Row)=>{
+      if(!matches(paper,filter))return {matchedCount:0};change(paper,updates);return {matchedCount:1};
+    }) as never);
+    const result=await applyEpaperWorkflowAutomation({epaperId:id,reason:'Legacy blocked draft'});
+    expect(paper.automationReconciledAt).toBeInstanceOf(Date);
+    expect('snapshot' in result&&result.snapshot?.lastReconciledAt).toBeTruthy();
+    expect(transition).not.toHaveBeenCalled();
+    const [filter]=(vi.mocked(EPaper.updateOne).mock.calls as unknown as [Row][])[0];
+    expect(matches({...paper,version:2},filter)).toBe(false);
+    expect(matches({...paper,revisionNumber:2},filter)).toBe(false);
+    expect(matches({...paper,processingGeneration:'new'},filter)).toBe(false);
+  });
 
   it.each(['epaper', 'emagazine'])('reconciles %s through ready without publishing', async (publicationType) => {
     paper.publicationType = publicationType;

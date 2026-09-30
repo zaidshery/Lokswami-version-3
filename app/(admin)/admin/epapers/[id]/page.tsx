@@ -328,7 +328,11 @@ export default function AdminEPaperDetailPage() {
       if (!response.ok || !payload.success || !payload.data) return null;
       setProcessingData(payload.data);
       const status = payload.data.job?.status;
+      const automationStage = payload.data.automation?.stage;
       const isTerminal =
+        automationStage === 'ready_to_publish' ||
+        automationStage === 'published' ||
+        automationStage === 'archived' ||
         status === 'completed' ||
         status === 'completed_with_errors' ||
         status === 'failed' ||
@@ -352,6 +356,7 @@ export default function AdminEPaperDetailPage() {
           );
         }
       } else {
+        if (payload.data.productionStatus) setProductionStatus(payload.data.productionStatus);
         setEpaper((current) =>
           current
             ? {

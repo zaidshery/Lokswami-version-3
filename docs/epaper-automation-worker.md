@@ -68,6 +68,10 @@ only for that normalized snapshot; later revisions and nonempty generations stay
 exact. OCR freshness checks use the same revision normalization. A successful
 versioned write advances the expected version even when its stored field was
 missing, preventing a second stale request from reusing the initial snapshot.
+Reconciliation timestamps use these same legacy snapshot filters so blocked
+older drafts do not remain permanently unstamped at the front of the worker batch.
+The CMS refreshes canonical readiness when automation becomes terminal, including
+cloned revisions with no PDF job, and synchronizes its workflow controls while polling.
 
 The preserved QA edition `6ab0da70c6aab6a2a6cab44e` is excluded from automation,
 revisions, and story mutation. Use separate temporary staging editions for QA.

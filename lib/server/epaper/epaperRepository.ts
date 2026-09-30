@@ -46,7 +46,7 @@ const PUBLIC_PROJECTION =
   '_id publicationType citySlug cityName title publishDate thumbnailPath thumbnail pdfPath pdfUrl status pageCount pages createdAt publishedAt familyId isCurrentRevision';
 const DEFAULT_QUERY_TIMEOUT_MS = 2000;
 
-function normalizedSnapshotFilter(revisionNumber: number, processingGeneration: string) {
+export function normalizedSnapshotFilter(revisionNumber: number, processingGeneration: string) {
   return {
     revisionNumber: revisionNumber === 1 ? { $in: [1, null] } : revisionNumber,
     processingGeneration: processingGeneration === '' ? { $in: ['', null] } : processingGeneration,

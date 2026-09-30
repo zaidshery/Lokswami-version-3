@@ -8,6 +8,7 @@ import EPaperProcessingJob from '@/lib/models/EPaperProcessingJob';
 import type { AdminSessionIdentity } from '@/lib/auth/admin';
 import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import { epaperEditorialService } from '@/lib/server/epaper/epaperEditorialService';
+import { normalizedSnapshotFilter } from '@/lib/server/epaper/epaperRepository';
 import { epaperOcrSourceKey, queueEpaperOcr } from '@/lib/server/epaperOcrJobs';
 import {
   buildEpaperProcessingBlockers,
@@ -378,9 +379,8 @@ export async function applyEpaperWorkflowAutomation(input: {
   const stamped = await EPaper.updateOne({
     _id: input.epaperId,
     status: 'draft',
-    version: Math.max(1, Number(current.epaper.version || 1)),
-    revisionNumber: Math.max(1, Number(current.epaper.revisionNumber || 1)),
-    processingGeneration: String(current.epaper.processingGeneration || ''),
+    version: Number(current.epaper.version || 1) === 1 ? { $in: [1, null] } : Number(current.epaper.version),
+    ...normalizedSnapshotFilter(Math.max(1, Number(current.epaper.revisionNumber || 1)), String(current.epaper.processingGeneration || '')),
   }, { $set: { automationReconciledAt: reconciledAt } }, { timestamps: false });
   if (stamped.matchedCount) current.status.lastReconciledAt = reconciledAt.toISOString();
   return { changed, nextStatus, snapshot: current.status };
