@@ -5,6 +5,7 @@ import connectDB from '@/lib/db/mongoose';
 import EPaper from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
 import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
+import EPaperMutationReceipt from '@/lib/models/EPaperMutationReceipt';
 import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import { mutationSnapshotFilter } from './epaperMutationCompensation';
 import { asObject } from './epaperMapper';
@@ -65,7 +66,14 @@ export class StandaloneEpaperMutation {
       try {
         const current = await EPaper.findById(this.id).lean();
         const stored = asObject(current?.contentMutation) as unknown as Journal;
-        if (stored.id !== this.journal.id) throw error;
+        if (stored.id !== this.journal.id) {
+          // Cleanup can finish in another process before an indeterminate
+          // commit returns. Its receipt proves this operation committed even
+          // if subsequent operations have already changed the parent version.
+          const receipt = asObject(await EPaperMutationReceipt.findById(this.journal.id).lean());
+          if (String(receipt.epaperId) === this.id) return receipt.result as T;
+          throw error;
+        }
         if (stored.phase === 'committed') {
           try { await recoverEditionContentMutation(this.id); } catch (cleanupError) { console.error('[epaper] committed content cleanup pending', { epaperId: this.id, cleanupError }); }
           return stored.result as T;
@@ -213,6 +221,12 @@ export async function recoverEditionContentMutation(id: string) {
     journal.phase = 'rollback';
   }
   if (journal.phase === 'committed') {
+    // Never discard the only durable result before saving an independent
+    // receipt. An unavailable/uncertain receipt write leaves the journal intact.
+    const receipt = await EPaperMutationReceipt.updateOne({ _id: journal.id }, { $setOnInsert: {
+      epaperId: id, result: journal.result, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
+    } }, { upsert: true });
+    if (!receipt.acknowledged) throw new EpaperConflictError('Committed result receipt pending; durable recovery retained.');
     for (const undo of journal.undo) {
       const collection = childModel(undo).collection;
       if (undo.kind === 'delete') await collection.deleteOne(ownedChild(undo) as never);

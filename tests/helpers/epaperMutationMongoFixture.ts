@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import EPaper from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
 import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
+import EPaperMutationReceipt from '@/lib/models/EPaperMutationReceipt';
 
 export type Row = Record<string, unknown>;
 export const editionId = '507f1f77bcf86cd799439011';
@@ -59,6 +60,12 @@ export function arrangeMutationMongo(mode: 'standalone' | 'transaction' = 'stand
     contentHtml: '<p>OCR text</p>', hotspot: { x: 0, y: 0, w: 0.5, h: 0.5 }, confidence: 99, status: 'pending' }).toObject() as unknown as Row;
   const suggestions = new Map([[suggestionId, suggestion]]);
   const events: WriteEvent[] = [];
+  const receipts = new Map<string, Row>();
+  vi.spyOn(EPaperMutationReceipt, 'findById').mockImplementation(((id: unknown) => ({ lean: async () => clone(receipts.get(String(id)) || null) })) as never);
+  vi.spyOn(EPaperMutationReceipt, 'updateOne').mockImplementation((async (filter: Row, updates: Row) => {
+    if (!receipts.has(String(filter._id))) receipts.set(String(filter._id), clone(updates.$setOnInsert as Row));
+    return { matchedCount: 1, acknowledged: true };
+  }) as never);
   let hook: ((event: WriteEvent) => Promise<void> | void) | undefined;
   async function event(collection: WriteEvent['collection'], operation: string, filter: Row, payload: Row, phase: WriteEvent['phase']) {
     const entry = { collection, operation, filter: clone(filter), payload: clone(payload), phase }; events.push(entry); await hook?.(entry);
@@ -137,7 +144,7 @@ export function arrangeMutationMongo(mode: 'standalone' | 'transaction' = 'stand
       hotspot: { x: 0, y: 0, w: 0.5, h: 0.5 }, createdAt: new Date('2026-09-28'), updatedAt: new Date('2026-09-28'), __v: 0, ...overrides }).toObject() as unknown as Row;
     articles.set(String(row._id), clone(row)); return clone(row);
   };
-  return { parent, parents, articles, suggestions, events, session, editionWrite, seed,
+  return { parent, parents, articles, suggestions, receipts, events, session, editionWrite, seed,
     onWrite: (callback?: typeof hook) => { hook = callback; }, visible: () => [...articles.values()].filter((row) => !row.readinessMutationHidden),
     compete: () => { parent.version = Number(parent.version) + 1; parent.pages = [{ pageNumber: 1, imagePath: '/concurrent.jpg' }]; },
   };

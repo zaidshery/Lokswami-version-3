@@ -51,6 +51,14 @@ is reviewed again. Initial publications retain their existing readiness policy.
 The shared E-Paper/E-Magazine page editor exposes revision page QA. Review writes
 must carry the inspected edition version; a stale review is rejected with a
 conflict instead of approving content saved after the reviewer loaded the page.
+Editing or moving a story also clears review attribution on both affected pages;
+saving story content does not complete page QA. Manual workflow note/assignment
+saves compare the loaded edition version so a worker transition cannot be lost.
+
+PDF worker page arrays are refreshed from the canonical edition before each
+page. Processing, rendered-image, failure and final cover writes compare the
+inspected version as well as generation/revision. A conflict leaves newer editor
+state intact and the queue supervisor retries from the current snapshot.
 
 The preserved QA edition `6ab0da70c6aab6a2a6cab44e` is excluded from automation,
 revisions, and story mutation. Use separate temporary staging editions for QA.
@@ -87,7 +95,12 @@ isolation. Maintenance using native collections must quiesce application writers
 and preserve ownership/counter fences; application writes use the fenced models.
 
 After commit, cleanup releases child tokens and physically removes hidden
-deletions. Cleanup failure retains the committed journal for retry without
+deletions. Before releasing the journal, cleanup persists an independent result
+receipt keyed by operation ID. Receipts expire after seven days through their
+own TTL index and survive later edition mutations. This lets an original caller
+recover its committed result when its acknowledgement was lost and another
+process already cleaned the journal. Receipt persistence failure retains the
+journal. Cleanup failure retains the committed journal for retry without
 reporting a coherent save as failed. Audit and reconciliation effects run after
 commit and log failures. Arbitrary Mongo errors never trigger fallback, and no
 unsafe content mutation retry is introduced. Protected QA editions are excluded.

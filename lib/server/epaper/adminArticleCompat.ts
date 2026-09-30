@@ -241,13 +241,13 @@ export async function updateEpaperArticleById(
 
   const updated = await epaperRepository.withEditionReadinessMutation(String(current.epaperId), Number(parentEpaper.version || 1), async (repo) => {
     const saved = await repo.updateArticle(id, updates);
-    if (!saved || !actor) return saved;
+    if (!saved) return saved;
     const changedPages = Array.from(
       new Set([Number(current.pageNumber || 0), Number(saved.pageNumber || 0)])
     ).filter(Boolean);
     const nextPages = (parentEpaper.pages || []).map((page) =>
       changedPages.includes(Number(page.pageNumber || 0))
-        ? { ...page, reviewStatus: 'ready', reviewedAt: new Date(), reviewedBy: actor.id }
+        ? { ...page, reviewStatus: 'pending', reviewedAt: null, reviewedBy: null }
         : page
     );
     const pageUpdate = await repo.updateEditionWhere({ _id: saved.epaperId }, { $set: { pages: nextPages } });

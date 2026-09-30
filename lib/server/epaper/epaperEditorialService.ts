@@ -511,7 +511,7 @@ export class EpaperEditorialService {
             updates,
             Number(source.expectedVersion)
           )
-        : await this.repo.updateEdition(id, updates);
+        : await this.repo.updateEdition(id, updates, Number(current.version || 1));
     if (!updated) throw new EpaperNotFoundError();
     const action = nextStatus && nextStatus !== transition.fromStatus ? nextStatus : hasAssignee ? 'assign' : 'note';
     const message = buildEpaperActivityMessage({ action, toStatus: transition.toStatus, assignedTo: transition.nextProduction.productionAssignee });

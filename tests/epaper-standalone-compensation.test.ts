@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import EPaperArticle from '@/lib/models/EPaperArticle';
+import EPaperMutationReceipt from '@/lib/models/EPaperMutationReceipt';
 import { EpaperRepository } from '@/lib/server/epaper/epaperRepository';
 import { recoverEditionContentMutation, recoverPendingEditionContentMutations } from '@/lib/server/epaper/epaperStandaloneMutation';
 import { NextRequest } from 'next/server';
 import { PATCH, DELETE } from '@/app/api/admin/articles/[id]/route';
+import { updateEpaperArticleById } from '@/lib/server/epaper/adminArticleCompat';
 import { arrangeMutationMongo, editionId as id, articleId, suggestionId, clone, get, type Row, type WriteEvent } from './helpers/epaperMutationMongoFixture';
 
 vi.mock('server-only', () => ({}));
@@ -53,6 +55,17 @@ describe.each(['epaper', 'emagazine'])('Durable standalone %s content recovery',
 });
 
 describe('Write-ahead intent and indeterminate acknowledgements', () => {
+  it.each(['standalone', 'transaction'] as const)('story edits leave both affected revision pages pending in %s mode', async (mode) => {
+    for (const publicationType of ['epaper','emagazine']) {
+      const state = arrangeMutationMongo(mode, publicationType); state.seed();
+      state.parent.supersedesId = '507f1f77bcf86cd799439099'; state.parent.pageCount = 2;
+      state.parent.pages = [1,2].map(pageNumber => ({pageNumber,imagePath:'/qa.jpg',reviewStatus:'ready',reviewedAt:new Date(),reviewedBy:{id:'reviewer'}}));
+      const result = await updateEpaperArticleById(articleId,{excerpt:'Edited mapping',pageNumber:2},false,{id:'editor',username:'editor',role:'super_admin',name:'Editor',email:'qa@example.com'});
+      expect(result.ok).toBe(true);
+      expect(state.parent.pages).toEqual([1,2].map(pageNumber => ({pageNumber,imagePath:'/qa.jpg',reviewStatus:'pending',reviewedAt:null,reviewedBy:null})));
+      vi.restoreAllMocks();
+    }
+  });
   it.each(operations)('persists %s intent before its first child command', async (operation) => {
     const state = prepare(operation); let observed = false;
     state.onWrite((event) => {
@@ -80,13 +93,53 @@ describe('Write-ahead intent and indeterminate acknowledgements', () => {
   });
   it('returns success when the parent commit applied but its acknowledgement was lost', async () => {
     const state = prepare('create'); let failed = false;
-    state.onWrite((event) => { if (event.collection === 'edition' && get(event.payload, '$set.contentMutation.phase') === 'committed' && event.phase === 'after' && !failed) { failed = true; throw new Error('commit acknowledgement lost'); } });
+    state.onWrite((event) => { if (event.collection === 'edition' && (event.payload.$set as Row)?.['contentMutation.phase'] === 'committed' && event.phase === 'after' && !failed) { failed = true; throw new Error('commit acknowledgement lost'); } });
     await expect(new EpaperRepository().withEditionReadinessMutation(id, 4, (repo) => child(repo, 'create'))).resolves.toMatchObject({ title: 'After' });
     expect(state.visible()).toHaveLength(1); expect(state.parent.contentMutation).toBeUndefined();
+    expect(failed).toBe(true);
+  });
+  it.each(operations)('retains the committed %s result after another process cleans the journal', async (operation) => {
+    const state = prepare(operation); let failed = false;
+    state.onWrite(async (event) => {
+      if (event.collection === 'edition' && (event.payload.$set as Row)?.['contentMutation.phase'] === 'committed' && event.phase === 'after' && !failed) {
+        failed = true;
+        await recoverEditionContentMutation(id);
+        expect(state.parent.contentMutation).toBeUndefined();
+        // A subsequent mutation can advance the version before the original
+        // caller handles the lost acknowledgement. Version alone is no proof.
+        state.parent.version = Number(state.parent.version) + 1;
+        throw new Error('commit acknowledgement lost after cleanup');
+      }
+    });
+    const result = new EpaperRepository().withEditionReadinessMutation(id, 4, (repo) => child(repo, operation));
+    if (operation === 'delete') await expect(result).resolves.toEqual({ deletedCount: 1 });
+    else await expect(result).resolves.toMatchObject({ title: 'After' });
+    expect(failed).toBe(true);
   });
 });
 
 describe('Durable repair across processes', () => {
+  it.each(['before', 'after'])('retains committed intent when receipt acknowledgement fails %s persistence', async (phase) => {
+    const state = prepare('update'); vi.spyOn(console, 'error').mockImplementation(() => {});
+    const saveReceipt = vi.mocked(EPaperMutationReceipt.updateOne).getMockImplementation()!;
+    vi.spyOn(EPaperMutationReceipt, 'updateOne').mockImplementation((async (...args: unknown[]) => {
+      if (phase === 'after') await (saveReceipt as (...values: unknown[]) => Promise<unknown>)(...args);
+      throw new Error('receipt acknowledgement unavailable');
+    }) as never);
+    await expect(new EpaperRepository().withEditionReadinessMutation(id, 4, (repo) => child(repo, 'update'))).resolves.toMatchObject({ title: 'After' });
+    expect(state.parent.contentMutation).toMatchObject({ phase: 'committed' });
+    expect(state.visible()[0].readinessMutationToken).toBeTruthy();
+    vi.spyOn(EPaperMutationReceipt, 'updateOne').mockImplementation(saveReceipt as never);
+    await recoverEditionContentMutation(id);
+    expect(state.receipts.size).toBe(1);
+    expect(state.parent.contentMutation).toBeUndefined();
+    expect(state.visible()[0].title).toBe('After');
+  });
+  it('expires result receipts independently without expiring live content', () => {
+    expect(EPaperMutationReceipt.schema.indexes()).toEqual(expect.arrayContaining([
+      [{ expiresAt: 1 }, expect.objectContaining({ expireAfterSeconds: 0 })],
+    ]));
+  });
   it.each(operations)('recovers a durable %s journal after Mongo is unavailable during undo', async (operation) => {
     const state = prepare(operation); const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     state.onWrite((event) => { if (get(state.parent, 'contentMutation.phase') === 'rollback' && event.collection !== 'edition' && event.phase === 'before') throw new Error('Mongo unavailable during undo'); });
