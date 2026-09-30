@@ -1,0 +1,76 @@
+.reader {
+  width: 100%;
+  max-width: 1024px;
+  margin-inline: auto;
+  min-width: 0;
+}
+
+.header {
+  padding: 1.25rem 1rem 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.headline {
+  font-size: clamp(1.75rem, 1.2rem + 2.2vw, 3rem);
+  line-height: 1.35;
+  font-weight: 850;
+  color: var(--reader-headline-color, #18181b);
+  text-wrap: pretty;
+}
+
+:global(.dark) .headline {
+  color: #f4f4f5;
+}
+
+.summary {
+  max-width: 54rem;
+  margin-top: 1rem;
+  font-size: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  line-height: 1.75;
+  color: #52525b;
+}
+
+:global(.dark) .summary {
+  color: #d4d4d8;
+}
+
+.readingColumn {
+  width: 100%;
+  max-width: 768px;
+  margin-inline: auto;
+  min-width: 0;
+}
+
+/* Specificity keeps the existing rich-content renderer's media styles intact
+   while overriding its shared compact/mobile text rules only on this page. */
+.body:global(.article-rich-content) {
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.body > * + * {
+  margin-top: 1.5rem;
+}
+
+.body :global(h2) {
+  margin-top: 2rem;
+  font-size: 1.5rem;
+  line-height: 1.45;
+}
+
+.body :global(h3) {
+  margin-top: 1.75rem;
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+
+.body :global(ul) { list-style: disc; padding-inline-start: 1.5rem; }
+.body :global(ol) { list-style: decimal; padding-inline-start: 1.5rem; }
+.body :global(blockquote) { border-inline-start-color: #dc2626; }
+.body :global(a:focus-visible) { outline: 2px solid #dc2626; outline-offset: 3px; }
+
+@media (min-width: 640px) {
+  .header { padding: 2rem 2.5rem; }
+  .body:global(.article-rich-content) { font-size: 1.125rem; }
+}

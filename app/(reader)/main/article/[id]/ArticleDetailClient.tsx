@@ -19,6 +19,10 @@ import {
 } from 'lucide-react';
 import NewsCard from '@/components/ui/NewsCard';
 import ShareMenu from '@/components/ui/ShareMenu';
+import ArticleReaderHeader from '@/components/article/ArticleReaderHeader';
+import ArticleReadingProgress from '@/components/article/ArticleReadingProgress';
+import styles from '@/components/article/ArticleReader.module.css';
+import { getNewsCategoryHref, resolveNewsCategory } from '@/lib/constants/newsCategories';
 import type { Article } from '@/lib/mock/data';
 import { useArticleTts } from '@/lib/hooks/useArticleTts';
 import { useAppStore } from '@/lib/store/appStore';
@@ -29,7 +33,6 @@ import {
 import {
   buildArticleImageVariantUrl,
 } from '@/lib/utils/articleMedia';
-import { formatUiDate } from '@/lib/utils/dateFormat';
 import { renderArticleRichContent } from '@/lib/utils/articleRichContent';
 import {
   TTS_LANGUAGE_OPTIONS,
@@ -68,6 +71,7 @@ function toPlainText(html: string) {
 }
 
 export type ReaderArticle = Omit<Article, 'seo'> & {
+  updatedAt?: string;
   seo?: {
     featuredImageAlt?: string;
     featuredImageCaption?: string;
@@ -107,7 +111,7 @@ export default function ArticleDetailClient({
   const [visibleRelatedCount, setVisibleRelatedCount] = useState(
     RELATED_STORIES_INITIAL_COUNT
   );
-  const [readingProgress, setReadingProgress] = useState(0);
+  const articleRegionRef = useRef<HTMLElement | null>(null);
   const [aiBullets, setAiBullets] = useState<string[]>([]);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [, setAiSummaryError] = useState('');
@@ -133,7 +137,7 @@ export default function ArticleDetailClient({
   );
   const visibleRelatedArticles = relatedArticles.slice(0, visibleRelatedCount);
   const hasMoreRelatedStories = visibleRelatedCount < relatedArticles.length;
-  const fontSizeClass = 'text-[15px] sm:text-base leading-relaxed';
+  const articleCategory = article ? resolveNewsCategory(article.category) : undefined;
   const canPrepareListen = true;
   const currentListenSourceId = article?.id || '';
   const currentListenVoice = listenVoiceId || '';
@@ -143,7 +147,7 @@ export default function ArticleDetailClient({
       preparedListenAudio.languageCode === listenLanguageCode &&
       preparedListenAudio.voice === currentListenVoice
   );
-  const listenButtonTitle = language === 'hi' ? 'Lekh sunein' : 'Listen to article';
+  const listenButtonTitle = language === 'hi' ? 'लेख सुनें' : 'Listen to article';
 
   const articlePlainText = useMemo(() => {
     if (!article) return '';
@@ -180,33 +184,6 @@ export default function ArticleDetailClient({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAuthorImageModalOpen]);
 
-  useEffect(() => {
-    const updateReadingProgress = () => {
-      const root = document.documentElement;
-      const scrollTop = window.scrollY || root.scrollTop;
-      const scrollable = root.scrollHeight - root.clientHeight;
-
-      if (scrollable <= 0) {
-        setReadingProgress(0);
-        return;
-      }
-
-      const nextValue = Math.min(100, Math.max(0, (scrollTop / scrollable) * 100));
-      setReadingProgress(nextValue);
-    };
-
-    window.addEventListener('scroll', updateReadingProgress, { passive: true });
-    window.addEventListener('resize', updateReadingProgress);
-
-    return () => {
-      window.removeEventListener('scroll', updateReadingProgress);
-      window.removeEventListener('resize', updateReadingProgress);
-    };
-  }, []);
-
-  useEffect(() => {
-    readingProgressRef.current = readingProgress;
-  }, [readingProgress]);
 
   const trackArticleRead = useCallback(
     async (completionPercent: number) => {
@@ -237,6 +214,7 @@ export default function ArticleDetailClient({
 
   useEffect(() => {
     hasTrackedReadRef.current = false;
+    readingProgressRef.current = 0;
     setVisibleRelatedCount(RELATED_STORIES_INITIAL_COUNT);
   }, [article?.id]);
 
@@ -254,13 +232,10 @@ export default function ArticleDetailClient({
     };
   }, [article, trackArticleRead]);
 
-  useEffect(() => {
-    if (readingProgress < 80) {
-      return;
-    }
-
-    void trackArticleRead(readingProgress);
-  }, [readingProgress, trackArticleRead]);
+  const handleReadingProgress = useCallback((percent: number) => {
+    readingProgressRef.current = percent;
+    if (percent >= 80) void trackArticleRead(percent);
+  }, [trackArticleRead]);
 
   const contentHtml = useMemo(() => {
     if (!article) return '';
@@ -271,16 +246,14 @@ export default function ArticleDetailClient({
 
   const articleMeta = useMemo(() => {
     if (!article) {
-      return { readMinutes: 1, publishedText: '' };
+      return { readMinutes: 1 };
     }
 
     const plain = toPlainText(article.content || article.summary || '');
     const words = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
     const readMinutes = Math.max(1, Math.round(words / 220));
 
-    const publishedText = formatUiDate(article.publishedAt, '');
-
-    return { readMinutes, publishedText };
+    return { readMinutes };
   }, [article]);
 
   const listenLanguageOptions = useMemo(() => {
@@ -594,70 +567,31 @@ export default function ArticleDetailClient({
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl pb-[calc(var(--reader-bottom-nav-space)+5rem)] sm:pb-12">
-      <div className="pointer-events-none fixed left-0 right-0 top-0 z-50 h-1 bg-transparent">
-        <div
-          className="h-full bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 transition-[width] duration-150 ease-out"
-          style={{ width: `${readingProgress}%` }}
-        />
-      </div>
+    <div className={`${styles.reader} pb-[calc(var(--reader-bottom-nav-space)+5rem)] sm:pb-12`}>
+      <ArticleReadingProgress regionRef={articleRegionRef} articleId={article.id} onProgress={handleReadingProgress} />
+      <nav aria-label={language === 'hi' ? 'लेख का रास्ता' : 'Breadcrumb'} className="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <Link href="/main" className="reader-focus-ring inline-flex min-h-11 items-center gap-2 hover:text-red-700 dark:hover:text-red-400">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {language === 'hi' ? 'होम' : 'Home'}
+        </Link>
+        <span aria-hidden="true">/</span>
+        {articleCategory ? <Link href={getNewsCategoryHref(articleCategory.slug)} className="reader-focus-ring inline-flex min-h-11 items-center hover:text-red-700 dark:hover:text-red-400">{language === 'hi' ? articleCategory.name : articleCategory.nameEn}</Link> : <span>{article.category}</span>}
+      </nav>
 
-      <Link
-        href="/main"
-        className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-zinc-700 hover:text-orange-600 dark:text-zinc-300 dark:hover:text-orange-400 sm:mb-4"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {language === 'hi' ? 'होम' : 'Home'}
-      </Link>
-
-      <article className="cnp-surface overflow-hidden p-0">
-        <div className="relative aspect-[16/9] w-full overflow-hidden bg-zinc-950">
-          <Image
-            src={buildArticleImageVariantUrl(article.image, 'detail')}
-            alt={article.seo?.featuredImageAlt || article.title}
-            fill
-            className="object-contain"
-            sizes="(max-width: 639px) 100vw, (max-width: 1023px) 92vw, 896px"
-            priority
-          />
-        </div>
-        {article.seo?.featuredImageCaption || article.seo?.featuredImageCredit ? (
-          <div className="border-b border-zinc-200 px-4 py-2 text-xs text-zinc-500 dark:border-white/10 dark:text-zinc-400">
-            {article.seo.featuredImageCaption ? <span>{article.seo.featuredImageCaption}</span> : null}
-            {article.seo.featuredImageCredit ? (
-              <span className="ml-2 font-medium">{article.seo.featuredImageCredit}</span>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="space-y-3.5 p-3.5 sm:space-y-4 sm:p-6 md:p-8">
-          <div className="-mx-0.5 overflow-x-auto pb-0.5 pl-0.5 pr-0.5 scrollbar-hide sm:mx-0 sm:overflow-visible sm:pb-0 sm:pl-0 sm:pr-0">
-            <div className="inline-flex min-w-max items-center gap-1 sm:flex sm:min-w-0 sm:flex-wrap sm:gap-2">
-            <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-orange-50 px-2.5 text-[10px] font-semibold leading-none text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 sm:h-auto sm:px-3 sm:py-1 sm:text-xs sm:leading-normal">
-              {article.category}
-            </span>
-            {article.isBreaking ? (
-              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-red-600 px-2.5 text-[10px] font-semibold leading-none text-white sm:h-auto sm:px-3 sm:py-1 sm:text-xs sm:leading-normal">
-                {language === 'hi' ? 'ब्रेकिंग' : 'BREAKING'}
-              </span>
-            ) : null}
-            {article.isTrending ? (
-              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-zinc-900 px-2.5 text-[10px] font-semibold leading-none text-white dark:bg-zinc-700 sm:h-auto sm:px-3 sm:py-1 sm:text-xs sm:leading-normal">
-                {language === 'hi' ? 'ट्रेंडिंग' : 'TRENDING'}
-              </span>
-            ) : null}
-            <div className="inline-flex items-center gap-1 sm:ml-auto sm:gap-2">
+      <article ref={articleRegionRef} className="cnp-surface overflow-hidden p-0">
+        <ArticleReaderHeader article={article} language={language} readMinutes={articleMeta.readMinutes} onAuthorClick={() => setIsAuthorImageModalOpen(true)}>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => void handleBookmarkToggle()}
                 disabled={!canSaveArticle || isSavingBookmark}
-                className={`reader-touch-button reader-focus-ring inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full border px-2.5 text-[10px] font-semibold leading-none transition sm:min-h-9 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal ${
+                className={`reader-touch-button reader-focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full border px-3 text-sm font-semibold leading-none transition sm:min-h-11 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal ${
                   isBookmarked
                     ? 'border-orange-400 bg-orange-600 text-white hover:bg-orange-700 dark:border-orange-500 dark:bg-orange-500 dark:hover:bg-orange-400'
                     : 'border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-500/45 dark:bg-orange-500/12 dark:text-orange-300 dark:hover:bg-orange-500/20'
                 } ${!canSaveArticle || isSavingBookmark ? 'cursor-not-allowed opacity-60' : ''}`}
                 aria-pressed={isBookmarked}
-                aria-label={isBookmarked ? 'Remove bookmark' : 'Save article'}
+                aria-label={isBookmarked ? (language === 'hi' ? 'सहेजा गया लेख हटाएं' : 'Remove bookmark') : (language === 'hi' ? 'लेख सहेजें' : 'Save article')}
               >
                 {isSavingBookmark ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
@@ -668,7 +602,7 @@ export default function ArticleDetailClient({
                     }`}
                   />
                 )}
-                {isBookmarked ? 'Saved' : 'Save'}
+                {isBookmarked ? (language === 'hi' ? 'सहेजा गया' : 'Saved') : (language === 'hi' ? 'सहेजें' : 'Save')}
               </button>
 
               <ShareMenu
@@ -689,12 +623,12 @@ export default function ArticleDetailClient({
                 triggerLabel={language === 'hi' ? '\u0936\u0947\u092f\u0930' : 'Share'}
                 ariaLabel={language === 'hi' ? '\u0932\u0947\u0916 \u0936\u0947\u092f\u0930 \u0915\u0930\u0947\u0902' : 'Share article'}
                 className="shrink-0"
-                buttonClassName="reader-touch-button reader-focus-ring inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full border border-zinc-300 bg-white px-2.5 text-[10px] font-semibold leading-none text-zinc-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-orange-500/50 dark:hover:bg-orange-500/15 dark:hover:text-orange-300 sm:min-h-9 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
+                buttonClassName="reader-touch-button reader-focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full border border-zinc-300 bg-white px-3 text-sm font-semibold leading-none text-zinc-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-orange-500/50 dark:hover:bg-orange-500/15 dark:hover:text-orange-300 sm:min-h-11 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
               />
 
               <Link
                 href="/main/epaper"
-                className="attention-pulsate-bck reader-touch-link reader-focus-ring inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2.5 text-[10px] font-semibold leading-none text-orange-700 transition hover:bg-orange-100 dark:border-orange-500/45 dark:bg-orange-500/12 dark:text-orange-300 dark:hover:bg-orange-500/20 sm:min-h-9 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
+                className="attention-pulsate-bck reader-touch-link reader-focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-3 text-sm font-semibold leading-none text-orange-700 transition hover:bg-orange-100 dark:border-orange-500/45 dark:bg-orange-500/12 dark:text-orange-300 dark:hover:bg-orange-500/20 sm:min-h-11 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
                 aria-label={language === 'hi' ? '\u0908-\u092a\u0947\u092a\u0930' : 'E-Paper'}
               >
                 <Newspaper className="h-3.5 w-3.5 max-[420px]:hidden sm:h-4 sm:w-4" />
@@ -702,67 +636,23 @@ export default function ArticleDetailClient({
               </Link>
 
             </div>
+        </ArticleReaderHeader>
+        <figure>
+          <div className="relative aspect-[16/10] max-h-[480px] w-full overflow-hidden bg-zinc-950 sm:aspect-[16/9] lg:aspect-[2/1]">
+            <Image src={buildArticleImageVariantUrl(article.image, 'detail')} alt={article.seo?.featuredImageAlt || article.title}
+              fill className="object-contain" sizes="(max-width: 1023px) 94vw, 1024px" priority />
           </div>
-          </div>
-
-          <h1 className="text-xl font-black leading-tight text-zinc-900 dark:text-zinc-100 sm:text-3xl">
-            {article.title}
-          </h1>
-
-          <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 sm:gap-2 sm:text-sm">
-            <button
-              type="button"
-              onClick={() => setIsAuthorImageModalOpen(true)}
-              className="group relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-zinc-300 bg-zinc-200 transition-all duration-200 hover:scale-110 hover:border-orange-500 hover:ring-2 hover:ring-orange-500/50 active:scale-95 dark:border-zinc-700 dark:bg-zinc-800 sm:h-8 sm:w-8"
-              aria-label={
-                language === 'hi'
-                  ? `${article.author.name || 'लेखक'} की प्रोफाइल फोटो देखें`
-                  : `View profile picture of ${article.author.name || 'author'}`
-              }
-              title={
-                language === 'hi'
-                  ? `${article.author.name || 'लेखक'} की प्रोफाइल फोटो देखें`
-                  : `View profile picture of ${article.author.name || 'author'}`
-              }
-            >
-              {article.author.avatar ? (
-                <Image
-                  src={article.author.avatar}
-                  alt={article.author.name || 'Author profile'}
-                  fill
-                  sizes="32px"
-                  unoptimized
-                  className="object-cover transition-transform duration-200 group-hover:scale-105"
-                />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center bg-red-700 text-[11px] font-black uppercase text-white">
-                  {(article.author.name || 'A').charAt(0)}
-                </span>
-              )}
-            </button>
-            {article.author.name ? <span className="font-bold text-zinc-900 dark:text-zinc-100">{article.author.name}</span> : null}
-            {article.author.programName ? (
-              <>
-                <span className="text-zinc-400" aria-hidden="true">|</span>
-                <span className="font-semibold text-red-600 dark:text-red-500">{article.author.programName}</span>
-              </>
-            ) : null}
-            <span aria-hidden="true">&bull;</span>
-            <span>{articleMeta.readMinutes} min read</span>
-            {articleMeta.publishedText ? (
-              <>
-                <span aria-hidden="true">&bull;</span>
-                <span>{articleMeta.publishedText}</span>
-              </>
-            ) : null}
-          </div>
-
-          <p className="text-[15px] leading-relaxed text-zinc-700 dark:text-zinc-300 sm:text-base">
-            {article.summary}
-          </p>
+          {article.seo?.featuredImageCaption || article.seo?.featuredImageCredit ? (
+            <figcaption className="border-b border-zinc-200 px-4 py-3 text-xs leading-relaxed text-zinc-600 dark:border-white/10 dark:text-zinc-400 sm:px-6">
+              {article.seo.featuredImageCaption ? <span>{article.seo.featuredImageCaption}</span> : null}
+              {article.seo.featuredImageCredit ? <span className="ml-2 font-medium">{article.seo.featuredImageCredit}</span> : null}
+            </figcaption>
+          ) : null}
+        </figure>
+        <div className={`${styles.readingColumn} space-y-6 px-4 py-6 sm:px-6 sm:py-8`}>
 
           <section
-            aria-label={language === 'hi' ? 'Lokswami AI tools' : 'Lokswami AI tools'}
+            aria-label={language === 'hi' ? 'लोकस्वामी AI उपकरण' : 'Lokswami AI tools'}
             className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
           >
             <div
@@ -793,7 +683,7 @@ export default function ArticleDetailClient({
                     </span>
                   </div>
                   <p className="truncate text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    Audio tools for this article
+                    {language === 'hi' ? 'इस लेख के ऑडियो उपकरण' : 'Audio tools for this article'}
                   </p>
                 </div>
               </div>
@@ -873,14 +763,14 @@ export default function ArticleDetailClient({
 
           <div
             data-article-body
-            className={`article-rich-content text-zinc-800 dark:text-zinc-200 ${fontSizeClass}`}
+            className={`${styles.body} article-rich-content text-zinc-800 dark:text-zinc-200`}
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
         </div>
       </article>
 
       {relatedArticles.length ? (
-        <section data-related-articles className="mt-6 space-y-3">
+        <section data-related-articles className={`${styles.readingColumn} mt-10 space-y-4 px-4 sm:px-6`}>
           <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-100 sm:text-xl">
             {language === 'hi' ? 'संबंधित खबरें' : 'Related News'}
           </h2>

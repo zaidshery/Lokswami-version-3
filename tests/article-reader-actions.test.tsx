@@ -291,6 +291,8 @@ describe('article reader actions', () => {
     const clientHeightSpy = vi
       .spyOn(document.documentElement, 'clientHeight', 'get')
       .mockReturnValue(100);
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(100);
+    const articleBounds = () => ({ top: -scrollY, height: 1000 } as DOMRect);
     const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetchMock);
@@ -311,6 +313,7 @@ describe('article reader actions', () => {
       })
     );
 
+    vi.spyOn(view.container.querySelector('article')!, 'getBoundingClientRect').mockImplementation(articleBounds);
     scrollY = 810;
     fireEvent.scroll(window);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -326,6 +329,7 @@ describe('article reader actions', () => {
         relatedArticles: [],
       })
     );
+    vi.spyOn(view.container.querySelector('article')!, 'getBoundingClientRect').mockImplementation(articleBounds);
     await act(async () => {
       await Promise.resolve();
     });
