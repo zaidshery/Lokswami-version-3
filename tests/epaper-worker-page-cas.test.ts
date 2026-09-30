@@ -10,10 +10,10 @@ vi.mock('server-only',()=>({}));
 vi.mock('@/lib/server/epaperOcrJobs',()=>({queueEpaperOcr:vi.fn(async()=>[])}));
 vi.mock('@/lib/server/epaperActivity',()=>({recordEpaperActivity:vi.fn(),buildEpaperActivityMessage:()=>''}));
 afterEach(()=>vi.restoreAllMocks());
-describe('worker page replacement version fence',()=>{
+describe.each([1,undefined])('worker page replacement version fence; stored revision %s',(revisionNumber)=>{
   it.each(['epaper','emagazine'])('retains concurrent %s page changes at every worker write and retries safely',async(publicationType)=>{
     for(const phase of ['processing','render','failure','finalize']) {
-      const paper:Row={_id:'507f1f77bcf86cd799439011',publicationType,citySlug:publicationType==='emagazine'?'global':'indore',publishDate:new Date('2026-09-01'),status:'draft',productionStatus:'draft_upload',processingGeneration:'generation',revisionNumber:1,version:4,pdfPath:'https://qa.example/fixture.pdf',pdfPublicId:'pdf-key',pageCount:2,pages:[{pageNumber:1,processingStatus:'pending',imagePath:''},{pageNumber:2,processingStatus:'ready',imagePath:'/existing.jpg',reviewStatus:'pending'}]};
+      const paper:Row={_id:'507f1f77bcf86cd799439011',publicationType,citySlug:publicationType==='emagazine'?'global':'indore',publishDate:new Date('2026-09-01'),status:'draft',productionStatus:'draft_upload',processingGeneration:'generation',revisionNumber,version:4,pdfPath:'https://qa.example/fixture.pdf',pdfPublicId:'pdf-key',pageCount:2,pages:[{pageNumber:1,processingStatus:'pending',imagePath:''},{pageNumber:2,processingStatus:'ready',imagePath:'/existing.jpg',reviewStatus:'pending'}]};
       const job={_id:'607f1f77bcf86cd799439001',epaperId:paper._id,generation:'generation',revisionNumber:1,sourceKey:'pdf-key',leaseOwner:'worker',attemptCount:1,maxAttempts:4,pageNumbers:[1],totalItems:1};
       const query=()=>({lean:async()=>clone(paper),select:()=>query()});
       vi.spyOn(EPaper,'findById').mockImplementation(query as never);

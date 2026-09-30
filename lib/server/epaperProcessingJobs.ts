@@ -472,7 +472,7 @@ export async function processClaimedJob(
     ? { version: { $exists: false } } : { version: Number(snapshot.version) };
   const editionFilter = {
     _id: job.epaperId, status: 'draft', productionStatus: { $ne: 'archived' },
-    revisionNumber: epaperRevision,
+    revisionNumber: epaperRevision === 1 ? { $in: [1, null] } : epaperRevision,
     ...(job.generation ? { processingGeneration: job.generation } : {}),
   };
   const changed = () => new EpaperConflictError('Edition changed during PDF processing. Retry with the current page snapshot.');
