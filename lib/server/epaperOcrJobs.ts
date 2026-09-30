@@ -229,7 +229,7 @@ export async function processQueuedEpaperOcrJobs() {
       paper.revisionInitializationStatus !== 'initializing' &&
       paper.revisionInitializationStatus !== 'failed' &&
       (!job.generation || paper.processingGeneration === job.generation) &&
-      (!job.revisionNumber || paper.revisionNumber === job.revisionNumber) &&
+      (!job.revisionNumber || Number(paper.revisionNumber || 1) === Number(job.revisionNumber)) &&
       page &&
       page.imagePath === job.sourceImagePath &&
       epaperOcrSourceKey(

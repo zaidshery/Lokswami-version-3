@@ -83,7 +83,9 @@ export class EpaperOcrService {
     const reviewed = await repo.updateOcrSuggestion(suggestionId, { status: 'accepted', reviewedById: actor.id, reviewedAt: now,
       createdArticleId: repo.toObjectId(String(article._id)) });
     await repo.updateEditionWhere({ _id: id }, { $set: { pages: pages.map((entry) => Number(entry.pageNumber) === Number(suggestion.pageNumber)
-      ? { ...entry, reviewStatus: 'ready', reviewedAt: now, reviewedBy: { id: actor.id, name: actor.name, email: actor.email, role: actor.role } } : entry),
+      ? paper.supersedesId
+        ? { ...entry, reviewStatus: 'pending', reviewedAt: null, reviewedBy: null }
+        : { ...entry, reviewStatus: 'ready', reviewedAt: now, reviewedBy: { id: actor.id, name: actor.name, email: actor.email, role: actor.role } } : entry),
       qaCompletedAt: null,
       } });
     return { article, reviewed };

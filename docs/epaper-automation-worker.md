@@ -52,13 +52,22 @@ The shared E-Paper/E-Magazine page editor exposes revision page QA. Review write
 must carry the inspected edition version; a stale review is rejected with a
 conflict instead of approving content saved after the reviewer loaded the page.
 Editing or moving a story also clears review attribution on both affected pages;
-saving story content does not complete page QA. Manual workflow note/assignment
+saving story content does not complete page QA. Accepting an OCR suggestion on a
+draft revision also leaves the page pending and clears review attribution; review
+of an individual suggestion does not approve the entire page. Manual workflow note/assignment
 saves compare the loaded edition version so a worker transition cannot be lost.
 
 PDF worker page arrays are refreshed from the canonical edition before each
 page. Processing, rendered-image, failure and final cover writes compare the
 inspected version as well as generation/revision. A conflict leaves newer editor
 state intact and the queue supervisor retries from the current snapshot.
+
+Legacy editions with missing/null revision metadata normalize to revision 1 and
+an empty generation. Page and automation write fences accept these legacy values
+only for that normalized snapshot; later revisions and nonempty generations stay
+exact. OCR freshness checks use the same revision normalization. A successful
+versioned write advances the expected version even when its stored field was
+missing, preventing a second stale request from reusing the initial snapshot.
 
 The preserved QA edition `6ab0da70c6aab6a2a6cab44e` is excluded from automation,
 revisions, and story mutation. Use separate temporary staging editions for QA.

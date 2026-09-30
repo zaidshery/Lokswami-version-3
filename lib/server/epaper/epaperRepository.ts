@@ -46,6 +46,13 @@ const PUBLIC_PROJECTION =
   '_id publicationType citySlug cityName title publishDate thumbnailPath thumbnail pdfPath pdfUrl status pageCount pages createdAt publishedAt familyId isCurrentRevision';
 const DEFAULT_QUERY_TIMEOUT_MS = 2000;
 
+function normalizedSnapshotFilter(revisionNumber: number, processingGeneration: string) {
+  return {
+    revisionNumber: revisionNumber === 1 ? { $in: [1, null] } : revisionNumber,
+    processingGeneration: processingGeneration === '' ? { $in: ['', null] } : processingGeneration,
+  };
+}
+
 function parsePositiveEnvInt(name: string, fallback: number) {
   const parsed = Number.parseInt(process.env[name] || '', 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -518,6 +525,7 @@ export class EpaperRepository {
   ): Promise<EpaperRecord | null> {
     const query: Record<string, unknown> = { _id: id, ...expectedSnapshot };
     if (expectedSnapshot) {
+      Object.assign(query, normalizedSnapshotFilter(expectedSnapshot.revisionNumber, expectedSnapshot.processingGeneration));
       query.status = 'draft';
       query.revisionInitializationStatus = { $nin: ['initializing', 'failed'] };
     }
@@ -531,6 +539,12 @@ export class EpaperRepository {
     const { $set, $inc, ...directFields } = updates;
     const finalSet = { ...directFields, ...(asObject($set)) };
     const finalInc = { ...(asObject($inc)), version: 1 };
+    if (expectedVersion !== undefined) {
+      // A legacy missing version normalizes to 1; $inc alone would store 1
+      // again and let another stale version-1 request reuse that snapshot.
+      finalSet.version = expectedVersion + 1;
+      delete (finalInc as Record<string, unknown>).version;
+    }
     const mongoUpdate: Record<string, unknown> = {
       $inc: finalInc,
     };
@@ -572,16 +586,14 @@ export class EpaperRepository {
       _id: input.id,
       status: 'draft',
       productionStatus: input.fromStatus,
-      version: input.expectedVersion,
-      revisionNumber: input.expectedRevisionNumber,
-      processingGeneration: input.expectedGeneration,
+      version: input.expectedVersion === 1 ? { $in: [1, null] } : input.expectedVersion,
+      ...normalizedSnapshotFilter(input.expectedRevisionNumber, input.expectedGeneration),
       revisionInitializationStatus: { $nin: ['initializing', 'failed'] },
     };
     const updated = (await EPaper.findOneAndUpdate(
       query,
       {
-        ['$set']: input.updates,
-        ['$inc']: { version: 1 },
+        ['$set']: { ...input.updates, version: input.expectedVersion + 1 },
       },
       { new: true, runValidators: true }
     ).lean()) as EpaperRecord | null;

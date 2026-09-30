@@ -221,7 +221,7 @@ describe('E-Paper OCR Coordination, Idempotency & Lifecycle (Phase 3.9D)', () =>
       );
       vi.unstubAllEnvs();
     });
-    it('claims a queued job, runs isolated OCR, deduplicates suggestions, and marks completed', async () => {
+    it.each([1,undefined,null])('claims revision-one OCR with stored revision %s and commits fresh suggestions', async (revisionNumber) => {
       const mockJob = {
         _id: 'ocr-job-1',
         kind: 'ocr',
@@ -230,12 +230,13 @@ describe('E-Paper OCR Coordination, Idempotency & Lifecycle (Phase 3.9D)', () =>
         sourceImagePath: '/p1.jpg',
         sourceKey: epaperOcrSourceKey('665000000000000000000022', 1, { pageNumber: 1, imagePath: '/p1.jpg' }, 'gen-1'),
         attemptCount: 1,
+        revisionNumber: 1,
       };
 
       const mockEdition = {
         _id: '665000000000000000000022',
         status: 'draft',
-        revisionNumber: 1,
+        revisionNumber,
         productionStatus: 'ocr_review',
         processingGeneration: 'gen-1',
         pages: [{ pageNumber: 1, imagePath: '/p1.jpg' }],

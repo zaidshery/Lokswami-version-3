@@ -79,8 +79,7 @@ describe('e-paper readiness version concurrency', () => {
       updates: { productionStatus: 'ready_to_publish' },
     })).resolves.toMatchObject({ version: 6, productionStatus: 'ready_to_publish' });
     expect(transition).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
-      $set: { productionStatus: 'ready_to_publish' },
-      $inc: { version: 1 },
+      $set: { productionStatus: 'ready_to_publish', version: 6 },
     }), expect.any(Object));
 
     await expect(new EpaperRepository().advanceEditionAutomation({

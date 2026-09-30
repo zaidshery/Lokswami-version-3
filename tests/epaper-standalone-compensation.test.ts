@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import EPaperArticle from '@/lib/models/EPaperArticle';
 import EPaperMutationReceipt from '@/lib/models/EPaperMutationReceipt';
 import { EpaperRepository } from '@/lib/server/epaper/epaperRepository';
+import { EpaperOcrService } from '@/lib/server/epaper/epaperOcrService';
 import { recoverEditionContentMutation, recoverPendingEditionContentMutations } from '@/lib/server/epaper/epaperStandaloneMutation';
 import { NextRequest } from 'next/server';
 import { PATCH, DELETE } from '@/app/api/admin/articles/[id]/route';
@@ -55,6 +56,22 @@ describe.each(['epaper', 'emagazine'])('Durable standalone %s content recovery',
 });
 
 describe('Write-ahead intent and indeterminate acknowledgements', () => {
+  it.each(['standalone', 'transaction'] as const)('OCR acceptance preserves explicit revision page QA in %s mode', async (mode) => {
+    for (const publicationType of ['epaper','emagazine']) {
+      for (const revision of [false,true]) {
+        const state=arrangeMutationMongo(mode,publicationType);
+        state.parent.productionStatus='ready_to_publish';state.parent.qaCompletedAt=new Date();
+        if(revision)state.parent.supersedesId='507f1f77bcf86cd799439099';
+        await new EpaperOcrService().review({id:'editor',username:'editor',role:'super_admin',name:'Editor',email:'qa@example.com'},id,suggestionId,{action:'accept'});
+        const page=(state.parent.pages as Row[])[0];
+        expect(page.reviewStatus).toBe(revision?'pending':'ready');
+        if(revision){expect(page.reviewedAt).toBeNull();expect(page.reviewedBy).toBeNull();}
+        expect(state.visible()).toHaveLength(1);
+        expect(state.parent.productionStatus).toBe('hotspot_mapping');expect(state.parent.qaCompletedAt).toBeNull();
+        vi.restoreAllMocks();
+      }
+    }
+  });
   it.each(['standalone', 'transaction'] as const)('story edits leave both affected revision pages pending in %s mode', async (mode) => {
     for (const publicationType of ['epaper','emagazine']) {
       const state = arrangeMutationMongo(mode, publicationType); state.seed();
