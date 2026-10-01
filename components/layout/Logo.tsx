@@ -143,7 +143,7 @@ export function LogoWordmark({
           alt="Lokswami"
           width={responsiveHeader ? LOKSWAMI_WORDMARK.width : sizeConfig.wordmarkW}
           height={responsiveHeader ? LOKSWAMI_WORDMARK.height : sizeConfig.wordmarkH}
-          className={`block ${responsiveHeader ? 'h-auto' : 'h-full'} w-full object-contain ${variant === 'white'
+          className={`block ${responsiveHeader ? 'aspect-[847/181] h-auto' : 'h-full'} w-full object-contain ${variant === 'white'
             ? 'brightness-0 invert'
             : variant === 'dark'
               ? 'brightness-0'
