@@ -9,7 +9,6 @@ import {
 import Link from 'next/link';
 import {
   ArrowRight,
-  BookOpen,
   CalendarDays,
 } from 'lucide-react';
 import HomepageTopPackage from '@/components/home/HomepageTopPackage';
@@ -37,6 +36,8 @@ import {
 import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 import { formatUiDate } from '@/lib/utils/dateFormat';
 import { normalizePublicationIssueMonth } from '@/lib/utils/epaperPublication';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import magazineStyles from '@/components/home/HomepageMagazine.module.css';
 
 function formatDesktopHeroDate(value: string | undefined, language: 'en' | 'hi') {
   if (!value) return '';
@@ -162,8 +163,6 @@ type PublicationPromoCard = {
   thumbnailAlt: string;
   eyebrowLabel: string;
   title: string;
-  editionLabel: string;
-  supportLabel?: string;
   ctaLabel: string;
   ariaLabel: string;
 };
@@ -270,70 +269,31 @@ function NewsPollFallback() {
 
 function MagazinePromoTile({ promo }: { promo: PublicationPromoCard }) {
   return (
-    <Link
-      href={promo.href}
-      aria-label={promo.ariaLabel}
-      className="reader-focus-ring newsroom-magazine-card group relative grid min-h-[184px] overflow-hidden rounded-xl border border-zinc-200/80 transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/60 hover:shadow-[0_12px_32px_-8px_rgba(220,38,38,0.25)] dark:border-zinc-800 lg:min-h-[180px]"
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 shadow-[0_1px_8px_rgba(225,29,72,0.35)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.06),transparent_38%,rgba(225,29,72,0.06))]" />
-
-      <div className="relative grid h-full grid-cols-[118px_minmax(0,1fr)] items-center gap-3 p-3 sm:grid-cols-[136px_minmax(0,1fr)] lg:grid-cols-[112px_minmax(0,1fr)] xl:grid-cols-[124px_minmax(0,1fr)]">
-        <div className="flex items-center justify-center">
-          <div className="relative w-full max-w-[118px] sm:max-w-[128px] lg:max-w-[106px] xl:max-w-[118px]">
-            <div className="pointer-events-none absolute inset-x-4 top-3 aspect-[3/4] rotate-[5deg] rounded-lg border border-white/10 bg-white/8" />
-            <div className="pointer-events-none absolute inset-x-2 top-1 aspect-[3/4] -rotate-[4deg] rounded-lg border border-white/10 bg-black/20" />
-            <div className="relative rounded-lg border border-white/12 bg-white/8 p-1.5 shadow-[0_16px_28px_rgba(0,0,0,0.22)]">
-              <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-[#f6f1e8]">
-                <ReaderImage
-                  src={promo.thumbnailSrc}
-                  alt={promo.thumbnailAlt}
-                  fill
-                  fallbackSrc="/placeholders/epaper-3x4.svg"
-                  className="object-contain p-1 transition-transform duration-500 group-hover:scale-[1.025]"
-                  sizes="128px"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="min-w-0 py-1">
-          <span className="inline-flex max-w-full items-center gap-1.5 rounded bg-red-600 px-2.5 py-1 text-[8.5px] font-black uppercase text-white shadow-sm">
-            <BookOpen className="h-3 w-3 shrink-0 text-white" />
-            <span className="truncate">{promo.eyebrowLabel}</span>
-          </span>
-
-          <h3 className="newsroom-card-title-match newsroom-heading mt-2 line-clamp-2">
-            <span>{promo.title}</span>
-            <span className="newsroom-muted mx-1.5 font-medium">-</span>
-            <span className="newsroom-body font-semibold">
-              {promo.editionLabel}
-            </span>
-          </h3>
-
-          {promo.supportLabel ? (
-            <p className="newsroom-card-summary-match newsroom-muted mt-1.5 line-clamp-2">
-              {promo.supportLabel}
-            </p>
-          ) : null}
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {promo.dateLabel ? (
-              <span className="newsroom-pill-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[9px] font-bold shadow-sm">
-                <CalendarDays className="h-3 w-3 text-red-300" />
-                <span className="whitespace-nowrap">{promo.dateLabel}</span>
-              </span>
-            ) : null}
-
-            <span className="inline-flex h-8 items-center gap-1 rounded-md bg-red-600 px-3 text-[9px] font-black text-white shadow-[0_12px_24px_rgba(127,29,29,0.22)] transition group-hover:bg-red-500">
-              <span>{promo.ctaLabel}</span>
-              <ArrowRight className="h-3 w-3" />
-            </span>
-          </div>
-        </div>
+    <div className="grid min-w-0 grid-cols-[96px_minmax(0,1fr)] items-center gap-3 min-[375px]:grid-cols-[104px_minmax(0,1fr)] md:grid-cols-[140px_minmax(0,1fr)] xl:grid-cols-[120px_minmax(0,1fr)]">
+      <div className="relative aspect-[3/4] overflow-hidden rounded-editorial-sm border border-zinc-200 bg-zinc-50 shadow-sm dark:border-zinc-700 dark:bg-zinc-950">
+        <ReaderImage
+          src={promo.thumbnailSrc}
+          alt={promo.thumbnailAlt}
+          fill
+          fallbackSrc="/placeholders/epaper-3x4.svg"
+          className="object-contain"
+          sizes="(min-width: 1280px) 120px, (min-width: 768px) 140px, (min-width: 375px) 104px, 96px"
+        />
       </div>
-    </Link>
+      <div className="flex min-w-0 flex-col items-start py-1">
+        <span className="text-[10px] font-semibold uppercase leading-relaxed tracking-wide text-brand-600 dark:text-brand-400">{promo.eyebrowLabel}</span>
+        <h3 title={promo.title} className="hindi-headline mt-1 line-clamp-2 break-words py-0.5 text-[17px] font-bold leading-relaxed text-zinc-900 dark:text-zinc-100">{promo.title}</h3>
+        {promo.dateLabel ? (
+          <p className="mt-1 flex max-w-full items-start gap-1.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+            <CalendarDays aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>{promo.dateLabel}</span>
+          </p>
+        ) : null}
+        <Link href={promo.href} aria-label={promo.ariaLabel} className="editorial-focus-ring mt-4 inline-flex min-h-11 max-w-full items-center justify-center gap-1.5 rounded-full bg-brand-600 px-3 text-xs font-semibold leading-relaxed text-white transition-colors hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+          <span>{promo.ctaLabel}</span><ArrowRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -547,13 +507,6 @@ export default function HomePage({ initialHomeFeed = null, initialDiscovery = nu
     latestEmagazine?.publishDate,
     language
   );
-  const emagazineEditionLabel = emagazineIssueLabel
-    ? language === 'hi'
-      ? `${emagazineIssueLabel} \u0905\u0902\u0915`
-      : `${emagazineIssueLabel} Issue`
-    : language === 'hi'
-      ? '\u092e\u093e\u0938\u093f\u0915 \u0905\u0902\u0915'
-      : 'Monthly Issue';
   const emagazineThumbnail = latestEmagazine?.thumbnailPath || '/placeholders/epaper-3x4.svg';
   const emagazinePromo: PublicationPromoCard = {
     href: emagazineHref,
@@ -565,14 +518,9 @@ export default function HomePage({ initialHomeFeed = null, initialDiscovery = nu
         : 'Lokswami e-magazine cover',
     eyebrowLabel:
       language === 'hi'
-        ? '\u0924\u093e\u091c\u093c\u093e \u0908-\u092e\u0948\u0917\u091c\u093c\u0940\u0928'
-        : 'Latest E-Magazine',
-    title: language === 'hi' ? '\u0932\u094b\u0915\u0938\u094d\u0935\u093e\u092e\u0940' : 'Lokswami',
-    editionLabel: emagazineEditionLabel,
-    supportLabel:
-      language === 'hi'
-        ? '\u0939\u0930 \u092e\u0939\u0940\u0928\u0947 \u092a\u094d\u0930\u0915\u093e\u0936\u093f\u0924 \u0908-\u092e\u0948\u0917\u091c\u093c\u0940\u0928 \u0905\u0902\u0915'
-        : 'Published monthly as an e-magazine issue',
+        ? '\u0924\u093e\u091c\u093c\u093e \u0905\u0902\u0915'
+        : 'Latest Issue',
+    title: latestEmagazine?.title?.trim() || (language === 'hi' ? '\u0932\u094b\u0915\u0938\u094d\u0935\u093e\u092e\u0940' : 'Lokswami'),
     ctaLabel:
       language === 'hi'
         ? '\u092e\u0948\u0917\u091c\u093c\u0940\u0928 \u092a\u0922\u093c\u0947\u0902'
@@ -612,14 +560,16 @@ export default function HomePage({ initialHomeFeed = null, initialDiscovery = nu
             />
             <NewsPoll />
 
-            <div className="newsroom-panel rounded-2xl border border-red-500/20 p-3.5 sm:p-4">
-              <NewsroomSectionHeader
+            <section data-testid="homepage-emagazine" className="min-w-0 max-w-lg rounded-editorial-md border border-zinc-200 bg-white p-3 [container-name:homepage-magazine] [container-type:inline-size] dark:border-zinc-800 dark:bg-zinc-900 md:p-3.5 xl:p-4">
+              <SectionHeader
                 title={getSectionCopy(language, '\u092e\u093e\u0938\u093f\u0915 \u0908-\u092e\u0948\u0917\u091c\u093c\u0940\u0928', 'Monthly E-Magazine')}
-                href={emagazineHref}
-                cta={getSectionCopy(language, '\u092e\u0948\u0917\u091c\u093c\u0940\u0928 \u092a\u0922\u093c\u0947\u0902', 'Read Magazine')}
+                href="/main/e-magazine"
+                ctaText={getSectionCopy(language, '\u0938\u092d\u0940 \u0905\u0902\u0915', 'All Issues')}
+                className={`${magazineStyles.header} !mb-3 !gap-2 [&>a]:px-0 [&>a]:font-medium [&>a]:hover:bg-transparent [&>a]:dark:hover:bg-transparent`}
+                titleClassName="leading-relaxed [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip"
               />
               <MagazinePromoTile promo={emagazinePromo} />
-            </div>
+            </section>
           </aside>
         </section>
 

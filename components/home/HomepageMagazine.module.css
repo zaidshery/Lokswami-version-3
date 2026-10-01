@@ -1,0 +1,12 @@
+.header > a {
+  display: none;
+}
+
+/* Keep the full title; show archive navigation only when the row has room. */
+@media (min-width: 768px) {
+  @container homepage-magazine (min-width: 280px) {
+    .header > a {
+      display: inline-flex;
+    }
+  }
+}

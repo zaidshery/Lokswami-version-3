@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  language: 'en' as 'en' | 'hi',
   fetchHomeFeedForHomePage: vi.fn(),
   fetchMergedLiveArticles: vi.fn(),
   fetchPublicArticlesPage: vi.fn(),
@@ -52,7 +53,7 @@ vi.mock('framer-motion', () => {
 });
 
 vi.mock('@/lib/store/appStore', () => ({
-  useAppStore: () => ({ language: 'en' }),
+  useAppStore: () => ({ language: mocks.language }),
 }));
 
 vi.mock('@/lib/content/homeFeed', async () => {
@@ -133,6 +134,7 @@ describe('HomePageClient v1 home-feed integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.language = 'en';
     intersectionCallbacks.length = 0;
     mocks.fetchHomeFeedForHomePage.mockResolvedValue(null);
     mocks.fetchMergedLiveArticles.mockResolvedValue([]);
@@ -307,7 +309,18 @@ describe('HomePageClient v1 home-feed integration', () => {
       name: /read latest e-magazine/i,
     });
     expect(emagazineLink).toHaveAttribute('href', '/main/e-magazine?month=2026-05');
-    expect(emagazineLink).toHaveTextContent('May 2026 Issue');
+    const magazine = within(screen.getByTestId('homepage-emagazine'));
+    expect(magazine.getByRole('heading', { level: 2 })).toHaveTextContent('Monthly E-Magazine');
+    expect(magazine.getByRole('heading', { level: 3 })).toHaveTextContent('Lokswami E-Magazine');
+    expect(magazine.getByText('May 2026')).toBeInTheDocument();
+    expect(magazine.getByText('Latest Issue')).toBeInTheDocument();
+    expect(magazine.queryByText(/Published monthly/)).not.toBeInTheDocument();
+    expect(magazine.getByRole('link', { name: 'All Issues' })).toHaveAttribute('href', '/main/e-magazine');
+    expect(magazine.getAllByText('Read Magazine')).toHaveLength(1);
+    expect(emagazineLink).toHaveTextContent('Read Magazine');
+    expect(emagazineLink).not.toHaveTextContent('May 2026');
+    expect(emagazineLink.querySelector('a')).toBeNull();
+    expect(magazine.getByRole('img')).toHaveAttribute('src', '/magazine.jpg');
     const liveUpdateLinks = within(screen.getByTestId('live-updates-rail')).getAllByRole('link');
     expect(liveUpdateLinks).toHaveLength(4);
     expect(liveUpdateLinks[0]).toHaveTextContent('Latest Story From Feed');
@@ -316,6 +329,47 @@ describe('HomePageClient v1 home-feed integration', () => {
     expect(screen.queryByTestId('hero-carousel')).not.toBeInTheDocument();
     expect(mocks.fetchHomeFeedForHomePage).not.toHaveBeenCalled();
     expect(mocks.fetchMergedLiveArticles).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { language: 'en' as const, heading: 'Monthly E-Magazine', archive: 'All Issues', read: 'Read Magazine', eyebrow: 'Latest Issue', month: 'September 2026' },
+    { language: 'hi' as const, heading: 'मासिक ई-मैगज़ीन', archive: 'सभी अंक', read: 'मैगज़ीन पढ़ें', eyebrow: 'ताज़ा अंक', month: 'सितंबर 2026' },
+  ])('separates archive navigation from the primary issue action in $language', async (copy) => {
+    mocks.language = copy.language;
+    const { default: HomePageClient } = await import('@/app/(reader)/main/HomePageClient');
+    render(createElement(HomePageClient, {
+      initialHomeFeed: {
+        articles: [], epaper: null,
+        emagazine: { _id: 'issue', publicationType: 'emagazine', citySlug: 'global', cityName: 'Lokswami', title: 'Lokswami', publishDate: '2026-09-01', thumbnailPath: '/cover.jpg', pageCount: 36 },
+      },
+    }));
+    const magazine = within(screen.getByTestId('homepage-emagazine'));
+    expect(magazine.getByRole('heading', { level: 2 })).toHaveTextContent(copy.heading);
+    expect(magazine.getByRole('link', { name: copy.archive })).toHaveAttribute('href', '/main/e-magazine');
+    const primaryText = magazine.getAllByText(copy.read);
+    expect(primaryText).toHaveLength(1);
+    expect(primaryText[0].closest('a')).toHaveAttribute('href', '/main/e-magazine?month=2026-09');
+    expect(magazine.getByText(copy.eyebrow)).toBeInTheDocument();
+    expect(magazine.getByText(copy.month)).toBeInTheDocument();
+  });
+
+  it.each([
+    'Lokswami Special Edition: Culture, Literature and Life Across India',
+    'लोकस्वामी विशेषांक: संस्कृति, साहित्य और भारतीय जीवन की कहानियाँ',
+  ])('preserves the complete issue title and month for %s', async (title) => {
+    const { default: HomePageClient } = await import('@/app/(reader)/main/HomePageClient');
+    render(createElement(HomePageClient, {
+      initialHomeFeed: {
+        articles: [], epaper: null,
+        emagazine: { _id: 'long-title', publicationType: 'emagazine', citySlug: 'global', cityName: 'Lokswami', title, publishDate: '2026-09-01', thumbnailPath: '/cover.jpg', pageCount: 36 },
+      },
+    }));
+    const magazine = within(screen.getByTestId('homepage-emagazine'));
+    const heading = magazine.getByRole('heading', { level: 3 });
+    expect(heading).toHaveTextContent(title);
+    expect(heading).toHaveAttribute('title', title);
+    expect(magazine.getByText('September 2026')).toBeInTheDocument();
+    expect(magazine.getByRole('link', { name: 'Read latest e-magazine' })).toHaveAttribute('href', '/main/e-magazine?month=2026-09');
   });
 
   it('renders server discovery categories immediately without viewport-triggered fetches', async () => {
