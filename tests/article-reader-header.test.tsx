@@ -11,6 +11,24 @@ const article = {
 };
 afterEach(cleanup);
 describe('article reader header', () => {
+  it.each([
+    ['/logo-icon-final.png', true],
+    ['https://avatar.example/photo.png', false],
+  ])('resizes local avatars while preserving arbitrary remote sources: %s', (avatar, optimized) => {
+    render(<ArticleReaderHeader article={{ ...article, author: { ...article.author, avatar } }} language="en" readMinutes={3} onAuthorClick={() => {}}>{null}</ArticleReaderHeader>);
+    const image = screen.getByRole('img', { name: 'Actual Writer' });
+    if (optimized) {
+      expect(image.getAttribute('src')).toContain('/_next/image?');
+      expect(image).toHaveAttribute('sizes', '44px');
+    } else expect(image).toHaveAttribute('src', avatar);
+  });
+  it.each([
+    ['हिन्दी समाचार शीर्षक', 'en', 'hi'],
+    ['English article headline', 'hi', 'en'],
+  ] as const)('marks the headline language independently of reader controls: %s', (title, language, contentLanguage) => {
+    render(<ArticleReaderHeader article={{ ...article, title }} language={language} readMinutes={3} onAuthorClick={() => {}}>{null}</ArticleReaderHeader>);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveAttribute('lang', contentLanguage);
+  });
   it('avoids a duplicate category row when the page breadcrumb already provides it', () => {
     const { container } = render(<ArticleReaderHeader article={article} language="en" readMinutes={3} showCategory={false} onAuthorClick={() => {}}>{null}</ArticleReaderHeader>);
     expect(screen.queryByRole('link', { name: 'Regional' })).toBeNull();

@@ -1,3 +1,13 @@
+/* The measured Nirmala UI Bold fallback is 5% wider than Noto Devanagari
+   ExtraBold. Match its advance width while the brand font loads, only where
+   that Windows font exists; other platforms retain their existing fallbacks. */
+@font-face {
+  font-family: 'Lokswami Reader Heading Fallback';
+  src: local('Nirmala UI Bold'), local('NirmalaUI-Bold');
+  font-weight: 700 900;
+  size-adjust: 95%;
+}
+
 .reader {
   width: 100%;
   max-width: 1024px;
@@ -103,6 +113,10 @@
   font-weight: 800;
   color: var(--reader-headline-color, #18181b);
   text-wrap: pretty;
+}
+
+.headline:lang(hi) {
+  font-family: var(--font-devanagari), var(--font-latin), 'Lokswami Reader Heading Fallback', Mangal, 'Kohinoor Devanagari', system-ui, sans-serif;
 }
 
 :global(.dark) .headline {
