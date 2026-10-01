@@ -137,6 +137,9 @@ describe('public home feed service', () => {
       },
     ]);
     listAllStoredEPapersMock.mockResolvedValue([
+      { _id: 'paper-draft', city: 'Indore', title: 'Draft', publishDate: '2026-05-12', thumbnailPath: '/draft.jpg', status: 'draft' },
+      { _id: 'paper-ready', city: 'Indore', title: 'Ready', publishDate: '2026-05-11', thumbnailPath: '/ready.jpg', status: 'ready_to_publish' },
+      { _id: 'magazine', city: 'Indore', title: 'Magazine', publishDate: '2026-05-13', thumbnailPath: '/magazine.jpg', publicationType: 'emagazine', status: 'published' },
       {
         _id: 'paper-mumbai-newer',
         city: 'Mumbai',

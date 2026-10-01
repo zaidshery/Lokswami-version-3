@@ -92,6 +92,10 @@ export const NEWS_CATEGORIES: NewsCategory[] = [
     color: '#F97316',
     aliases: ['business', 'biz', BUSINESS_HI, TRADE_HI],
   },
+  {
+    id: 'crime', slug: 'crime', name: 'अपराध', nameEn: 'Crime',
+    icon: '📰', color: '#EF4444', aliases: ['crime', 'Crime', 'अपराध'],
+  },
 ];
 
 export type NewsCategoryDefinition = {
@@ -101,7 +105,29 @@ export type NewsCategoryDefinition = {
   aliases?: string[];
 };
 
-export const NEWS_CATEGORY_DEFINITIONS: NewsCategoryDefinition[] = NEWS_CATEGORIES.map(
+// State and special definitions share the reader taxonomy without adding primary navigation items.
+export const CMS_READER_CATEGORIES: NewsCategory[] = [{
+  id: 'madhya-pradesh', slug: 'madhya-pradesh', name: 'मध्य प्रदेश',
+  nameEn: 'Madhya Pradesh', icon: '📍', color: '#F59E0B',
+  aliases: ['madhya-pradesh', 'Madhya Pradesh', 'मध्य प्रदेश', 'MP'],
+},
+  { id: 'maharashtra', slug: 'maharashtra', name: 'महाराष्ट्र', nameEn: 'Maharashtra', icon: '📍', color: '#F59E0B', aliases: ['maharashtra', 'Maharashtra', 'महाराष्ट्र', 'MH'] },
+  { id: 'rajasthan', slug: 'rajasthan', name: 'राजस्थान', nameEn: 'Rajasthan', icon: '📍', color: '#F59E0B', aliases: ['rajasthan', 'Rajasthan', 'राजस्थान', 'RJ'] },
+  { id: 'uttar-pradesh', slug: 'uttar-pradesh', name: 'उत्तर प्रदेश', nameEn: 'Uttar Pradesh', icon: '📍', color: '#F59E0B', aliases: ['uttar-pradesh', 'Uttar Pradesh', 'उत्तर प्रदेश', 'UP'] },
+  { id: 'gujarat', slug: 'gujarat', name: 'गुजरात', nameEn: 'Gujarat', icon: '📍', color: '#F59E0B', aliases: ['gujarat', 'Gujarat', 'गुजरात', 'GJ'] },
+  { id: 'lokswami-special', slug: 'lokswami-special', name: 'लोकस्वामी विशेष', nameEn: 'Lokswami Special', icon: '📰', color: '#EF4444', aliases: ['lokswami-special', 'Lokswami Special', 'लोकस्वामी विशेष', 'लोकस्वामी स्पेशल'] },
+];
+
+CMS_READER_CATEGORIES.push(
+  { id: 'kisaan', slug: 'kisaan', name: '\u0915\u093f\u0938\u093e\u0928', nameEn: 'Kisaan', icon: '🌾', color: '#84CC16', aliases: ['kisaan', 'kisan', '\u0915\u093f\u0938\u093e\u0928'] },
+  { id: 'jobs', slug: 'jobs', name: '\u0928\u094c\u0915\u0930\u093f\u092f\u093e\u0902', nameEn: 'Jobs', icon: '💼', color: '#3B82F6', aliases: ['jobs', '\u0928\u094c\u0915\u0930\u093f\u092f\u093e\u0902'] },
+  { id: 'sarkari-yojana', slug: 'sarkari-yojana', name: '\u0938\u0930\u0915\u093e\u0930\u0940 \u092f\u094b\u091c\u0928\u093e', nameEn: 'Sarkari Yojana', icon: '📋', color: '#F59E0B', aliases: ['sarkari-yojana', 'Sarkari Yojana', '\u0938\u0930\u0915\u093e\u0930\u0940 \u092f\u094b\u091c\u0928\u093e'] },
+  { id: 'dharm-jyotish', slug: 'dharm-jyotish', name: '\u0927\u0930\u094d\u092e \u090f\u0935\u0902 \u091c\u094d\u092f\u094b\u0924\u093f\u0937', nameEn: 'Dharm & Jyotish', icon: '🪔', color: '#A855F7', aliases: ['dharm-jyotish', 'Dharm & Jyotish', '\u0927\u0930\u094d\u092e \u090f\u0935\u0902 \u091c\u094d\u092f\u094b\u0924\u093f\u0937'] },
+);
+
+export const READER_CATEGORIES = [...NEWS_CATEGORIES, ...CMS_READER_CATEGORIES];
+
+export const NEWS_CATEGORY_DEFINITIONS: NewsCategoryDefinition[] = READER_CATEGORIES.map(
   (category) => ({
     slug: category.slug,
     name: category.name,
@@ -118,7 +144,7 @@ export function resolveNewsCategory(value: string) {
   const selected = normalize(value);
   if (!selected) return undefined;
 
-  return NEWS_CATEGORIES.find((category) => {
+  return READER_CATEGORIES.find((category) => {
     const candidates = [category.slug, category.name, category.nameEn, ...category.aliases];
     return candidates.some((candidate) => normalize(candidate) === selected);
   });

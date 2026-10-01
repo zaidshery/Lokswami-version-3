@@ -11,13 +11,13 @@ import {
   ArrowRight,
   CalendarDays,
 } from 'lucide-react';
-import HomepageTopPackage from '@/components/home/HomepageTopPackage';
+import HomepageTopPackage, { IndoreEpaper, WhatsAppShareLink } from '@/components/home/HomepageTopPackage';
 import Container from '@/components/layout/Container';
 import CategorySection from '@/components/home/CategorySection';
 import HomeVideosSection from '@/components/home/HomeVideosSection';
 import { selectHomepageCategories, type HomepageDiscovery } from '@/lib/content/homepageDiscovery';
 import ReaderImage from '@/components/ui/ReaderImage';
-import DesktopHeroEpaperCard from '@/components/ui/DesktopHeroEpaperCard';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import HomeShortsSection from '@/components/video/HomeShortsSection';
 import type { Article } from '@/lib/mock/data';
 import {
@@ -34,25 +34,10 @@ import {
   buildArticleImageVariantUrl,
 } from '@/lib/utils/articleMedia';
 import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
+import { resolveNewsCategory } from '@/lib/constants/newsCategories';
 import { formatUiDate } from '@/lib/utils/dateFormat';
 import { normalizePublicationIssueMonth } from '@/lib/utils/epaperPublication';
-import { SectionHeader } from '@/components/ui/SectionHeader';
 import magazineStyles from '@/components/home/HomepageMagazine.module.css';
-
-function formatDesktopHeroDate(value: string | undefined, language: 'en' | 'hi') {
-  if (!value) return '';
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return formatUiDate(value, value);
-  }
-
-  return new Intl.DateTimeFormat(language === 'hi' ? 'hi-IN' : 'en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(parsed);
-}
 
 function formatMagazineIssueLabel(value: string | undefined, language: 'en' | 'hi') {
   if (!value) return '';
@@ -66,13 +51,6 @@ function formatMagazineIssueLabel(value: string | undefined, language: 'en' | 'h
     month: 'long',
     year: 'numeric',
   }).format(parsed);
-}
-
-function getLocalDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 function firstNonEmptyString(...values: unknown[]) {
@@ -133,13 +111,6 @@ function buildHomepageRail(
 }
 
 const HOME_EPAPER_CITY_SLUG = 'indore';
-const HI_EPAPER_CITY_LABELS: Record<string, string> = {
-  indore: '\u0907\u0902\u0926\u094c\u0930',
-  ujjain: '\u0909\u091c\u094d\u091c\u0948\u0928',
-  mumbai: '\u092e\u0941\u0902\u092c\u0908',
-  delhi: '\u0926\u093f\u0932\u094d\u0932\u0940',
-};
-
 type HomeEpaperResponse = {
   items?: Array<HomePageEpaperPreview & { thumbnail?: string }>;
 };
@@ -151,6 +122,7 @@ type HomePageProps = {
 
 function isIndoreEpaperPreview(paper: HomePageEpaperPreview | null | undefined) {
   if (!paper) return false;
+  if (paper.publicationType !== 'epaper') return false;
   const citySlug = String(paper.citySlug || '').trim().toLowerCase();
   const cityName = String(paper.cityName || '').trim().toLowerCase();
   return citySlug === HOME_EPAPER_CITY_SLUG || (!citySlug && cityName === 'indore');
@@ -171,38 +143,6 @@ function getSectionCopy(language: 'en' | 'hi', hi: string, en: string) {
   return language === 'hi' ? hi : en;
 }
 
-function NewsroomSectionHeader({
-  title,
-  href,
-  cta,
-  accentClass = 'bg-gradient-to-b from-red-600 via-rose-500 to-amber-500 shadow-[0_0_8px_rgba(225,29,72,0.35)]',
-  ctaClass = 'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300',
-}: {
-  title: string;
-  href?: string;
-  cta?: string;
-  accentClass?: string;
-  ctaClass?: string;
-}) {
-  return (
-    <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-      <h2 className="hi-heading newsroom-heading flex min-w-0 items-center gap-2 text-[0.98rem] font-semibold leading-snug sm:text-[1.08rem]">
-        <span className={`h-5 w-1.5 rounded-full ${accentClass}`} />
-        <span className="truncate">{title}</span>
-      </h2>
-      {href && cta ? (
-        <Link
-          href={href}
-          className={`reader-touch-link reader-focus-ring inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-bold transition hover:bg-red-500/10 ${ctaClass}`}
-        >
-          {cta}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-
 function LiveUpdateStory({
   article,
   language,
@@ -213,37 +153,34 @@ function LiveUpdateStory({
   if (!article || !article.id) return null;
 
   const href = buildArticlePublicPath({ id: article.id, slug: article.slug });
-  const timeLabel = formatDesktopHeroDate(article.publishedAt, language);
+  const category = resolveNewsCategory(article.category);
+  const categoryLabel = category ? language === 'hi' ? category.name : category.nameEn : article.category;
 
   return (
-    <Link
-      href={href}
-      className="editorial-focus-ring group grid min-h-[84px] grid-cols-[82px_minmax(0,1fr)] items-center gap-3 rounded-editorial-sm border border-zinc-200 bg-white p-3 transition-colors hover:border-brand-400 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-brand-500"
-    >
-      <div className="newsroom-image-bg relative h-[72px] w-[82px] overflow-hidden rounded-md bg-zinc-100 dark:bg-zinc-950 sm:h-[76px] sm:w-[86px] xl:h-[78px] xl:w-[88px]">
+    <li data-story-id={article.id} className="grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-2 rounded-editorial-sm py-2.5 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-800/30 sm:grid-cols-[96px_minmax(0,1fr)]">
+      <Link href={href} aria-label={article.title} className="editorial-focus-ring relative block aspect-[10/7] overflow-hidden rounded-editorial-sm bg-zinc-100 dark:bg-zinc-950">
         <ReaderImage
           src={buildArticleImageVariantUrl(article.image, 'thumb')}
           alt={article.title}
           fill
-          className="object-cover object-center"
-          sizes="88px"
+          className="object-cover"
+          sizes="(min-width: 640px) 96px, 88px"
         />
-      </div>
-      <div className="flex min-w-0 flex-col">
-        <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="text-xs font-semibold leading-relaxed text-brand-600 dark:text-brand-400">
-            {article.category}
-          </span>
-          <span className="newsroom-dot h-1 w-1 rounded-full" />
-          <span className="newsroom-muted text-xs leading-relaxed">
-            {timeLabel}
-          </span>
-        </div>
-        <p className="hindi-headline break-words text-base font-semibold leading-relaxed group-hover:text-brand-600 dark:group-hover:text-brand-400">
+      </Link>
+      <div className="flex min-w-0 flex-col justify-between gap-1.5">
+        <Link href={href} className="editorial-focus-ring hindi-headline line-clamp-2 break-words text-[15px] font-semibold leading-[1.35] hover:text-brand-600 dark:hover:text-brand-400">
           {article.title}
-        </p>
+        </Link>
+        <div className="flex min-w-0 items-center justify-between gap-1 text-[11px] leading-snug text-zinc-600 dark:text-zinc-400">
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1">
+            <span className="max-w-full truncate font-medium text-brand-600 dark:text-brand-400">{categoryLabel}</span>
+            <span aria-hidden="true">·</span>
+            <time dateTime={article.publishedAt}>{formatUiDate(article.publishedAt)}</time>
+          </span>
+          <WhatsAppShareLink article={article} language={language} placement="live_updates" />
+        </div>
       </div>
-    </Link>
+    </li>
   );
 }
 
@@ -255,7 +192,7 @@ const NewsPoll = dynamic(() => import('@/components/ui/NewsPoll'), {
 function NewsPollFallback() {
   return (
     <div className="cnp-surface overflow-hidden p-4">
-      <div className="animate-pulse space-y-3">
+      <div className="animate-pulse space-y-3 motion-reduce:animate-none">
         <div className="h-5 w-24 rounded-full bg-zinc-200 dark:bg-zinc-800" />
         <div className="h-6 w-4/5 rounded-xl bg-zinc-200 dark:bg-zinc-800" />
         {[0, 1, 2].map((item) => (
@@ -435,70 +372,6 @@ export default function HomePage({ initialHomeFeed = null, initialDiscovery = nu
     };
   }, [hasInitialArticles, hasInitialEpaper, hasInitialEmagazine]);
 
-  const epaperHref = (() => {
-    if (!latestEpaper) return '/main/epaper';
-    const query = new URLSearchParams();
-    if (latestEpaper.citySlug) {
-      query.set('city', latestEpaper.citySlug);
-    }
-    if (latestEpaper.publishDate) {
-      query.set('date', latestEpaper.publishDate);
-    }
-    const search = query.toString();
-    return search ? `/main/epaper?${search}` : '/main/epaper';
-  })();
-  const epaperCity = latestEpaper?.cityName.trim()
-    ? latestEpaper.cityName
-    : language === 'hi'
-      ? '\u0921\u093f\u091c\u093f\u091f\u0932 \u090f\u0921\u093f\u0936\u0928'
-      : 'Digital edition';
-  const localizedEpaperCity =
-    language === 'hi' && latestEpaper?.citySlug
-      ? HI_EPAPER_CITY_LABELS[latestEpaper.citySlug] || epaperCity
-      : epaperCity;
-  const desktopHeroEpaperDateLabel = formatDesktopHeroDate(latestEpaper?.publishDate, language);
-  const isDesktopHeroEpaperToday = Boolean(
-    latestEpaper?.publishDate && latestEpaper.publishDate === getLocalDateKey()
-  );
-  const epaperThumbnail = latestEpaper?.thumbnailPath || '/placeholders/epaper-3x4.svg';
-  const epaperThumbnailAlt =
-    language === 'hi'
-      ? `${localizedEpaperCity} \u0908-\u092a\u0947\u092a\u0930 \u0915\u0935\u0930`
-      : `${epaperCity} e-paper cover`;
-  const epaperEditionLabel =
-    language === 'hi'
-      ? latestEpaper?.cityName.trim()
-        ? `${localizedEpaperCity} \u0938\u0902\u0938\u094d\u0915\u0930\u0923`
-        : '\u0906\u091c \u0915\u093e \u0921\u093f\u091c\u093f\u091f\u0932 \u0938\u0902\u0938\u094d\u0915\u0930\u0923'
-      : latestEpaper?.cityName.trim()
-        ? `${epaperCity} Edition`
-        : "Today's digital edition";
-  const desktopHeroEpaperTitle =
-    language === 'hi'
-      ? '\u0932\u094b\u0915\u0938\u094d\u0935\u093e\u092e\u0940'
-      : 'Lokswami';
-  const desktopHeroEpaperEyebrow =
-    language === 'hi'
-      ? isDesktopHeroEpaperToday
-        ? '\u0906\u091c \u0915\u093e \u0908-\u092a\u0947\u092a\u0930'
-        : '\u0924\u093e\u091c\u093c\u093e \u0908-\u092a\u0947\u092a\u0930'
-      : isDesktopHeroEpaperToday
-        ? "Today's E-Paper"
-        : 'Latest E-Paper';
-  const desktopHeroEpaperEdition =
-    language === 'hi' ? `${localizedEpaperCity} \u090f\u0921\u093f\u0936\u0928` : epaperEditionLabel;
-  const desktopHeroEpaperSupport =
-    language === 'hi'
-      ? isDesktopHeroEpaperToday
-        ? '\u0924\u093e\u091c\u093c\u093e \u0916\u092c\u0930\u0947\u0902, \u092a\u0942\u0930\u093e \u0921\u093f\u091c\u093f\u091f\u0932 \u0938\u0902\u0938\u094d\u0915\u0930\u0923'
-        : '\u0909\u092a\u0932\u092c\u094d\u0927 \u0938\u092c\u0938\u0947 \u0928\u0908 \u0921\u093f\u091c\u093f\u091f\u0932 \u090f\u0921\u093f\u0936\u0928'
-      : isDesktopHeroEpaperToday
-        ? 'Fresh news, full digital edition'
-        : 'Latest available digital edition';
-  const desktopHeroEpaperAriaLabel =
-    language === 'hi' ? '\u0905\u092d\u0940 \u0908-\u092a\u0947\u092a\u0930 \u092a\u0922\u093c\u0947\u0902' : "Read today's e-paper";
-  const desktopHeroEpaperPrimaryCta =
-    language === 'hi' ? '\u0908-\u092a\u0947\u092a\u0930 \u092a\u0922\u093c\u0947\u0902' : 'Read E-Paper';
   const emagazineIssueMonth = normalizePublicationIssueMonth(latestEmagazine?.publishDate);
   const emagazineHref = emagazineIssueMonth
     ? `/main/e-magazine?month=${encodeURIComponent(emagazineIssueMonth)}`
@@ -534,33 +407,21 @@ export default function HomePage({ initialHomeFeed = null, initialDiscovery = nu
   return (
     <div className="newsroom-home relative -mx-3 -mt-4 pb-6 [--section-gap:0.9rem] sm:-mx-5 sm:[--section-gap:1rem] lg:-mx-6 lg:[--section-gap:1.1rem] xl:-mx-8">
       <Container variant="wide" className="py-3">
-        <HomepageTopPackage articles={latestPublishedArticles} language={language} loading={isFeedLoading} />
+        <div className="xl:grid xl:grid-cols-[minmax(0,73fr)_minmax(19rem,27fr)] xl:items-start xl:gap-4" data-testid="homepage-composition">
+          <HomepageTopPackage articles={latestPublishedArticles} language={language} loading={isFeedLoading} />
 
-        <section className="mt-[var(--section-gap)] grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.40fr)]">
+        <section className="mt-[var(--section-gap)] min-w-0 xl:col-start-1 xl:row-start-2 xl:mt-0" data-testid="homepage-media-column">
           <div className="min-w-0 space-y-4">
-            {categorySections.map((section) => <CategorySection key={section.category.slug} {...section} language={language} />)}
             <HomeVideosSection videos={initialDiscovery?.videos || []} error={initialDiscovery?.videoError} language={language} />
             <HomeShortsSection shorts={initialDiscovery?.shorts || []} language={language} />
           </div>
 
-          <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-            <section className="rounded-editorial-md border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <NewsroomSectionHeader title={getSectionCopy(language, 'लाइव अपडेट्स', 'Live Updates')} href="/main/latest" cta={getSectionCopy(language, 'सभी देखें', 'View All')} />
-              <div className="grid gap-3" data-testid="live-updates-rail">
-                {liveUpdateStories.map((article) => <LiveUpdateStory key={article.id} article={article} language={language} />)}
-              </div>
-            </section>
-            <DesktopHeroEpaperCard
-              href={epaperHref} dateLabel={desktopHeroEpaperDateLabel}
-              thumbnailSrc={epaperThumbnail} thumbnailAlt={epaperThumbnailAlt}
-              eyebrowLabel={desktopHeroEpaperEyebrow} title={desktopHeroEpaperTitle}
-              editionLabel={desktopHeroEpaperEdition} supportLabel={desktopHeroEpaperSupport}
-              ariaLabel={desktopHeroEpaperAriaLabel} primaryCtaLabel={desktopHeroEpaperPrimaryCta}
-              shareLabel={language === 'hi' ? 'शेयर' : 'Share'} language={language}
-            />
-            <NewsPoll />
+        </section>
 
-            <section data-testid="homepage-emagazine" className="min-w-0 max-w-lg rounded-editorial-md border border-zinc-200 bg-white p-3 [container-name:homepage-magazine] [container-type:inline-size] dark:border-zinc-800 dark:bg-zinc-900 md:p-3.5 xl:p-4">
+          <aside className="mt-4 min-w-0 max-w-lg space-y-4 xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mt-0 xl:max-w-none" data-testid="homepage-publication-rail">
+            <IndoreEpaper epaper={latestEpaper} language={language} />
+
+            <section data-testid="homepage-emagazine" className="min-w-0 rounded-editorial-md border border-zinc-200 bg-white p-3 [container-name:homepage-magazine] [container-type:inline-size] dark:border-zinc-800 dark:bg-zinc-900 md:p-3.5 xl:p-4">
               <SectionHeader
                 title={getSectionCopy(language, '\u092e\u093e\u0938\u093f\u0915 \u0908-\u092e\u0948\u0917\u091c\u093c\u0940\u0928', 'Monthly E-Magazine')}
                 href="/main/e-magazine"
@@ -570,9 +431,24 @@ export default function HomePage({ initialHomeFeed = null, initialDiscovery = nu
               />
               <MagazinePromoTile promo={emagazinePromo} />
             </section>
+            <section className="flex min-w-0 flex-col rounded-editorial-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900 md:p-3.5 xl:p-4" data-testid="live-updates-section">
+              <SectionHeader title={getSectionCopy(language, 'लाइव अपडेट्स', 'Live Updates')} className="!mb-2" />
+              <ol className="divide-y divide-zinc-200 dark:divide-zinc-800" data-testid="live-updates-rail">
+                {liveUpdateStories.map((article) => <LiveUpdateStory key={article.id} article={article} language={language} />)}
+              </ol>
+              <Link href="/main/latest" className="editorial-focus-ring mt-auto inline-flex min-h-10 items-center justify-center gap-1.5 border-t border-zinc-200 pt-2 text-xs font-semibold text-brand-600 hover:text-brand-700 dark:border-zinc-800 dark:text-brand-400 dark:hover:text-brand-300 xl:justify-start">
+                {getSectionCopy(language, 'सभी लाइव अपडेट्स देखें', 'View all live updates')}<ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+              </Link>
+            </section>
+            <NewsPoll />
           </aside>
-        </section>
+        </div>
 
+        {categorySections.length > 0 && (
+          <div className="mt-4 min-w-0 space-y-4" data-testid="homepage-full-width-category-region">
+            {categorySections.map((section) => <CategorySection key={section.category.slug} {...section} language={language} />)}
+          </div>
+        )}
       </Container>
     </div>
   );

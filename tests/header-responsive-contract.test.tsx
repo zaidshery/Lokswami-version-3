@@ -24,7 +24,7 @@ vi.mock('next/navigation', () => ({
 describe('Responsive Header & Language Refinement Contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useSession as any).mockReturnValue({ data: null, status: 'unauthenticated' });
+    vi.mocked(useSession).mockReturnValue({ data: null, status: 'unauthenticated', update: vi.fn() });
     useAppStore.setState({
       language: 'hi',
       theme: 'light',
@@ -34,6 +34,23 @@ describe('Responsive Header & Language Refinement Contract', () => {
   });
 
   describe('Unified brand and category layers', () => {
+    it('balances the mobile brand without reducing the menu touch target', () => {
+      render(<Header />);
+      const menu = screen.getByRole('button', { name: /Open menu|मेनू खोलें/i });
+      expect(menu.className).toContain('min-w-[44px]');
+      expect(menu.className).toContain('min-h-[44px]');
+      expect(menu.querySelector('svg')?.classList.contains('h-[25.5px]')).toBe(true);
+      expect(menu.querySelector('svg')?.classList.contains('md:h-5')).toBe(true);
+      const home = screen.getByLabelText('Lokswami Home');
+      expect(home.querySelector('[data-logo-element="icon"] img')?.classList.contains('max-md:top-[1.5px]')).toBe(true);
+      const root = home.querySelector('[data-logo-root]')!;
+      expect(root.className).toContain('[--reader-logo-icon:20px]');
+      expect(root.className).toContain('[--reader-logo-wordmark:94px]');
+      expect(root.className).toContain('[--reader-logo-gap:4px]');
+      for (const element of ['icon', 'wordmark']) {
+        expect(home.querySelector(`[data-logo-element="${element}"]`)?.parentElement?.className).toContain('max-md:items-center');
+      }
+    });
     it('strengthens the desktop hamburger and caps the smaller desktop logo', () => {
       render(<Header />);
       const menu = screen.getByRole('button', { name: /मेनू खोलें|Open menu/i });

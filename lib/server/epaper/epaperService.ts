@@ -207,7 +207,11 @@ export class EpaperService {
   async getHomeFeedEditions(store: EpaperStore) {
     const records = await this.repo.getHomeFeedEditions(store);
     const map = (raw: unknown, source: EpaperStore) => {
-      const item = source === 'mongo' ? mapPublicFeedMongo(asObject(raw)) : mapPublicFeedFile(asObject(raw));
+      const record = asObject(raw);
+      if (record.status && record.status !== 'published') return null;
+      if (record.isCurrentRevision === false) return null;
+      if (source === 'file' && record.publicationType && normalizeEPaperPublicationType(record.publicationType) !== 'epaper') return null;
+      const item = source === 'mongo' ? mapPublicFeedMongo(record) : mapPublicFeedFile(record);
       if (!item) return null;
       return {
         id: item._id, publicationType: item.publicationType, citySlug: item.citySlug, cityName: item.cityName,

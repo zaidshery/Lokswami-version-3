@@ -1,12 +1,15 @@
 import type { Article } from '@/lib/mock/data';
 import type { HomePageShortItem } from '@/lib/content/homeFeed';
-import { NEWS_CATEGORIES, resolveNewsCategory } from '@/lib/constants/newsCategories';
+import { resolveNewsCategory } from '@/lib/constants/newsCategories';
 import { compareHomepageRecency, selectHomepageSections } from '@/lib/content/homepageSections';
 import { isSwipeFeedEligibleVideo, toPublicVideoItem } from '@/lib/content/videoPublication';
+import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 
 export const HOMEPAGE_CATEGORY_MODULES = [
-  'regional', 'national', 'politics', 'business', 'technology', 'sports', 'entertainment', 'international',
+  'madhya-pradesh', 'maharashtra', 'crime', 'national', 'politics', 'international',
+  'rajasthan', 'uttar-pradesh', 'gujarat', 'entertainment', 'sports', 'business', 'technology',
 ] as const;
+export const HOMEPAGE_CATEGORY_CANDIDATE_LIMIT = 13;
 export type HomepageCategorySlug = typeof HOMEPAGE_CATEGORY_MODULES[number];
 export type HomepageDiscovery = {
   categoryArticles: Partial<Record<HomepageCategorySlug, Article[]>>;
@@ -21,18 +24,22 @@ export function selectHomepageCategories(topArticles: Article[], categoryArticle
   const used = new Set([...(top.lead ? [top.lead.id] : []), ...top.latest.map((a) => a.id), ...top.popular.map((a) => a.id)]);
   return HOMEPAGE_CATEGORY_MODULES.map((slug) => {
     const seen = new Set<string>();
+    const destinations = new Set<string>();
     const ranked = [...(categoryArticles[slug] || []), ...topArticles]
       .filter((article) => article.id && resolveNewsCategory(article.category)?.slug === slug)
       .sort(compareHomepageRecency)
       .filter((article) => {
-        if (seen.has(article.id)) return false;
+        const destination = buildArticlePublicPath(article);
+        if (seen.has(article.id) || destinations.has(destination)) return false;
         seen.add(article.id);
+        destinations.add(destination);
         return true;
       });
-    const limit = slug === 'regional' ? 4 : 3;
+    // Keep the existing recency/unused preference; the UI reveals four at a time.
+    const limit = HOMEPAGE_CATEGORY_CANDIDATE_LIMIT;
     const articles = [...ranked.filter((a) => !used.has(a.id)), ...ranked.filter((a) => used.has(a.id))].slice(0, limit);
-    articles.forEach((a) => used.add(a.id));
-    return { category: NEWS_CATEGORIES.find((c) => c.slug === slug)!, variant: slug === 'regional' ? 'large' as const : 'compact' as const, articles };
+    articles.slice(0, 4).forEach((a) => used.add(a.id));
+    return { category: resolveNewsCategory(slug)!, articles };
   }).filter((section) => section.articles.length > 0);
 }
 

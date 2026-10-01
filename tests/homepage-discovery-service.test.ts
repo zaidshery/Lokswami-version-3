@@ -13,11 +13,11 @@ describe('homepage discovery service', () => {
     mocks.media.mockResolvedValue({ rawVideos: [], rawShorts: [] });
   });
 
-  it('bounds all eight canonical category requests and both media candidate lists', async () => {
+  it('bounds all canonical category requests and both media candidate lists', async () => {
     const result = await getHomepageDiscovery();
-    expect(mocks.articles).toHaveBeenCalledTimes(8);
+    expect(mocks.articles).toHaveBeenCalledTimes(13);
     expect(mocks.articles.mock.calls.map(([options]) => options)).toEqual([
-      'regional', 'national', 'politics', 'business', 'technology', 'sports', 'entertainment', 'international',
+      'madhya-pradesh', 'maharashtra', 'crime', 'national', 'politics', 'international', 'rajasthan', 'uttar-pradesh', 'gujarat', 'entertainment', 'sports', 'business', 'technology',
     ].map((category) => ({ category, limit: 13 })));
     expect(mocks.media).toHaveBeenCalledWith({ videos: 12, shorts: 12 });
     expect(result.videoError).toBe(false);
@@ -25,19 +25,31 @@ describe('homepage discovery service', () => {
     expect(result.shorts).toEqual([]);
   });
 
+  it('supplies canonical preview metadata without serializing unused article bodies', async () => {
+    mocks.articles.mockImplementation(({ category }) => Promise.resolve({ items: [{
+      id: category, slug: `story-${category}`, title: 'Published headline', summary: 'Summary',
+      image: '/image.jpg', category, publishedAt: '2026-01-01', content: 'Full article body'.repeat(1000),
+    }] }));
+    const result = await getHomepageDiscovery();
+    const preview = result.categoryArticles.national![0];
+    expect(preview).toMatchObject({ id: 'national', slug: 'story-national', title: 'Published headline', category: 'national' });
+    expect(preview).not.toHaveProperty('content');
+    expect(mocks.articles).toHaveBeenCalledWith({ category: 'national', limit: 13 });
+  });
+
   it('keeps category discovery available when the media service fails', async () => {
     mocks.media.mockRejectedValue(new Error('unavailable'));
     const result = await getHomepageDiscovery();
-    expect(Object.keys(result.categoryArticles)).toHaveLength(8);
+    expect(Object.keys(result.categoryArticles)).toHaveLength(13);
     expect(result).toMatchObject({ videoError: true, videos: [], shorts: [] });
   });
 
   it('isolates one category failure without misreporting a media error', async () => {
-    mocks.articles.mockImplementation(({ category }) => category === 'regional'
+    mocks.articles.mockImplementation(({ category }) => category === 'madhya-pradesh'
       ? Promise.reject(new Error('unavailable')) : Promise.resolve({ items: [] }));
     const result = await getHomepageDiscovery();
-    expect(result.categoryArticles.regional).toEqual([]);
-    expect(Object.keys(result.categoryArticles)).toHaveLength(8);
+    expect(result.categoryArticles['madhya-pradesh']).toEqual([]);
+    expect(Object.keys(result.categoryArticles)).toHaveLength(13);
     expect(result.videoError).toBe(false);
   });
 });

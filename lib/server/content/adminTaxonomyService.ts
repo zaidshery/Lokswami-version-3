@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import Category from '@/lib/models/Category';
-import { NEWS_CATEGORIES } from '@/lib/constants/newsCategories';
+import { READER_CATEGORIES } from '@/lib/constants/newsCategories';
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 
 export type CategoryRecord = {
@@ -12,7 +12,7 @@ export type CategoryRecord = {
   icon?: string;
 };
 
-const DEFAULT_CMS_CATEGORIES: Omit<CategoryRecord, '_id'>[] = NEWS_CATEGORIES.map(
+const DEFAULT_CMS_CATEGORIES: Omit<CategoryRecord, '_id'>[] = READER_CATEGORIES.map(
   (category) => ({
     name: category.nameEn,
     slug: category.slug,

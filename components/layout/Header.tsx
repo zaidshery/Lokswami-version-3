@@ -88,7 +88,7 @@ export default function Header() {
               className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 lg:h-12 lg:w-12 lg:min-h-[48px] lg:min-w-[48px]"
               aria-label={language === 'hi' ? 'मेनू खोलें' : 'Open menu'}
               aria-controls="mobile-drawer" aria-expanded={isMobileMenuOpen}>
-              <Menu className="h-5 w-5 lg:h-6 lg:w-6" strokeWidth={2.3} />
+              <Menu className="h-[25.5px] w-[25.5px] md:h-5 md:w-5 lg:h-6 lg:w-6" strokeWidth={2.3} />
             </button>
             <Link href="/main" aria-label="Lokswami Home" className="editorial-focus-ring inline-flex shrink-0 items-center rounded-sm">
               <Logo size="headerDesktop" responsiveHeader />

@@ -93,7 +93,7 @@ describe('Phase 3.3: Reader Shell & Navigation Contracts', () => {
     it('renders primary editorial navigation items', () => {
       render(<DesktopNav />);
       expect(screen.getByRole('link', { name: /होम/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /क्षेत्रीय/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /राज्य/i })).toHaveAttribute('aria-expanded', 'false');
       expect(screen.getByRole('link', { name: /चुनाव/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /राजनीति/i })).toBeInTheDocument();
     });

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { selectHomepageCategories, selectHomepageMedia } from '@/lib/content/homepageDiscovery';
+import { HOMEPAGE_CATEGORY_MODULES, selectHomepageCategories, selectHomepageMedia } from '@/lib/content/homepageDiscovery';
 import type { Article } from '@/lib/mock/data';
 
-const story = (id: string, category = 'Regional', day = 1): Article => ({
+const story = (id: string, category = 'Madhya Pradesh', day = 1): Article => ({
   id, category, title: id, summary: 'Summary', image: '/image.jpg', views: 0,
   publishedAt: `2026-01-${String(day).padStart(2, '0')}T00:00:00Z`,
   author: { id: 'desk', name: 'Desk', avatar: '' },
@@ -15,26 +15,42 @@ const video = (id: string, isShort = false) => ({
 
 describe('homepage category selection', () => {
   it('omits zero-content categories', () => expect(selectHomepageCategories([])).toEqual([]));
-  it.each([1, 2, 3, 4, 5])('bounds Regional at four for %i candidates', (count) => {
-    const result = selectHomepageCategories([], { regional: Array.from({ length: count }, (_, i) => story(String(i))) });
-    expect(result[0].articles).toHaveLength(Math.min(count, 4));
+  it.each([0, 1, 2, 3, 4, 5, 13])('retains all %i supplied National candidates for progressive reveal without backfill', (count) => {
+    const rows = Array.from({ length: count }, (_, i) => story(`national-${i}`, 'National', i + 1));
+    const result = selectHomepageCategories([], { national: rows });
+    expect(result[0]?.articles.map((a) => a.id) || []).toEqual(rows.slice().reverse().map((a) => a.id));
+  });
+  it('deduplicates category candidates while retaining supplied progressive-reveal stories', () => {
+    const rows = Array.from({ length: 5 }, (_, i) => story(`national-${i}`, 'National', i + 1));
+    const result = selectHomepageCategories([], { national: [...rows, rows[4], story('foreign')], business: rows.map((a) => ({ ...a, id: `business-${a.id}`, category: 'Business' })) });
+    expect(result.find((s) => s.category.slug === 'national')?.articles.map((a) => a.id)).toEqual(['national-4', 'national-3', 'national-2', 'national-1', 'national-0']);
+    expect(result.find((s) => s.category.slug === 'business')?.articles).toHaveLength(5);
+  });
+  it.each([1, 2, 3, 4, 5, 20])('bounds Madhya Pradesh public candidates at thirteen for %i candidates', (count) => {
+    const result = selectHomepageCategories([], { 'madhya-pradesh': Array.from({ length: count }, (_, i) => story(String(i))) });
+    expect(result[0].articles).toHaveLength(Math.min(count, 13));
   });
   it('keeps aliases category-correct and compact sections bounded', () => {
     const rows = [story('wrong'), ...Array.from({ length: 5 }, (_, i) => story(String(i), i % 2 ? 'tech' : 'Technology'))];
     const result = selectHomepageCategories([], { technology: rows, national: rows });
     expect(result.map((s) => s.category.slug)).toEqual(['technology']);
-    expect(result[0].articles.map((a) => a.id)).toEqual(['4', '3', '2']);
+    expect(result[0].articles.map((a) => a.id)).toEqual(['4', '3', '2', '1', '0']);
   });
   it('prefers unused stories over newer top-package stories without unrelated substitution', () => {
-    const used = Array.from({ length: 9 }, (_, i) => story(`top${i}`, 'Regional', i + 10));
-    const unused = Array.from({ length: 4 }, (_, i) => story(`other${i}`, 'Regional', i + 1));
-    const result = selectHomepageCategories(used, { regional: [...used, ...unused, story('foreign', 'National')], politics: used });
-    expect(result.map((s) => s.category.slug)).toEqual(['regional']);
-    expect(result[0].articles.map((a) => a.id)).toEqual(['other3', 'other2', 'other1', 'other0']);
+    const used = Array.from({ length: 9 }, (_, i) => story(`top${i}`, 'Madhya Pradesh', i + 10));
+    const unused = Array.from({ length: 4 }, (_, i) => story(`other${i}`, 'Madhya Pradesh', i + 1));
+    const result = selectHomepageCategories(used, { 'madhya-pradesh': [...used, ...unused, story('foreign', 'National')], politics: used });
+    expect(result.map((s) => s.category.slug)).toEqual(['madhya-pradesh']);
+    expect(result[0].articles.slice(0, 4).map((a) => a.id)).toEqual(['other3', 'other2', 'other1', 'other0']);
+    expect(result[0].articles).toHaveLength(13);
   });
   it('sparse backfill uses actual category stories and unique IDs', () => {
     const item = story('only');
-    expect(selectHomepageCategories([item], { regional: [item, item] })[0].articles).toEqual([item]);
+    expect(selectHomepageCategories([item], { 'madhya-pradesh': [item, item] })[0].articles).toEqual([item]);
+  });
+  it('uses only configured canonical category sources in the approved order', () => {
+    const rows = HOMEPAGE_CATEGORY_MODULES.map((slug) => story(slug, slug));
+    expect(selectHomepageCategories(rows).map((s) => s.category.slug)).toEqual([...HOMEPAGE_CATEGORY_MODULES]);
   });
 });
 

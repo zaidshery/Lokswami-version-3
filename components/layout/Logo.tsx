@@ -85,7 +85,7 @@ export function LogoIcon({
         alt="Lokswami Emblem"
         width={sizeConfig.icon}
         height={sizeConfig.icon}
-        className="relative z-[1] block h-full w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-300 motion-safe:group-hover/logo:scale-[1.06]"
+        className={`relative z-[1] block h-full w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-300 motion-safe:group-hover/logo:scale-[1.06] ${inHeaderLogo ? 'max-md:top-[1.5px]' : ''}`}
         priority={isPriority}
         sizes="(max-width: 639px) 44px, (max-width: 1023px) 50px, 58px"
       />
@@ -196,7 +196,7 @@ export default function Logo({
   const logoContent = (
     <motion.div
       data-logo-root="true"
-      className={`group/logo flex max-w-full shrink-0 items-center ${responsiveHeader ? '[--reader-logo-icon:28px] [--reader-logo-wordmark:88px] [--reader-logo-gap:2px] min-[360px]:[--reader-logo-icon:32px] min-[360px]:[--reader-logo-wordmark:100px] min-[360px]:[--reader-logo-gap:4px] min-[390px]:[--reader-logo-wordmark:112px] md:[--reader-logo-icon:46px] md:[--reader-logo-wordmark:172px] md:[--reader-logo-gap:10px] lg:[--reader-logo-icon:40px] lg:[--reader-logo-wordmark:186px]' : ''} ${className}`}
+      className={`group/logo flex max-w-full shrink-0 items-center ${responsiveHeader ? '[--reader-logo-icon:20px] [--reader-logo-wordmark:94px] [--reader-logo-gap:4px] min-[360px]:[--reader-logo-icon:22px] min-[360px]:[--reader-logo-wordmark:110px] min-[390px]:[--reader-logo-icon:24px] min-[390px]:[--reader-logo-wordmark:120px] md:[--reader-logo-icon:46px] md:[--reader-logo-wordmark:172px] md:[--reader-logo-gap:10px] lg:[--reader-logo-icon:40px] lg:[--reader-logo-wordmark:186px]' : ''} ${className}`}
       whileHover={reduceMotion || responsiveHeader ? undefined : { scale: 1.012, y: -1 }}
       whileTap={responsiveHeader ? undefined : { scale: 0.985 }}
       transition={{ type: 'spring', stiffness: 420, damping: 32 }}
@@ -213,6 +213,7 @@ export default function Logo({
       >
         {showIcon ? (
           <motion.div
+            className={responsiveHeader ? 'max-md:flex max-md:items-center' : undefined}
             initial={reduceMotion || responsiveHeader ? false : { opacity: 0, scale: 0.9, y: 2 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: reduceMotion ? 0.01 : 0.32, ease: [0.22, 1, 0.36, 1] }}
@@ -223,6 +224,7 @@ export default function Logo({
 
         {showWordmark ? (
           <motion.div
+            className={responsiveHeader ? 'max-md:flex max-md:items-center' : undefined}
             initial={reduceMotion || responsiveHeader ? false : { opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{
