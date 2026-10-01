@@ -23,7 +23,7 @@ async function main() {
       await page.getByRole('button', { name: language === 'en' ? /Select English language/ : /Select Hindi/ }).click();
       for (const theme of ['light', 'dark']) {
         await page.evaluate((dark) => document.documentElement.classList.toggle('dark', dark), theme === 'dark');
-        for (const width of [390, 768, 1280, 1440, 1920, 2560, 3840]) {
+        for (const width of [320, 355, 375, 390, 430, 768, 1024, 1280, 1440, 1920, 2560, 3840]) {
           await page.setViewportSize({ width, height: 900 });
           await page.waitForTimeout(250);
           const geometry = await page.evaluate(() => {
@@ -64,7 +64,7 @@ async function main() {
               desktopScale: innerWidth < 1024 || (Math.abs(menuBox.width - 48) < 1 && Math.abs(menuBox.height - 48) < 1 && Math.abs(menuIcon.width - 24) < 1 && Math.abs(emblemBox.width - 40) < 1 && Math.abs(logoBox.width - 186) < 1),
               menuWidth: menuBox.width, menuIconWidth: menuIcon.width,
               emblemWidth: emblemBox.width,
-              emblemCorrect: emblem.getAttribute('src').includes('logo-header-cutout.png') && emblem.complete && emblem.naturalWidth > 0 && emblemBox.width >= 27 && Math.abs(emblemBox.width - emblemBox.height) < 1,
+              emblemCorrect: emblem.getAttribute('src').includes('logo-header-cutout.png') && emblem.complete && emblem.naturalWidth > 0 && emblemBox.width >= (innerWidth < 360 ? 20 : innerWidth < 390 ? 22 : innerWidth < 768 ? 24 : 40) && Math.abs(emblemBox.width - emblemBox.height) < 1,
               mobileAppLabels: innerWidth >= 768 || (epaper.querySelector('span').getBoundingClientRect().width > 0 && lang.querySelector('svg').getBoundingClientRect().width > 0 && epaper.querySelector('svg').getBoundingClientRect().top < epaper.querySelector('span').getBoundingClientRect().top),
               logoProportional: Math.abs(logoBox.width / logoBox.height - 847 / 181) < 0.03,
               mobileLanguageVisible: innerWidth >= 768 || lang.getBoundingClientRect().width >= 40,
@@ -78,9 +78,9 @@ async function main() {
           });
           const strip = page.getByTestId('reader-category-bar').locator('.reader-scroll-x');
           await strip.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
-          const more = page.getByTestId('reader-category-bar').getByRole('button');
+          const more = page.getByTestId('reader-category-bar').getByRole('button', { name: /^(More|अन्य)$/ });
           await more.click();
-          await page.locator('a[href="/main/digital-newsroom"]').filter({ visible: true }).waitFor();
+          await page.locator('a[href="/main/category/kisaan"]').filter({ visible: true }).waitFor();
           await page.keyboard.press('Escape');
           const moreRestoresFocus = await more.evaluate((el) => document.activeElement === el);
           await strip.evaluate((el) => { el.scrollLeft = 0; });
