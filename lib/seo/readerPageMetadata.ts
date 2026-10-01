@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getSiteUrl } from '@/lib/seo/articleSeo';
 import { COMPANY_INFO } from '@/lib/constants/company';
 import { EPAPER_CITY_OPTIONS } from '@/lib/constants/epaperCities';
 import { resolveNewsCategory } from '@/lib/constants/newsCategories';
@@ -10,7 +11,6 @@ import {
 } from '@/lib/utils/epaperPublication';
 import type { EPaperPublicationType } from '@/lib/types/epaper';
 
-const FALLBACK_SITE_URL = 'http://localhost:3000';
 const DEFAULT_OG_IMAGE = '/lokswami-share-preview.png';
 
 type MetadataInput = {
@@ -54,11 +54,11 @@ function formatTitle(title: string) {
 }
 
 export function normalizeSiteUrl(value: string) {
-  return value.replace(/\/+$/, '');
+  return getSiteUrl(value);
 }
 
 export function resolveSiteUrl() {
-  return normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL || FALLBACK_SITE_URL);
+  return getSiteUrl();
 }
 
 export function toAbsoluteUrl(input: string, siteUrl = resolveSiteUrl()) {

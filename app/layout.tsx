@@ -1,5 +1,6 @@
 
 import type { Metadata, Viewport } from 'next';
+import { getSiteUrl } from '@/lib/seo/articleSeo';
 import Script from 'next/script';
 import './globals.css';
 import SitePageTracker from '@/components/analytics/SitePageTracker';
@@ -10,7 +11,7 @@ import InstallAppPrompt from '@/components/ui/InstallAppPrompt';
 import FullscreenFix from '@/components/providers/FullscreenFix';
 import ToastProvider from '@/components/ui/toast/ToastProvider';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://lokswami.com';
+const siteUrl = getSiteUrl();
 
 /*
  Human overview:

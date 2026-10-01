@@ -1,3 +1,5 @@
+import { getSiteUrl } from '@/lib/seo/articleSeo';
+
 export type BuildArticleWhatsAppShareInput = {
   title: string;
   articleUrl: string;
@@ -81,8 +83,8 @@ function getPreferredOrigin(origin: string) {
   const runtimeOrigin = trimTrailingSlash(cleanUrl(origin));
   const configured = trimTrailingSlash(cleanUrl(process.env.NEXT_PUBLIC_SITE_URL || ''));
 
-  if (configured && !isLocalOrigin(configured)) return configured;
-  return runtimeOrigin;
+  if (configured && !isLocalOrigin(configured)) return getSiteUrl(configured);
+  return getSiteUrl(runtimeOrigin);
 }
 
 export function toAbsoluteShareUrl(value: string, origin: string) {

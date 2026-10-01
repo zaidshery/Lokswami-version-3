@@ -114,21 +114,9 @@ function toSitemapItem(input: unknown): ServerArticleSitemapItem | null {
 export async function listArticlesForSitemap(limit = 500) {
   if (await isMongoAvailable({ label: 'sitemap articles lookup' })) {
     try {
-      const records = await Article.find({
-        $or: [
-          { 'workflow.status': 'published' },
-          {
-            'workflow.status': 'scheduled',
-            'workflow.scheduledFor': { $lte: new Date() },
-          },
-          {
-            'workflow.status': { $in: [null, undefined] },
-            publishedAt: { $exists: true, $ne: null },
-          },
-        ],
-      })
+      const records = await Article.find(sitemapPublicationQuery())
         .select('_id slug updatedAt publishedAt workflow')
-        .sort({ updatedAt: -1 })
+        .sort({ updatedAt: -1, _id: -1 })
         .lean();
 
       const normalized = records
@@ -150,12 +138,27 @@ export async function listArticlesForSitemap(limit = 500) {
     .slice(0, limit);
 }
 
+// Match the reader's publication rules for both chunk counting and pagination.
+function sitemapPublicationQuery() {
+  return {
+    $or: [
+      { 'workflow.status': 'published' },
+      {
+        'workflow.status': 'scheduled',
+        'workflow.scheduledFor': { $lte: new Date() },
+      },
+      {
+        'workflow.status': { $in: [null, undefined] },
+        publishedAt: { $exists: true, $ne: null },
+      },
+    ],
+  };
+}
+
 export async function countPublicArticlesForSitemap(): Promise<number> {
   if (await isMongoAvailable({ label: 'sitemap articles count' })) {
     try {
-      const count = await Article.countDocuments({
-        'workflow.status': 'published',
-      });
+      const count = await Article.countDocuments(sitemapPublicationQuery());
       return count;
     } catch (error) {
       console.error('Failed to count sitemap articles from MongoDB, falling back.', error);
@@ -175,11 +178,9 @@ export async function listArticlesForSitemapSlice(options: {
 
   if (await isMongoAvailable({ label: 'sitemap articles slice lookup' })) {
     try {
-      const records = await Article.find({
-        'workflow.status': 'published',
-      })
+      const records = await Article.find(sitemapPublicationQuery())
         .select('_id slug updatedAt publishedAt workflow')
-        .sort({ updatedAt: -1 })
+        .sort({ updatedAt: -1, _id: -1 })
         .skip(skip)
         .limit(limit)
         .lean();

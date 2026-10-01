@@ -1,4 +1,5 @@
 import { resolveNewsCategory } from '@/lib/constants/newsCategories';
+import { detectBreakingTtsLanguage } from '@/lib/types/breaking';
 
 export type ArticleSeoFields = {
   metaTitle: string;
@@ -174,7 +175,17 @@ export async function resolveUniqueArticleSlug(
 }
 
 export function getSiteUrl(value = process.env.NEXT_PUBLIC_SITE_URL || FALLBACK_SITE_URL) {
-  return value.replace(/\/+$/, '');
+  try {
+    const url = new URL(value.trim());
+    const localHost = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    if (
+      !['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
+      (process.env.NODE_ENV === 'production' && localHost)
+    ) return FALLBACK_SITE_URL;
+    return url.origin;
+  } catch {
+    return FALLBACK_SITE_URL;
+  }
 }
 
 export function toAbsoluteArticleUrl(input: string, siteUrl = getSiteUrl()) {
@@ -472,7 +483,7 @@ export function buildNewsArticleJsonLd(input: {
   return {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
-    inLanguage: 'hi',
+    inLanguage: detectBreakingTtsLanguage(`${input.title} ${input.summary}`),
     headline: seo.metaTitle || input.title,
     description: seo.metaDescription || input.summary,
     image: imageUrl ? [imageUrl] : [],

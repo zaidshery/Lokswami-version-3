@@ -1,11 +1,5 @@
 import type { MetadataRoute } from 'next';
-
-const FALLBACK_SITE_URL = 'https://lokswami.com';
-
-function getSiteUrl() {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL || FALLBACK_SITE_URL;
-  return raw.replace(/\/+$/, '');
-}
+import { getSiteUrl } from '@/lib/seo/articleSeo';
 
 export default function robots(): MetadataRoute.Robots {
   const siteUrl = getSiteUrl();
