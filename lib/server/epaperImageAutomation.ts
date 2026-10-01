@@ -29,6 +29,7 @@ export function buildEpaperImageAutomationUpdates(input: {
   currentThumbnailPath?: unknown;
   currentProductionStatus?: unknown;
   currentStatus?: unknown;
+  deferWorkflow?: boolean;
 }) {
   const updates: {
     thumbnailPath?: string;
@@ -51,7 +52,7 @@ export function buildEpaperImageAutomationUpdates(input: {
     pageCount: input.pageCount,
     pages: input.pages,
   });
-  if (!isPublished && productionStatus === 'draft_upload' && completePageImages) {
+  if (!input.deferWorkflow && !isPublished && productionStatus === 'draft_upload' && completePageImages) {
     updates.productionStatus = 'pages_ready';
   } else if (!isPublished && productionStatus === 'pages_ready' && !completePageImages) {
     updates.productionStatus = 'draft_upload';

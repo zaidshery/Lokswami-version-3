@@ -18,7 +18,8 @@ import {
   normalizeCityName,
   normalizeCitySlug,
 } from '@/lib/constants/epaperCities';
-import { buildEpaperImageAutomationUpdates } from '@/lib/server/epaperImageAutomation';
+import { buildEpaperImageAutomationUpdates, hasCompletePageImages } from '@/lib/server/epaperImageAutomation';
+import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import { buildEpaperActivityMessage, listEpaperActivity, recordEpaperActivity } from '@/lib/server/epaperActivity';
 import { logEpaperMetric } from '@/lib/server/epaperObservability';
 import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
@@ -292,7 +293,7 @@ export class EpaperEditorialService {
     assertEpaperDraftEditable(current);
     const source = asObject(body);
     const currentVersion = Number(current.version || 1);
-    let expectedVersion: number | undefined;
+    let expectedVersion: number | undefined = currentVersion;
     if (source.expectedVersion !== undefined && source.expectedVersion !== null) {
       expectedVersion = Number(source.expectedVersion);
       if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
@@ -333,7 +334,26 @@ export class EpaperEditorialService {
       updates.publishDate = parsed;
     }
     const count = Math.min(1000, toPositiveInt(source.pageCount));
-    if (count) { updates.pageCount = count; updates.pages = buildPages(count, normalizeEpaperPages(current.pages)); }
+    if (count) {
+      const pages = buildPages(count, normalizeEpaperPages(current.pages));
+      updates.pageCount = count;
+      updates.pages = pages;
+      updates.qaCompletedAt = null;
+      if (current.productionStatus === 'ready_to_publish') {
+        updates.productionStatus = hasCompletePageImages({ pageCount: count, pages })
+          ? 'hotspot_mapping'
+          : 'draft_upload';
+      } else {
+        const imageUpdates = buildEpaperImageAutomationUpdates({
+          pageCount: count,
+          pages,
+          currentThumbnailPath: current.thumbnailPath,
+          currentProductionStatus: current.productionStatus,
+          currentStatus: current.status,
+        });
+        if (imageUpdates.productionStatus) updates.productionStatus = imageUpdates.productionStatus;
+      }
+    }
     if (updates.citySlug || updates.publishDate) {
       const duplicate = await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(publicationType),
         citySlug: String(updates.citySlug || current.citySlug || ''),
@@ -356,12 +376,39 @@ export class EpaperEditorialService {
   async updateWorkflow(actor: AdminSessionIdentity, id: string, body: unknown) {
     if (!canPrepareEpaperForPublish(actor.role)) throw new EpaperForbiddenError();
     this.assertId(id);
+    if (PROTECTED_EPAPER_AUTOMATION_IDS.has(id.toLowerCase())) {
+      throw new EpaperConflictError('This preserved QA edition cannot be mutated.');
+    }
     const source = asObject(body);
     const hasAssignee = Object.hasOwn(source, 'assignedToId');
     if (hasAssignee && !canManageEpaperAssignments(actor.role)) throw new EpaperForbiddenError('Only admins can assign publication desk ownership.');
     await this.repo.connect();
     const [current, articleRows] = await Promise.all([this.repo.findEditionById(id), this.repo.listArticles(id, 'pageNumber excerpt contentHtml coverImagePath')]);
     if (!current) throw new EpaperNotFoundError();
+    const isAutomation = source.automation === true;
+    if (isAutomation) {
+      if (source.productionStatus === 'published' || source.productionStatus === 'archived') {
+        throw new EpaperValidationError('Automation cannot publish or archive an edition.');
+      }
+      const expectedVersion = Number(source.expectedVersion);
+      const expectedRevisionNumber = Number(source.expectedRevisionNumber);
+      const expectedGeneration = String(source.expectedGeneration || '');
+      const currentVersion = Math.max(1, Number(current.version || 1));
+      const currentRevisionNumber = Math.max(1, Number(current.revisionNumber || 1));
+      const currentGeneration = String(current.processingGeneration || '');
+      if (!Number.isInteger(expectedVersion) || expectedVersion !== currentVersion) {
+        throw new EpaperVersionConflictError(currentVersion, expectedVersion);
+      }
+      if (
+        !Number.isInteger(expectedRevisionNumber) ||
+        expectedRevisionNumber !== currentRevisionNumber ||
+        expectedGeneration !== currentGeneration
+      ) {
+        throw new EpaperConflictError(
+          'EPAPER_PROCESSING_STALE: Edition generation or revision changed during automation.'
+        );
+      }
+    }
     const isArchive = current.status === 'published' && source.productionStatus === 'archived';
     if (!isArchive) try { assertEpaperDraftEditable(current); } catch (error) {
       throw new EpaperConflictError(error instanceof Error ? error.message : 'Edition is immutable.');
@@ -448,14 +495,23 @@ export class EpaperEditorialService {
       ...(transition.toStatus === 'published' ? { status: 'published', isCurrentRevision: true, publishedAt: new Date() } : {}),
       ...(transition.toStatus === 'archived' ? { status: 'draft', isCurrentRevision: false } : {}),
     };
-    const updated = transition.toStatus === 'published'
-      ? await this.repo.publishEdition(
+    const updated = isAutomation
+      ? await this.repo.advanceEditionAutomation({
           id,
-          String(current.familyId || current._id),
+          fromStatus: transition.fromStatus,
+          expectedVersion: Number(source.expectedVersion),
+          expectedGeneration: String(source.expectedGeneration || ''),
+          expectedRevisionNumber: Number(source.expectedRevisionNumber),
           updates,
-          Number(source.expectedVersion)
-        )
-      : await this.repo.updateEdition(id, updates);
+        })
+      : transition.toStatus === 'published'
+        ? await this.repo.publishEdition(
+            id,
+            String(current.familyId || current._id),
+            updates,
+            Number(source.expectedVersion)
+          )
+        : await this.repo.updateEdition(id, updates, Number(current.version || 1));
     if (!updated) throw new EpaperNotFoundError();
     const action = nextStatus && nextStatus !== transition.fromStatus ? nextStatus : hasAssignee ? 'assign' : 'note';
     const message = buildEpaperActivityMessage({ action, toStatus: transition.toStatus, assignedTo: transition.nextProduction.productionAssignee });
@@ -481,7 +537,7 @@ export class EpaperEditorialService {
     if (!edition) throw new EpaperNotFoundError();
 
     // Draft immutability & protection: published editions or current revisions cannot be deleted
-    assertEpaperDraftEditable(edition);
+    assertEpaperDraftEditable(edition, { allowFailedInitialization: true });
     if (edition.isCurrentRevision) {
       throw new EpaperConflictError('Current published revision cannot be deleted.');
     }

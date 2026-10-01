@@ -3,6 +3,8 @@ const http = require('http');
 const net = require('net');
 const path = require('path');
 const { spawn } = require('child_process');
+const { superviseAutomationWorker } = require('./epaper/automation-worker-supervisor');
+const { assertSafeWorkerEnvironment } = require('./epaper/run-automation-worker');
 const {
   DEFAULT_RELEASE_RETENTION,
   dedupeStrings,
@@ -447,8 +449,18 @@ function reserveEphemeralPort() {
   });
 }
 
+function startAutomationWorker() {
+  if (process.env.EPAPER_AUTOMATION_WORKER_ENABLED !== '1') return null;
+  return superviseAutomationWorker({
+    projectRoot, env: { ...process.env, NODE_ENV: process.env.NODE_ENV || 'production' },
+  });
+}
+
 async function main() {
   loadProjectEnvFiles();
+  if (process.env.EPAPER_AUTOMATION_WORKER_ENABLED === '1') {
+    assertSafeWorkerEnvironment({ ...process.env, NODE_ENV: process.env.NODE_ENV || 'production' });
+  }
   const target = resolveServerEntry();
   const releaseRoot = getReleaseDir(target.releaseId);
   const staticRoot = resolveStaticRoot(target.releaseId);
@@ -474,6 +486,7 @@ async function main() {
   });
 
   await waitForInternalServer(internalPort, STARTUP_TIMEOUT_MS);
+  const automationWorker = startAutomationWorker();
 
   const proxyServer = http.createServer((req, res) => {
     if (isStaticAssetRequest(req.url || '') && serveStaticAsset(req, res, staticRoot)) {
@@ -504,6 +517,9 @@ async function main() {
 
   const forwardSignal = (signal) => {
     safeCloseProxy();
+    if (automationWorker && !automationWorker.killed) {
+      automationWorker.kill(signal);
+    }
     if (!child.killed) {
       child.kill(signal);
     }
@@ -514,6 +530,9 @@ async function main() {
 
   child.on('exit', (code, signal) => {
     safeCloseProxy();
+    if (automationWorker && !automationWorker.killed) {
+      automationWorker.kill('SIGTERM');
+    }
     if (signal) {
       process.kill(process.pid, signal);
       return;

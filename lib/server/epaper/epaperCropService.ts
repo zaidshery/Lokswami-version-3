@@ -46,7 +46,7 @@ export class EpaperCropService {
     const source = asObject(body); const pageNumber = toPositiveInt(source.pageNumber);
     if (!pageNumber) throw new EpaperValidationError('pageNumber is required');
     await this.repo.connect();
-    const paper = await this.repo.findEditionById(id, '_id title citySlug publishDate pages pageCount status productionStatus');
+    const paper = await this.repo.findEditionById(id, '_id title citySlug publishDate pages pageCount status productionStatus revisionInitializationStatus');
     if (!paper) throw new EpaperNotFoundError();
     try { assertEpaperDraftEditable(paper); } catch (error) { throw new EpaperConflictError(error instanceof Error ? error.message : 'Edition is immutable.'); }
     if (pageNumber > Number(paper.pageCount || 0)) throw new EpaperValidationError(`pageNumber must be between 1 and ${paper.pageCount}`);

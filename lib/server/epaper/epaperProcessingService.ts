@@ -1,6 +1,10 @@
 import 'server-only';
 
 import { canEditEpaper } from '@/lib/auth/permissions';
+import {
+  applyEpaperWorkflowAutomation,
+  getEpaperAutomationStatus,
+} from '@/lib/server/epaperAutomationPipeline';
 import { shouldUseGlobalPublicationScope } from '@/lib/utils/epaperPublication';
 import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
 import { asObject } from './epaperMapper';
@@ -16,9 +20,10 @@ export class EpaperProcessingService {
 
   async status(actor: AdminSessionIdentity, id: string) {
     this.authorize(actor); this.assertId(id); await this.repo.connect();
-    const [paper, job] = await Promise.all([
+    const [paper, job, automation] = await Promise.all([
       this.repo.findEditionById(id, '_id pageCount pages productionStatus updatedAt'),
       this.repo.findLatestProcessingJob(id),
+      getEpaperAutomationStatus(id),
     ]);
     if (!paper) throw new EpaperNotFoundError('E-paper not found.');
     const warningHours = Math.max(1, Number(process.env.EPAPER_STUCK_WARNING_HOURS || 6));
@@ -43,12 +48,12 @@ export class EpaperProcessingService {
     const productionStatus = paper.productionStatus === 'qa_review' ? 'hotspot_mapping' : paper.productionStatus;
     const stuckWarning = stale && processing ? `This edition has been processing for more than ${warningHours} hours.`
       : stale && productionStatus === 'hotspot_mapping' ? `This edition has remained in hotspot mapping for more than ${warningHours} hours.` : '';
-    return { job, jobState, statusMessage, pageCount: paper.pageCount, pages: paper.pages, productionStatus, updatedAt: paper.updatedAt, stuckWarning };
+    return { job, jobState, statusMessage, pageCount: paper.pageCount, pages: paper.pages, productionStatus, updatedAt: paper.updatedAt, stuckWarning, automation };
   }
 
   async retry(actor: AdminSessionIdentity, id: string, body: unknown) {
     this.authorize(actor); this.assertId(id); await this.repo.connect();
-    const paper = await this.repo.findEditionById(id, '_id publicationType citySlug status pageCount pages productionStatus');
+    const paper = await this.repo.findEditionById(id, '_id publicationType citySlug status pageCount pages productionStatus revisionInitializationStatus');
     if (!paper) throw new EpaperNotFoundError('E-paper not found.');
     assertEpaperDraftEditable(paper);
     const citySlug = shouldUseGlobalPublicationScope(paper.publicationType) ? undefined : String(paper.citySlug || '');
@@ -59,6 +64,17 @@ export class EpaperProcessingService {
     if (!pages.length) throw new EpaperValidationError('There are no missing or failed pages to retry.');
     const job = await this.worker.queuePageProcessing(id, pages);
     return { message: 'Page processing retry queued.', data: { jobId: String(job._id), pageNumbers: pages } };
+  }
+
+  async reconcile(actor: AdminSessionIdentity, id: string) {
+    this.authorize(actor);
+    this.assertId(id);
+    await this.repo.connect();
+    return applyEpaperWorkflowAutomation({
+      epaperId: id,
+      actor,
+      reason: 'Super Admin requested workflow reconciliation.',
+    });
   }
 
   async processDue() {

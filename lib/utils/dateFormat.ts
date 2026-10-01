@@ -123,6 +123,16 @@ export function formatUiDateTime(value: DateLike, fallback = '') {
   return `${formatUiDate(date, fallback)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
+/** Localized newsroom timestamps use India time on server and browser alike. */
+export function formatReaderDateTime(value: DateLike, language: 'hi' | 'en', fallback = '') {
+  const date = resolveDateTime(value);
+  if (!date) return fallback;
+  return new Intl.DateTimeFormat(language === 'hi' ? 'hi-IN' : 'en-IN', {
+    timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  }).format(date);
+}
+
 export function formatUiDateInputValue(value: string) {
   return formatUiDate(value, '');
 }

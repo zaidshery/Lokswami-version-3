@@ -32,6 +32,7 @@ type StorySource = {
   contentHtml: string;
   paperStatus: string;
   productionStatus: string;
+  revisionInitializationStatus: string;
 };
 
 function parseKind(value: unknown): EpaperAssetKind | null {
@@ -75,7 +76,7 @@ async function loadStorySource(paperId: string, storyId: string): Promise<StoryS
 
   const [paper, story] = await Promise.all([
     EPaper.findById(paperId).select(
-      '_id title cityName publishDate status productionStatus'
+      '_id title cityName publishDate status productionStatus revisionInitializationStatus'
     ),
     EPaperArticle.findOne({ _id: storyId, epaperId: paperId }).select(
       '_id epaperId pageNumber title excerpt contentHtml'
@@ -99,6 +100,7 @@ async function loadStorySource(paperId: string, storyId: string): Promise<StoryS
     contentHtml: String(story.contentHtml || '').trim(),
     paperStatus: String(paper.status || ''),
     productionStatus: String(paper.productionStatus || ''),
+    revisionInitializationStatus: String(paper.revisionInitializationStatus || ''),
   };
 }
 
@@ -151,8 +153,10 @@ async function POSTHandler(req: NextRequest) {
     }
     try {
       assertEpaperDraftEditable({
+        _id: story.paperId,
         status: story.paperStatus,
         productionStatus: story.productionStatus,
+        revisionInitializationStatus: story.revisionInitializationStatus,
       });
     } catch (error) {
       return NextResponse.json(

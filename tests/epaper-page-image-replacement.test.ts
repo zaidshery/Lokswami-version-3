@@ -92,4 +92,19 @@ describe('manual e-paper page image replacement', () => {
     expect(updates.pages[2].imagePath).toBe('');
     expect(updates.productionStatus).toBe('draft_upload');
   });
+
+  it('requires the inspected draft revision version before marking page QA ready', async () => {
+    const repo = repoFor(1, 'hotspot_mapping');
+    const p = { ...await repo.findEditionById(), supersedesId: 'source-id', version: 4 };
+    repo.findEditionById.mockResolvedValue(p);
+    const service = new EpaperPageService(repo as never);
+    const pages = [{ pageNumber: 1, reviewStatus: 'ready' }];
+    await expect(service.update(actor, epaperId, { pages }, 'application/json')).rejects.toThrow('expectedVersion is required');
+    await expect(service.update(actor, epaperId, { pages, expectedVersion: 3 }, 'application/json')).rejects.toThrow('EPAPER_VERSION_CONFLICT');
+    expect(repo.updateEdition).not.toHaveBeenCalled();
+    await service.update(actor, epaperId, { pages, expectedVersion: 4 }, 'application/json');
+    expect(repo.updateEdition).toHaveBeenCalledWith(epaperId, expect.objectContaining({
+      pages: [expect.objectContaining({ reviewStatus: 'ready', reviewedBy: expect.objectContaining({ id: actor.id }) })],
+    }), 4, expect.any(Object));
+  });
 });

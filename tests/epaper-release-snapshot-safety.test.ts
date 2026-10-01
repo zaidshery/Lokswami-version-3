@@ -44,7 +44,13 @@ vi.mock('@/lib/models/EPaper', () => ({
     findById: epaperFindByIdMock,
     findByIdAndUpdate: vi.fn().mockResolvedValue(true),
     findOne: vi.fn(),
-    updateOne: vi.fn().mockResolvedValue({ modifiedCount: 1 }),
+    updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
+    db: {
+      startSession: vi.fn(async () => ({
+        withTransaction: async (callback: () => Promise<void>) => callback(),
+        endSession: vi.fn(),
+      })),
+    },
   },
 }));
 
@@ -134,7 +140,9 @@ describe('GAP-008: E-Paper Release Snapshot Safety', () => {
       lean: vi.fn().mockResolvedValue(currentStoryInDb),
     });
     epaperFindByIdMock.mockReturnValue({
-      select: () => ({ lean: () => Promise.resolve(parentEpaper) }),
+      select() { return this; },
+      session() { return this; },
+      lean: () => Promise.resolve(parentEpaper),
     });
   });
 

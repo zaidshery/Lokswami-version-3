@@ -60,7 +60,10 @@ async function loadResolvedArticleDetailPageData(
   const result = await getPublicArticleByResolution(resolution);
   const mappedArticle = mapPublicArticleToUiArticle(result.article);
   if (!mappedArticle) throw new PublicArticleResolutionError('unavailable');
-  const article = projectReaderArticle(mappedArticle);
+  const article = {
+    ...projectReaderArticle(mappedArticle),
+    updatedAt: result.article.updatedAt,
+  };
 
   try {
     const related = await listRelatedPublicArticles(result.article, {

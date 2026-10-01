@@ -424,12 +424,20 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
         }),
         listReadyTtsAssets: vi.fn().mockResolvedValue([]),
       } as unknown as EpaperRepository;
+      mockRepo.withRevisionInitialization = vi.fn(async (_id, _owner, initialize) => initialize(mockRepo));
 
       const service = new EpaperRevisionService(mockRepo);
       const res = await service.create(superAdminActor, sourceId);
 
       expect(res.data.revisionNumber).toBe(2);
       expect(res.data.familyId).toBe('family-clone-1');
+      expect(mockRepo.updateEditionWhere).not.toHaveBeenCalledWith(
+        expect.objectContaining({ _id: sourceId }), expect.anything(),
+      );
+      expect(mockRepo.updateEditionWhere).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'rev-2-id', revisionInitializationStatus: 'initializing' }),
+        { $set: { revisionInitializationStatus: 'ready', revisionInitializationStartedAt: null, revisionInitializationOwner: '' }, $inc: { version: 1 } },
+      );
 
       const clonedEdition = createdEditions[0];
       expect(clonedEdition.status).toBe('draft');
@@ -459,6 +467,52 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
       expect((sourceArticles[0].hotspot as { x: number }).x).toBe(10);
     });
 
+    it('reuses the single draft when concurrent revision creation loses the unique-index race', async () => {
+      const sourceId = 'published-race-source';
+      const duplicateKey = Object.assign(new Error('duplicate revision'), { code: 11000 });
+      const findEdition = vi
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          _id: 'concurrent-draft-id',
+          familyId: 'family-race-draft',
+          revisionNumber: 2,
+          status: 'draft',
+          productionStatus: 'hotspot_mapping',
+        });
+      const mockRepo = {
+        connect: vi.fn(),
+        isValidId: vi.fn(() => true),
+        findEditionById: vi.fn().mockResolvedValue({
+          _id: sourceId,
+          familyId: 'family-race-draft',
+          revisionNumber: 1,
+          status: 'published',
+          productionStatus: 'published',
+          publicationType: 'epaper',
+          citySlug: 'indore',
+          cityName: 'Indore',
+          pages: [],
+        }),
+        updateEditionWhere: vi.fn().mockResolvedValue({}),
+        findEdition,
+        findLatestRevision: vi.fn().mockResolvedValue({ revisionNumber: 1 }),
+        createEdition: vi.fn().mockRejectedValue(duplicateKey),
+      } as unknown as EpaperRepository;
+
+      const service = new EpaperRevisionService(mockRepo);
+      await expect(service.create(superAdminActor, sourceId)).resolves.toMatchObject({
+        message: 'Concurrent draft revision reused.',
+        data: {
+          revisionId: 'concurrent-draft-id',
+          familyId: 'family-race-draft',
+          revisionNumber: 2,
+          reused: true,
+        },
+      });
+      expect(findEdition).toHaveBeenCalledTimes(2);
+    });
+
     it('rejects revision creation if the source edition is not published', async () => {
       const mockRepo = {
         connect: vi.fn(),
@@ -478,6 +532,64 @@ describe('Phase 3.9C — Revision Atomicity, Cloning & Optimistic Concurrency', 
   });
 
   describe('Task 27: Optimistic Concurrency Control (CAS)', () => {
+    it.each([
+      {
+        label: 'increasing page count',
+        pageCount: 2,
+        initialPages: [{ pageNumber: 1, imagePath: '/page-1.jpg', processingStatus: 'ready' }],
+        expectedStage: 'draft_upload',
+        publicationType: 'epaper',
+      },
+      {
+        label: 'reducing page count',
+        pageCount: 1,
+        initialPages: [
+          { pageNumber: 1, imagePath: '/page-1.jpg', processingStatus: 'ready' },
+          { pageNumber: 2, imagePath: '/page-2.jpg', processingStatus: 'ready' },
+        ],
+        expectedStage: 'hotspot_mapping',
+        publicationType: 'emagazine',
+      },
+    ])('demotes ready drafts and CAS versions after $label', async ({ pageCount, initialPages, expectedStage, publicationType }) => {
+      let storedDoc: EpaperRecord = {
+        _id: '507f1f77bcf86cd799439011', publicationType, citySlug: 'global', cityName: 'Global',
+        title: 'Issue', publishDate: new Date('2026-09-01T00:00:00Z'), status: 'draft',
+        productionStatus: 'ready_to_publish', qaCompletedAt: new Date('2026-09-28T00:00:00Z'),
+        pageCount: initialPages.length, pages: initialPages, version: 7,
+      };
+      const mockRepo = {
+        connect: vi.fn(), isValidId: vi.fn(() => true),
+        findEditionById: vi.fn(async () => ({ ...storedDoc })),
+        findEdition: vi.fn().mockResolvedValue(null),
+        updateEditionWithCas: vi.fn(async (_id: string, updates: EpaperRecord, expectedVersion?: number) => {
+          expect(expectedVersion).toBe(7);
+          storedDoc = { ...storedDoc, ...updates, version: Number(storedDoc.version) + 1 };
+          return storedDoc;
+        }),
+      } as unknown as EpaperRepository;
+      const service = new EpaperEditorialService(mockRepo);
+
+      const result = await service.updateMetadata(superAdminActor, '507f1f77bcf86cd799439011', {
+        pageCount,
+        expectedVersion: 7,
+      });
+
+      expect(result.data.productionStatus).toBe(expectedStage);
+      expect(storedDoc.version).toBe(8);
+      expect(storedDoc.qaCompletedAt).toBeNull();
+      expect((storedDoc.pages as EpaperRecord[])).toHaveLength(pageCount);
+      expect(storedDoc.productionStatus).not.toBe('ready_to_publish');
+      expect(result.data.publishDate).toContain('2026-09');
+      expect(mockRepo.updateEditionWithCas).toHaveBeenCalledWith(
+        '507f1f77bcf86cd799439011', expect.objectContaining({
+          pageCount,
+          productionStatus: expectedStage,
+          qaCompletedAt: null,
+          pages: expect.any(Array),
+        }), 7,
+      );
+    });
+
     it('accepts metadata update when expectedVersion matches canonical version and increments version', async () => {
       let storedDoc = {
         _id: '507f1f77bcf86cd799439011',

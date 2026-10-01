@@ -104,6 +104,8 @@ export function buildEpaperActivityMessage(input: ActivityMessageInput) {
       return 'Edition returned to QA after content changed.';
     case 'revision_created':
       return 'A draft replacement revision was created.';
+    case 'revision_recovered':
+      return 'A stale draft revision was recovered and re-initialized.';
     case 'ocr_suggestion_accepted':
       return 'An OCR suggestion was accepted as a story.';
     case 'ocr_suggestion_rejected':

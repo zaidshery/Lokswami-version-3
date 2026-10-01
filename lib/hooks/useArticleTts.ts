@@ -196,17 +196,13 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
     audioUrl,
     text,
     lang = 'hi-IN',
-    rate = 1.0,
-    pitch = 1.0,
-    onEnded,
-    onError,
   } = options;
 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentMode, setCurrentMode] = useState<TtsMode>('none');
   const [playbackProgress, setPlaybackProgress] = useState(0);
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const isSupported =
     typeof window !== 'undefined' &&
@@ -216,6 +212,8 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
   const chunksRef = useRef<string[]>([]);
   const currentChunkIndexRef = useRef(0);
   const isCancelledRef = useRef(false);
+  const playbackIdRef = useRef(0);
+  const speechLanguageRef = useRef(lang);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -244,6 +242,7 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
   }, []);
 
   const stop = useCallback(() => {
+    playbackIdRef.current += 1;
     isCancelledRef.current = true;
 
     // 1. Stop audio element if active
@@ -299,8 +298,9 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
     }
 
     const chunk = chunks[index];
+    const playbackId = playbackIdRef.current;
     const utterance = new SpeechSynthesisUtterance(chunk);
-    const chosenLang = optionsRef.current.lang || 'hi-IN';
+    const chosenLang = speechLanguageRef.current;
     utterance.lang = chosenLang;
     utterance.rate = optionsRef.current.rate ?? 1.0;
     utterance.pitch = optionsRef.current.pitch ?? 1.0;
@@ -312,7 +312,7 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
     }
 
     utterance.onend = () => {
-      if (isCancelledRef.current) return;
+      if (isCancelledRef.current || playbackId !== playbackIdRef.current) return;
       currentChunkIndexRef.current += 1;
       const progress = Math.min(
         100,
@@ -327,23 +327,45 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
       if (
         event.error === 'canceled' ||
         event.error === 'interrupted' ||
-        isCancelledRef.current
+        isCancelledRef.current || playbackId !== playbackIdRef.current
       ) {
         return;
       }
-      console.warn('Speech synthesis utterance error:', event.error);
-      // Advance to next chunk on individual failure rather than stalling
-      currentChunkIndexRef.current += 1;
-      speakNextChunk();
+      stop();
+      optionsRef.current.onError?.('Unable to read this article aloud.');
     };
 
     synth.speak(utterance);
-  }, []);
+  }, [stop]);
+
+  const startSpeechSynthesis = useCallback((textToSpeak: string, languageCode: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      stop();
+      optionsRef.current.onError?.('Speech synthesis is not supported on this browser.');
+      return;
+    }
+    const chunks = chunkTextForSpeech(textToSpeak);
+    if (!chunks.length) {
+      stop();
+      optionsRef.current.onError?.('No speakable text found.');
+      return;
+    }
+    window.speechSynthesis.cancel();
+    speechLanguageRef.current = languageCode;
+    chunksRef.current = chunks;
+    currentChunkIndexRef.current = 0;
+    setCurrentMode('speech');
+    setIsSpeaking(true);
+    setIsPaused(false);
+    setPlaybackProgress(0);
+    speakNextChunk();
+  }, [speakNextChunk, stop]);
 
   const play = useCallback(
     async (params?: UseArticleTtsPlayParams) => {
       stop();
       isCancelledRef.current = false;
+      const playbackId = playbackIdRef.current;
 
       const activeAudioUrl = params?.audioUrl !== undefined ? params.audioUrl : audioUrl;
       const activeText = params?.text !== undefined ? params.text : text;
@@ -359,6 +381,7 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
           setIsPaused(false);
 
           audio.ontimeupdate = () => {
+            if (playbackId !== playbackIdRef.current) return;
             if (audio.duration && !Number.isNaN(audio.duration)) {
               const progress = Math.min(
                 100,
@@ -369,6 +392,7 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
           };
 
           audio.onended = () => {
+            if (playbackId !== playbackIdRef.current) return;
             setIsSpeaking(false);
             setIsPaused(false);
             setCurrentMode('none');
@@ -377,7 +401,12 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
           };
 
           audio.onerror = () => {
-            console.warn('Remote audio playback failed, attempting speech fallback...');
+            if (playbackId !== playbackIdRef.current) return;
+            playbackIdRef.current += 1;
+            audio.pause();
+            audio.onended = null;
+            audio.onerror = null;
+            audio.ontimeupdate = null;
             // Resilient fallback: if remote audio fails and we have text, fall back to Web Speech
             if (activeText && activeText.trim()) {
               audioRef.current = null;
@@ -390,8 +419,15 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
 
           await audio.play();
           return;
-        } catch (error) {
-          console.warn('Audio play() threw error, attempting speech fallback:', error);
+        } catch {
+          if (playbackId !== playbackIdRef.current) return;
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.onended = null;
+            audioRef.current.onerror = null;
+            audioRef.current.ontimeupdate = null;
+            audioRef.current = null;
+          }
           if (activeText && activeText.trim()) {
             startSpeechSynthesis(activeText, activeLang);
             return;
@@ -410,32 +446,8 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
 
       optionsRef.current.onError?.('No audio source or readable text available.');
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [audioUrl, text, lang, stop]
+    [audioUrl, text, lang, stop, startSpeechSynthesis]
   );
-
-  const startSpeechSynthesis = (textToSpeak: string, languageCode: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      optionsRef.current.onError?.('Speech synthesis is not supported on this browser.');
-      return;
-    }
-
-    const chunks = chunkTextForSpeech(textToSpeak);
-    if (!chunks.length) {
-      optionsRef.current.onError?.('No speakable text found.');
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    chunksRef.current = chunks;
-    currentChunkIndexRef.current = 0;
-    setCurrentMode('speech');
-    setIsSpeaking(true);
-    setIsPaused(false);
-    setPlaybackProgress(0);
-
-    speakNextChunk();
-  };
 
   const pause = useCallback(() => {
     if (currentMode === 'audio' && audioRef.current) {
@@ -455,14 +467,18 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
 
   const resume = useCallback(() => {
     if (currentMode === 'audio' && audioRef.current) {
+      const playbackId = playbackIdRef.current;
       audioRef.current
         .play()
         .then(() => {
+          if (playbackId !== playbackIdRef.current) return;
           setIsPaused(false);
           setIsSpeaking(true);
         })
-        .catch((err) => {
-          console.warn('Failed to resume audio:', err);
+        .catch(() => {
+          if (playbackId !== playbackIdRef.current) return;
+          stop();
+          optionsRef.current.onError?.('Unable to resume audio.');
         });
     } else if (
       currentMode === 'speech' &&
@@ -473,7 +489,7 @@ export function useArticleTts(options: UseArticleTtsOptions = {}): UseArticleTts
       setIsPaused(false);
       setIsSpeaking(true);
     }
-  }, [currentMode]);
+  }, [currentMode, stop]);
 
   return {
     isSupported,

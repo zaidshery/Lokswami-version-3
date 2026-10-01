@@ -91,6 +91,9 @@ export function mapAdminEpaper(value: unknown) {
     isCurrentRevision: source.isCurrentRevision !== false,
     version: toPositiveInt(source.version, 1),
     processingGeneration: firstNonEmptyString(source.processingGeneration),
+    revisionInitializationStatus: source.revisionInitializationStatus === 'initializing'
+      ? 'initializing' as const : source.revisionInitializationStatus === 'failed'
+        ? 'failed' as const : 'ready' as const,
     supersedesId: firstNonEmptyString(source.supersedesId),
     publishedAt: source.publishedAt instanceof Date ? source.publishedAt.toISOString() : firstNonEmptyString(source.publishedAt) || null,
     productionStatus: production.productionStatus,

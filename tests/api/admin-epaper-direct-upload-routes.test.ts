@@ -284,6 +284,27 @@ describe('e-paper direct upload admin routes', () => {
     );
   });
 
+  it.each(['initializing', 'failed'])('rejects manual audio writes to a %s revision', async (revisionInitializationStatus) => {
+    const epaperId = '665000000000000000000001';
+    const articleId = '665000000000000000000002';
+    getAdminSessionMock.mockResolvedValue({ id: 'super-admin-1', role: 'super_admin' });
+    verifyEpaperAssetUploadMock.mockResolvedValue({ mediaUrl: 'https://cdn.example.com/audio.mp3' });
+    const select = vi.fn().mockResolvedValue({
+      _id: epaperId, status: 'draft', productionStatus: 'hotspot_mapping', revisionInitializationStatus,
+    });
+    epaperFindByIdMock.mockReturnValue({ select });
+    epaperArticleFindOneMock.mockReturnValue({
+      select: vi.fn().mockResolvedValue({ _id: articleId, epaperId, pageNumber: 1 }),
+    });
+    const { POST } = await import('@/app/api/admin/uploads/epaper-asset/complete/route');
+    const response = await POST(createJsonRequest({
+      kind: 'epaper_story_audio', mediaKey: 'manual/audio.mp3', epaperId, articleId,
+    }));
+    expect(response.status).toBe(409);
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('revisionInitializationStatus'));
+    expect(saveManualTtsAssetMock).not.toHaveBeenCalled();
+  });
+
   it('keeps the legacy multipart upload route as a friendly no-body fallback', async () => {
     getAdminSessionFromReqMock.mockResolvedValue({ id: 'super-admin-1', role: 'super_admin' });
     const formDataMock = vi.fn(() => {
