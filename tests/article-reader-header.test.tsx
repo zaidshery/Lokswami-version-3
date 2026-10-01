@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ArticleReaderHeader from '@/components/article/ArticleReaderHeader';
+import Image from 'next/image';
 
 const article = {
   title: 'इंदौर में जल आपूर्ति योजना पर विस्तृत रिपोर्ट और नागरिकों के लिए महत्वपूर्ण जानकारी',
@@ -10,6 +11,17 @@ const article = {
 };
 afterEach(cleanup);
 describe('article reader header', () => {
+  it('places the image before the byline and actions while retaining the headline above it', () => {
+    const { container } = render(<ArticleReaderHeader article={article} language="en" readMinutes={3} onAuthorClick={() => {}} media={<figure><Image src="/story.jpg" alt="Story image" width={100} height={100} unoptimized /></figure>}><button>Share</button></ArticleReaderHeader>);
+    const heading = screen.getByRole('heading', { level: 1 });
+    const image = screen.getByRole('img', { name: 'Story image' });
+    const author = screen.getByText('Actual Writer');
+    const share = screen.getByRole('button', { name: 'Share' });
+    expect(heading.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(image.compareDocumentPosition(author) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(image.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector('header')?.contains(author)).toBe(false);
+  });
   it.each(['hi', 'en'] as const)('preserves headline, category, byline and time semantics in %s', language => {
     const click = vi.fn();
     const { container } = render(<ArticleReaderHeader article={article} language={language} readMinutes={3} onAuthorClick={click}><button>Share</button></ArticleReaderHeader>);

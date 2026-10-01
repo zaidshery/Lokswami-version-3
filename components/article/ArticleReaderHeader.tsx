@@ -22,13 +22,15 @@ function dateLabel(value: string | undefined, language: 'hi' | 'en') {
 }
 
 export default function ArticleReaderHeader({
-  article, language, readMinutes, onAuthorClick, children,
+  article, language, readMinutes, onAuthorClick, children, media, notice,
 }: {
   article: HeaderArticle;
   language: 'hi' | 'en';
   readMinutes: number;
   onAuthorClick: () => void;
   children: ReactNode;
+  media?: ReactNode;
+  notice?: ReactNode;
 }) {
   const category = resolveNewsCategory(article.category);
   const categoryLabel = category
@@ -41,6 +43,7 @@ export default function ArticleReaderHeader({
   const categoryClass = 'reader-focus-ring inline-flex min-h-11 items-center font-bold text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300';
 
   return (
+    <>
     <header className={styles.header}>
       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         {category ? (
@@ -53,6 +56,9 @@ export default function ArticleReaderHeader({
       </div>
       <h1 className={styles.headline}>{article.title}</h1>
       {article.summary.trim() ? <p className={styles.summary}>{article.summary}</p> : null}
+    </header>
+    {media}
+    <div className={styles.metadata}>
       <div className={styles.byline}>
         <div className={styles.authorDetails}>
           {authorName ? (
@@ -78,6 +84,8 @@ export default function ArticleReaderHeader({
           <p className="text-xs">{language === 'hi' ? `${readMinutes} मिनट में पढ़ें` : `${readMinutes} min read`}</p>
         </div>
       </div>
-    </header>
+      {notice}
+    </div>
+    </>
   );
 }

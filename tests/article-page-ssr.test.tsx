@@ -146,7 +146,13 @@ describe('article page server rendering', () => {
     expect(container.querySelector('article > figure img')).toHaveAttribute('alt', 'Public featured image alt');
     expect(container.querySelector('article > figure figcaption')).toHaveTextContent('Public featured image caption');
     expect(container.querySelector('article > figure figcaption')).toHaveTextContent('Public featured image credit');
-    expect(container.querySelectorAll('article > header time')).toHaveLength(2);
+    expect(container.querySelectorAll('article > div time')).toHaveLength(2);
+    const hero = container.querySelector('article > figure')!;
+    const publication = container.querySelector('article time')!;
+    const listen = container.querySelector('article button[aria-label="Listen to article"]');
+    expect(listen).not.toBeNull();
+    expect(hero.compareDocumentPosition(publication) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(publication.compareDocumentPosition(listen!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(container.querySelector('[data-article-body]')?.textContent).toContain(
       'Substantive published article body text.'
     );
@@ -199,7 +205,7 @@ describe('article page server rendering', () => {
       'Substantive published article body text.'
     );
     expect(container.querySelector('button[aria-label="Save article"]')).not.toBeNull();
-    expect(container.querySelector('button[aria-label="Share article"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="Share article on WhatsApp"]')).not.toBeNull();
   });
 
   it('renders a published article safely when no related article is eligible', async () => {
