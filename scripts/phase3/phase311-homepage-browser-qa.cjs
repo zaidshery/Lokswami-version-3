@@ -8,7 +8,7 @@ const baseUrl = process.argv[2] || 'http://localhost:3111';
 const target = new URL(baseUrl);
 if (!['localhost', '127.0.0.1'].includes(target.hostname)) throw new Error('Local app required.');
 const outputDir = path.resolve('artifacts/phase3-qa/phase311');
-const widths = [320, 360, 375, 390, 414, 430, 768, 1024, 1440];
+const widths = [320, 355, 375, 390, 430, 768, 1024, 1280, 1440, 1920];
 
 async function main() {
   fs.mkdirSync(outputDir, { recursive: true });
@@ -16,9 +16,14 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const pageErrors = [];
   const consoleErrors = [];
+  const assetFailures = [];
   let suppressedMutations = 0;
   page.on('pageerror', (error) => pageErrors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+  page.on('requestfailed', (request) => assetFailures.push({ type: request.resourceType(), url: request.url(), error: request.failure()?.errorText }));
+  page.on('response', (response) => {
+    if (response.status() >= 400) assetFailures.push({ type: response.request().resourceType(), url: response.url(), status: response.status() });
+  });
   await page.route('**/*', (route) => {
     if (['GET', 'HEAD'].includes(route.request().method())) return route.continue();
     suppressedMutations++;
@@ -36,6 +41,9 @@ async function main() {
       const html = await destination.text();
       linkChecks.push({ href, status: destination.status(), hasH1: /<h1[\s>]/.test(html), hasCanonical: /rel="canonical"/.test(html) });
     }
+    for (const language of ['hi', 'en']) {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.getByRole('button', { name: language === 'en' ? /Select English language/ : /Select Hindi/ }).click();
     for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width: 1440, height: 1000 });
       const dark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
@@ -51,33 +59,38 @@ async function main() {
           const storyIds = [...document.querySelectorAll('[data-testid="homepage-top-package"] [data-story-id]')].map((item) => item.dataset.storyId).filter(Boolean);
           return {
             overflow: document.documentElement.scrollWidth > innerWidth,
-            lead: box('lead-story'), latest: box('latest-news-rail'), popular: box('popular-news-rail'),
+            lead: box('lead-story'), latest: box('latest-news-rail'), paper: box('indore-epaper'),
+            railOrder: [...document.querySelector('[data-testid="homepage-publication-rail"]').children].slice(0, 3).map((item) => item.dataset.testid),
+            promoCounts: ['indore-epaper', 'homepage-emagazine', 'live-updates-section'].map((id) => document.querySelectorAll(`[data-testid="${id}"]`).length),
             storyCount: storyIds.length, distinctStories: new Set(storyIds).size,
             headline: document.querySelector('[data-testid="lead-story"] h1')?.textContent || null,
             overlay: Boolean(document.querySelector('[data-nextjs-dialog]')),
           };
         });
-        results.push({ theme, width, ...result });
-        await page.screenshot({ path: path.join(outputDir, `${theme}-${width}.png`), fullPage: false });
+        results.push({ language, theme, width, ...result });
+        await page.evaluate(() => scrollTo(0, 0));
+        if ([1440, 768, 390].includes(width)) await page.screenshot({ path: path.join(outputDir, `${language}-${theme}-${width}-full-page.png`), fullPage: true });
       }
     }
+    }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.getByRole('button', { name: /More categories|अन्य श्रेणियां/ }).click();
-    const moreUsable = await page.getByRole('link', { name: /Latest News|ताज़ा खबरें/, exact: true }).last().isVisible();
+    await page.getByRole('button', { name: /^(More|अन्य)$/ }).click();
+    const moreUsable = await page.getByRole('link', { name: /^(Kisaan|किसान)$/ }).isVisible();
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 390, height: 900 });
     await page.getByRole('button', { name: /Open menu|मेनू खोलें/ }).click();
     const drawer = page.getByRole('dialog');
     const mobileDestinations = await drawer.locator('a[href]').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
     await page.keyboard.press('Escape');
+    const appConsoleErrors = consoleErrors.filter((message) => !message.startsWith('Failed to load resource'));
     const report = {
       httpStatus: response.status(), results, linkChecks, moreUsable, mobileDestinations, pageErrors, consoleErrors,
-      suppressedMutations, productionMutations: 0,
+      appConsoleErrors, assetFailures, suppressedMutations, productionMutations: 0,
       populatedContentVerified: results.every((result) => Boolean(result.headline)),
     };
     fs.writeFileSync(path.join(outputDir, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
-    if (results.some((result) => result.overflow || result.overlay) || linkChecks.some((result) => result.status !== 200) || pageErrors.length || consoleErrors.length || !moreUsable || !report.populatedContentVerified) process.exitCode = 1;
+    if (results.some((result) => result.overflow || result.overlay || result.promoCounts.some((count) => count !== 1) || result.railOrder.join() !== 'indore-epaper,homepage-emagazine,live-updates-section') || linkChecks.some((result) => result.status !== 200) || pageErrors.length || appConsoleErrors.length || assetFailures.some((failure) => failure.type !== 'image') || !moreUsable || !report.populatedContentVerified) process.exitCode = 1;
   } finally {
     await browser.close();
   }

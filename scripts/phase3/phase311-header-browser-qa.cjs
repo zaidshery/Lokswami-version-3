@@ -40,7 +40,7 @@ async function main() {
             const layerBoxes = [live, header, strip.closest('[data-testid="reader-category-bar"]')].map((el) => el.getBoundingClientRect());
             const inners = [brand, strip.parentElement];
             const grid = inners.map((el) => { const r = el.getBoundingClientRect(); return { x: r.x, width: r.width, start: r.x + parseFloat(getComputedStyle(el).paddingLeft) }; });
-            const navBoxes = [...strip.querySelectorAll('nav > a, nav > div > button')].map((el) => el.getBoundingClientRect());
+            const navBoxes = [...strip.querySelectorAll('nav > a, nav > button')].map((el) => el.getBoundingClientRect());
             const lang = brand.querySelector('[data-testid="reader-mobile-language"]');
             const emblem = brand.querySelector('[data-logo-element="icon"] img');
             const emblemBox = emblem.getBoundingClientRect();
