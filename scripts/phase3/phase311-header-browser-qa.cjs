@@ -19,15 +19,15 @@ async function main() {
   try {
     await page.goto(`${base}/main`, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await page.getByTestId('reader-category-bar').waitFor();
-    await page.locator('[data-testid="reader-brand-navigation"] [data-logo-element] img').evaluateAll(async (images) => {
-      await Promise.all(images.map((image) => image.decode()));
-    });
     for (const language of ['hi', 'en']) {
       await page.getByRole('button', { name: language === 'en' ? /Select English language/ : /Select Hindi/ }).click();
       for (const theme of ['light', 'dark']) {
         await page.evaluate((dark) => document.documentElement.classList.toggle('dark', dark), theme === 'dark');
         for (const width of [320, 355, 375, 390, 430, 768, 1024, 1280, 1440, 1920, 2560, 3840]) {
           await page.setViewportSize({ width, height: 900 });
+          await page.locator('[data-testid="reader-brand-navigation"] [data-logo-element] img').evaluateAll(async (images) => {
+            await Promise.all(images.map((image) => image.decode()));
+          });
           await page.mouse.move(0, 0);
           await page.waitForTimeout(250);
           const geometry = await page.evaluate(() => {
