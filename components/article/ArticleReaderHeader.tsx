@@ -22,7 +22,7 @@ function dateLabel(value: string | undefined, language: 'hi' | 'en') {
 }
 
 export default function ArticleReaderHeader({
-  article, language, readMinutes, onAuthorClick, children, media, notice,
+  article, language, readMinutes, onAuthorClick, children, media, notice, showCategory = true,
 }: {
   article: HeaderArticle;
   language: 'hi' | 'en';
@@ -31,6 +31,7 @@ export default function ArticleReaderHeader({
   children: ReactNode;
   media?: ReactNode;
   notice?: ReactNode;
+  showCategory?: boolean;
 }) {
   const category = resolveNewsCategory(article.category);
   const categoryLabel = category
@@ -45,15 +46,15 @@ export default function ArticleReaderHeader({
   return (
     <>
     <header className={styles.header}>
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        {category ? (
+      {showCategory || article.isBreaking || article.isTrending ? <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        {showCategory ? category ? (
           <Link href={getNewsCategoryHref(category.slug)} className={categoryClass}>
             {categoryLabel}
           </Link>
-        ) : <span className={categoryClass}>{categoryLabel}</span>}
+        ) : <span className={categoryClass}>{categoryLabel}</span> : null}
         {article.isBreaking ? <span className="rounded bg-red-700 px-2 py-1 text-xs font-bold text-white">{language === 'hi' ? 'ब्रेकिंग' : 'BREAKING'}</span> : null}
         {article.isTrending ? <span className="rounded bg-zinc-900 px-2 py-1 text-xs font-bold text-white dark:bg-zinc-700">{language === 'hi' ? 'ट्रेंडिंग' : 'TRENDING'}</span> : null}
-      </div>
+      </div> : null}
       <h1 className={styles.headline}>{article.title}</h1>
       {article.summary.trim() ? <p className={styles.summary}>{article.summary}</p> : null}
     </header>

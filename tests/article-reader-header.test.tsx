@@ -11,6 +11,11 @@ const article = {
 };
 afterEach(cleanup);
 describe('article reader header', () => {
+  it('avoids a duplicate category row when the page breadcrumb already provides it', () => {
+    const { container } = render(<ArticleReaderHeader article={article} language="en" readMinutes={3} showCategory={false} onAuthorClick={() => {}}>{null}</ArticleReaderHeader>);
+    expect(screen.queryByRole('link', { name: 'Regional' })).toBeNull();
+    expect(container.querySelector('header')?.firstElementChild?.tagName).toBe('H1');
+  });
   it('places the image before the byline and actions while retaining the headline above it', () => {
     const { container } = render(<ArticleReaderHeader article={article} language="en" readMinutes={3} onAuthorClick={() => {}} media={<figure><Image src="/story.jpg" alt="Story image" width={100} height={100} unoptimized /></figure>}><button>Share</button></ArticleReaderHeader>);
     const heading = screen.getByRole('heading', { level: 1 });

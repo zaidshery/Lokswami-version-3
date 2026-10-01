@@ -345,7 +345,7 @@ export default function ArticleDetailClient({
   return (
     <div className={`${styles.reader} pb-[calc(var(--reader-bottom-nav-space)+5rem)] sm:pb-12`}>
       <ArticleReadingProgress regionRef={articleRegionRef} articleId={article.id} onProgress={handleReadingProgress} />
-      <nav aria-label={language === 'hi' ? 'लेख का रास्ता' : 'Breadcrumb'} className="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+      <nav aria-label={language === 'hi' ? 'लेख का रास्ता' : 'Breadcrumb'} className="mb-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
         <Link href="/main" className="reader-focus-ring inline-flex min-h-11 items-center gap-2 hover:text-red-700 dark:hover:text-red-400">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {language === 'hi' ? 'होम' : 'Home'}
@@ -355,7 +355,7 @@ export default function ArticleDetailClient({
       </nav>
 
       <article ref={articleRegionRef} className="cnp-surface overflow-hidden p-0">
-        <ArticleReaderHeader article={article} language={language} readMinutes={articleMeta.readMinutes} onAuthorClick={() => setIsAuthorImageModalOpen(true)} notice={
+        <ArticleReaderHeader article={article} language={language} readMinutes={articleMeta.readMinutes} showCategory={false} onAuthorClick={() => setIsAuthorImageModalOpen(true)} notice={
           !canSaveArticle ? <p id="article-save-help" className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{language === 'hi' ? 'यह लेख सहेजने के लिए उपलब्ध नहीं है।' : 'Saving is unavailable for this article.'}</p> : !isSignedIn ? <Link id="article-save-help" href="/signin?redirect=/main/saved" className="reader-focus-ring mt-1 inline-flex min-h-11 items-center text-xs text-red-700 underline underline-offset-2 dark:text-red-300">{language === 'hi' ? 'लेख सहेजने के लिए साइन इन करें' : 'Sign in to save this article'}</Link> : null
         } media={
           <figure>
