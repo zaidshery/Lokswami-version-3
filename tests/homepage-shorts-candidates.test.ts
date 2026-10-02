@@ -89,6 +89,7 @@ describe('Homepage Shorts candidates', () => {
   });
   it('preserves file fallback when configured Mongo cannot connect', async () => {
     const previous = process.env.MONGODB_URI; process.env.MONGODB_URI = 'mongodb://127.0.0.1:1/qa';
+    mocks.available.mockResolvedValue(true);
     mocks.connect.mockRejectedValueOnce(new Error('unavailable'));
     mocks.fileRows.mockResolvedValue([short('file-valid', 20)]);
     try {
@@ -141,5 +142,89 @@ describe('Homepage standard-video candidates', () => {
       expect(new Set(selected.map(row => row.slug)).size).toBe(2);
       expect(mocks.connect).not.toHaveBeenCalled(); expect(mocks.find).not.toHaveBeenCalled();
     } finally { if (previous !== undefined) process.env.MONGODB_URI = previous; }
+  });
+});
+
+describe('Homepage media Mongo availability and outage resilience', () => {
+  const standard = (id: string, age: number, extra: Record<string, unknown> = {}) =>
+    short(id, age, { isShort: false, aspectRatio: '16:9', ...extra });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    mocks.fileRows.mockResolvedValue([short('file-short', 10), standard('file-std', 10)]);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('probes isMongoAvailable with homepage media label and falls back to file store without calling connectDB during Mongo outage', async () => {
+    const previous = process.env.MONGODB_URI;
+    process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/lokswami';
+    mocks.available.mockResolvedValue(false);
+
+    try {
+      const repository = new VideoRepository();
+      const result = await repository.getHomeFeedVideos({ videos: 12, shorts: 12 });
+
+      expect(mocks.available).toHaveBeenCalledWith(
+        expect.objectContaining({ label: 'homepage media' })
+      );
+      expect(mocks.connect).not.toHaveBeenCalled();
+      expect(mocks.find).not.toHaveBeenCalled();
+      expect(result.rawVideos.map((row) => (row as { _id: string })._id)).toEqual(['file-std']);
+      expect(result.rawShorts.map((row) => (row as { _id: string })._id)).toEqual(['file-short']);
+    } finally {
+      if (previous === undefined) delete process.env.MONGODB_URI;
+      else process.env.MONGODB_URI = previous;
+    }
+  });
+
+  it('queries Mongo when isMongoAvailable probe succeeds', async () => {
+    const previous = process.env.MONGODB_URI;
+    process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/lokswami';
+    mocks.available.mockResolvedValue(true);
+    mocks.connect.mockResolvedValue({});
+    mongoRows([short('mongo-short', 10), standard('mongo-std', 10)]);
+
+    try {
+      const repository = new VideoRepository();
+      const result = await repository.getHomeFeedVideos({ videos: 12, shorts: 12 });
+
+      expect(mocks.available).toHaveBeenCalledWith(
+        expect.objectContaining({ label: 'homepage media' })
+      );
+      expect(mocks.connect).toHaveBeenCalled();
+      expect(mocks.find).toHaveBeenCalled();
+      expect(result.rawVideos.map((row) => (row as { _id: string })._id)).toEqual(['mongo-std']);
+      expect(result.rawShorts.map((row) => (row as { _id: string })._id)).toEqual(['mongo-short']);
+    } finally {
+      if (previous === undefined) delete process.env.MONGODB_URI;
+      else process.env.MONGODB_URI = previous;
+    }
+  });
+
+  it('falls back to file storage if MongoDB query rejects after successful probe', async () => {
+    const previous = process.env.MONGODB_URI;
+    process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/lokswami';
+    mocks.available.mockResolvedValue(true);
+    mocks.connect.mockResolvedValue({});
+    mocks.find.mockImplementation(() => {
+      throw new Error('Mongo connection drop after probe');
+    });
+
+    try {
+      const repository = new VideoRepository();
+      const result = await repository.getHomeFeedVideos({ videos: 12, shorts: 12 });
+
+      expect(mocks.available).toHaveBeenCalledWith(
+        expect.objectContaining({ label: 'homepage media' })
+      );
+      expect(mocks.connect).toHaveBeenCalled();
+      expect(result.rawVideos.map((row) => (row as { _id: string })._id)).toEqual(['file-std']);
+      expect(result.rawShorts.map((row) => (row as { _id: string })._id)).toEqual(['file-short']);
+    } finally {
+      if (previous === undefined) delete process.env.MONGODB_URI;
+      else process.env.MONGODB_URI = previous;
+    }
   });
 });

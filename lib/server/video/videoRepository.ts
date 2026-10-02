@@ -316,25 +316,38 @@ export class VideoRepository {
     limits: { videos: number; shorts: number },
     store?: VideoStore
   ): Promise<{ rawVideos: unknown[]; rawShorts: unknown[] }> {
-    const effectiveStore = store || (await this.resolveStore());
+    let effectiveStore = store;
+    if (!effectiveStore) {
+      if (!process.env.MONGODB_URI) {
+        effectiveStore = 'file';
+      } else {
+        effectiveStore = (await isMongoAvailable({ label: 'homepage media' }))
+          ? await this.resolveStore()
+          : 'file';
+      }
+    }
     if (effectiveStore === 'mongo') {
-      const [rawVideos, rawShorts] = await Promise.all([
-        limits.videos > 0
-          ? Video.find({ ...buildPublicVideoMongoFilter(new Date()), isShort: { $ne: true } })
-              .select(PUBLIC_VIDEO_PROJECTION)
-              .sort({ publishedAt: -1, _id: -1 })
-              .limit(limits.videos)
-              .lean()
-          : Promise.resolve([]),
-        limits.shorts > 0
-          ? Video.find(buildSwipeMongoFilter(new Date()))
-              .select(PUBLIC_VIDEO_PROJECTION)
-              .sort({ createdAt: -1, _id: -1 })
-              .limit(limits.shorts)
-              .lean()
-          : Promise.resolve([]),
-      ]);
-      return { rawVideos, rawShorts };
+      try {
+        const [rawVideos, rawShorts] = await Promise.all([
+          limits.videos > 0
+            ? Video.find({ ...buildPublicVideoMongoFilter(new Date()), isShort: { $ne: true } })
+                .select(PUBLIC_VIDEO_PROJECTION)
+                .sort({ publishedAt: -1, _id: -1 })
+                .limit(limits.videos)
+                .lean()
+            : Promise.resolve([]),
+          limits.shorts > 0
+            ? Video.find(buildSwipeMongoFilter(new Date()))
+                .select(PUBLIC_VIDEO_PROJECTION)
+                .sort({ createdAt: -1, _id: -1 })
+                .limit(limits.shorts)
+                .lean()
+            : Promise.resolve([]),
+        ]);
+        return { rawVideos, rawShorts };
+      } catch (error) {
+        console.error('Failed to query Homepage media from MongoDB; falling back to file store.', error);
+      }
     }
 
     const videoRows = limits.videos > 0 || limits.shorts > 0
