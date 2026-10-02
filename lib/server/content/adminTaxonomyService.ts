@@ -171,20 +171,51 @@ export async function createAdminCategory(body: {
 }
 
 export async function deleteAdminCategory(id: string): Promise<boolean> {
+  if (!id || typeof id !== 'string') return false;
+
   if (await shouldUseFileStore()) {
     const dataPath = path.resolve(process.cwd(), 'data', 'categories.json');
+    let cats: CategoryRecord[] = [];
     try {
       const raw = await fs.readFile(dataPath, 'utf-8');
       const parsed = JSON.parse(raw || '[]');
-      const cats = Array.isArray(parsed) ? (parsed as CategoryRecord[]) : [];
-      const idx = cats.findIndex((c) => c._id === id);
-      if (idx === -1) return false;
-      cats.splice(idx, 1);
+      cats = Array.isArray(parsed) ? (parsed as CategoryRecord[]) : [];
+    } catch {
+      return false;
+    }
+
+    const idx = cats.findIndex((c) => c._id === id);
+    if (idx === -1) return false;
+
+    const target = cats[idx];
+    if (isDefaultCategorySlug(target.slug)) {
+      const error = new Error('System categories cannot be deleted');
+      (error as unknown as { status?: number }).status = 400;
+      throw error;
+    }
+
+    cats.splice(idx, 1);
+    try {
       await fs.writeFile(dataPath, JSON.stringify(cats, null, 2), 'utf-8');
       return true;
     } catch {
       return false;
     }
+  }
+
+  let target: { slug?: string } | null = null;
+  try {
+    target = await Category.findById(id);
+  } catch {
+    target = null;
+  }
+
+  if (!target) return false;
+
+  if (isDefaultCategorySlug(target.slug)) {
+    const error = new Error('System categories cannot be deleted');
+    (error as unknown as { status?: number }).status = 400;
+    throw error;
   }
 
   const cat = await Category.findByIdAndDelete(id);
