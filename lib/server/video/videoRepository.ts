@@ -45,10 +45,10 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function buildSwipeMongoFilter(now: Date) {
+// Mongo publication predicates corresponding to isPubliclyPublishedVideo.
+function buildPublicVideoMongoFilter(now: Date) {
   return {
     isPublished: true,
-    isShort: true,
     $and: [
       { $or: [{ 'workflow.status': 'published' }, { 'workflow.status': { $exists: false } }] },
       {
@@ -59,7 +59,18 @@ function buildSwipeMongoFilter(now: Date) {
         ],
       },
       { $or: [{ publishedAt: { $exists: false } }, { publishedAt: { $lte: now } }] },
-      { $or: [{ processingStatus: 'ready' }, { processingStatus: { $exists: false } }] },
+      { $or: [{ processingStatus: { $in: ['ready', 'published'] } }, { processingStatus: { $exists: false } }] },
+    ],
+  };
+}
+
+function buildSwipeMongoFilter(now: Date) {
+  const publication = buildPublicVideoMongoFilter(now);
+  return {
+    ...publication,
+    isShort: true,
+    $and: [
+      ...publication.$and,
       { $or: [{ aspectRatio: { $exists: false } }, { aspectRatio: { $ne: '16:9' } }] },
     ],
   };
@@ -305,25 +316,38 @@ export class VideoRepository {
     limits: { videos: number; shorts: number },
     store?: VideoStore
   ): Promise<{ rawVideos: unknown[]; rawShorts: unknown[] }> {
-    const effectiveStore = store || (await this.resolveStore());
+    let effectiveStore = store;
+    if (!effectiveStore) {
+      if (!process.env.MONGODB_URI) {
+        effectiveStore = 'file';
+      } else {
+        effectiveStore = (await isMongoAvailable({ label: 'homepage media' }))
+          ? await this.resolveStore()
+          : 'file';
+      }
+    }
     if (effectiveStore === 'mongo') {
-      const [rawVideos, rawShorts] = await Promise.all([
-        limits.videos > 0
-          ? Video.find({ isPublished: true, isShort: { $ne: true } })
-              .select(PUBLIC_VIDEO_PROJECTION)
-              .sort({ publishedAt: -1, _id: -1 })
-              .limit(limits.videos)
-              .lean()
-          : Promise.resolve([]),
-        limits.shorts > 0
-          ? Video.find({ isPublished: true, isShort: true })
-              .select(PUBLIC_VIDEO_PROJECTION)
-              .sort({ createdAt: -1, _id: -1 })
-              .limit(limits.shorts)
-              .lean()
-          : Promise.resolve([]),
-      ]);
-      return { rawVideos, rawShorts };
+      try {
+        const [rawVideos, rawShorts] = await Promise.all([
+          limits.videos > 0
+            ? Video.find({ ...buildPublicVideoMongoFilter(new Date()), isShort: { $ne: true } })
+                .select(PUBLIC_VIDEO_PROJECTION)
+                .sort({ publishedAt: -1, _id: -1 })
+                .limit(limits.videos)
+                .lean()
+            : Promise.resolve([]),
+          limits.shorts > 0
+            ? Video.find(buildSwipeMongoFilter(new Date()))
+                .select(PUBLIC_VIDEO_PROJECTION)
+                .sort({ createdAt: -1, _id: -1 })
+                .limit(limits.shorts)
+                .lean()
+            : Promise.resolve([]),
+        ]);
+        return { rawVideos, rawShorts };
+      } catch (error) {
+        console.error('Failed to query Homepage media from MongoDB; falling back to file store.', error);
+      }
     }
 
     const videoRows = limits.videos > 0 || limits.shorts > 0

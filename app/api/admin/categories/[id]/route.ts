@@ -19,7 +19,14 @@ async function DELETEHandler(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
     return NextResponse.json({ success: true });
-  } catch (err) {
+  } catch (err: unknown) {
+    const status = (err as { status?: number })?.status;
+    if (status === 400) {
+      return NextResponse.json(
+        { success: false, error: (err as Error).message },
+        { status: 400 }
+      );
+    }
     console.error('cat delete err', err);
     return NextResponse.json({ success: false, error: 'Failed to delete' }, { status: 500 });
   }

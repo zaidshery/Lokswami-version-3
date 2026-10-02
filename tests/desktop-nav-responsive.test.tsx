@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import DesktopNav from '@/components/layout/DesktopNav';
-import { READER_NAVIGATION } from '@/lib/constants/readerNavigation';
+import { HOMEPAGE_NAVIGATION, READER_NAVIGATION } from '@/lib/constants/readerNavigation';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/main',
@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 describe('DesktopNav responsive visibility', () => {
-  it('E-Paper and E-Magazine links have hidden lg:inline-flex classes to hide on mobile and tablet', () => {
+  it('E-Paper and E-Magazine links are exposed across viewports', () => {
     render(<DesktopNav />);
 
     const epaperLink = screen.getByRole('link', {
@@ -21,14 +21,14 @@ describe('DesktopNav responsive visibility', () => {
     });
     expect(epaperLink).toBeInTheDocument();
     expect(epaperLink).toHaveAttribute('href', '/main/epaper');
-    expect(epaperLink.className).toContain('hidden lg:inline-flex');
+    expect(epaperLink.className).not.toContain('hidden');
 
     const emagazineLink = screen.getByRole('link', {
       name: new RegExp(`${READER_NAVIGATION.emagazine.name}|${READER_NAVIGATION.emagazine.nameEn}`, 'i'),
     });
     expect(emagazineLink).toBeInTheDocument();
     expect(emagazineLink).toHaveAttribute('href', '/main/e-magazine');
-    expect(emagazineLink.className).toContain('hidden lg:inline-flex');
+    expect(emagazineLink.className).not.toContain('hidden');
   });
 
   it('Home and Elections links remain visible across all viewports (inline-flex without hidden)', () => {
@@ -51,7 +51,7 @@ describe('DesktopNav responsive visibility', () => {
     expect(electionsLink.className).not.toContain('hidden lg:inline-flex');
   });
 
-  it('Video link renders right after E-Magazine with hidden lg:inline-flex on mobile and tablet', () => {
+  it('renders the supported owner taxonomy in canonical order without fake routes', () => {
     render(<DesktopNav />);
 
     const videoLink = screen.getByRole('link', {
@@ -59,6 +59,12 @@ describe('DesktopNav responsive visibility', () => {
     });
     expect(videoLink).toBeInTheDocument();
     expect(videoLink).toHaveAttribute('href', '/main/videos');
-    expect(videoLink.className).toContain('hidden lg:inline-flex');
+    expect(videoLink.className).not.toContain('hidden');
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual(
+      HOMEPAGE_NAVIGATION.filter((item) => !item.children).map((item) => item.href)
+    );
+    expect(Array.from(screen.getByRole('navigation').children).map((item) => item.textContent)).toEqual(HOMEPAGE_NAVIGATION.map((item) => item.name));
+    expect(screen.getByRole('button', { name: 'राज्य' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'अन्य' })).toHaveAttribute('aria-expanded', 'false');
   });
 });

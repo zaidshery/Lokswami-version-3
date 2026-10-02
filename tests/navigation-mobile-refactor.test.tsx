@@ -36,17 +36,16 @@ describe('Mobile Layout Refactor', () => {
     expect(useAppStore.getState().isMobileMenuOpen).toBe(true);
   });
 
-  it('Header renders e-Paper action button and removes language switcher from top header', () => {
+  it('Header exposes e-Paper and language controls directly', () => {
     (useSession as any).mockReturnValue({ data: null, status: 'unauthenticated' });
     render(<Header />);
 
     // E-Paper link exists in header
-    const epaperLink = screen.getByRole('link', { name: /ई-पेपर पढ़ें|Read E-Paper/i });
+    const epaperLink = screen.getByLabelText('E-Paper');
     expect(epaperLink).toBeInTheDocument();
     expect(epaperLink).toHaveAttribute('href', '/main/epaper');
 
-    // Language switcher toggle is removed from header
-    expect(screen.queryByLabelText(/Switch to English|Switch to Hindi/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Select English language/i })).toBeInTheDocument();
   });
 
   it('BottomNav renders 6 items including Home, E-Paper, E-Mag, Video, Quick, and Login', () => {

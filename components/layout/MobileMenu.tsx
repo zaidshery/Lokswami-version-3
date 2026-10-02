@@ -12,9 +12,6 @@ import {
   Instagram,
   Youtube,
   Languages,
-  Newspaper,
-  BookOpen,
-  PlayCircle,
   Zap,
   User,
   Sun,
@@ -25,7 +22,7 @@ import {
 import { useAppStore } from '@/lib/store/appStore';
 import Logo from '@/components/layout/Logo';
 import { COMPANY_INFO } from '@/lib/constants/company';
-import { NEWS_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCategories';
+import MobileNewsNavigation from './MobileNewsNavigation';
 import { READER_NAVIGATION } from '@/lib/constants/readerNavigation';
 
 interface MobileMenuProps {
@@ -91,27 +88,6 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   const products = [
     {
-      name: 'ई-पेपर',
-      nameEn: 'E-Paper',
-      tagline: 'Daily Edition',
-      href: '/main/epaper',
-      icon: Newspaper,
-    },
-    {
-      name: 'ई-मैगज़ीन',
-      nameEn: 'E-Magazine',
-      tagline: 'Monthly Issue',
-      href: '/main/e-magazine',
-      icon: BookOpen,
-    },
-    {
-      name: 'वीडियो',
-      nameEn: 'Videos',
-      tagline: 'Video Stories',
-      href: '/main/videos',
-      icon: PlayCircle,
-    },
-    {
       name: 'फ़टाफ़ट',
       nameEn: 'Quick News',
       tagline: 'Shorts & Fast Updates',
@@ -120,14 +96,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     },
   ];
 
-  const generalPages = [
-    READER_NAVIGATION.home,
-    READER_NAVIGATION.latest,
-    READER_NAVIGATION.elections,
-    READER_NAVIGATION.search,
-    READER_NAVIGATION.contact,
-  ];
-
+  const generalPages = [READER_NAVIGATION.search];
   useEffect(() => {
     if (!isOpen) return;
 
@@ -144,7 +113,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       }
 
       if (event.key !== 'Tab' || !drawerRef.current) return;
-      const focusables = drawerRef.current.querySelectorAll<HTMLElement>(selector);
+      const focusables = Array.from(drawerRef.current.querySelectorAll<HTMLElement>(selector)).filter(element => !element.closest('[hidden]'));
       if (focusables.length === 0) return;
 
       const first = focusables[0];
@@ -160,7 +129,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       }
     };
 
-    const focusables = drawerRef.current?.querySelectorAll<HTMLElement>(selector);
+    const focusables = Array.from(drawerRef.current?.querySelectorAll<HTMLElement>(selector) || []).filter(element => !element.closest('[hidden]'));
     focusables?.[0]?.focus();
     document.addEventListener('keydown', onKeyDown);
 
@@ -256,28 +225,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   {language === 'hi' ? 'श्रेणियाँ' : 'Categories'}
                 </h3>
                 <div className="mt-2 space-y-1">
-                  {NEWS_CATEGORIES.map((category) => (
-                    <Link
-                      key={category.id}
-                      href={getNewsCategoryHref(category.slug)}
-                      onClick={onClose}
-                      className="cnp-motion reader-touch-link reader-focus-ring group flex min-h-12 items-center justify-between rounded-xl bg-white px-2.5 py-2.5 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white shadow-sm"
-                          style={{ backgroundColor: category.color }}
-                        >
-                          {category.name.charAt(0)}
-                        </span>
-                        <div>
-                          <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{category.name}</span>
-                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{category.nameEn}</span>
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className="text-zinc-500 transition-colors group-hover:text-red-600 dark:text-zinc-400 dark:group-hover:text-red-400" />
-                    </Link>
-                  ))}
+                  <MobileNewsNavigation language={language} onNavigate={onClose} />
                 </div>
               </div>
 

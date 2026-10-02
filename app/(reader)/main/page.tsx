@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import HomePageClient from './HomePageClient';
 import { mapHomeFeedToHomePageState } from '@/lib/content/homeFeed';
 import { getPublicHomepageInitialFeed } from '@/lib/server/publicHomeFeed';
+import { getHomepageDiscovery } from '@/lib/server/content/homepageDiscoveryService';
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const canonical = `${siteUrl}/main`;
@@ -47,6 +48,6 @@ async function fetchInitialHomeFeed() {
 }
 
 export default async function HomePage() {
-  const initialHomeFeed = await fetchInitialHomeFeed();
-  return <HomePageClient initialHomeFeed={initialHomeFeed} />;
+  const [initialHomeFeed, initialDiscovery] = await Promise.all([fetchInitialHomeFeed(), getHomepageDiscovery()]);
+  return <HomePageClient initialHomeFeed={initialHomeFeed} initialDiscovery={initialDiscovery} />;
 }

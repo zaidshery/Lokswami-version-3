@@ -11,6 +11,7 @@ import { listAllStoredArticles } from '@/lib/storage/articlesFile';
 import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 import { type EPaperPublicationType } from '@/lib/types/epaper';
 import { resolveArticleEditorialFlags } from '@/lib/content/articleEditorial';
+import { selectHomepageSections } from '@/lib/content/homepageSections';
 
 export type PublicHomeFeedSource = 'mongo' | 'file';
 
@@ -69,6 +70,7 @@ export type PublicHomeFeedEPaper = {
 
 export type PublicHomeFeed = {
   generatedAt: string;
+  topPackage: ReturnType<typeof selectHomepageSections<PublicHomeFeedArticle>>;
   hero: PublicHomeFeedArticle[];
   latest: PublicHomeFeedArticle[];
   trending: PublicHomeFeedArticle[];
@@ -422,6 +424,7 @@ function buildFeed(input: LoadedHomeFeedData, limits: Required<PublicHomeFeedLim
 
   return {
     generatedAt: new Date().toISOString(),
+    topPackage: selectHomepageSections(input.articles),
     hero,
     latest,
     trending,

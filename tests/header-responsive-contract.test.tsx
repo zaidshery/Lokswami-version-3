@@ -24,7 +24,7 @@ vi.mock('next/navigation', () => ({
 describe('Responsive Header & Language Refinement Contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useSession as any).mockReturnValue({ data: null, status: 'unauthenticated' });
+    vi.mocked(useSession).mockReturnValue({ data: null, status: 'unauthenticated', update: vi.fn() });
     useAppStore.setState({
       language: 'hi',
       theme: 'light',
@@ -33,166 +33,107 @@ describe('Responsive Header & Language Refinement Contract', () => {
     });
   });
 
-  describe('1. Mobile Viewport (390px–767px) Header Contract', () => {
-    it('renders hamburger menu on the left with >=44px touch target', () => {
+  describe('Unified brand and category layers', () => {
+    it('balances the mobile brand without reducing the menu touch target', () => {
       render(<Header />);
-      const hamburger = screen.getByRole('button', { name: /मेनू खोलें|Open menu/i });
-      expect(hamburger).toBeInTheDocument();
-      expect(hamburger).toHaveAttribute('aria-controls', 'mobile-drawer');
-      expect(hamburger.className).toContain('min-h-[44px]');
-      expect(hamburger.className).toContain('min-w-[44px]');
-      expect(hamburger.className).toContain('lg:hidden');
+      const menu = screen.getByRole('button', { name: /Open menu|मेनू खोलें/i });
+      expect(menu.className).toContain('min-w-[44px]');
+      expect(menu.className).toContain('min-h-[44px]');
+      expect(menu.querySelector('svg')?.classList.contains('h-[25.5px]')).toBe(true);
+      expect(menu.querySelector('svg')?.classList.contains('md:h-5')).toBe(true);
+      const home = screen.getByLabelText('Lokswami Home');
+      expect(home.querySelector('[data-logo-element="icon"] img')?.classList.contains('max-md:top-[1.5px]')).toBe(true);
+      const root = home.querySelector('[data-logo-root]')!;
+      expect(root.className).toContain('[--reader-logo-icon:20px]');
+      expect(root.className).toContain('[--reader-logo-wordmark:94px]');
+      expect(root.className).toContain('[--reader-logo-gap:4px]');
+      for (const element of ['icon', 'wordmark']) {
+        expect(home.querySelector(`[data-logo-element="${element}"]`)?.parentElement?.className).toContain('max-md:items-center');
+      }
+    });
+    it('strengthens the desktop hamburger and caps the smaller desktop logo', () => {
+      render(<Header />);
+      const menu = screen.getByRole('button', { name: /मेनू खोलें|Open menu/i });
+      expect(menu.className).toContain('lg:min-w-[48px]');
+      expect(menu.className).toContain('lg:min-h-[48px]');
+      expect(menu.querySelector('svg')).toHaveAttribute('stroke-width', '2.3');
+      expect(menu.querySelector('svg')?.classList.contains('lg:h-6')).toBe(true);
+      const logo = screen.getByLabelText('Lokswami Home').querySelector('[data-logo-root]')!;
+      expect(logo.className).toContain('lg:[--reader-logo-icon:40px]');
+      expect(logo.className).toContain('lg:[--reader-logo-wordmark:186px]');
+    });
+    it.each([320, 390, 768, 1024, 1440])('keeps required controls in the same DOM at %i pixels', (width) => {
+      window.innerWidth = width;
+      render(<Header />);
+      const menu = screen.getByRole('button', { name: /मेनू खोलें|Open menu/i });
+      expect(menu).toHaveAttribute('aria-controls', 'mobile-drawer');
+      expect(menu.className).not.toContain('hidden');
+      expect(screen.getByLabelText('Lokswami Home')).toHaveAttribute('href', '/main');
+      const epaper = screen.getByLabelText('E-Paper');
+      expect(epaper).toHaveAttribute('href', '/main/epaper');
+      expect(epaper.className).not.toContain('hidden');
+      const language = screen.getByTestId('reader-mobile-language');
+      expect(language).toHaveTextContent('HI');
+      expect(language.className).toContain('md:hidden');
+      expect(screen.getByRole('link', { name: /समाचार खोजें|Search news/i })).toHaveAttribute('href', '/main/search');
+      const strip = screen.getByTestId('reader-category-bar').querySelector('.reader-scroll-x')!;
+      expect(strip.className).toContain('overflow-x-auto');
+      expect(strip).toHaveAttribute('data-swipe-ignore', 'true');
+      expect(screen.getByRole('navigation').className).not.toContain('flex-wrap');
     });
 
-    it('renders centered LokSwami wordmark for mobile screens with true geometric centering', () => {
+    it('changes language and opens the drawer from directly available controls', () => {
       render(<Header />);
-      const homeLink = screen.getByLabelText('Lokswami Home');
-      expect(homeLink).toBeInTheDocument();
-      expect(homeLink.parentElement?.className).toContain('md:hidden');
-      expect(homeLink.parentElement?.className).toContain('absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2');
-    });
-
-    it('renders compact segmented [ HI | EN ] control with min-[390px]:inline-flex', () => {
-      render(<Header />);
-      const langGroup = screen.getByRole('group', { name: /भाषा चयन|Language selection/i });
-      expect(langGroup).toBeInTheDocument();
-      expect(langGroup.className).toContain('hidden min-[390px]:inline-flex');
-
-      const hiButton = screen.getByRole('button', { name: /हिन्दी भाषा चुनें/i });
-      const enButton = screen.getByRole('button', { name: /Select English language/i });
-      expect(hiButton).toBeInTheDocument();
-      expect(enButton).toBeInTheDocument();
-
-      // Touch target standards: effective vertical height >=44px
-      expect(hiButton.className).toContain('min-h-[44px]');
-      expect(enButton.className).toContain('min-h-[44px]');
-      expect(hiButton.className).toContain('min-w-[34px]');
-      expect(enButton.className).toContain('min-w-[34px]');
-      expect(hiButton.className).toContain('sm:min-w-[44px]');
-      expect(enButton.className).toContain('sm:min-w-[44px]');
-
-      // Hindi is selected by default in state
-      expect(hiButton).toHaveAttribute('aria-pressed', 'true');
-      expect(enButton).toHaveAttribute('aria-pressed', 'false');
-
-      // Segmented pill styling
-      expect(langGroup.className).toContain('h-11');
-      expect(langGroup.className).toContain('rounded-xl');
-
-      // Clicking EN toggles language to English
-      fireEvent.click(enButton);
+      const en = screen.getByRole('button', { name: /Select English language/i });
+      fireEvent.click(en);
       expect(useAppStore.getState().language).toBe('en');
+      expect(en).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+      expect(useAppStore.getState().isMobileMenuOpen).toBe(true);
     });
 
-    it('renders Search link with 44x44px standalone button pointing to /main/search', () => {
+    it('uses one mobile language action that toggles both directions', () => {
       render(<Header />);
-      const searchLink = screen.getByRole('link', { name: /समाचार खोजें|Search news/i });
-      expect(searchLink).toBeInTheDocument();
-      expect(searchLink).toHaveAttribute('href', '/main/search');
-      expect(searchLink.className).toContain('h-11');
-      expect(searchLink.className).toContain('w-11');
-      expect(searchLink.className).toContain('min-h-[44px]');
-      expect(searchLink.className).toContain('min-w-[44px]');
-      expect(searchLink.className).toContain('rounded-xl');
+      const toggle = screen.getByTestId('reader-mobile-language');
+      expect(toggle).toHaveAccessibleName('Language: HI. Switch to English');
+      fireEvent.click(toggle);
+      expect(toggle).toHaveTextContent('EN');
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(useAppStore.getState().language).toBe('en');
+      fireEvent.click(toggle);
+      expect(useAppStore.getState().language).toBe('hi');
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      expect(toggle.querySelector('svg')).toBeInTheDocument();
+      expect(toggle.className).toContain('h-11');
+      expect(toggle.className).toContain('w-[42px]');
     });
 
-    it('ensures right-action wrapper is a clean flex container without decorative nested box card', () => {
+    it('uses the canonical proportional wordmark and compact mobile E-Paper action', () => {
       render(<Header />);
-      const searchLink = screen.getByRole('link', { name: /समाचार खोजें|Search news/i });
-      const rightContainer = searchLink.parentElement;
-      expect(rightContainer).toBeInTheDocument();
-      expect(rightContainer?.className).toContain('flex');
-      expect(rightContainer?.className).not.toContain('border-zinc');
-      expect(rightContainer?.className).not.toContain('bg-gradient');
+      const home = screen.getByLabelText('Lokswami Home');
+      const logo = home.querySelector('[data-logo-element="wordmark"] img')!;
+      const emblem = home.querySelector('[data-logo-element="icon"] img')!;
+      expect(emblem.getAttribute('src')).toContain('logo-header-cutout.png');
+      expect(home.querySelector('[data-logo-root]')).toBeInTheDocument();
+      expect(logo.getAttribute('src')).toContain('logo-wordmark-final.png');
+      expect(logo).toHaveAttribute('width', '847');
+      expect(logo).toHaveAttribute('height', '181');
+      expect(logo.className).toContain('h-auto');
+      expect(logo.closest('[data-logo-element="wordmark"]')).toHaveStyle({ width: 'var(--reader-logo-wordmark)' });
+      const epaper = screen.getByLabelText('E-Paper');
+      expect(epaper.querySelector('svg')).toBeInTheDocument();
+      expect(epaper.querySelector('span')).toHaveTextContent('ePaper');
+      expect(epaper.querySelector('span')?.className).toContain('md:hidden');
+      expect(epaper.className).toContain('flex-col');
+      expect(epaper.className).toContain('h-11');
+      expect(epaper.className).toContain('md:bg-brand-500');
     });
 
-    it('ensures E-Paper, Theme toggle, and Sign In are absent from top header on mobile', () => {
+    it('preserves desktop account and theme actions', () => {
       render(<Header />);
-      // E-Paper has hidden md:inline-flex (hidden on mobile <768px)
-      const epaperLink = screen.getByRole('link', { name: /ई-पेपर पढ़ें|Read E-Paper/i });
-      expect(epaperLink.className).toContain('hidden md:inline-flex');
-
-      // Theme toggle has hidden lg:inline-flex (hidden on mobile & tablet <1024px)
-      const themeToggle = screen.getByRole('button', { name: /Toggle theme/i });
-      expect(themeToggle.className).toContain('hidden lg:inline-flex');
-
-      // Sign In has hidden lg:block (hidden on mobile & tablet <1024px)
-      const signInLink = screen.getByRole('link', { name: /साइन इन|Sign In/i });
-      expect(signInLink.parentElement?.parentElement?.className).toContain('hidden lg:block');
-    });
-  });
-
-  describe('2. Narrow Phone Viewport (360px–389px) Safety Contract', () => {
-    it('hides top header HI/EN toggle on viewports narrower than 390px via responsive class', () => {
-      render(<Header />);
-      const langGroup = screen.getByRole('group', { name: /भाषा चयन|Language selection/i });
-      // Uses hidden min-[390px]:inline-flex to safely prevent overlap on narrow phones
-      expect(langGroup.className).toContain('hidden min-[390px]:inline-flex');
-    });
-
-    it('keeps Search directly accessible with >=44px touch target on all viewports', () => {
-      render(<Header />);
-      const searchLink = screen.getByRole('link', { name: /समाचार खोजें|Search news/i });
-      expect(searchLink.className).toContain('min-h-[44px]');
-      expect(searchLink.className).toContain('min-w-[44px]');
-    });
-  });
-
-  describe('3. Tablet Viewport (768px–1023px) Header Contract', () => {
-    it('exposes E-Paper CTA starting at tablet breakpoint (md: 768px)', () => {
-      render(<Header />);
-      const epaperLink = screen.getByRole('link', { name: /ई-पेपर पढ़ें|Read E-Paper/i });
-      expect(epaperLink.className).toContain('hidden md:inline-flex');
-      expect(epaperLink).toHaveAttribute('href', '/main/epaper');
-    });
-
-    it('exposes compact HI/EN toggle on tablet', () => {
-      render(<Header />);
-      const langGroup = screen.getByRole('group', { name: /भाषा चयन|Language selection/i });
-      expect(langGroup.className).toContain('min-[390px]:inline-flex');
-    });
-
-    it('keeps Theme toggle in MobileMenu/drawer rather than top header on tablet (<1024px)', () => {
-      render(<Header />);
-      const themeToggle = screen.getByRole('button', { name: /Toggle theme/i });
-      expect(themeToggle.className).toContain('hidden lg:inline-flex');
-    });
-  });
-
-  describe('4. Desktop Viewport (1024px+) Header Contract', () => {
-    it('exposes full set of desktop controls (E-Paper, Search, User/Sign In, HI/EN, Theme)', () => {
-      render(<Header />);
-      // Desktop Logo
-      const desktopLogoWrapper = screen.getByRole('banner').querySelector('.hidden.min-w-0.lg\\:block');
-      expect(desktopLogoWrapper).toBeInTheDocument();
-
-      // E-Paper
-      expect(screen.getByRole('link', { name: /ई-पेपर पढ़ें|Read E-Paper/i })).toBeInTheDocument();
-
-      // Search
-      expect(screen.getByRole('link', { name: /समाचार खोजें|Search news/i })).toBeInTheDocument();
-
-      // Sign In
-      expect(screen.getByRole('link', { name: /साइन इन|Sign In/i })).toBeInTheDocument();
-
-      // HI / EN
-      expect(screen.getByRole('group', { name: /भाषा चयन|Language selection/i })).toBeInTheDocument();
-
-      // Theme toggle
-      expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeInTheDocument();
-    });
-
-    it('orders desktop right controls logically: E-Paper, Search, Sign In, HI/EN, Theme', () => {
-      render(<Header />);
-      const epaperLink = screen.getByRole('link', { name: /ई-पेपर पढ़ें|Read E-Paper/i });
-      const searchLink = screen.getByRole('link', { name: /समाचार खोजें|Search news/i });
-      const langGroup = screen.getByRole('group', { name: /भाषा चयन|Language selection/i });
-      const themeToggle = screen.getByRole('button', { name: /Toggle theme/i });
-
-      expect(epaperLink.className).toContain('order-0');
-      expect(searchLink.className).toContain('lg:order-1');
-      expect(langGroup.className).toContain('lg:order-3');
-      expect(themeToggle.className).toContain('lg:order-4');
+      expect(screen.getByRole('link', { name: /साइन इन|Sign In/i })).toHaveAttribute('href', '/signin');
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }));
+      expect(useAppStore.getState().theme).toBe('dark');
     });
   });
 

@@ -62,6 +62,7 @@ type PublicHomeFeedEPaper = {
 };
 
 type PublicHomeFeedData = {
+  topPackage?: { lead?: PublicHomeFeedArticle | null; latest?: PublicHomeFeedArticle[]; popular?: PublicHomeFeedArticle[] };
   hero?: PublicHomeFeedArticle[];
   latest?: PublicHomeFeedArticle[];
   trending?: PublicHomeFeedArticle[];
@@ -196,6 +197,9 @@ export function mapHomeFeedToHomePageState(payload: unknown): HomePageFeedState 
   if (!data) return null;
 
   const articles = mergeUniqueArticles([
+    data.topPackage?.lead ? [data.topPackage.lead] : [],
+    Array.isArray(data.topPackage?.latest) ? data.topPackage.latest : [],
+    Array.isArray(data.topPackage?.popular) ? data.topPackage.popular : [],
     Array.isArray(data.hero) ? data.hero : [],
     Array.isArray(data.latest) ? data.latest : [],
     Array.isArray(data.trending) ? data.trending : [],

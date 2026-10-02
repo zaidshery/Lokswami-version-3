@@ -1,7 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
 import Category from '@/lib/models/Category';
-import { NEWS_CATEGORIES } from '@/lib/constants/newsCategories';
+import {
+  DEFAULT_CMS_CATEGORIES,
+  DEFAULT_CATEGORY_SLUGS,
+  isDefaultCategorySlug,
+} from '@/lib/constants/newsCategories';
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 
 export type CategoryRecord = {
@@ -12,14 +16,7 @@ export type CategoryRecord = {
   icon?: string;
 };
 
-const DEFAULT_CMS_CATEGORIES: Omit<CategoryRecord, '_id'>[] = NEWS_CATEGORIES.map(
-  (category) => ({
-    name: category.nameEn,
-    slug: category.slug,
-    description: `${category.nameEn} news and updates`,
-    icon: category.icon,
-  })
-);
+export { DEFAULT_CMS_CATEGORIES, DEFAULT_CATEGORY_SLUGS, isDefaultCategorySlug };
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
@@ -29,7 +26,7 @@ function sortCategories(items: CategoryRecord[]) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function findMissingDefaults(existing: CategoryRecord[]) {
+export function findMissingDefaults(existing: CategoryRecord[]) {
   const existingNames = new Set(
     existing
       .map((item) => (typeof item.name === 'string' ? normalize(item.name) : ''))
@@ -114,6 +111,10 @@ export async function getAdminCategories(): Promise<CategoryRecord[]> {
   return cats;
 }
 
+export async function ensureDefaultCategories(): Promise<CategoryRecord[]> {
+  return getAdminCategories();
+}
+
 export async function createAdminCategory(body: {
   name?: string;
   description?: string;
@@ -170,20 +171,51 @@ export async function createAdminCategory(body: {
 }
 
 export async function deleteAdminCategory(id: string): Promise<boolean> {
+  if (!id || typeof id !== 'string') return false;
+
   if (await shouldUseFileStore()) {
     const dataPath = path.resolve(process.cwd(), 'data', 'categories.json');
+    let cats: CategoryRecord[] = [];
     try {
       const raw = await fs.readFile(dataPath, 'utf-8');
       const parsed = JSON.parse(raw || '[]');
-      const cats = Array.isArray(parsed) ? (parsed as CategoryRecord[]) : [];
-      const idx = cats.findIndex((c) => c._id === id);
-      if (idx === -1) return false;
-      cats.splice(idx, 1);
+      cats = Array.isArray(parsed) ? (parsed as CategoryRecord[]) : [];
+    } catch {
+      return false;
+    }
+
+    const idx = cats.findIndex((c) => c._id === id);
+    if (idx === -1) return false;
+
+    const target = cats[idx];
+    if (isDefaultCategorySlug(target.slug)) {
+      const error = new Error('System categories cannot be deleted');
+      (error as unknown as { status?: number }).status = 400;
+      throw error;
+    }
+
+    cats.splice(idx, 1);
+    try {
       await fs.writeFile(dataPath, JSON.stringify(cats, null, 2), 'utf-8');
       return true;
     } catch {
       return false;
     }
+  }
+
+  let target: { slug?: string } | null = null;
+  try {
+    target = await Category.findById(id);
+  } catch {
+    target = null;
+  }
+
+  if (!target) return false;
+
+  if (isDefaultCategorySlug(target.slug)) {
+    const error = new Error('System categories cannot be deleted');
+    (error as unknown as { status?: number }).status = 400;
+    throw error;
   }
 
   const cat = await Category.findByIdAndDelete(id);

@@ -26,7 +26,7 @@ import {
   CMS_COLLECTION_SECONDARY_BUTTON_CLASS as SECONDARY_BUTTON_CLASS,
 } from '@/components/admin/CmsCollectionLayout';
 import { getAuthHeader } from '@/lib/auth/clientToken';
-import { NEWS_CATEGORIES } from '@/lib/constants/newsCategories';
+import { isDefaultCategorySlug } from '@/lib/constants/newsCategories';
 
 interface CategoryItem {
   _id: string;
@@ -39,8 +39,6 @@ interface CategoryItem {
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
 }
-
-const DEFAULT_CATEGORY_SLUGS = new Set(NEWS_CATEGORIES.map((category) => category.slug));
 
 export default function CategoriesPage() {
   const [cats, setCats] = useState<CategoryItem[]>([]);
@@ -84,7 +82,7 @@ export default function CategoriesPage() {
   }, [cats, query]);
 
   const defaultCount = useMemo(
-    () => cats.filter((cat) => cat.slug && DEFAULT_CATEGORY_SLUGS.has(cat.slug)).length,
+    () => cats.filter((cat) => isDefaultCategorySlug(cat.slug)).length,
     [cats]
   );
 
@@ -122,6 +120,12 @@ export default function CategoriesPage() {
   };
 
   const del = async (id: string) => {
+    const target = cats.find((c) => c._id === id);
+    if (target && isDefaultCategorySlug(target.slug)) {
+      setError('System categories cannot be deleted');
+      return;
+    }
+
     if (!confirm('Delete category?')) return;
 
     setDeletingId(id);
@@ -246,7 +250,7 @@ export default function CategoriesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {filteredCats.map((cat, index) => {
-            const isSystemCategory = Boolean(cat.slug && DEFAULT_CATEGORY_SLUGS.has(cat.slug));
+            const isSystemCategory = isDefaultCategorySlug(cat.slug);
 
             return (
               <motion.article
@@ -278,20 +282,22 @@ export default function CategoriesPage() {
 
                   <div className="flex shrink-0 flex-row items-center gap-2 sm:flex-col sm:items-end">
                     <span className={META_CHIP_CLASS}>{isSystemCategory ? 'System' : 'Custom'}</span>
-                    <button
-                      type="button"
-                      onClick={() => void del(cat._id)}
-                      disabled={deletingId === cat._id}
-                      className={cx(DANGER_BUTTON_CLASS, 'px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60')}
-                      aria-label={`Delete ${cat.name}`}
-                    >
-                      {deletingId === cat._id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                      <span className="sm:sr-only">Delete</span>
-                    </button>
+                    {!isSystemCategory ? (
+                      <button
+                        type="button"
+                        onClick={() => void del(cat._id)}
+                        disabled={deletingId === cat._id}
+                        className={cx(DANGER_BUTTON_CLASS, 'px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60')}
+                        aria-label={`Delete ${cat.name}`}
+                      >
+                        {deletingId === cat._id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        <span className="sm:sr-only">Delete</span>
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </motion.article>
