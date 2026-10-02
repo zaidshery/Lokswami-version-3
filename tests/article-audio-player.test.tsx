@@ -46,7 +46,7 @@ describe('article audio player using the real playback hook', () => {
   it.each(['hi', 'en'] as const)('renders localized idle controls without requesting or playing audio in %s', language => {
     mount(language);
     expect(screen.getByRole('button', { name: language === 'hi' ? 'लेख सुनें' : 'Listen to article' })).toBeEnabled();
-    expect(screen.getByRole('status')).toHaveTextContent(language === 'hi' ? 'सुनें चुनने पर' : 'only when you choose');
+    expect(screen.getByRole('status')).toHaveTextContent(language === 'hi' ? 'लेख सुनने के लिए' : 'Tap Listen');
     expect(request).not.toHaveBeenCalled();
     expect(ControlledAudio.instances).toHaveLength(0);
     expect(screen.queryByRole('slider')).toBeNull();

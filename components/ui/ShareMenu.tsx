@@ -40,6 +40,8 @@ type ShareMenuProps = {
   placement?: string;
   language?: 'hi' | 'en';
   triggerLabel?: string;
+  triggerIcon?: 'share' | 'whatsapp';
+  directWhatsApp?: boolean;
   ariaLabel?: string;
   className?: string;
   buttonClassName?: string;
@@ -140,6 +142,8 @@ export default function ShareMenu({
   placement = 'reader',
   language = 'en',
   triggerLabel,
+  triggerIcon = 'share',
+  directWhatsApp = false,
   ariaLabel,
   className = '',
   buttonClassName = '',
@@ -448,19 +452,26 @@ export default function ShareMenu({
       <button
         ref={triggerRef}
         type="button"
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
+        data-share-action
+        aria-haspopup={directWhatsApp ? undefined : 'menu'}
+        aria-expanded={directWhatsApp ? undefined : isOpen}
         aria-controls={isOpen ? menuId : undefined}
         aria-label={displayedAriaLabel}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          if (directWhatsApp) { handleExternalShare('whatsapp'); return; }
           setCopyStatus('idle');
           setIsOpen((current) => !current);
         }}
         className={buttonClassName || 'reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'}
       >
-        <Share2 className="h-4 w-4" aria-hidden="true" />
+        {triggerIcon === 'whatsapp' ? (
+          <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+            <path d="M13.601 2.326A7.85 7.85 0 0 0 8.015 0C3.58 0-.049 3.627-.05 8.064a8.01 8.01 0 0 0 1.05 3.98L0 16l4.062-1.066a8.03 8.03 0 0 0 3.952 1.008h.003c4.435 0 8.064-3.627 8.064-8.064a7.9 7.9 0 0 0-2.48-5.552zm-5.586 12.3h-.003a6.68 6.68 0 0 1-3.402-.93l-.244-.145-2.41.632.643-2.35-.158-.242a6.69 6.69 0 0 1-1.028-3.526c.002-3.692 3.01-6.7 6.706-6.7a6.66 6.66 0 0 1 4.738 1.97 6.67 6.67 0 0 1 1.958 4.74c-.002 3.693-3.01 6.702-6.706 6.702z" />
+            <path d="M11.74 9.93c-.202-.101-1.196-.59-1.382-.658-.185-.067-.32-.101-.455.101-.134.202-.522.658-.64.793-.118.134-.236.151-.438.05-.202-.1-.851-.313-1.62-.997-.598-.533-1.002-1.19-1.12-1.392-.118-.202-.013-.311.088-.412.09-.089.202-.236.303-.353.101-.118.135-.202.202-.337.067-.135.034-.253-.017-.354-.05-.101-.455-1.096-.623-1.5-.163-.392-.329-.338-.455-.344-.118-.005-.252-.006-.387-.006s-.354.05-.539.252c-.185.202-.707.69-.707 1.684 0 .994.724 1.955.825 2.09.101.134 1.425 2.176 3.45 3.05.482.208.857.332 1.15.425.483.154.922.132 1.269.08.387-.058 1.196-.488 1.365-.96.168-.472.168-.876.117-.96-.05-.084-.185-.135-.387-.236z" />
+          </svg>
+        ) : <Share2 className="h-4 w-4" aria-hidden="true" />}
         <span>{displayedTriggerLabel}</span>
       </button>
       {menu}

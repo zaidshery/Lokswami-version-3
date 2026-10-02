@@ -52,6 +52,20 @@ describe('ShareMenu', () => {
     );
   }
 
+  it('shares directly to WhatsApp without opening a menu when requested', () => {
+    render(<ShareMenu title="City services" url="https://lokswami.com/main/article/city-services" contentType="article" contentId="article-7" triggerIcon="whatsapp" directWhatsApp ariaLabel="Share on WhatsApp" />);
+    const button = screen.getByRole('button', { name: 'Share on WhatsApp' });
+    expect(button).not.toHaveAttribute('aria-haspopup');
+    fireEvent.click(button);
+    expect(openWindow).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/'), '_blank', 'noopener,noreferrer');
+    expect(openWindow).toHaveBeenCalledOnce();
+    const payload = new URL(openWindow.mock.calls[0][0]).searchParams.get('text')!;
+    expect(payload).toContain('https://lokswami.com/main/article/city-services');
+    expect(payload.match(/https:\/\/lokswami\.com/g)).toHaveLength(1);
+    expect(mocks.trackClientEvent.mock.calls.map(([payload]) => payload.event)).toEqual(['share_click', 'share_complete']);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
   it('offers native, social, and copy choices in an accessible menu', async () => {
     const user = userEvent.setup();
     renderMenu();

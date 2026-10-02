@@ -2,10 +2,11 @@ import type { MetadataRoute } from 'next';
 import { EPAPER_CITY_OPTIONS } from '@/lib/constants/epaperCities';
 import { NEWS_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCategories';
 import { sitemapContentQueryService } from '@/lib/server/content/sitemapContentQueryService';
+import { getSiteUrl } from '@/lib/seo/articleSeo';
 
-export const revalidate = 86_400;
+// Publication, scheduling and archive changes must be visible without a stale build-time chunk.
+export const dynamic = 'force-dynamic';
 
-const FALLBACK_SITE_URL = 'http://localhost:3000';
 const ARTICLE_SITEMAP_LIMIT = 5000;
 const SITEMAP_ARTICLE_CHUNK_SIZE = 2500;
 const EPAPER_SITEMAP_LIMIT = 1000;
@@ -15,11 +16,6 @@ type StaticSitemapRoute = {
   changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'];
   priority: number;
 };
-
-function getSiteUrl() {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL || FALLBACK_SITE_URL;
-  return raw.replace(/\/+$/, '');
-}
 
 function absoluteUrl(baseUrl: string, path: string) {
   if (!path.startsWith('/')) {
@@ -43,12 +39,17 @@ function uniqueEntries(entries: MetadataRoute.Sitemap) {
     if (seen.has(entry.url)) return false;
     seen.add(entry.url);
     return true;
-  });
+  }).map((entry) => ({
+    ...entry,
+    // Next.js 15 serializes <loc> verbatim; escape only at this XML boundary.
+    url: entry.url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+  }));
 }
 
 /**
  * Next.js App Router dynamic sitemap indexing.
- * Generates an index of sitemaps chunked at 2,500 articles each,
+ * Generates chunk IDs for sitemaps containing 2,500 articles each.
+ * The /sitemap.xml route exposes these chunks in a sitemap index,
  * lifting the previous hardcoded 5,000 article limit.
  */
 export async function generateSitemaps(): Promise<Array<{ id: number }>> {
@@ -88,7 +89,7 @@ export default async function sitemap(props?: {
 
     const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
       url: absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article)),
-      lastModified: new Date(article.updatedAt),
+      lastModified: article.updatedAt ? new Date(article.updatedAt) : undefined,
       changeFrequency: 'weekly',
       priority: 0.8,
     }));
@@ -158,7 +159,7 @@ export default async function sitemap(props?: {
 
   const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
     url: absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article)),
-    lastModified: new Date(article.updatedAt),
+    lastModified: article.updatedAt ? new Date(article.updatedAt) : undefined,
     changeFrequency: 'weekly',
     priority: 0.8,
   }));

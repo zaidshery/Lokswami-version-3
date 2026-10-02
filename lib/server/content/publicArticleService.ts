@@ -10,6 +10,7 @@ import {
   parseArticleRequestToken,
 } from '@/lib/seo/articleSeo';
 import { isPubliclyPublishedArticle } from '@/lib/content/articlePublication';
+import { normalizeArticleDate } from '@/lib/content/articleDates';
 import { resolveArticleEditorialFlags } from '@/lib/content/articleEditorial';
 import { resolveReusableBreakingTts } from '@/lib/server/breakingTts';
 import {
@@ -274,8 +275,8 @@ function toPublicArticleAuthority(raw: unknown): PublicArticleAuthority | null {
     image,
     category,
     author,
-    publishedAt: toText(source.publishedAt),
-    updatedAt: toText(source.updatedAt || source.publishedAt),
+    publishedAt: normalizeArticleDate(source.publishedAt, asObject(source.workflow).publishedAt),
+    updatedAt: normalizeArticleDate(source.updatedAt, source.publishedAt || asObject(source.workflow).publishedAt),
     seo: (source.seo as PublicArticleAuthority['seo']) || {},
     href: buildArticlePublicPath({ id, slug }),
   };

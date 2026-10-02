@@ -107,7 +107,7 @@ describe('metadata routes', () => {
           priority: 0.65,
         }),
         expect.objectContaining({
-          url: 'https://lokswami.com/main/epaper?paper=epaper-1&city=indore&date=2026-05-21',
+          url: 'https://lokswami.com/main/epaper?paper=epaper-1&amp;city=indore&amp;date=2026-05-21',
           changeFrequency: 'weekly',
           priority: 0.7,
           lastModified: new Date('2026-05-21T08:30:00.000Z'),

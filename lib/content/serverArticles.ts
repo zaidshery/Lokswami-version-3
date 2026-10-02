@@ -1,6 +1,8 @@
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 import { isPubliclyPublishedArticle } from '@/lib/content/articlePublication';
 import Article from '@/lib/models/Article';
+import { Types } from 'mongoose';
+import { normalizeArticleDate } from '@/lib/content/articleDates';
 import type { ArticleSeo } from '@/lib/storage/articlesFile';
 import { listAllStoredArticles } from '@/lib/storage/articlesFile';
 import { resolvePublicArticleToken } from '@/lib/server/publicArticles';
@@ -90,7 +92,9 @@ function toSitemapItem(input: unknown): ServerArticleSitemapItem | null {
   if (!source) return null;
 
   const id =
-    typeof source._id === 'string'
+    source._id instanceof Types.ObjectId
+      ? source._id.toHexString()
+      : typeof source._id === 'string'
       ? source._id
       : typeof source.id === 'string'
         ? source.id
@@ -98,15 +102,8 @@ function toSitemapItem(input: unknown): ServerArticleSitemapItem | null {
   if (!id) return null;
   const slug = normalizeArticleSlug(stringifyField(source.slug));
 
-  const updatedAtRaw = source.updatedAt;
-  const updatedAtValue = new Date(
-    typeof updatedAtRaw === 'string' || typeof updatedAtRaw === 'number'
-      ? updatedAtRaw
-      : Date.now()
-  );
-  const updatedAt = Number.isNaN(updatedAtValue.getTime())
-    ? new Date().toISOString()
-    : updatedAtValue.toISOString();
+  const workflow = source.workflow as { publishedAt?: unknown } | undefined;
+  const updatedAt = normalizeArticleDate(source.updatedAt, source.publishedAt || workflow?.publishedAt);
 
   return { id, slug, updatedAt };
 }
@@ -114,21 +111,9 @@ function toSitemapItem(input: unknown): ServerArticleSitemapItem | null {
 export async function listArticlesForSitemap(limit = 500) {
   if (await isMongoAvailable({ label: 'sitemap articles lookup' })) {
     try {
-      const records = await Article.find({
-        $or: [
-          { 'workflow.status': 'published' },
-          {
-            'workflow.status': 'scheduled',
-            'workflow.scheduledFor': { $lte: new Date() },
-          },
-          {
-            'workflow.status': { $in: [null, undefined] },
-            publishedAt: { $exists: true, $ne: null },
-          },
-        ],
-      })
+      const records = await Article.find(sitemapPublicationQuery())
         .select('_id slug updatedAt publishedAt workflow')
-        .sort({ updatedAt: -1 })
+        .sort({ updatedAt: -1, _id: -1 })
         .lean();
 
       const normalized = records
@@ -150,12 +135,27 @@ export async function listArticlesForSitemap(limit = 500) {
     .slice(0, limit);
 }
 
+// Match the reader's publication rules for both chunk counting and pagination.
+function sitemapPublicationQuery() {
+  return {
+    $or: [
+      { 'workflow.status': 'published' },
+      {
+        'workflow.status': 'scheduled',
+        'workflow.scheduledFor': { $lte: new Date() },
+      },
+      {
+        'workflow.status': { $in: [null, undefined] },
+        publishedAt: { $exists: true, $ne: null },
+      },
+    ],
+  };
+}
+
 export async function countPublicArticlesForSitemap(): Promise<number> {
   if (await isMongoAvailable({ label: 'sitemap articles count' })) {
     try {
-      const count = await Article.countDocuments({
-        'workflow.status': 'published',
-      });
+      const count = await Article.countDocuments(sitemapPublicationQuery());
       return count;
     } catch (error) {
       console.error('Failed to count sitemap articles from MongoDB, falling back.', error);
@@ -175,11 +175,9 @@ export async function listArticlesForSitemapSlice(options: {
 
   if (await isMongoAvailable({ label: 'sitemap articles slice lookup' })) {
     try {
-      const records = await Article.find({
-        'workflow.status': 'published',
-      })
+      const records = await Article.find(sitemapPublicationQuery())
         .select('_id slug updatedAt publishedAt workflow')
-        .sort({ updatedAt: -1 })
+        .sort({ updatedAt: -1, _id: -1 })
         .skip(skip)
         .limit(limit)
         .lean();
@@ -210,17 +208,7 @@ function toNewsSitemapItem(input: unknown): ServerNewsArticleSitemapItem | null 
   if (!sitemap) return null;
   const title = stringifyField(source.title);
   const seo = normalizeSeo(source.seo);
-  const publishedAtRaw = source.publishedAt;
-  const publishedAtValue = new Date(
-    typeof publishedAtRaw === 'string' ||
-      typeof publishedAtRaw === 'number' ||
-      publishedAtRaw instanceof Date
-      ? publishedAtRaw
-      : Date.now()
-  );
-  const publishedAt = Number.isNaN(publishedAtValue.getTime())
-    ? new Date().toISOString()
-    : publishedAtValue.toISOString();
+  const publishedAt = normalizeArticleDate(source.publishedAt, (source.workflow as { publishedAt?: unknown } | undefined)?.publishedAt);
 
   return {
     ...sitemap,

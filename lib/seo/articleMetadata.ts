@@ -7,15 +7,12 @@ import {
   toAbsoluteArticleUrl,
 } from '@/lib/seo/articleSeo';
 
-const FALLBACK_SITE_URL = 'https://lokswami.com';
 const FALLBACK_SHARE_IMAGE = '/lokswami-share-preview.png';
 const OG_IMAGE_WIDTH = 1200;
 const OG_IMAGE_HEIGHT = 630;
 
-export function normalizeMetadataSiteUrl(
-  value = process.env.NEXT_PUBLIC_SITE_URL || FALLBACK_SITE_URL
-) {
-  return getSiteUrl(value || FALLBACK_SITE_URL);
+export function normalizeMetadataSiteUrl(value?: string) {
+  return getSiteUrl(value);
 }
 
 export function buildArticleSocialImagePath(article: Pick<ServerArticle, 'id' | 'slug'>) {

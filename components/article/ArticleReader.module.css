@@ -1,3 +1,13 @@
+/* The measured Nirmala UI Bold fallback is 5% wider than Noto Devanagari
+   ExtraBold. Match its advance width while the brand font loads, only where
+   that Windows font exists; other platforms retain their existing fallbacks. */
+@font-face {
+  font-family: 'Lokswami Reader Heading Fallback';
+  src: local('Nirmala UI Bold'), local('NirmalaUI-Bold');
+  font-weight: 700 900;
+  size-adjust: 95%;
+}
+
 .reader {
   width: 100%;
   max-width: 1024px;
@@ -6,8 +16,95 @@
 }
 
 .header {
-  padding: 1.25rem 1rem 1.5rem;
+  padding: 0.875rem 1rem 1.25rem;
   overflow-wrap: anywhere;
+}
+
+.metadata {
+  width: calc(100% - 2rem);
+  max-width: 720px;
+  margin: 1.25rem auto 0;
+  padding: 1rem;
+  border: 1px solid #e4e4e7;
+  border-bottom: 0;
+  border-radius: 1rem 1rem 0 0;
+  background: #fafafa;
+  overflow-wrap: anywhere;
+}
+
+:global(.dark) .metadata {
+  border-color: #27272a;
+  background: #18181b;
+}
+
+.readerToolsColumn { padding-top: 0 !important; }
+
+.readerToolsColumn > [data-article-audio] {
+  border-top: 0;
+  border-radius: 0 0 1rem 1rem;
+  background: #fafafa;
+}
+
+:global(.dark) .readerToolsColumn > [data-article-audio] { background: #18181b; }
+
+.audioToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e4e4e7;
+}
+
+:global(.dark) .audioToolbar { border-color: #3f3f46; }
+
+.audioButtons { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+@media (max-width: 639px) {
+  .metadata { margin-top: 1rem; padding: 0.75rem; }
+  .metadata .byline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.375rem 0.5rem; font-size: 0.8125rem; }
+  .metadata .authorDetails { flex-basis: 100%; }
+  .authorDetails > div { gap: 0.5rem; }
+  .authorDetails button { width: 2.25rem; height: 2.25rem; }
+  .metadata .authorDetails { grid-column: 1; grid-row: 1; }
+  .metadata .headerActions { width: auto; margin-inline-start: 0; grid-column: 2; grid-row: 1; align-self: start; }
+  .metadata .headerActions > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+  .metadata .headerActions > div > * { min-width: 0; }
+  .metadata .headerActions button,
+  .metadata .headerActions a { width: 2.75rem; padding-inline: 0; font-size: 0; gap: 0; border-radius: 0.625rem; }
+  .metadata .headerActions button:not([aria-pressed="true"]),
+  .metadata .headerActions a { background: #fff; color: #3f3f46; border-color: #d4d4d8; }
+  :global(.dark) .metadata .headerActions button:not([aria-pressed="true"]),
+  :global(.dark) .metadata .headerActions a { background: #27272a; color: #e4e4e7; border-color: #3f3f46; }
+  .headerActions button,
+  .headerActions a,
+  .audioButtons button {
+    min-height: 2.75rem;
+    padding: 0.375rem 0.625rem;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
+  }
+  .headerActions svg,
+  .audioButtons svg { width: 0.875rem; height: 0.875rem; }
+  .metadata .headerActions svg { display: block; width: 1rem; height: 1rem; }
+  .metadata .publicationDetails { grid-column: 1 / -1; grid-row: 2; gap: 0.25rem 0.625rem; font-size: 0.6875rem; }
+  .metadata .publicationDetails p { font-size: inherit; }
+  .readerToolsColumn > [data-article-audio] { padding: 0 0.75rem 0.75rem; }
+  .audioToolbar { display: grid; grid-template-columns: minmax(0, 1fr); padding-top: 0.75rem; gap: 0.75rem; }
+  .audioToolbar > div:first-child { gap: 0.5rem; }
+  .audioToolbar > div:first-child > svg { width: 1rem; height: 1rem; }
+  .audioToolbar h2 { font-size: 0.875rem; }
+  .audioToolbar p { font-size: 0.75rem; line-height: 1.5; }
+  .audioButtons { gap: 0.5rem; }
+  .audioButtons > button { flex: 1 1 6rem; border-radius: 0.625rem; }
+}
+
+.metadata .byline {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .headline {
@@ -16,6 +113,10 @@
   font-weight: 800;
   color: var(--reader-headline-color, #18181b);
   text-wrap: pretty;
+}
+
+.headline:lang(hi) {
+  font-family: var(--font-devanagari), var(--font-latin), 'Lokswami Reader Heading Fallback', Mangal, 'Kohinoor Devanagari', system-ui, sans-serif;
 }
 
 :global(.dark) .headline {
@@ -68,6 +169,75 @@
 .headerActions > div {
   justify-content: flex-end;
 }
+
+.reader .metadata .headerActions button:not([data-share-action]),
+.reader .metadata .headerActions a {
+  --action-rgb: 185 28 28;
+}
+
+.reader .metadata .headerActions button[data-share-action] {
+  --action-rgb: 7 94 84;
+}
+
+.reader .metadata .headerActions button,
+.reader .metadata .headerActions a {
+  background: linear-gradient(180deg, #fff, #fafafa);
+  color: rgb(var(--action-rgb));
+  border-color: rgb(var(--action-rgb) / 0.35);
+  box-shadow: 0 3px 8px rgb(24 24 27 / 0.08), inset 0 1px 0 #fff;
+  transition: background 160ms, box-shadow 160ms, transform 160ms;
+}
+
+:global(.dark) .reader .metadata .headerActions button,
+:global(.dark) .reader .metadata .headerActions a {
+  background: linear-gradient(180deg, #303034, #202024);
+  color: rgb(248 113 113);
+  border-color: rgb(248 113 113 / 0.45);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+:global(.dark) .reader .metadata .headerActions button[data-share-action] {
+  --action-rgb: 37 211 102;
+  color: #25d366;
+  border-color: rgb(37 211 102 / 0.45);
+}
+
+.reader .metadata .headerActions svg {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 0 3px rgb(var(--action-rgb) / 0.2));
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .reader .metadata .headerActions button:hover,
+  .reader .metadata .headerActions a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 12px rgb(var(--action-rgb) / 0.2);
+  }
+}
+
+.reader .metadata .headerActions button[aria-pressed="true"] {
+  background: #991b1b;
+  border-color: #f87171;
+  color: #fff;
+}
+
+.reader .metadata .headerActions button:disabled {
+  color: #71717a;
+  border-color: #d4d4d8;
+  background: #f4f4f5;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+:global(.dark) .reader .metadata .headerActions button:disabled {
+  color: #a1a1aa;
+  border-color: #3f3f46;
+  background: #27272a;
+}
+
+.readerToolsColumn > [data-article-audio] { padding-top: 0; }
 
 .publicationDetails {
   display: flex;
@@ -130,5 +300,6 @@
 
 @media (min-width: 640px) {
   .header { padding: 1.75rem 2rem; }
+  .metadata { width: calc(100% - 3rem); padding: 1.25rem; }
   .body:global(.article-rich-content) { font-size: 1.125rem; }
 }

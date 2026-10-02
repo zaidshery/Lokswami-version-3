@@ -22,9 +22,9 @@ import { getNewsCategoryHref, resolveNewsCategory } from '@/lib/constants/newsCa
 import type { Article } from '@/lib/mock/data';
 import { useAppStore } from '@/lib/store/appStore';
 import {
-  buildArticleSharePath,
   buildArticleWhatsAppShareText,
 } from '@/lib/utils/articleShare';
+import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 import {
   buildArticleImageVariantUrl,
 } from '@/lib/utils/articleMedia';
@@ -345,7 +345,7 @@ export default function ArticleDetailClient({
   return (
     <div className={`${styles.reader} pb-[calc(var(--reader-bottom-nav-space)+5rem)] sm:pb-12`}>
       <ArticleReadingProgress regionRef={articleRegionRef} articleId={article.id} onProgress={handleReadingProgress} />
-      <nav aria-label={language === 'hi' ? 'लेख का रास्ता' : 'Breadcrumb'} className="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+      <nav aria-label={language === 'hi' ? 'लेख का रास्ता' : 'Breadcrumb'} className="mb-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
         <Link href="/main" className="reader-focus-ring inline-flex min-h-11 items-center gap-2 hover:text-red-700 dark:hover:text-red-400">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {language === 'hi' ? 'होम' : 'Home'}
@@ -355,7 +355,22 @@ export default function ArticleDetailClient({
       </nav>
 
       <article ref={articleRegionRef} className="cnp-surface overflow-hidden p-0">
-        <ArticleReaderHeader article={article} language={language} readMinutes={articleMeta.readMinutes} onAuthorClick={() => setIsAuthorImageModalOpen(true)}>
+        <ArticleReaderHeader article={article} language={language} readMinutes={articleMeta.readMinutes} showCategory={false} onAuthorClick={() => setIsAuthorImageModalOpen(true)} notice={
+          !canSaveArticle ? <p id="article-save-help" className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{language === 'hi' ? 'यह लेख सहेजने के लिए उपलब्ध नहीं है।' : 'Saving is unavailable for this article.'}</p> : !isSignedIn ? <Link id="article-save-help" href="/signin?redirect=/main/saved" className="reader-focus-ring mt-1 inline-flex min-h-11 items-center text-xs text-red-700 underline underline-offset-2 dark:text-red-300">{language === 'hi' ? 'लेख सहेजने के लिए साइन इन करें' : 'Sign in to save this article'}</Link> : null
+        } media={
+          <figure>
+            <div className="relative aspect-[16/10] max-h-[480px] w-full overflow-hidden bg-zinc-950 sm:aspect-[16/9] lg:aspect-[2/1]">
+              <Image src={buildArticleImageVariantUrl(article.image, 'detail')} alt={article.seo?.featuredImageAlt || article.title}
+                fill className="object-contain" sizes="(max-width: 639px) calc(100vw - 24px), (max-width: 1023px) calc(100vw - 40px), (max-width: 1071px) calc(100vw - 48px), 1024px" priority />
+            </div>
+            {article.seo?.featuredImageCaption || article.seo?.featuredImageCredit ? (
+              <figcaption className="border-b border-zinc-200 px-4 py-3 text-xs leading-relaxed text-zinc-600 dark:border-white/10 dark:text-zinc-400 sm:px-6">
+                {article.seo.featuredImageCaption ? <span>{article.seo.featuredImageCaption}</span> : null}
+                {article.seo.featuredImageCredit ? <span className="ml-2 font-medium">{article.seo.featuredImageCredit}</span> : null}
+              </figcaption>
+            ) : null}
+          </figure>
+        }>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -367,6 +382,8 @@ export default function ArticleDetailClient({
                     : 'border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-500/45 dark:bg-orange-500/12 dark:text-orange-300 dark:hover:bg-orange-500/20'
                 } ${!canSaveArticle || isSavingBookmark ? 'cursor-not-allowed opacity-60' : ''}`}
                 aria-pressed={isBookmarked}
+                aria-describedby={!canSaveArticle || !isSignedIn ? 'article-save-help' : undefined}
+                title={!canSaveArticle ? (language === 'hi' ? 'यह लेख सहेजने के लिए उपलब्ध नहीं है' : 'Saving is unavailable for this article') : !isSignedIn ? (language === 'hi' ? 'लेख सहेजने के लिए साइन इन करें' : 'Sign in to save this article') : undefined}
                 aria-label={isBookmarked ? (language === 'hi' ? 'सहेजा गया लेख हटाएं' : 'Remove bookmark') : (language === 'hi' ? 'लेख सहेजें' : 'Save article')}
               >
                 {isSavingBookmark ? (
@@ -382,8 +399,10 @@ export default function ArticleDetailClient({
               </button>
 
               <ShareMenu
+                triggerIcon="whatsapp"
+                directWhatsApp
                 title={article.title}
-                url={buildArticleSharePath({ id: article.id, slug: article.slug })}
+                url={buildArticlePublicPath({ id: article.id, slug: article.slug })}
                 text={article.summary}
                 whatsappText={buildArticleWhatsAppShareText({
                   title: article.title,
@@ -396,8 +415,8 @@ export default function ArticleDetailClient({
                 contentId={article.id}
                 placement="article_detail_header"
                 language={language}
-                triggerLabel={language === 'hi' ? '\u0936\u0947\u092f\u0930' : 'Share'}
-                ariaLabel={language === 'hi' ? '\u0932\u0947\u0916 \u0936\u0947\u092f\u0930 \u0915\u0930\u0947\u0902' : 'Share article'}
+                triggerLabel="WhatsApp"
+                ariaLabel={language === 'hi' ? 'WhatsApp पर लेख शेयर करें' : 'Share article on WhatsApp'}
                 className="shrink-0"
                 buttonClassName="reader-touch-button reader-focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full border border-zinc-300 bg-white px-3 text-sm font-semibold leading-none text-zinc-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-orange-500/50 dark:hover:bg-orange-500/15 dark:hover:text-orange-300 sm:min-h-11 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
               />
@@ -413,19 +432,7 @@ export default function ArticleDetailClient({
 
             </div>
         </ArticleReaderHeader>
-        <figure>
-          <div className="relative aspect-[16/10] max-h-[480px] w-full overflow-hidden bg-zinc-950 sm:aspect-[16/9] lg:aspect-[2/1]">
-            <Image src={buildArticleImageVariantUrl(article.image, 'detail')} alt={article.seo?.featuredImageAlt || article.title}
-              fill className="object-contain" sizes="(max-width: 639px) calc(100vw - 24px), (max-width: 1023px) calc(100vw - 40px), (max-width: 1071px) calc(100vw - 48px), 1024px" priority />
-          </div>
-          {article.seo?.featuredImageCaption || article.seo?.featuredImageCredit ? (
-            <figcaption className="border-b border-zinc-200 px-4 py-3 text-xs leading-relaxed text-zinc-600 dark:border-white/10 dark:text-zinc-400 sm:px-6">
-              {article.seo.featuredImageCaption ? <span>{article.seo.featuredImageCaption}</span> : null}
-              {article.seo.featuredImageCredit ? <span className="ml-2 font-medium">{article.seo.featuredImageCredit}</span> : null}
-            </figcaption>
-          ) : null}
-        </figure>
-        <div className={`${styles.readingColumn} space-y-6 px-4 py-6 sm:px-6 sm:py-8`}>
+        <div className={`${styles.readingColumn} ${styles.readerToolsColumn} space-y-6 px-4 py-6 sm:px-6 sm:py-8`}>
 
           <ArticleAudioPlayer key={article.id} articleId={article.id} text={articlePlainText} contentLanguage={articleContentLanguage} language={language} secondaryAction={
             <button type="button" onClick={() => void handleGenerateSummary()} disabled={isGeneratingSummary}

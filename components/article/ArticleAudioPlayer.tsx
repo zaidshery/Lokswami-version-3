@@ -88,13 +88,14 @@ export default function ArticleAudioPlayer({ articleId, text, contentLanguage, l
   const active = tts.isSpeaking || tts.isPaused;
   const complete = !active && tts.playbackProgress === 100 && !failed;
   const unavailable = hydrated && (!tts.isSupported || !text.trim());
-  const status = failed || unavailable ? copy.unavailable : preparing ? copy.preparing : tts.isPaused ? copy.paused : tts.isSpeaking ? copy.playing : complete ? copy.complete : copy.idle;
+  const status = failed || unavailable ? copy.unavailable : preparing ? copy.preparing : tts.isPaused ? copy.paused : tts.isSpeaking ? copy.playing : complete ? copy.complete : language === 'hi' ? 'लेख सुनने के लिए सुनें दबाएँ।' : 'Tap Listen to hear this article.';
   const action = preparing ? copy.preparing : tts.isSpeaking ? copy.pause : tts.isPaused ? copy.resume : complete ? copy.again : copy.listen;
   const controlClass = 'reader-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm font-bold disabled:cursor-wait disabled:opacity-60';
 
   return (
     <section data-article-audio aria-label={copy.title} aria-busy={preparing} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60 sm:p-5">
-      <div className="flex items-start gap-3">
+      <div className={styles.audioToolbar}>
+      <div className="flex min-w-0 items-start gap-3">
         <Headphones className="mt-0.5 h-5 w-5 shrink-0 text-red-700 dark:text-red-400" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{copy.title}</h2>
@@ -102,7 +103,7 @@ export default function ArticleAudioPlayer({ articleId, text, contentLanguage, l
           {tts.currentMode === 'speech' && active ? <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{copy.fallback}</p> : null}
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className={styles.audioButtons}>
         <button type="button" disabled={preparing || unavailable} aria-label={preparing ? copy.preparing : tts.isSpeaking ? copy.pause : tts.isPaused ? copy.resume : complete ? copy.again : copy.title}
           onClick={() => { if (tts.isSpeaking) tts.pause(); else if (tts.isPaused) tts.resume(); else void start(); }}
           className={`${controlClass} border-red-700 bg-red-700 text-white hover:bg-red-800 dark:border-red-500 dark:bg-red-600 dark:hover:bg-red-700`}>
@@ -113,6 +114,7 @@ export default function ArticleAudioPlayer({ articleId, text, contentLanguage, l
           {active ? <button type="button" disabled={preparing} onClick={() => { stop(); void start(); }} className={`${controlClass} border-zinc-300 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100`}><RotateCcw aria-hidden="true" className="h-4 w-4" />{copy.restart}</button> : null}
           <button type="button" onClick={() => { cancelRequest(); stop(); setPreparing(false); setFailed(false); }} className={`${controlClass} border-zinc-300 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100`}><Square aria-hidden="true" className="h-4 w-4" />{copy.stop}</button>
         </> : null}
+      </div>
       </div>
       {active || complete ? <div className="mt-4 flex items-center gap-3">
         <progress aria-label={copy.progress} value={tts.playbackProgress} max={100} className={`${styles.audioProgress} h-1.5 min-w-0 flex-1`} />

@@ -151,17 +151,47 @@ describe('article reader actions', () => {
     await user.click(screen.getByRole('button', { name: 'Save article' }));
 
     expect(mocks.routerPush).toHaveBeenCalledWith('/signin?redirect=/main/saved');
-    expect(screen.getByRole('button', { name: 'Share article' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share article on WhatsApp' })).toBeInTheDocument();
     const actions = screen.getByRole('button', { name: 'Save article' }).parentElement!;
-    expect(actions).toContainElement(screen.getByRole('button', { name: 'Share article' }));
+    expect(actions).toContainElement(screen.getByRole('button', { name: 'Share article on WhatsApp' }));
     expect(actions).toContainElement(screen.getByRole('link', { name: 'E-Paper' }));
     expect(actions.parentElement?.parentElement).toContainElement(screen.getByRole('button', { name: 'View profile picture of News Desk' }));
     expect(mocks.shareProps).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Reader story headline',
-        url: '/a/reader-story',
+        url: '/main/article/reader-story',
+        directWhatsApp: true,
+        triggerIcon: 'whatsapp',
       })
     );
+  });
+
+  it('explains unavailable saving without claiming a successful bookmark', async () => {
+    const ArticleDetailClient = (await import('@/app/(reader)/main/article/[id]/ArticleDetailClient')).default;
+    render(createElement(ArticleDetailClient, { article: { ...article, id: 'unsupported-id' }, relatedArticles: [] }));
+    const save = screen.getByRole('button', { name: 'Save article' });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAttribute('aria-pressed', 'false');
+    expect(save).toHaveAccessibleDescription('Saving is unavailable for this article.');
+  });
+
+  it('preserves authenticated saving and only marks success after the server confirms it', async () => {
+    mocks.storeState.currentUser = { savedArticles: [] };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { saved: true, savedArticleIds: [article.id] } }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const ArticleDetailClient = (await import('@/app/(reader)/main/article/[id]/ArticleDetailClient')).default;
+    const savedEvent = vi.fn();
+    window.addEventListener('lokswami:saved-article-updated', savedEvent);
+    const view = render(createElement(ArticleDetailClient, { article, relatedArticles: [] }));
+    expect(screen.getByRole('button', { name: 'Save article' })).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Save article' }));
+    await waitFor(() => expect(savedEvent).toHaveBeenCalledOnce());
+    expect((savedEvent.mock.calls[0][0] as CustomEvent).detail).toEqual(expect.objectContaining({ articleId: article.id, saved: true }));
+    mocks.storeState.currentUser = { savedArticles: [article.id] };
+    view.rerender(createElement(ArticleDetailClient, { article, relatedArticles: [] }));
+    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute('aria-pressed', 'true');
+    window.removeEventListener('lokswami:saved-article-updated', savedEvent);
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/save', expect.objectContaining({ method: 'POST', body: JSON.stringify({ articleId: article.id }) }));
   });
 
   it('generates the AI summary only when requested', async () => {
@@ -466,7 +496,7 @@ describe('article reader actions', () => {
 
     // Verify core reader actions remain present and accessible
     expect(screen.getByRole('button', { name: 'Save article' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Share article' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share article on WhatsApp' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'E-Paper' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'E-Paper' })).not.toHaveClass('attention-pulsate-bck');
   });
