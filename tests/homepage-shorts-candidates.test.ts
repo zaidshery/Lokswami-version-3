@@ -98,3 +98,48 @@ describe('Homepage Shorts candidates', () => {
     } finally { if (previous === undefined) delete process.env.MONGODB_URI; else process.env.MONGODB_URI = previous; }
   });
 });
+
+describe('Homepage standard-video candidates', () => {
+  beforeEach(() => { vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(now); mocks.fileRows.mockResolvedValue([]); });
+  afterEach(() => vi.useRealTimers());
+  const standard = (id: string, age: number, extra: Record<string, unknown> = {}) =>
+    short(id, age, { isShort: false, aspectRatio: '16:9', ...extra });
+
+  it('finds older eligible standard videos before the twelve-candidate Mongo limit', async () => {
+    const future = new Date('2099-01-01');
+    const invalidStates = [{ workflow: { status: 'draft' } },
+      { workflow: { status: 'scheduled', scheduledFor: future } }, { publishedAt: future },
+      { processingStatus: 'processing' }, { processingStatus: 'failed' },
+      { workflow: { status: 'published', scheduledFor: future } }];
+    const invalid = Array.from({ length: 18 }, (_, i) => standard(`invalid-${i}`, i, invalidStates[i % invalidStates.length]));
+    const valid = Array.from({ length: 15 }, (_, i) => standard(`valid-${i}`, 100 + i));
+    mongoRows([...invalid, ...valid, short('short', 0), standard('unpublished', 0, { isPublished: false })]);
+    const result = await new VideoRepository().getHomeFeedVideos({ videos: 12, shorts: 0 }, 'mongo');
+    expect(result.rawVideos.map(row => (row as { _id: string })._id)).toEqual(valid.slice(0, 12).map(row => row._id));
+    expect(selectHomepageMedia(result.rawVideos, 'videos', now).map(row => row.id)).toEqual(['valid-0', 'valid-1', 'valid-2']);
+    expect(mocks.fileRows).not.toHaveBeenCalled();
+  });
+
+  it('preserves publishedAt/id order, due schedules and legacy ready standard videos', async () => {
+    mongoRows([standard('a', 1), standard('z', 1, { processingStatus: 'published' }),
+      standard('due', 2, { workflow: { status: 'published', scheduledFor: now } }),
+      standard('legacy', 3, { isShort: undefined, workflow: undefined, processingStatus: undefined }),
+      ...['uploaded', 'review', 'approved'].map(status => standard(status, 0, { processingStatus: status }))]);
+    const result = await new VideoRepository().getHomeFeedVideos({ videos: 12, shorts: 0 }, 'mongo');
+    expect(result.rawVideos.map(row => (row as { _id: string })._id)).toEqual(['z', 'a', 'due', 'legacy']);
+  });
+
+  it('keeps file-store standard-video filtering and dedupe safe without Mongo', async () => {
+    mocks.fileRows.mockResolvedValue([standard('valid', 20), standard('valid', 20), standard('older', 30),
+      standard('draft', 0, { workflow: { status: 'draft' } }), standard('processing', 1, { processingStatus: 'processing' }),
+      standard('future', 2, { publishedAt: new Date('2099-01-01') }), short('short', 0)]);
+    const previous = process.env.MONGODB_URI; delete process.env.MONGODB_URI;
+    try {
+      const result = await new VideoRepository().getHomeFeedVideos({ videos: 12, shorts: 0 });
+      const selected = selectHomepageMedia(result.rawVideos, 'videos', now);
+      expect(selected.map(row => row.id)).toEqual(['valid', 'older']);
+      expect(new Set(selected.map(row => row.slug)).size).toBe(2);
+      expect(mocks.connect).not.toHaveBeenCalled(); expect(mocks.find).not.toHaveBeenCalled();
+    } finally { if (previous !== undefined) process.env.MONGODB_URI = previous; }
+  });
+});

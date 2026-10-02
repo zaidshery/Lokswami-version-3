@@ -45,10 +45,10 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function buildSwipeMongoFilter(now: Date) {
+// Mongo publication predicates corresponding to isPubliclyPublishedVideo.
+function buildPublicVideoMongoFilter(now: Date) {
   return {
     isPublished: true,
-    isShort: true,
     $and: [
       { $or: [{ 'workflow.status': 'published' }, { 'workflow.status': { $exists: false } }] },
       {
@@ -60,6 +60,17 @@ function buildSwipeMongoFilter(now: Date) {
       },
       { $or: [{ publishedAt: { $exists: false } }, { publishedAt: { $lte: now } }] },
       { $or: [{ processingStatus: { $in: ['ready', 'published'] } }, { processingStatus: { $exists: false } }] },
+    ],
+  };
+}
+
+function buildSwipeMongoFilter(now: Date) {
+  const publication = buildPublicVideoMongoFilter(now);
+  return {
+    ...publication,
+    isShort: true,
+    $and: [
+      ...publication.$and,
       { $or: [{ aspectRatio: { $exists: false } }, { aspectRatio: { $ne: '16:9' } }] },
     ],
   };
@@ -309,7 +320,7 @@ export class VideoRepository {
     if (effectiveStore === 'mongo') {
       const [rawVideos, rawShorts] = await Promise.all([
         limits.videos > 0
-          ? Video.find({ isPublished: true, isShort: { $ne: true } })
+          ? Video.find({ ...buildPublicVideoMongoFilter(new Date()), isShort: { $ne: true } })
               .select(PUBLIC_VIDEO_PROJECTION)
               .sort({ publishedAt: -1, _id: -1 })
               .limit(limits.videos)
