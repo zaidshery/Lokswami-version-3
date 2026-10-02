@@ -4,7 +4,8 @@ import { NEWS_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCatego
 import { sitemapContentQueryService } from '@/lib/server/content/sitemapContentQueryService';
 import { getSiteUrl } from '@/lib/seo/articleSeo';
 
-export const revalidate = 86_400;
+// Publication, scheduling and archive changes must be visible without a stale build-time chunk.
+export const dynamic = 'force-dynamic';
 
 const ARTICLE_SITEMAP_LIMIT = 5000;
 const SITEMAP_ARTICLE_CHUNK_SIZE = 2500;
@@ -88,7 +89,7 @@ export default async function sitemap(props?: {
 
     const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
       url: absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article)),
-      lastModified: new Date(article.updatedAt),
+      lastModified: article.updatedAt ? new Date(article.updatedAt) : undefined,
       changeFrequency: 'weekly',
       priority: 0.8,
     }));
@@ -158,7 +159,7 @@ export default async function sitemap(props?: {
 
   const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
     url: absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article)),
-    lastModified: new Date(article.updatedAt),
+    lastModified: article.updatedAt ? new Date(article.updatedAt) : undefined,
     changeFrequency: 'weekly',
     priority: 0.8,
   }));

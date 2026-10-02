@@ -177,11 +177,17 @@ export class MediaService {
       await this.repository.updateMediaById(id, { status: 'deleted', deletedAt: new Date() });
       return;
     }
-    if (!record.referenceTrackingComplete) {
-      throw new MediaValidationError('Asset reference state is unknown; provider deletion was refused.', 409);
-    }
     if ((record.references || []).length > 0) {
       throw new MediaValidationError('Asset is still referenced and cannot be deleted.', 409);
+    }
+    if (record.ownerType === 'article' && record.mediaKind === 'image') {
+      if (await this.repository.hasPersistedArticleImageReference(record)) {
+        throw new MediaValidationError('Asset is still referenced and cannot be deleted.', 409);
+      }
+      // A successful authoritative read repairs receipts created before article reference tracking.
+      await this.repository.updateMediaById(id, { referenceTrackingComplete: true });
+    } else if (!record.referenceTrackingComplete) {
+      throw new MediaValidationError('Asset reference state is unknown; provider deletion was refused.', 409);
     }
     if (!isValidDigitalOceanSpacesObjectKey(record.objectKey)) {
       throw new MediaValidationError('Stored asset key is invalid; provider deletion was refused.', 409);
@@ -322,6 +328,8 @@ export class MediaService {
     for (const record of candidates) {
       if (!record._id || !record.objectKey || (record.references || []).length) continue;
       try {
+        if (record.ownerType === 'article' && record.mediaKind === 'image' &&
+          await this.repository.hasPersistedArticleImageReference(record)) continue;
         for (const key of getCanonicalObjectKeys(record)) {
           await this.spaces.deleteAssetByPublicId(key);
         }

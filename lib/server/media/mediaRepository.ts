@@ -5,6 +5,12 @@ import type { AdminSessionIdentity } from '@/lib/auth/admin';
 import { isReporterDeskRole } from '@/lib/auth/roles';
 import connectDB from '@/lib/db/mongoose';
 import Media from '@/lib/models/Media';
+import Article from '@/lib/models/Article';
+import Story from '@/lib/models/Story';
+import Video from '@/lib/models/Video';
+import EPaper from '@/lib/models/EPaper';
+import Author from '@/lib/models/Author';
+import User from '@/lib/models/User';
 import type { MediaRecord, MediaReference } from './mediaTypes';
 
 function filterMediaForUser(records: MediaRecord[], user: AdminSessionIdentity): MediaRecord[] {
@@ -25,6 +31,55 @@ function sortMediaByCreatedAt(records: MediaRecord[]): MediaRecord[] {
 }
 
 export class MediaRepository {
+  /** Old article uploads have no registry links; validate persisted uses before repairing that state. */
+  async hasPersistedArticleImageReference(record: MediaRecord): Promise<boolean> {
+    const urls = [record.url, ...Object.values(record.variants || {})]
+      .filter((value): value is string => Boolean(value));
+    const paths = urls.flatMap((url) => {
+      try { return [new URL(url).pathname.replace(/^\/+/, '')]; }
+      catch { return []; }
+    });
+    const needles = [...new Set([String(record._id || ''), record.objectKey, ...urls, ...paths]
+      .filter((value): value is string => Boolean(value)))];
+    if (!needles.length) throw new Error('Media reference identity is unavailable.');
+
+    if (!process.env.MONGODB_URI) {
+      const containsReference = (value: unknown): boolean => {
+        if (typeof value === 'string') return needles.some((needle) => value.includes(needle));
+        if (Array.isArray(value)) return value.some(containsReference);
+        if (value && typeof value === 'object') return Object.values(value).some(containsReference);
+        return false;
+      };
+      for (const filename of ['articles.json', 'stories.json', 'videos.json', 'epapers.json', 'authors.json', 'users.json']) {
+        let raw: string;
+        try { raw = await fs.readFile(path.resolve(process.cwd(), 'data', filename), 'utf-8'); }
+        catch (error) {
+          if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') continue;
+          throw error;
+        }
+        if (containsReference(JSON.parse(raw))) return true;
+      }
+      return false;
+    }
+
+    await connectDB();
+    const pattern = needles.map((needle) => needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const variants = ['landscape16x9', 'standard4x3', 'square1x1', 'webp', 'avif'];
+    const articleFields = ['image', 'content', 'contentJson.blocks.html', 'contentJson.blocks.attrs.src',
+      'media.sourceMediaId', 'seo.ogImage', 'seo.authorAvatarUrl', ...variants.map((name) => `media.variants.${name}`)];
+    const exists = (model: typeof Article, fields: string[]) => model.exists({
+      $or: fields.map((field) => ({ [field]: { $regex: pattern } })),
+    });
+    // Include private content and restorable revisions, not only published discovery records.
+    return Boolean(await exists(Article, [...articleFields, ...articleFields.map((field) => `revisions.${field}`)]) ||
+      await exists(Story as unknown as typeof Article, ['thumbnail', 'mediaUrl', 'mediaKey', 'mediaAssets.url', 'mediaAssets.assetId',
+        'revisions.thumbnail', 'revisions.mediaUrl', 'revisions.mediaKey', 'revisions.mediaAssets.url', 'revisions.mediaAssets.assetId']) ||
+      await exists(Video as unknown as typeof Article, ['thumbnail', 'videoUrl', 'posterUrl', 'playbackUrl', 'hlsUrl', 'captionUrl', 'sourceAssetId']) ||
+      await exists(EPaper as unknown as typeof Article, ['thumbnail', 'thumbnailPath', 'pdfUrl', 'pdfPath', 'pages.imagePath']) ||
+      await exists(Author as unknown as typeof Article, ['avatar']) ||
+      await exists(User as unknown as typeof Article, ['image']));
+  }
+
   private getJsonFilePath(): string {
     return path.resolve(process.cwd(), 'data', 'media.json');
   }

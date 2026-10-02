@@ -27,6 +27,7 @@ describe('MediaService canonical asset boundary', () => {
     }];
     repository = {
       listMedia: vi.fn(async () => records),
+      hasPersistedArticleImageReference: vi.fn(async () => false),
       getMediaById: vi.fn(async (id: string) => records.find((item) => item._id === id) || null),
       findMediaByUrl: vi.fn(async (url: string) => records.find((item) => item.url === url) || null),
       createMedia: vi.fn(async (data: MediaRecord) => {
@@ -101,5 +102,46 @@ describe('MediaService canonical asset boundary', () => {
 
   it('blocks non-admin deletion', async () => {
     await expect(service.deleteMedia('media-1', reporter)).rejects.toThrow(MediaValidationError);
+  });
+
+  it('repairs an unlinked article upload only after checking persisted references', async () => {
+    Object.assign(records[0], { ownerType: 'article', referenceTrackingComplete: false });
+    await service.deleteMedia('media-1', admin);
+    expect(repository.hasPersistedArticleImageReference).toHaveBeenCalledWith(records[0]);
+    expect(records[0]).toMatchObject({ referenceTrackingComplete: true, status: 'deleted' });
+    expect(spaces.deleteAssetByPublicId).toHaveBeenCalledTimes(1);
+  });
+
+  it('protects persisted article uses even when the registry is empty', async () => {
+    Object.assign(records[0], { ownerType: 'article', referenceTrackingComplete: false });
+    vi.mocked(repository.hasPersistedArticleImageReference).mockResolvedValue(true);
+    await expect(service.deleteMedia('media-1', admin)).rejects.toMatchObject({ status: 409 });
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+    expect(records[0].status).toBe('verified');
+  });
+
+  it('fails closed when persisted reference validation fails', async () => {
+    records[0].ownerType = 'article';
+    vi.mocked(repository.hasPersistedArticleImageReference).mockRejectedValue(new Error('Database unavailable'));
+    await expect(service.deleteMedia('media-1', admin)).rejects.toThrow('Database unavailable');
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+  });
+
+  it('rechecks persisted references before retrying cleanup', async () => {
+    Object.assign(records[0], { ownerType: 'article', status: 'cleanup_pending' });
+    vi.mocked(repository.hasPersistedArticleImageReference).mockResolvedValue(true);
+    expect(await service.reconcileCleanup(new Date())).toEqual({ deleted: 0, failed: 0 });
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+  });
+
+  it('preserves unknown-reference protection for other media owners', async () => {
+    records[0].referenceTrackingComplete = false;
+    await expect(service.deleteMedia('media-1', admin)).rejects.toMatchObject({ status: 409 });
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+  });
+
+  it('returns not found for a nonexistent receipt', async () => {
+    await expect(service.deleteMedia('missing', admin)).rejects.toMatchObject({ status: 404 });
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
   });
 });

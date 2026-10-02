@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Types } from 'mongoose';
 
 const connectDBMock = vi.fn();
 const getStoredArticleByIdMock = vi.fn();
@@ -35,6 +36,26 @@ vi.mock('@/lib/server/publicArticles', () => ({
 }));
 
 describe('server article publication helpers', () => {
+  it('maps Mongo ObjectIds and Date timestamps into both canonical sitemap feeds', async () => {
+    mongoAvailableMock.mockResolvedValue(true);
+    const id = new Types.ObjectId();
+    const publication = new Date('2026-10-02T06:00:00.000Z');
+    const rows = [
+      { _id: id, slug: 'mongo-published', title: 'Published story', publishedAt: publication,
+        updatedAt: publication, seo: { includeInNewsSitemap: true }, workflow: { status: 'published' } },
+      ...['draft', 'archived', 'scheduled'].map(status => ({ _id: new Types.ObjectId(), slug: status,
+        publishedAt: publication, updatedAt: publication, workflow: { status, scheduledFor: new Date('2099-01-01') } })),
+    ];
+    const query = { select: vi.fn(), sort: vi.fn(), skip: vi.fn(), limit: vi.fn(), lean: vi.fn(async () => rows) };
+    for (const method of ['select', 'sort', 'skip', 'limit'] as const) query[method].mockReturnValue(query);
+    mongoFindMock.mockReturnValue(query);
+    const { listArticlesForSitemapSlice, listNewsArticlesForSitemap } = await import('@/lib/content/serverArticles');
+    const general = await listArticlesForSitemapSlice();
+    expect(general).toEqual([{ id: id.toHexString(), slug: 'mongo-published', updatedAt: publication.toISOString() }]);
+    const news = await listNewsArticlesForSitemap(100, new Date('2026-10-02T08:00:00Z'));
+    expect(news).toHaveLength(1);
+    expect(news[0]).toMatchObject({ id: id.toHexString(), publishedAt: publication.toISOString() });
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mongoAvailableMock.mockResolvedValue(false);
