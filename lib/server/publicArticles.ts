@@ -41,6 +41,13 @@ export async function listPublicArticles(
   return publicArticleService.listPublicArticles(options);
 }
 
+export async function listPublicCategoryArticles(
+  categories: readonly string[],
+  options: { limit?: number } = {}
+): Promise<Record<string, PublicArticleListResult>> {
+  return publicArticleService.listPublicCategoryArticles(categories, options);
+}
+
 export async function listRelatedPublicArticles(
   current: Pick<PublicArticleDetail, 'id' | 'href' | 'category'>,
   options: { limit?: number; source?: PublicArticleSource } = {}

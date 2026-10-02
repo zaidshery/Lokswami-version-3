@@ -469,6 +469,37 @@ export class PublicArticleService {
     return buildListResult(items, source, options);
   }
 
+  async listPublicCategoryArticles(
+    categories: readonly string[],
+    options: { limit?: number } = {}
+  ): Promise<Record<string, PublicArticleListResult>> {
+    const source = await this.repo.resolveSource();
+    if (source === 'mongo') {
+      const entries = await Promise.all(
+        categories.map(async (category) => {
+          try {
+            const result = await this.listPublicArticles({ category, limit: options.limit });
+            return [category, result] as const;
+          } catch {
+            return [
+              category,
+              buildListResult([], 'mongo', { category, limit: options.limit }),
+            ] as const;
+          }
+        })
+      );
+      return Object.fromEntries(entries);
+    }
+
+    const items = await this.repo.listFileArticles();
+    const sorted = [...items].sort(compareArticles);
+    const entries = categories.map((category) => {
+      const result = buildListResult([...sorted], 'file', { category, limit: options.limit });
+      return [category, result] as const;
+    });
+    return Object.fromEntries(entries);
+  }
+
   async resolvePublicArticleToken(
     requestToken: string
   ): Promise<PublicArticleResolution> {
