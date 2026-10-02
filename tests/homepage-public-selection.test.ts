@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createElement } from 'react';
+import { render, screen, within } from '@testing-library/react';
+import HomepageTopPackage from '@/components/home/HomepageTopPackage';
 
 const mocks = vi.hoisted(() => ({
   available: vi.fn(), rows: vi.fn(), find: vi.fn(),
@@ -40,6 +43,11 @@ describe('homepage public selection integration', () => {
     const { mapHomeFeedToHomePageState } = await import('@/lib/content/homeFeed');
     const mapped = mapHomeFeedToHomePageState(result.feed)!;
     expect(popular.every((item) => mapped.articles.some((article) => article.id === item.id))).toBe(true);
+    render(createElement(HomepageTopPackage, { articles: mapped.articles, language: 'en' }));
+    const popularRows = within(screen.getByTestId('popular-news-rail')).getAllByRole('listitem');
+    expect(popularRows.map(row => row.getAttribute('data-story-id'))).toEqual(popular.map(item => item.id));
+    expect(popularRows).toHaveLength(4);
+    expect(popularRows.every(row => !['draft', 'scheduled'].includes(row.getAttribute('data-story-id')!))).toBe(true);
     expect(mocks.available).toHaveBeenCalledWith({ label: 'public home feed' });
   });
 });

@@ -59,7 +59,7 @@ function buildSwipeMongoFilter(now: Date) {
         ],
       },
       { $or: [{ publishedAt: { $exists: false } }, { publishedAt: { $lte: now } }] },
-      { $or: [{ processingStatus: 'ready' }, { processingStatus: { $exists: false } }] },
+      { $or: [{ processingStatus: { $in: ['ready', 'published'] } }, { processingStatus: { $exists: false } }] },
       { $or: [{ aspectRatio: { $exists: false } }, { aspectRatio: { $ne: '16:9' } }] },
     ],
   };
@@ -316,7 +316,7 @@ export class VideoRepository {
               .lean()
           : Promise.resolve([]),
         limits.shorts > 0
-          ? Video.find({ isPublished: true, isShort: true })
+          ? Video.find(buildSwipeMongoFilter(new Date()))
               .select(PUBLIC_VIDEO_PROJECTION)
               .sort({ createdAt: -1, _id: -1 })
               .limit(limits.shorts)

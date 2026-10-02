@@ -3,6 +3,8 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import HomepageTopPackage, { IndoreEpaper } from '@/components/home/HomepageTopPackage';
 import type { Article } from '@/lib/mock/data';
+import { selectHomepageSections } from '@/lib/content/homepageSections';
+import { selectHomepageCategories } from '@/lib/content/homepageDiscovery';
 
 const trackEvent = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/analytics/trackClient', () => ({ trackClientEvent: trackEvent }));
@@ -23,6 +25,37 @@ const articles: Article[] = Array.from({ length: 9 }, (_, i) => ({
 const epaper = { _id:'paper-1', publicationType:'epaper' as const, citySlug:'indore', cityName:'Indore', title:'Indore', publishDate:'2026-09-30', thumbnailPath:'/cover.jpg', pageCount:12 };
 
 describe('homepage top package', () => {
+  it('renders the selected Popular stories before category unused-story preferences', () => {
+    const input = articles.map((article, index) => ({ ...article, isTrending: index === 0 }));
+    render(<HomepageTopPackage articles={input} language="en" />);
+    const popular = screen.getByTestId('popular-news-rail');
+    expect(screen.getAllByRole('heading', { name: 'Popular News' })).toHaveLength(1);
+    const rows = within(popular).getAllByRole('listitem');
+    expect(rows.map(row => row.getAttribute('data-story-id'))).toEqual(
+      selectHomepageSections(input).popular.map(article => article.id));
+    expect(rows[0]).toHaveAttribute('data-story-id', 'story-0');
+    const categories = selectHomepageCategories(input, { national: input });
+    expect(categories[0].articles).toHaveLength(9);
+    const used = [selectHomepageSections(input).lead!, ...selectHomepageSections(input).latest, ...selectHomepageSections(input).popular];
+    for (const article of used) expect(screen.getByTestId('homepage-top-package').querySelector(`[data-story-id="${article.id}"]`)).toBeInTheDocument();
+  });
+  it('backfills Popular from real published inputs and deduplicates canonical destinations', () => {
+    const input = [...articles, { ...articles[0], id: 'duplicate-destination', views: 900 }];
+    render(<HomepageTopPackage articles={input} language="en" />);
+    const rows = within(screen.getByTestId('popular-news-rail')).getAllByRole('listitem');
+    const destinations = rows.map(row => row.querySelector('a')?.getAttribute('href'));
+    expect(rows).toHaveLength(4);
+    expect(new Set(destinations).size).toBe(4);
+    expect(rows.every(row => input.some(article => article.id === row.getAttribute('data-story-id')))).toBe(true);
+    expect(within(screen.getByTestId('lead-story')).getByRole('heading', { level: 1 })).toHaveTextContent(articles[8].title);
+    expect(within(screen.getByTestId('latest-news-rail')).getAllByRole('listitem').map(row => row.getAttribute('data-story-id'))).toEqual(['story-7', 'story-6', 'story-5', 'story-4']);
+  });
+  it.each([0, 1, 2])('renders a safe %i-story Popular rail without filler', count => {
+    render(<HomepageTopPackage articles={articles.slice(0, count)} language="hi" />);
+    const rail = within(screen.getByTestId('popular-news-rail'));
+    expect(rail.queryAllByRole('listitem')).toHaveLength(count);
+    if (!count) expect(rail.getByText('अभी खबरें उपलब्ध नहीं हैं।')).toBeInTheDocument();
+  });
   it('server renders the clean lead and only one priority image', () => {
     const html = renderToString(<HomepageTopPackage articles={articles} language="hi" />);
     expect(html).toContain('मुख्य खबर');
@@ -36,7 +69,7 @@ describe('homepage top package', () => {
     const { container } = render(<HomepageTopPackage articles={articles} language="en" />);
     expect(screen.getByTestId('homepage-top-package').className).toContain('xl:grid-cols-');
     expect(screen.getByTestId('homepage-top-package').className).toContain('items-stretch');
-    expect(Array.from(container.querySelectorAll('[data-testid="homepage-top-package"] > section')).map(section => section.getAttribute('data-testid'))).toEqual(['lead-story','latest-news-rail']);
+    expect(Array.from(container.querySelectorAll('[data-testid="homepage-top-package"] > section')).map(section => section.getAttribute('data-testid'))).toEqual(['lead-story','latest-news-rail','popular-news-rail']);
     expect(screen.queryByTestId('indore-epaper')).not.toBeInTheDocument();
     const latest = within(screen.getByTestId('latest-news-rail'));
     expect(latest.getAllByRole('listitem')).toHaveLength(4);
@@ -54,7 +87,7 @@ describe('homepage top package', () => {
     expect(latest.getAllByText('National', { exact:false })).toHaveLength(4);
     expect(latest.getByRole('list').className).toContain('divide-y');
     expect(latest.getAllByRole('listitem').every(item => !item.className.includes('border border-'))).toBe(true);
-    expect(new Set(Array.from(container.querySelectorAll('[data-story-id]')).map(item => item.getAttribute('data-story-id'))).size).toBe(5);
+    expect(new Set(Array.from(container.querySelectorAll('[data-story-id]')).map(item => item.getAttribute('data-story-id'))).size).toBe(9);
   });
   it('shares encoded headline and canonical public story URL', () => {
     const rowClick = vi.fn();

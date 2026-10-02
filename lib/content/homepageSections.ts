@@ -1,8 +1,11 @@
+import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
+
 /** Input must come from the publication-filtered public article services.
  * isTrending is the effective flag after editorial expiry has been resolved.
  */
 export type HomepageArticle = {
   id: string;
+  slug?: string;
   publishedAt: string;
   views: number;
   isTrending?: boolean;
@@ -29,9 +32,15 @@ export function selectHomepageSections<T extends HomepageArticle>(articles: read
     ranked.findIndex((candidate) => candidate.id === article.id) === index);
   const lead = unique[0] ?? null;
   const latest = boundedRail(unique, new Set(lead ? [lead.id] : []), 4);
+  const destinations = new Set<string>();
   const popularRanked = [...unique].sort((a, b) =>
     Number(Boolean(b.isTrending)) - Number(Boolean(a.isTrending)) ||
-    (b.views || 0) - (a.views || 0) || compareHomepageRecency(a, b));
+    (b.views || 0) - (a.views || 0) || compareHomepageRecency(a, b)).filter((article) => {
+      const destination = buildArticlePublicPath(article);
+      if (destinations.has(destination)) return false;
+      destinations.add(destination);
+      return true;
+    });
   const popular = boundedRail(popularRanked,
     new Set([...(lead ? [lead.id] : []), ...latest.map((article) => article.id)]), 4);
   return { lead, latest, popular };

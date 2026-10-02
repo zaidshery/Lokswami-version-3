@@ -21,7 +21,7 @@ function categoryName(article: Article, language: Props['language']) {
   return category ? language === 'hi' ? category.name : category.nameEn : article.category;
 }
 
-export function WhatsAppShareLink({ article, language, placement }: { article: Article; language: Props['language']; placement: 'lead_story' | 'latest_news' | 'live_updates' | 'national' | 'homepage_category' }) {
+export function WhatsAppShareLink({ article, language, placement }: { article: Article; language: Props['language']; placement: 'lead_story' | 'latest_news' | 'popular_news' | 'live_updates' | 'national' | 'homepage_category' }) {
   const shareLabel = language === 'hi' ? 'व्हाट्सऐप पर साझा करें' : 'Share on WhatsApp';
   const shareHref = buildArticleWhatsAppShareUrl({
     title: article.title,
@@ -39,10 +39,10 @@ export function WhatsAppShareLink({ article, language, placement }: { article: A
   </a>;
 }
 
-function LatestNews({ articles, language }: Pick<Props, 'articles' | 'language'>) {
-  return <section className={`${panel} flex flex-col xl:col-start-1 xl:row-start-1`} data-testid="latest-news-rail">
-    <SectionHeader title={language === 'hi' ? 'ताज़ा खबरें' : 'Latest News'} className="!mb-2" />
-    {articles.length ? <ol className="divide-y divide-zinc-200 dark:divide-zinc-800 xl:flex xl:flex-1 xl:flex-col xl:justify-between">
+function NewsRail({ articles, language, popular = false }: Pick<Props, 'articles' | 'language'> & { popular?: boolean }) {
+  return <section className={`${panel} flex flex-col ${popular ? 'xl:col-span-2 xl:row-start-2' : 'xl:col-start-1 xl:row-start-1'}`} data-testid={popular ? 'popular-news-rail' : 'latest-news-rail'}>
+    <SectionHeader title={popular ? language === 'hi' ? 'लोकप्रिय खबरें' : 'Popular News' : language === 'hi' ? 'ताज़ा खबरें' : 'Latest News'} className="!mb-2" />
+    {articles.length ? <ol className={`divide-y divide-zinc-200 dark:divide-zinc-800 ${popular ? 'grid gap-x-4 sm:grid-cols-2' : 'xl:flex xl:flex-1 xl:flex-col xl:justify-between'}`}>
       {articles.map(article => {
         const href = buildArticlePublicPath(article);
         return <li key={article.id} data-story-id={article.id} className="grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-2 rounded-editorial-sm py-2.5 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-800/30 sm:grid-cols-[96px_minmax(0,1fr)] xl:grid-cols-[100px_minmax(0,1fr)] 2xl:grid-cols-[104px_minmax(0,1fr)]">
@@ -56,14 +56,14 @@ function LatestNews({ articles, language }: Pick<Props, 'articles' | 'language'>
                 <span className="max-w-full truncate font-medium text-brand-600 dark:text-brand-400">{categoryName(article, language)}</span>
                 <span aria-hidden="true">·</span><time className="whitespace-nowrap" dateTime={article.publishedAt}>{formatUiDate(article.publishedAt)}</time>
               </span>
-              <WhatsAppShareLink article={article} language={language} placement="latest_news" />
+              <WhatsAppShareLink article={article} language={language} placement={popular ? 'popular_news' : 'latest_news'} />
             </div>
           </div>
         </li>;
       })}
     </ol> : <p className="text-sm text-zinc-600 dark:text-zinc-400">{language === 'hi' ? 'अभी खबरें उपलब्ध नहीं हैं।' : 'No stories available yet.'}</p>}
     <Link href="/main/latest" className="editorial-focus-ring mt-auto inline-flex min-h-10 items-center justify-center gap-1.5 border-t border-zinc-200 pt-2 text-xs font-semibold text-brand-600 hover:text-brand-700 dark:border-zinc-800 dark:text-brand-400 dark:hover:text-brand-300 xl:justify-start">
-      {language === 'hi' ? 'सभी ताज़ा खबरें देखें' : 'View all latest news'}<ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+      {popular ? language === 'hi' ? 'सभी देखें' : 'View All' : language === 'hi' ? 'सभी ताज़ा खबरें देखें' : 'View all latest news'}<ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
     </Link>
   </section>;
 }
@@ -105,7 +105,7 @@ export function IndoreEpaper({ epaper, language }: Pick<Props, 'epaper' | 'langu
 
 /** Plain editorial markup is also rendered during SSR; no mount gate or rotation. */
 export default function HomepageTopPackage({ articles, language, loading }: Omit<Props, 'epaper'>) {
-  const { lead, latest } = selectHomepageSections(articles);
+  const { lead, latest, popular } = selectHomepageSections(articles);
   return <div data-testid="homepage-top-package" className="grid min-w-0 grid-cols-1 items-stretch gap-4 text-zinc-900 dark:text-zinc-100 xl:grid-cols-[minmax(0,29fr)_minmax(0,44fr)] xl:col-start-1 xl:row-start-1">
     <section className={`${panel} xl:col-start-2 xl:row-start-1`} data-testid="lead-story" data-story-id={lead?.id}>
       <SectionHeader title={language === 'hi' ? 'मुख्य खबर' : 'Lead Story'} className="!mb-2" />
@@ -126,6 +126,7 @@ export default function HomepageTopPackage({ articles, language, loading }: Omit
         </div>
       </article> : <p role="status" className="py-8 text-sm text-zinc-600 dark:text-zinc-400">{loading ? language === 'hi' ? 'खबरें लोड हो रही हैं…' : 'Loading stories…' : language === 'hi' ? 'अभी खबरें उपलब्ध नहीं हैं।' : 'No stories available yet.'}</p>}
     </section>
-    <LatestNews articles={latest} language={language} />
+    <NewsRail articles={latest} language={language} />
+    <NewsRail articles={popular} language={language} popular />
   </div>;
 }
