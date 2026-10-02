@@ -127,6 +127,31 @@ CMS_READER_CATEGORIES.push(
 
 export const READER_CATEGORIES = [...NEWS_CATEGORIES, ...CMS_READER_CATEGORIES];
 
+export type DefaultCmsCategory = {
+  name: string;
+  slug: string;
+  description: string;
+  icon?: string;
+};
+
+export const DEFAULT_CMS_CATEGORIES: DefaultCmsCategory[] = READER_CATEGORIES.map(
+  (category) => ({
+    name: category.nameEn,
+    slug: category.slug,
+    description: `${category.nameEn} news and updates`,
+    icon: category.icon,
+  })
+);
+
+export const DEFAULT_CATEGORY_SLUGS: ReadonlySet<string> = new Set(
+  DEFAULT_CMS_CATEGORIES.map((category) => category.slug)
+);
+
+export function isDefaultCategorySlug(slug?: string | null): boolean {
+  if (!slug) return false;
+  return DEFAULT_CATEGORY_SLUGS.has(slug);
+}
+
 export const NEWS_CATEGORY_DEFINITIONS: NewsCategoryDefinition[] = READER_CATEGORIES.map(
   (category) => ({
     slug: category.slug,

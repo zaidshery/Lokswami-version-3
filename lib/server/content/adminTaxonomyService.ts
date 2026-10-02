@@ -1,7 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
 import Category from '@/lib/models/Category';
-import { READER_CATEGORIES } from '@/lib/constants/newsCategories';
+import {
+  DEFAULT_CMS_CATEGORIES,
+  DEFAULT_CATEGORY_SLUGS,
+  isDefaultCategorySlug,
+} from '@/lib/constants/newsCategories';
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 
 export type CategoryRecord = {
@@ -12,14 +16,7 @@ export type CategoryRecord = {
   icon?: string;
 };
 
-const DEFAULT_CMS_CATEGORIES: Omit<CategoryRecord, '_id'>[] = READER_CATEGORIES.map(
-  (category) => ({
-    name: category.nameEn,
-    slug: category.slug,
-    description: `${category.nameEn} news and updates`,
-    icon: category.icon,
-  })
-);
+export { DEFAULT_CMS_CATEGORIES, DEFAULT_CATEGORY_SLUGS, isDefaultCategorySlug };
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
@@ -29,7 +26,7 @@ function sortCategories(items: CategoryRecord[]) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function findMissingDefaults(existing: CategoryRecord[]) {
+export function findMissingDefaults(existing: CategoryRecord[]) {
   const existingNames = new Set(
     existing
       .map((item) => (typeof item.name === 'string' ? normalize(item.name) : ''))
@@ -112,6 +109,10 @@ export async function getAdminCategories(): Promise<CategoryRecord[]> {
   }
 
   return cats;
+}
+
+export async function ensureDefaultCategories(): Promise<CategoryRecord[]> {
+  return getAdminCategories();
 }
 
 export async function createAdminCategory(body: {
