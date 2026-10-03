@@ -19,6 +19,19 @@ type SwipeVideoCardProps = {
   onError: () => void;
 };
 
+function getYouTubeTargetOrigin(src?: string): string {
+  if (!src) return 'https://www.youtube-nocookie.com';
+  try {
+    const origin = new URL(src).origin;
+    if (origin.endsWith('.youtube.com') || origin.endsWith('.youtube-nocookie.com')) {
+      return origin;
+    }
+  } catch {
+    // fallback
+  }
+  return 'https://www.youtube-nocookie.com';
+}
+
 export default function SwipeVideoCard({
   item,
   position,
@@ -58,9 +71,10 @@ export default function SwipeVideoCard({
     const iframe = iframeRef.current;
     const send = (func: string, args: unknown[] = []) => {
       try {
+        const targetOrigin = getYouTubeTargetOrigin(iframe.src);
         iframe.contentWindow?.postMessage(
           JSON.stringify({ event: 'command', func, args }),
-          '*'
+          targetOrigin
         );
       } catch {
         // PostMessage safely caught
@@ -93,9 +107,10 @@ export default function SwipeVideoCard({
       }
       if (iframeRef.current) {
         try {
+          const targetOrigin = getYouTubeTargetOrigin(iframeRef.current.src);
           iframeRef.current.contentWindow?.postMessage(
             JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
-            '*'
+            targetOrigin
           );
         } catch {
           // ignore
@@ -117,9 +132,10 @@ export default function SwipeVideoCard({
       }
       if (iframeEl) {
         try {
+          const targetOrigin = getYouTubeTargetOrigin(iframeEl.src);
           iframeEl.contentWindow?.postMessage(
             JSON.stringify({ event: 'command', func: 'stopVideo', args: [] }),
-            '*'
+            targetOrigin
           );
         } catch {
           // ignore

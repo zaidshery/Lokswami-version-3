@@ -73,6 +73,33 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function isValidMediaSource(url?: string): boolean {
+  if (!url) return false;
+  const trimmed = url.trim().toLowerCase();
+  if (
+    trimmed.startsWith('javascript:') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('file:') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return false;
+  }
+  return /^https?:\/\//i.test(trimmed) || trimmed.startsWith('/');
+}
+
+function getYouTubeTargetOrigin(src?: string): string {
+  if (!src) return 'https://www.youtube-nocookie.com';
+  try {
+    const origin = new URL(src).origin;
+    if (origin.endsWith('.youtube.com') || origin.endsWith('.youtube-nocookie.com')) {
+      return origin;
+    }
+  } catch {
+    // fallback
+  }
+  return 'https://www.youtube-nocookie.com';
+}
+
 function loadYouTubeIframeApi(): Promise<YouTubeNamespace> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('YouTube iframe API requires a browser.'));
@@ -198,13 +225,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const pausedByVisibilityRef = useRef(false);
 
   useEffect(() => {
-    setPlaybackError(false);
-    setErrorClassification('generic');
-    setRetryCount(0);
-    setIsBuffering(false);
-  }, [src, videoId]);
-
-  useEffect(() => {
     wasManuallyPausedRef.current = isPaused;
   }, [isPaused]);
 
@@ -269,6 +289,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const youtubeId = useMemo(() => extractYouTubeVideoId(src), [src]);
   const isLiveStream = Boolean(isLive || isYouTubeLiveUrl(src));
   const isYouTube = Boolean(youtubeId);
+
+  useEffect(() => {
+    if (!isYouTube && src && !isValidMediaSource(src)) {
+      setPlaybackError(true);
+      setErrorClassification('not_supported');
+      return;
+    }
+    setPlaybackError(false);
+    setErrorClassification('generic');
+    setRetryCount(0);
+    setIsBuffering(false);
+  }, [src, videoId, isYouTube]);
+  const isSafeMediaSrc = useMemo(() => {
+    return Boolean(src && isValidMediaSource(src));
+  }, [src]);
   const progressKey = useMemo(() => `${LOCAL_PROGRESS_PREFIX}:${videoId}`, [videoId]);
   const embedUrl = useMemo(() => {
     if (!youtubeId) return '';
@@ -562,9 +597,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       if (youtubePlayerRef.current) {
         youtubePlayerRef.current.seekTo(safeSeconds, true);
       } else if (youtubeIframeRef.current) {
+        const targetOrigin = getYouTubeTargetOrigin(youtubeIframeRef.current.src);
         youtubeIframeRef.current.contentWindow?.postMessage(
           JSON.stringify({ event: 'command', func: 'seekTo', args: [safeSeconds, true] }),
-          '*'
+          targetOrigin
         );
       }
     } else if (videoRef.current) {
@@ -582,9 +618,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           if (youtubePlayerRef.current) {
             youtubePlayerRef.current.seekTo(safeSeconds, true);
           } else if (youtubeIframeRef.current) {
+            const targetOrigin = getYouTubeTargetOrigin(youtubeIframeRef.current.src);
             youtubeIframeRef.current.contentWindow?.postMessage(
               JSON.stringify({ event: 'command', func: 'seekTo', args: [safeSeconds, true] }),
-              '*'
+              targetOrigin
             );
           }
         } else if (videoRef.current) {
@@ -688,79 +725,81 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       ref={containerRef}
       className={`relative ${aspectClass} w-full overflow-hidden rounded-2xl bg-black shadow-2xl ${className}`}
     >
-      <video
-        ref={videoRef}
-        src={src}
-        poster={poster}
-        className="h-full w-full object-contain"
-        playsInline
-        autoPlay={isActive && !isPaused}
-        controls
-        muted={isMuted}
-        onLoadedMetadata={(event) => {
-          const video = event.currentTarget;
-          const safeDuration = Math.max(0, video.duration || fallbackDuration);
-          video.volume = Math.max(0, Math.min(1, defaultVolume));
-          onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
-        }}
-        onTimeUpdate={(event) => {
-          const video = event.currentTarget;
-          const safeDuration = Math.max(0, video.duration || fallbackDuration);
-          onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
-        }}
-        onWaiting={() => {
-          if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
-          bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
-        }}
-        onStalled={() => {
-          if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
-          bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
-        }}
-        onPlaying={() => {
-          if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
-          setIsBuffering(false);
-          onPausedChange(false);
-        }}
-        onCanPlay={() => {
-          if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
-          setIsBuffering(false);
-        }}
-        onPlay={() => {
-          onPausedChange(false);
-        }}
-        onPause={() => {
-          onPausedChange(true);
-        }}
-        onVolumeChange={(event) => {
-          const video = event.currentTarget;
-          onMutedChange(Boolean(video.muted || video.volume === 0));
-        }}
-        onRateChange={(event) => {
-          if (onPlaybackRateChange) {
-            onPlaybackRateChange(event.currentTarget.playbackRate);
-          }
-        }}
-        onEnded={() => {
-          if (!autoAdvance) {
+      {isSafeMediaSrc && (
+        <video
+          ref={videoRef}
+          src={src}
+          poster={poster}
+          className="h-full w-full object-contain"
+          playsInline
+          autoPlay={isActive && !isPaused}
+          controls
+          muted={isMuted}
+          onLoadedMetadata={(event) => {
+            const video = event.currentTarget;
+            const safeDuration = Math.max(0, video.duration || fallbackDuration);
+            video.volume = Math.max(0, Math.min(1, defaultVolume));
+            onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
+          }}
+          onTimeUpdate={(event) => {
+            const video = event.currentTarget;
+            const safeDuration = Math.max(0, video.duration || fallbackDuration);
+            onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
+          }}
+          onWaiting={() => {
+            if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+            bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
+          }}
+          onStalled={() => {
+            if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+            bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
+          }}
+          onPlaying={() => {
+            if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+            setIsBuffering(false);
+            onPausedChange(false);
+          }}
+          onCanPlay={() => {
+            if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+            setIsBuffering(false);
+          }}
+          onPlay={() => {
+            onPausedChange(false);
+          }}
+          onPause={() => {
             onPausedChange(true);
-          }
-          onEnded();
-        }}
-        onError={(event) => {
-          setPlaybackError(true);
-          setIsBuffering(false);
-          const code = event.currentTarget.error?.code;
-          if (code === 2) {
-            setErrorClassification('network');
-          } else if (code === 3) {
-            setErrorClassification('decode');
-          } else if (code === 4) {
-            setErrorClassification('not_supported');
-          } else {
-            setErrorClassification('generic');
-          }
-        }}
-      />
+          }}
+          onVolumeChange={(event) => {
+            const video = event.currentTarget;
+            onMutedChange(Boolean(video.muted || video.volume === 0));
+          }}
+          onRateChange={(event) => {
+            if (onPlaybackRateChange) {
+              onPlaybackRateChange(event.currentTarget.playbackRate);
+            }
+          }}
+          onEnded={() => {
+            if (!autoAdvance) {
+              onPausedChange(true);
+            }
+            onEnded();
+          }}
+          onError={(event) => {
+            setPlaybackError(true);
+            setIsBuffering(false);
+            const code = event.currentTarget.error?.code;
+            if (code === 2) {
+              setErrorClassification('network');
+            } else if (code === 3) {
+              setErrorClassification('decode');
+            } else if (code === 4) {
+              setErrorClassification('not_supported');
+            } else {
+              setErrorClassification('generic');
+            }
+          }}
+        />
+      )}
 
       {/* Buffering Indicator */}
       {isBuffering && !isPaused && !playbackError && (

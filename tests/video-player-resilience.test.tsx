@@ -1,6 +1,7 @@
+import { createRef } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import VideoPlayer from '@/components/ui/VideoPlayer';
+import VideoPlayer, { type VideoPlayerHandle } from '@/components/ui/VideoPlayer';
 
 describe('VideoPlayer resilience & lifecycle', () => {
   beforeEach(() => {
@@ -176,5 +177,65 @@ describe('VideoPlayer resilience & lifecycle', () => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     fireEvent(document, new Event('visibilitychange'));
     expect(onPausedChange).toHaveBeenCalledWith(false);
+  });
+
+  it('rejects dangerous or invalid media source schemes', () => {
+    const { container } = render(
+      <VideoPlayer
+        videoId="v6"
+        title="Malicious Video"
+        src="javascript:alert(1)"
+        isActive={true}
+        isPaused={false}
+        isMuted={true}
+        autoAdvance={true}
+        playbackRate={1}
+        defaultVolume={1}
+        captionsEnabled={false}
+        onPausedChange={vi.fn()}
+        onMutedChange={vi.fn()}
+        onTimeChange={vi.fn()}
+        onEnded={vi.fn()}
+      />
+    );
+
+    // Should indicate playback/format error and not mount active video source
+    expect(screen.getByText(/वीडियो प्रारूप समर्थित नहीं है/i)).toBeInTheDocument();
+    const video = container.querySelector('video');
+    expect(video).not.toBeInTheDocument();
+  });
+
+  it('sends postMessage with safe YouTube targetOrigin and never "*"', () => {
+    const playerRef = createRef<VideoPlayerHandle>();
+    const { container } = render(
+      <VideoPlayer
+        ref={playerRef}
+        videoId="v7"
+        title="YouTube Safety Test"
+        src="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        isActive={true}
+        isPaused={false}
+        isMuted={true}
+        autoAdvance={true}
+        playbackRate={1}
+        defaultVolume={1}
+        captionsEnabled={false}
+        onPausedChange={vi.fn()}
+        onMutedChange={vi.fn()}
+        onTimeChange={vi.fn()}
+        onEnded={vi.fn()}
+      />
+    );
+
+    const iframe = container.querySelector('iframe');
+    expect(iframe).toBeInTheDocument();
+    if (iframe && iframe.contentWindow) {
+      const postMessageSpy = vi.spyOn(iframe.contentWindow, 'postMessage');
+      playerRef.current?.seekTo(30);
+      expect(postMessageSpy).toHaveBeenCalled();
+      const [, targetOrigin] = postMessageSpy.mock.calls[0];
+      expect(targetOrigin).not.toBe('*');
+      expect(targetOrigin).toMatch(/^https:\/\/(www\.)?youtube/);
+    }
   });
 });
