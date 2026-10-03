@@ -8,6 +8,26 @@ vi.mock('@/lib/analytics/trackClient', () => ({
 }));
 
 describe('useVideoWatchTelemetry', () => {
+  it('does not credit repeated small seeks and resumes credit after continuous playback', () => {
+    const { result } = renderHook(() => useVideoWatchTelemetry({
+      contentId: 'small-seeks', contentType: 'video', pagePath: '/main/videos',
+      source: 'lokswami_video_hub', duration: 40, isPlaying: true,
+    }));
+    act(() => {
+      for (let time = 1; time <= 30; time++) {
+        result.current.onSeek();
+        result.current.onTimeUpdate(time, 40);
+      }
+    });
+    expect(result.current.getAccumulatedWatchTime()).toBe(0);
+    expect(trackClientEvent).not.toHaveBeenCalled();
+    act(() => {
+      for (let time = 31; time <= 40; time++) result.current.onTimeUpdate(time, 40);
+    });
+    expect(result.current.getAccumulatedWatchTime()).toBe(10);
+    expect(trackClientEvent).toHaveBeenCalledWith(expect.objectContaining({ event: 'watch_25' }));
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     Object.defineProperty(document, 'hidden', {

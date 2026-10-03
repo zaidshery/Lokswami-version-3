@@ -505,7 +505,7 @@ export default function SwipeFeed({
         <button
           type="button"
           onClick={() => moveTo(activeIndex + 1)}
-          disabled={activeIndex === items.length - 1}
+          disabled={activeIndex === items.length - 1 && (!hasMore || loadingMore)}
           aria-label="Next story"
           className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95"
         >

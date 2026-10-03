@@ -39,6 +39,25 @@ function item(index: number): SwipeFeedItem {
 }
 
 describe('SwipeFeed', () => {
+  it('lets the last desktop Next control load another page and disables it at the final boundary', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true, json: async () => ({ items: [item(2)], hasMore: false, nextCursor: null }),
+    } as Response);
+    try {
+      render(<SwipeFeed initialItems={[item(1)]} initialArticle={null} initialHasMore
+        initialNextCursor={{ publishedAt: '2026-09-01T09:00:00.000Z', id: 'video-1' }} />);
+      const next = screen.getByRole('button', { name: 'Next story' });
+      expect(next).toBeEnabled();
+      fireEvent.click(next);
+      await screen.findByText('Story 1 of 2: Swipe story 1');
+      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/api/v1/public/shorts?'), expect.any(Object));
+      expect(next).toBeEnabled();
+      fireEvent.click(next);
+      expect(screen.getByText('Story 2 of 2: Swipe story 2')).toBeInTheDocument();
+      expect(next).toBeDisabled();
+    } finally { fetchSpy.mockRestore(); }
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();

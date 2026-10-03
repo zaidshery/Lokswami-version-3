@@ -35,6 +35,7 @@ export interface VideoDetailHeroProps {
     shorts?: string;
   };
   onSeek?: (seconds: number) => void;
+  onSeeking?: () => void;
   onPausedChange: (paused: boolean) => void;
   onMutedChange: (muted: boolean) => void;
   onTimeChange?: (current: number, duration: number) => void;
@@ -59,6 +60,7 @@ export default function VideoDetailHero({
   onPausedChange,
   onMutedChange,
   onTimeChange,
+  onSeeking,
   onCaptionsChange,
   onPlaybackRateChange,
   onAdvanceToNext,
@@ -113,6 +115,7 @@ export default function VideoDetailHero({
             className="h-full w-full object-contain"
             onPausedChange={onPausedChange}
             onMutedChange={onMutedChange}
+            onSeeking={onSeeking}
             onTimeChange={(current, dur) => {
               if (onTimeChange) onTimeChange(current, dur);
             }}

@@ -174,6 +174,7 @@ export interface VideoPlayerProps {
   onPausedChange: (paused: boolean) => void;
   onMutedChange: (muted: boolean) => void;
   onTimeChange: (currentTime: number, duration: number) => void;
+  onSeeking?: () => void;
   onEnded: () => void;
   onPlaybackRateChange?: (speed: number) => void;
   onCaptionsChange?: (enabled: boolean) => void;
@@ -202,6 +203,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     onPausedChange,
     onMutedChange,
     onTimeChange,
+    onSeeking,
     onEnded,
     onPlaybackRateChange,
     onCaptionsChange,
@@ -225,7 +227,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const pausedByVisibilityRef = useRef(false);
 
   useEffect(() => {
-    wasManuallyPausedRef.current = isPaused;
+    if (!pausedByVisibilityRef.current) wasManuallyPausedRef.current = isPaused;
   }, [isPaused]);
 
   // Network offline/online tracking
@@ -277,6 +279,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     onPausedChange,
     onPlaybackRateChange,
     onTimeChange,
+    onSeeking,
   });
   const controlsRef = useRef({
     defaultVolume,
@@ -308,13 +311,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const embedUrl = useMemo(() => {
     if (!youtubeId) return '';
     return buildYouTubeEmbedUrl(youtubeId, {
-      autoplay: isActive && !isPaused,
-      mute: isMuted,
+      autoplay: false,
+      mute: true,
       isLive: isLiveStream,
       playsinline: true,
       enablejsapi: true,
     });
-  }, [youtubeId, isActive, isPaused, isMuted, isLiveStream]);
+  }, [youtubeId, isLiveStream]);
 
   callbacksRef.current = {
     onCaptionsChange,
@@ -323,6 +326,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     onPausedChange,
     onPlaybackRateChange,
     onTimeChange,
+    onSeeking,
   };
   controlsRef.current = {
     defaultVolume,
@@ -389,6 +393,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               }
 
               if (controls.startTime > 0) {
+                callbacksRef.current.onSeeking?.();
                 event.target.seekTo(controls.startTime, true);
               }
 
@@ -404,6 +409,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               );
             },
             onStateChange: (event) => {
+              if (event.data === 3) callbacksRef.current.onSeeking?.();
               if (event.data === youtube.PlayerState.PLAYING) {
                 callbacksRef.current.onPausedChange(false);
                 return;
@@ -474,6 +480,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   useEffect(() => {
     if (!isYouTube || !youtubeReadyRef.current || !youtubePlayerRef.current) return;
     if (startTime <= 0) return;
+    callbacksRef.current.onSeeking?.();
     youtubePlayerRef.current.seekTo(startTime, true);
   }, [isYouTube, startTime]);
 
@@ -593,6 +600,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   useEffect(() => {
     if (seekTargetTime === undefined || seekTargetTime === null) return;
     const safeSeconds = Math.max(0, seekTargetTime);
+    callbacksRef.current.onSeeking?.();
     if (isYouTube) {
       if (youtubePlayerRef.current) {
         youtubePlayerRef.current.seekTo(safeSeconds, true);
@@ -614,6 +622,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     () => ({
       seekTo: (seconds: number) => {
         const safeSeconds = Math.max(0, seconds);
+        callbacksRef.current.onSeeking?.();
         if (isYouTube) {
           if (youtubePlayerRef.current) {
             youtubePlayerRef.current.seekTo(safeSeconds, true);
@@ -743,9 +752,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           }}
           onTimeUpdate={(event) => {
             const video = event.currentTarget;
+            if (video.seeking) callbacksRef.current.onSeeking?.();
             const safeDuration = Math.max(0, video.duration || fallbackDuration);
             onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
           }}
+          onSeeking={() => callbacksRef.current.onSeeking?.()}
+          onSeeked={() => callbacksRef.current.onSeeking?.()}
           onWaiting={() => {
             if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
             bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);

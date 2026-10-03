@@ -1,9 +1,56 @@
-import { createRef } from 'react';
+import { createRef, useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import VideoPlayer, { type VideoPlayerHandle } from '@/components/ui/VideoPlayer';
 
 describe('VideoPlayer resilience & lifecycle', () => {
+  const commonProps = {
+    videoId: 'regression', title: 'Regression', isActive: true, isMuted: true,
+    autoAdvance: true, playbackRate: 1, defaultVolume: 1, captionsEnabled: false,
+    onMutedChange: vi.fn(), onTimeChange: vi.fn(), onEnded: vi.fn(),
+  };
+
+  it('keeps the YouTube iframe stable across controlled visibility pauses and mute changes', () => {
+    function ControlledPlayer() {
+      const [paused, setPaused] = useState(false);
+      const [muted, setMuted] = useState(true);
+      return <><button onClick={() => setMuted(false)}>Unmute test</button><VideoPlayer
+        {...commonProps} src="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        isPaused={paused} isMuted={muted} onPausedChange={setPaused}
+      /></>;
+    }
+    const { container } = render(<ControlledPlayer />);
+    const iframe = container.querySelector('iframe')!;
+    const source = iframe.src;
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    fireEvent(document, new Event('visibilitychange'));
+    expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument();
+    expect(iframe.src).toBe(source);
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    fireEvent(document, new Event('visibilitychange'));
+    expect(screen.queryByRole('button', { name: 'Play video' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Unmute test'));
+    expect(container.querySelector('iframe')).toBe(iframe);
+    expect(iframe.src).toBe(source);
+  });
+
+  it('forwards native and imperative seeks before reporting their new position', () => {
+    const playerRef = createRef<VideoPlayerHandle>();
+    const onSeeking = vi.fn();
+    const onTimeChange = vi.fn();
+    const { container } = render(<VideoPlayer {...commonProps} ref={playerRef}
+      src="https://example.com/video.mp4" isPaused={false} onPausedChange={vi.fn()}
+      onSeeking={onSeeking} onTimeChange={onTimeChange} />);
+    const video = container.querySelector('video')!;
+    fireEvent.seeking(video);
+    expect(onSeeking).toHaveBeenCalledTimes(1);
+    fireEvent.seeked(video);
+    expect(onSeeking).toHaveBeenCalledTimes(2);
+    playerRef.current?.seekTo(1);
+    expect(onSeeking).toHaveBeenCalledTimes(3);
+    expect(onSeeking.mock.invocationCallOrder[2]).toBeLessThan(onTimeChange.mock.invocationCallOrder[0]);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();

@@ -41,6 +41,7 @@ export default function useVideoWatchTelemetry({
   const watchedSecondsRef = useRef<number>(0);
   const lastActiveContentIdRef = useRef<string>(contentId);
   const lastTimeRef = useRef<number>(0);
+  const seekPendingRef = useRef(false);
   const isDocumentHiddenRef = useRef<boolean>(false);
 
   // Reset milestone accumulation when contentId changes
@@ -48,6 +49,7 @@ export default function useVideoWatchTelemetry({
     lastActiveContentIdRef.current = contentId;
     watchedSecondsRef.current = 0;
     lastTimeRef.current = 0;
+    seekPendingRef.current = false;
   }
 
   // Track document visibility to suspend watch time while tab is hidden
@@ -133,6 +135,12 @@ export default function useVideoWatchTelemetry({
 
   const onTimeUpdate = useCallback(
     (currentTime: number, currentDuration?: number) => {
+      if (!Number.isFinite(currentTime) || currentTime < 0) return;
+      if (seekPendingRef.current) {
+        seekPendingRef.current = false;
+        lastTimeRef.current = currentTime;
+        return;
+      }
       if (!isPlaying || isBuffering || isDocumentHiddenRef.current) {
         lastTimeRef.current = currentTime;
         return;
@@ -155,7 +163,7 @@ export default function useVideoWatchTelemetry({
   );
 
   const onSeek = useCallback(() => {
-    // When seeking, lastTimeRef is reset on the next time update
+    seekPendingRef.current = true;
   }, []);
 
   const getAccumulatedWatchTime = useCallback(() => {

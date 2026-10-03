@@ -425,6 +425,7 @@ export default function VideosPageClient({
                     language={language}
                     copy={copy}
                     onSeek={handleSeek}
+                    onSeeking={watchTelemetry.onSeek}
                     onPausedChange={handlePausedChange}
                     onMutedChange={setIsMuted}
                     onTimeChange={handleTimeChange}
