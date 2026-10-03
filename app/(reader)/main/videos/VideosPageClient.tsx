@@ -126,18 +126,29 @@ export default function VideosPageClient({
           items.push(...payload.items.map(mapApiVideo));
         }
         if (!controller.signal.aborted) {
-          setSavedVideos(items);
+          setSavedVideos((current) => {
+            const retained = current.filter((v) => v.id === selectedVideoId);
+            return mergeUniqueVideos(items, retained);
+          });
           setSavedVideosStatus('ready');
         }
       } catch {
         if (!controller.signal.aborted) {
-          setSavedVideos([]);
+          setSavedVideos((current) => current.filter((v) => v.id === selectedVideoId));
           setSavedVideosStatus('error');
         }
       }
     })();
     return () => controller.abort();
-  }, [isWatchLaterOpen, videos, watchLaterIds]);
+  }, [isWatchLaterOpen, selectedVideoId, videos, watchLaterIds]);
+
+  // Promote active hydrated off-page video into main collection so it persists if unbookmarked
+  useEffect(() => {
+    const activeFromSaved = savedVideos.find((v) => v.id === selectedVideoId);
+    if (activeFromSaved && !videos.some((v) => v.id === selectedVideoId)) {
+      setVideos((prev) => mergeUniqueVideos(prev, [activeFromSaved]));
+    }
+  }, [savedVideos, selectedVideoId, videos]);
 
   // Sync watch later bookmarks to localStorage
   const toggleWatchLater = useCallback((videoId: string) => {
@@ -159,7 +170,7 @@ export default function VideosPageClient({
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
-      if (target?.closest('button, a, [role="menu"]')) return;
+      if (typeof target?.closest === 'function' && target.closest('button, a, [role="menu"]')) return;
       if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
 
       if (event.key === ' ' || event.key === 'k' || event.key === 'K') {
@@ -309,6 +320,10 @@ export default function VideosPageClient({
   }, [watchTelemetry]);
 
   const handleSelectVideo = useCallback((videoId: string) => {
+    const selectedOffPage = availableVideos.find((v) => v.id === videoId);
+    if (selectedOffPage && !videos.some((v) => v.id === videoId)) {
+      setVideos((prev) => mergeUniqueVideos(prev, [selectedOffPage]));
+    }
     setSelectedVideoId(videoId);
     setIsPaused(false);
     wasManuallyPausedRef.current = false;
@@ -321,7 +336,7 @@ export default function VideosPageClient({
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, []);
+  }, [availableVideos, videos]);
 
   const advanceToNext = useCallback(() => {
     watchTelemetry.onEnded();

@@ -113,6 +113,54 @@ describe('Video Hub 2.0 (Phase 3.14A)', () => {
     fetchMock.mockRestore();
   });
 
+  it('retains the selected hydrated video when its watch-later bookmark is removed while playing', async () => {
+    window.localStorage.setItem('lokswami.video.watch-later.v1', JSON.stringify({ 'vid-beta': true }));
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ items: [mockVideos[1]] })));
+    render(<VideosPageClient initialItems={[mockVideos[0]]} initialLimit={20} initialHasMore={true} initialNextCursor={{ id: 'vid-alpha', publishedAt: mockVideos[0].publishedAt }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Saved videos' }));
+    const drawer = screen.getByRole('dialog');
+    fireEvent.click(await within(drawer).findByRole('button', { name: 'Beta Regional Updates' }));
+    expect(screen.getByTestId('mock-video-detail-hero')).toHaveAttribute('data-video-id', 'vid-beta');
+
+    // Open drawer again to remove bookmark
+    fireEvent.click(screen.getByRole('button', { name: 'Saved videos' }));
+    const activeDrawer = screen.getByRole('dialog');
+    const removeBtn = within(activeDrawer).getByRole('button', { name: 'Remove from watch later' });
+    fireEvent.click(removeBtn);
+
+    // Close drawer
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    // Selected video MUST remain vid-beta and not revert to vid-alpha
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-video-detail-hero')).toHaveAttribute('data-video-id', 'vid-beta');
+    });
+    fetchMock.mockRestore();
+  });
+
+  it('traps focus within the watch later drawer and restores focus to the trigger on close', async () => {
+    render(<VideosPageClient initialItems={[mockVideos[0]]} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
+    const savedButton = screen.getByRole('button', { name: 'Saved videos' });
+    savedButton.focus();
+    expect(document.activeElement).toBe(savedButton);
+
+    fireEvent.click(savedButton);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+
+    // Initial focus moves inside the drawer
+    await waitFor(() => {
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    });
+
+    // Press Escape to close and verify focus restores to trigger
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(savedButton);
+    });
+  });
+
   describe('Default & Direct Selection', () => {
     it('defaults to the first eligible video when no query parameter is present', () => {
       render(

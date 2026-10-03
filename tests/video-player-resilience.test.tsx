@@ -287,4 +287,25 @@ describe('VideoPlayer resilience & lifecycle', () => {
       expect(targetOrigin).toMatch(/^https:\/\/(www\.)?youtube/);
     }
   });
+
+  it('does not emit onPausedChange(false) on HTML5 play event until onPlaying confirms rendering', () => {
+    const onPausedChange = vi.fn();
+    const { container } = render(
+      <VideoPlayer
+        {...commonProps}
+        src="https://example.com/video.mp4"
+        isPaused={true}
+        onPausedChange={onPausedChange}
+      />
+    );
+
+    const video = container.querySelector('video')!;
+    expect(video).toBeInTheDocument();
+
+    fireEvent.play(video);
+    expect(onPausedChange).not.toHaveBeenCalledWith(false);
+
+    fireEvent.playing(video);
+    expect(onPausedChange).toHaveBeenCalledWith(false);
+  });
 });

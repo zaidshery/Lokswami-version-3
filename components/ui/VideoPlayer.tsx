@@ -775,9 +775,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
             setIsBuffering(false);
           }}
-          onPlay={() => {
-            onPausedChange(false);
-          }}
           onPause={() => {
             onPausedChange(true);
           }}

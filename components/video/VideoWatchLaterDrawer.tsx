@@ -31,20 +31,73 @@ export default function VideoWatchLaterDrawer({
   status = 'ready',
 }: VideoWatchLaterDrawerProps) {
   const drawerRef = useRef<HTMLDivElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const savedVideos = videos.filter((v) => savedVideoIds[v.id]);
   const missingIds = Object.keys(savedVideoIds).filter((id) => !savedVideos.some((video) => video.id === id));
 
   useEffect(() => {
     if (!open) return;
+
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const focusableSelector = [
+      'a[href]',
+      'button:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+
+    const focusInitialControl = window.requestAnimationFrame(() => {
+      const dialog = drawerRef.current;
+      const firstFocusable = dialog?.querySelector<HTMLElement>(focusableSelector);
+      (firstFocusable || dialog)?.focus();
+    });
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+
+      const dialog = drawerRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector));
+      if (!focusable.length) {
+        e.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        e.preventDefault();
+        first.focus();
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+    return () => {
+      window.cancelAnimationFrame(focusInitialControl);
+      window.removeEventListener('keydown', handleKeyDown);
+      returnFocusRef.current?.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -60,6 +113,7 @@ export default function VideoWatchLaterDrawer({
     >
       <div
         ref={drawerRef}
+        tabIndex={-1}
         className="relative flex h-full w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-2xl transition-transform dark:border-white/10 dark:bg-zinc-950 sm:rounded-l-3xl animate-in slide-in-from-right duration-250"
       >
         {/* Drawer Header */}
