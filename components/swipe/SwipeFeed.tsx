@@ -83,7 +83,7 @@ export default function SwipeFeed({
 
   const activeItem = items[activeIndex] || null;
   const activeArticle = activeItem ? articlesBySlug[activeItem.slug] ?? null : null;
-  const { trackEvent, trackOnce } = useSwipeAnalytics({
+  const { trackEvent, trackOnce, onProgress } = useSwipeAnalytics({
     activeItem,
     paused,
     playbackStarted,
@@ -340,13 +340,9 @@ export default function SwipeFeed({
 
   const handleProgress = useCallback(
     (currentTime: number, duration: number) => {
-      if (!activeItem || !duration) return;
-      const ratio = currentTime / duration;
-      if (ratio >= 0.25) trackOnce('video_25_percent', activeItem);
-      if (ratio >= 0.5) trackOnce('video_50_percent', activeItem);
-      if (ratio >= 0.95) trackOnce('video_complete', activeItem);
+      onProgress(currentTime, duration);
     },
-    [activeItem, trackOnce]
+    [onProgress]
   );
 
   const handlePlaybackError = useCallback(() => {

@@ -64,47 +64,59 @@ export default function useSwipeAnalytics({
     [trackEvent]
   );
 
+  const lastTimeRef = useRef(0);
+
   useEffect(() => {
     if (!activeItem) return;
     watchSecondsRef.current = 0;
+    lastTimeRef.current = 0;
     trackOnce('short_impression', activeItem);
     trackOnce('swipe_impression', activeItem);
   }, [activeItem, trackOnce]);
 
   useEffect(() => {
     if (!activeItem || paused || !playbackStarted) return;
-
-    // Fire watch_start when playback starts
     trackOnce('watch_start', activeItem);
+  }, [activeItem, paused, playbackStarted, trackOnce]);
 
-    const timer = window.setInterval(() => {
-      if (isDocumentHiddenRef.current) return;
+  const onProgress = useCallback(
+    (currentTime: number, duration: number) => {
+      if (!activeItem || paused || isDocumentHiddenRef.current) {
+        lastTimeRef.current = currentTime;
+        return;
+      }
 
-      watchSecondsRef.current += 1;
+      const prevTime = lastTimeRef.current;
+      const delta = currentTime - prevTime;
+
+      if (delta > 0 && delta <= 2) {
+        watchSecondsRef.current += delta;
+      }
+      lastTimeRef.current = currentTime;
+
       const seconds = watchSecondsRef.current;
       if (seconds >= 3) trackOnce('video_3_second_view', activeItem);
-      const duration = Math.max(1, activeItem.duration || 1);
-      const ratio = seconds / duration;
+      const effDuration = Math.max(1, duration || activeItem.duration || 1);
+      const watched = watchSecondsRef.current;
 
-      if (ratio >= 0.25) {
+      if (watched >= effDuration * 0.25 && currentTime >= effDuration * 0.25) {
         trackOnce('watch_25', activeItem);
         trackOnce('video_25_percent', activeItem);
       }
-      if (ratio >= 0.5) {
+      if (watched >= effDuration * 0.5 && currentTime >= effDuration * 0.5) {
         trackOnce('watch_50', activeItem);
         trackOnce('video_50_percent', activeItem);
       }
-      if (ratio >= 0.75) {
+      if (watched >= effDuration * 0.75 && currentTime >= effDuration * 0.75) {
         trackOnce('watch_75', activeItem);
       }
-      if (ratio >= 0.95) {
+      if (watched >= effDuration * 0.95 && currentTime >= effDuration * 0.95) {
         trackOnce('watch_complete', activeItem);
         trackOnce('video_complete', activeItem);
       }
-    }, 1000);
+    },
+    [activeItem, paused, trackOnce]
+  );
 
-    return () => window.clearInterval(timer);
-  }, [activeItem, paused, playbackStarted, trackOnce]);
-
-  return { trackEvent, trackOnce };
+  return { trackEvent, trackOnce, onProgress };
 }

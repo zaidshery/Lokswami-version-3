@@ -95,6 +95,37 @@ export default function SwipeVideoCard({
     }
   }, [active, youtubeId, paused, muted]);
 
+  // Listen for confirmed playback events and progress from YouTube iframe
+  useEffect(() => {
+    if (!active || !youtubeId) return;
+    const handleMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.youtube.com') && !origin.endsWith('.youtube-nocookie.com')) {
+        return;
+      }
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data?.event === 'onStateChange' && data.info === 1) {
+          onPlay();
+        } else if (data?.event === 'infoDelivery' && data.info) {
+          if (data.info.playerState === 1) {
+            onPlay();
+          }
+          if (typeof data.info.currentTime === 'number') {
+            onProgress(
+              data.info.currentTime,
+              typeof data.info.duration === 'number' ? data.info.duration : item.duration
+            );
+          }
+        }
+      } catch {
+        // ignore parse error
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [active, item.duration, onPlay, onProgress, youtubeId]);
+
   // Cleanup media when becoming inactive or unmounting
   useEffect(() => {
     if (!active) {
@@ -165,7 +196,6 @@ export default function SwipeVideoCard({
             src={`https://www.youtube-nocookie.com/embed/${youtubeId}?enablejsapi=1&playsinline=1&controls=0&mute=${muted ? 1 : 0}&autoplay=${paused ? 0 : 1}&rel=0&modestbranding=1&loop=1&playlist=${youtubeId}`}
             className="h-full w-full border-0"
             allow="autoplay; encrypted-media; picture-in-picture; web-share"
-            onLoad={onPlay}
             onError={onError}
             allowFullScreen
           />

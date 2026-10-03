@@ -846,7 +846,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               ? 'Network error. Please check your connection.'
               : 'Video currently unavailable.'}
           </p>
-          {src ? (
+          {src && errorClassification !== 'not_supported' ? (
             retryCount < 3 ? (
               <button
                 type="button"

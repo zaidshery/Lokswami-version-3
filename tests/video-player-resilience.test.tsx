@@ -203,6 +203,8 @@ describe('VideoPlayer resilience & lifecycle', () => {
     expect(screen.getByText(/वीडियो प्रारूप समर्थित नहीं है/i)).toBeInTheDocument();
     const video = container.querySelector('video');
     expect(video).not.toBeInTheDocument();
+    // Retry button must NOT be present for unsupported schemes to avoid replacing error with blank box
+    expect(screen.queryByRole('button', { name: /पुनः प्रयास करें/i })).not.toBeInTheDocument();
   });
 
   it('sends postMessage with safe YouTube targetOrigin and never "*"', () => {

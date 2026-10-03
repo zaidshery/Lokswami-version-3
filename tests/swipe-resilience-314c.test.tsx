@@ -1,7 +1,13 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SwipeFeed from '@/components/swipe/SwipeFeed';
+import useSwipeAnalytics from '@/components/swipe/useSwipeAnalytics';
 import type { SwipeFeedItem } from '@/components/swipe/types';
+import { trackClientEvent } from '@/lib/analytics/trackClient';
+
+vi.mock('@/lib/analytics/trackClient', () => ({
+  trackClientEvent: vi.fn(),
+}));
 
 function createShortItem(index: number): SwipeFeedItem {
   return {
@@ -175,5 +181,34 @@ describe('SwipeFeed 3.14C Resilience & Lifecycle', () => {
     );
 
     expect(screen.getByRole('status')).toHaveTextContent('Video paused.');
+  });
+
+  it('drives Swipe watch milestones from confirmed onProgress rather than synthetic timer', () => {
+    const item = createShortItem(10);
+    item.duration = 40;
+    const { result } = renderHook(() =>
+      useSwipeAnalytics({
+        activeItem: item,
+        paused: false,
+        playbackStarted: true,
+      })
+    );
+
+    // Initial state does not fire watch_25
+    expect(trackClientEvent).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'watch_25' }));
+
+    // Progress 10s (25% of 40s) via onProgress ticks
+    for (let t = 1; t <= 10; t++) {
+      act(() => {
+        result.current.onProgress(t, 40);
+      });
+    }
+
+    expect(trackClientEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'watch_25',
+        metadata: expect.objectContaining({ videoId: item._id }),
+      })
+    );
   });
 });
