@@ -125,8 +125,11 @@ export default function useVideoWatchTelemetry({
   }, []);
 
   const onEnded = useCallback(() => {
-    emitMilestone('watch_complete');
-  }, [emitMilestone]);
+    const effDuration = Math.max(0, duration);
+    if (effDuration <= 0 || watchedSecondsRef.current >= effDuration * 0.95) {
+      emitMilestone('watch_complete');
+    }
+  }, [duration, emitMilestone]);
 
   const onTimeUpdate = useCallback(
     (currentTime: number, currentDuration?: number) => {
@@ -142,12 +145,13 @@ export default function useVideoWatchTelemetry({
       // If user jumped/seeked forward (delta > 2s) or backward (delta < 0), do not credit skipped range!
       if (delta > 0 && delta <= 2) {
         watchedSecondsRef.current += delta;
+        emitMilestone('watch_start');
       }
 
       lastTimeRef.current = currentTime;
       checkMilestones(currentTime, currentDuration);
     },
-    [checkMilestones, isBuffering, isPlaying]
+    [checkMilestones, emitMilestone, isBuffering, isPlaying]
   );
 
   const onSeek = useCallback(() => {
@@ -157,13 +161,6 @@ export default function useVideoWatchTelemetry({
   const getAccumulatedWatchTime = useCallback(() => {
     return watchedSecondsRef.current;
   }, []);
-
-  // When isPlaying changes to true, trigger watch_start
-  useEffect(() => {
-    if (isPlaying && contentId) {
-      emitMilestone('watch_start');
-    }
-  }, [contentId, emitMilestone, isPlaying]);
 
   return {
     onPlay,

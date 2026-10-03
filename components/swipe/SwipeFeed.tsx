@@ -113,7 +113,12 @@ export default function SwipeFeed({
         const hasSaveData = (navigator as unknown as { connection?: { saveData?: boolean } })?.connection?.saveData;
         setDataSaver(hasSaveData ?? true);
       }
-      setAutoplay(window.localStorage.getItem(AUTOPLAY_KEY) !== 'false');
+      const storedAutoplay = window.localStorage.getItem(AUTOPLAY_KEY) !== 'false';
+      setAutoplay(storedAutoplay);
+      autoplayRef.current = storedAutoplay;
+      if (!storedAutoplay) {
+        setPaused(true);
+      }
       const savedMute = window.localStorage.getItem(MUTE_DEFAULT_KEY);
       if (savedMute !== null) {
         const isMuted = savedMute === 'true';

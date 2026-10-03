@@ -262,4 +262,52 @@ describe('useVideoWatchTelemetry', () => {
     expect(bStart).toHaveLength(1);
     expect(result.current.getAccumulatedWatchTime()).toBe(0);
   });
+
+  it('does NOT emit watch_start before confirmed playback even when isPlaying is true', () => {
+    renderHook(() =>
+      useVideoWatchTelemetry({
+        contentId: 'vid-505',
+        slug: 'slug-505',
+        title: 'Title 505',
+        contentType: 'video',
+        mediaProvider: 'html5',
+        pagePath: '/main/videos?video=vid-505',
+        source: 'lokswami_video_hub',
+        duration: 100,
+        isPlaying: true,
+      })
+    );
+
+    // Initial mount without onPlay() or playback ticks must not emit watch_start
+    expect(trackClientEvent).not.toHaveBeenCalled();
+  });
+
+  it('onEnded does NOT emit watch_complete if user sought to end without sufficient watched time', () => {
+    const { result } = renderHook(() =>
+      useVideoWatchTelemetry({
+        contentId: 'vid-606',
+        slug: 'slug-606',
+        title: 'Title 606',
+        contentType: 'video',
+        mediaProvider: 'html5',
+        pagePath: '/main/videos?video=vid-606',
+        source: 'lokswami_video_hub',
+        duration: 100,
+        isPlaying: true,
+      })
+    );
+
+    act(() => {
+      result.current.onPlay();
+      result.current.onTimeUpdate(1, 100);
+      result.current.onSeek();
+      result.current.onTimeUpdate(99, 100);
+      result.current.onEnded();
+    });
+
+    const events = vi.mocked(trackClientEvent).mock.calls.map(([call]) => call.event);
+    expect(events).toContain('watch_start');
+    // watch_complete must NOT be emitted because watchedSeconds is only 1s (< 95s required)!
+    expect(events).not.toContain('watch_complete');
+  });
 });

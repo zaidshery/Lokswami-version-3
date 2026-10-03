@@ -161,4 +161,19 @@ describe('SwipeFeed 3.14C Resilience & Lifecycle', () => {
     });
     expect(settingsButton).toBeInTheDocument();
   });
+
+  it('applies stored autoplay=false preference to the initial story', () => {
+    window.localStorage.setItem('lokswami.swipe.autoplay.v1', 'false');
+
+    render(
+      <SwipeFeed
+        initialItems={[createShortItem(1)]}
+        initialArticle={null}
+        initialHasMore={false}
+        initialNextCursor={null}
+      />
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Video paused.');
+  });
 });
