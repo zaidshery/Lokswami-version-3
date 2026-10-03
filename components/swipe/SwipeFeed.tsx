@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react';
 import SwipeActions from '@/components/swipe/SwipeActions';
 import ShareMenu from '@/components/ui/ShareMenu';
 import SwipeVideoCard from '@/components/swipe/SwipeVideoCard';
@@ -32,6 +32,8 @@ type FeedResponse = {
 };
 
 const DATA_SAVER_KEY = 'lokswami.swipe.data-saver.v1';
+const AUTOPLAY_KEY = 'lokswami.swipe.autoplay.v1';
+const MUTE_DEFAULT_KEY = 'lokswami.swipe.mute-default.v1';
 
 function mergeUnique(items: SwipeFeedItem[]) {
   const seen = new Set<string>();
@@ -55,6 +57,8 @@ export default function SwipeFeed({
   const [playbackStarted, setPlaybackStarted] = useState(false);
   const [playbackError, setPlaybackError] = useState(false);
   const [dataSaver, setDataSaver] = useState(true);
+  const [autoplay, setAutoplay] = useState(true);
+  const [muteDefault, setMuteDefault] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextCursor, setNextCursor] = useState<SwipeCursor>(initialNextCursor);
@@ -66,7 +70,9 @@ export default function SwipeFeed({
     const firstSlug = initialItems[0]?.slug;
     return firstSlug ? { [firstSlug]: initialArticle } : {};
   });
+
   const touchStartY = useRef<number | null>(null);
+  const lastWheelTime = useRef<number>(0);
   const articleButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -81,8 +87,16 @@ export default function SwipeFeed({
   useEffect(() => {
     try {
       setDataSaver(window.localStorage.getItem(DATA_SAVER_KEY) !== 'false');
+      setAutoplay(window.localStorage.getItem(AUTOPLAY_KEY) !== 'false');
+      const savedMute = window.localStorage.getItem(MUTE_DEFAULT_KEY);
+      if (savedMute !== null) {
+        const isMuted = savedMute === 'true';
+        setMuteDefault(isMuted);
+        setMuted(isMuted);
+      }
     } catch {
       setDataSaver(true);
+      setAutoplay(true);
     }
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const update = () => setReducedMotion(media.matches);
@@ -99,9 +113,28 @@ export default function SwipeFeed({
     }
   }, [dataSaver]);
 
+  const autoplayRef = useRef(autoplay);
+  autoplayRef.current = autoplay;
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(AUTOPLAY_KEY, String(autoplay));
+    } catch {
+      // Storage is optional.
+    }
+  }, [autoplay]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MUTE_DEFAULT_KEY, String(muteDefault));
+    } catch {
+      // Storage is optional.
+    }
+  }, [muteDefault]);
+
   useEffect(() => {
     if (!activeItem) return;
-    setPaused(false);
+    setPaused(!autoplayRef.current);
     setPlaybackStarted(false);
     setPlaybackError(false);
     setSheetOpen(false);
@@ -178,6 +211,40 @@ export default function SwipeFeed({
     [activeIndex, items, loadMore, trackEvent]
   );
 
+  const handleWheel = useCallback(
+    (event: React.WheelEvent) => {
+      if (sheetOpen || settingsOpen) return;
+      const now = Date.now();
+      if (now - lastWheelTime.current < 400) return;
+      if (Math.abs(event.deltaY) > 30) {
+        lastWheelTime.current = now;
+        moveTo(activeIndex + (event.deltaY > 0 ? 1 : -1));
+      }
+    },
+    [activeIndex, moveTo, settingsOpen, sheetOpen]
+  );
+
+  const handleTouchStart = useCallback(
+    (event: React.TouchEvent) => {
+      if (sheetOpen || settingsOpen) return;
+      touchStartY.current = event.changedTouches[0]?.clientY ?? null;
+    },
+    [settingsOpen, sheetOpen]
+  );
+
+  const handleTouchEnd = useCallback(
+    (event: React.TouchEvent) => {
+      if (sheetOpen || settingsOpen) return;
+      const start = touchStartY.current;
+      touchStartY.current = null;
+      if (start == null) return;
+      const delta = start - (event.changedTouches[0]?.clientY ?? start);
+      if (Math.abs(delta) < 48) return;
+      moveTo(activeIndex + (delta > 0 ? 1 : -1));
+    },
+    [activeIndex, moveTo, settingsOpen, sheetOpen]
+  );
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (sheetOpen || settingsOpen) return;
@@ -236,107 +303,148 @@ export default function SwipeFeed({
   }
 
   return (
-    <section
-      className="fixed inset-0 z-40 overflow-hidden bg-black text-white"
-      aria-label="Lokswami Swipe news feed"
-      onTouchStart={(event) => {
-        touchStartY.current = event.changedTouches[0]?.clientY ?? null;
-      }}
-      onTouchEnd={(event) => {
-        const start = touchStartY.current;
-        touchStartY.current = null;
-        if (start == null) return;
-        const delta = start - (event.changedTouches[0]?.clientY ?? start);
-        if (Math.abs(delta) < 48) return;
-        moveTo(activeIndex + (delta > 0 ? 1 : -1));
-      }}
-    >
-      {visibleCards.map(({ item, position }) => (
-        <SwipeVideoCard
-          key={item._id}
-          item={item}
-          position={position}
-          active={position === 0}
-          muted={muted}
-          paused={paused}
-          reducedMotion={reducedMotion}
-          preloadMetadata={position === 1 && !dataSaver}
-          onTogglePlayback={() => {
-            setPlaybackError(false);
-            setPaused((current) => !current);
-          }}
-          onPlay={handlePlay}
-          onProgress={handleProgress}
-          onError={handlePlaybackError}
-        />
-      ))}
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black md:bg-zinc-950/95 md:backdrop-blur-md text-white overflow-hidden">
+      <section
+        className="relative h-full w-full max-w-[480px] overflow-hidden bg-black shadow-2xl md:max-h-[92dvh] md:rounded-[32px] md:border md:border-white/10"
+        aria-label="Lokswami Swipe news feed"
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {visibleCards.map(({ item, position }) => (
+          <SwipeVideoCard
+            key={item._id}
+            item={item}
+            position={position}
+            active={position === 0}
+            muted={muted}
+            paused={paused}
+            reducedMotion={reducedMotion}
+            preloadMetadata={position === 1 && !dataSaver}
+            onTogglePlayback={() => {
+              setPlaybackError(false);
+              setPaused((current) => !current);
+            }}
+            onPlay={handlePlay}
+            onProgress={handleProgress}
+            onError={handlePlaybackError}
+          />
+        ))}
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-44 bg-gradient-to-b from-black/75 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-72 bg-gradient-to-t from-black/90 via-black/45 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-44 bg-gradient-to-b from-black/75 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-72 bg-gradient-to-t from-black/90 via-black/45 to-transparent" />
 
-      <div className="absolute left-3 top-[max(env(safe-area-inset-top),0.75rem)] z-30 flex items-center gap-3">
-        <Link href="/main/videos" aria-label="Back to videos" className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-full bg-black/50 backdrop-blur">
-          <ChevronLeft className="h-6 w-6" />
-        </Link>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-400">Lokswami Swipe</p>
-          <p className="text-xs text-white/75">देखो • पढ़ो • आगे बढ़ो</p>
+        <div className="absolute left-3 top-[max(env(safe-area-inset-top),0.75rem)] z-30 flex items-center gap-3">
+          <Link
+            href="/main/videos"
+            aria-label="Back to videos"
+            className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-full bg-black/50 backdrop-blur"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-400">Lokswami Swipe</p>
+            <p className="text-xs text-white/75">देखो • पढ़ो • आगे बढ़ो</p>
+          </div>
         </div>
-      </div>
 
-      <div className="pointer-events-none absolute bottom-[calc(var(--reader-bottom-nav-space)+4.5rem)] left-4 right-20 z-30">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-400">{activeItem.category}</p>
-        <h1 className="mt-2 line-clamp-3 text-xl font-extrabold leading-7 drop-shadow-lg">{activeItem.title}</h1>
-      </div>
+        <div className="pointer-events-none absolute bottom-[calc(var(--reader-bottom-nav-space)+4.5rem)] left-4 right-20 z-30">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-400">{activeItem.category}</p>
+          <h1 className="mt-2 line-clamp-3 text-xl font-extrabold leading-7 drop-shadow-lg">{activeItem.title}</h1>
+        </div>
 
-      <SwipeActions
-        muted={muted}
-        dataSaver={dataSaver}
-        hasArticle={Boolean(activeArticle)}
-        articleButtonRef={articleButtonRef}
-        settingsButtonRef={settingsButtonRef}
-        onToggleMuted={() => setMuted((current) => !current)}
-        onOpenSettings={() => setSettingsOpen(true)}
-        shareControl={<ShareMenu title={activeItem.title} text={activeItem.description} url={buildSwipeReaderPath(activeItem.slug)} contentType="video" contentId={activeItem._id} ariaLabel="Share this Swipe story" placement="swipe_actions" onShareEvent={(event, platform) => trackEvent(event === 'share_complete' ? 'swipe_share' : event, activeItem, { platform })} buttonClassName="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/10 [&>span]:sr-only" />}
-        onOpenArticle={() => {
-          if (!activeArticle) return;
-          setSheetOpen(true);
-          trackEvent('quick_article_open', activeItem, { articleId: activeArticle.id });
-        }}
-      />
-
-      <p className="sr-only" aria-live="polite">
-        {`Story ${activeIndex + 1} of ${items.length}: ${activeItem.title}`}
-      </p>
-      <p className="sr-only" aria-live="polite" role="status">
-        {playbackError
-          ? 'Playback failed. Press play to try again.'
-          : paused
-            ? 'Video paused.'
-            : playbackStarted
-              ? muted
-                ? 'Video playing muted.'
-                : 'Video playing with sound.'
-              : 'Video loading.'}
-      </p>
-      {loadingMore ? <p className="sr-only" aria-live="polite">Loading more Swipe stories</p> : null}
-      {loadError ? <SwipeLoadError message={loadError} onRetry={() => void loadMore()} /> : null}
-
-      {activeArticle ? (
-        <QuickArticleSheet
-          article={activeArticle}
-          open={sheetOpen}
-          onClose={() => setSheetOpen(false)}
-          returnFocusRef={articleButtonRef}
+        <SwipeActions
+          muted={muted}
+          dataSaver={dataSaver}
+          hasArticle={Boolean(activeArticle)}
+          articleButtonRef={articleButtonRef}
+          settingsButtonRef={settingsButtonRef}
+          onToggleMuted={() => setMuted((current) => !current)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          shareControl={
+            <ShareMenu
+              title={activeItem.title}
+              text={activeItem.description}
+              url={buildSwipeReaderPath(activeItem.slug)}
+              contentType="video"
+              contentId={activeItem._id}
+              ariaLabel="Share this Swipe story"
+              placement="swipe_actions"
+              onShareEvent={(event, platform) =>
+                trackEvent(event === 'share_complete' ? 'swipe_share' : event, activeItem, { platform })
+              }
+              buttonClassName="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/10 [&>span]:sr-only"
+            />
+          }
+          onOpenArticle={() => {
+            if (!activeArticle) return;
+            setSheetOpen(true);
+            trackEvent('quick_article_open', activeItem, { articleId: activeArticle.id });
+          }}
         />
-      ) : null}
-      <SwipeSettingsSheet
-        open={settingsOpen}
-        dataSaver={dataSaver}
-        onDataSaverChange={setDataSaver}
-        onClose={() => setSettingsOpen(false)}
-        returnFocusRef={settingsButtonRef}
-      />
-    </section>
+
+        <p className="sr-only" aria-live="polite">
+          {`Story ${activeIndex + 1} of ${items.length}: ${activeItem.title}`}
+        </p>
+        <p className="sr-only" aria-live="polite" role="status">
+          {playbackError
+            ? 'Playback failed. Press play to try again.'
+            : paused
+              ? 'Video paused.'
+              : playbackStarted
+                ? muted
+                  ? 'Video playing muted.'
+                  : 'Video playing with sound.'
+                : 'Video loading.'}
+        </p>
+        {loadingMore ? <p className="sr-only" aria-live="polite">Loading more Swipe stories</p> : null}
+        {loadError ? <SwipeLoadError message={loadError} onRetry={() => void loadMore()} /> : null}
+
+        {activeArticle ? (
+          <QuickArticleSheet
+            article={activeArticle}
+            open={sheetOpen}
+            onClose={() => setSheetOpen(false)}
+            returnFocusRef={articleButtonRef}
+          />
+        ) : null}
+        <SwipeSettingsSheet
+          open={settingsOpen}
+          dataSaver={dataSaver}
+          onDataSaverChange={setDataSaver}
+          autoplay={autoplay}
+          onAutoplayChange={setAutoplay}
+          muteDefault={muteDefault}
+          onMuteDefaultChange={(val) => {
+            setMuteDefault(val);
+            setMuted(val);
+          }}
+          onClose={() => setSettingsOpen(false)}
+          returnFocusRef={settingsButtonRef}
+        />
+      </section>
+
+      {/* Desktop floating navigation controls */}
+      <div className="hidden md:flex flex-col gap-3 ml-4 z-50">
+        <button
+          type="button"
+          onClick={() => moveTo(activeIndex - 1)}
+          disabled={activeIndex === 0}
+          aria-label="Previous story"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95"
+        >
+          <ChevronUp className="h-6 w-6" />
+        </button>
+        <button
+          type="button"
+          onClick={() => moveTo(activeIndex + 1)}
+          disabled={activeIndex === items.length - 1}
+          aria-label="Next story"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95"
+        >
+          <ChevronDown className="h-6 w-6" />
+        </button>
+      </div>
+    </div>
   );
 }
