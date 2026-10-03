@@ -219,18 +219,19 @@ export class VideoRepository {
     const limit = options.limit ?? 20;
     const cursorPublishedAt = options.cursorPublishedAt;
     const cursorId = options.cursorId;
+    const now = new Date();
 
     if (await isMongoAvailable({ label: 'public videos feed page' })) {
       try {
         return await cursorPage<PublicVideoItem>({
           model: Video,
-          mongoFilter: { isPublished: true },
+          mongoFilter: buildPublicVideoMongoFilter(now),
           mongoProjection: PUBLIC_VIDEO_PROJECTION,
           limit,
           dateField: 'publishedAt',
           cursorPublishedAt,
           cursorId,
-          mapItem: (raw) => toPublicVideoItem(asObject(raw)),
+          mapItem: (raw) => toPublicVideoItem(asObject(raw), { now }),
         });
       } catch (error) {
         console.error(
@@ -242,12 +243,12 @@ export class VideoRepository {
 
     const rows = await listAllStoredVideos();
     return cursorPage<PublicVideoItem>({
-      arrayItems: rows.filter((item) => isPubliclyPublishedVideo(item)),
+      arrayItems: rows.filter((item) => isPubliclyPublishedVideo(item, now)),
       limit,
       dateField: 'publishedAt',
       cursorPublishedAt,
       cursorId,
-      mapItem: (raw) => toPublicVideoItem(asObject(raw)),
+      mapItem: (raw) => toPublicVideoItem(asObject(raw), { now }),
     });
   }
 

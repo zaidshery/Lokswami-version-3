@@ -211,6 +211,27 @@ describe('public regular video feed domain boundary', () => {
     expect(findMock).toHaveBeenCalledTimes(1);
     expect(listAllStoredVideosMock).toHaveBeenCalledTimes(1);
   });
+
+  it('queries Mongo with full publication filter before cursor limit when Mongo is available', async () => {
+    isMongoAvailableMock.mockResolvedValue(true);
+    const mockQuery = {
+      select: vi.fn().mockReturnThis(),
+      sort: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue([regularRow('mongo-video', '2026-09-01T01:00:00.000Z')]),
+    };
+    findMock.mockReturnValue(mockQuery);
+    const { getPublicVideoFeedPage } = await import('@/lib/server/publicVideos');
+
+    const page = await getPublicVideoFeedPage({ limit: 10 });
+
+    expect(page.items.map((item) => item._id)).toEqual(['mongo-video']);
+    expect(findMock).toHaveBeenCalledTimes(1);
+    const mongoFilter = findMock.mock.calls[0][0];
+    expect(mongoFilter.isPublished).toBe(true);
+    expect(mongoFilter.$and).toBeDefined();
+    expect(listAllStoredVideosMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('public Swipe feed domain boundary', () => {
