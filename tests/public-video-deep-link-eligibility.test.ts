@@ -25,6 +25,15 @@ describe('direct video selection uses feed eligibility', () => {
     expect(await getPublicVideoForMetadata(video._id)).toEqual(expect.objectContaining({ id: video._id, title: video.title }));
     if (store === 'mongo') expect(mocks.select).toHaveBeenCalledWith(expect.stringContaining('workflow processingStatus'));
   });
+  it.each(['mongo', 'file'])('preserves canonical Short slug in %s exact lookup', async (store) => {
+    mocks.available.mockResolvedValue(store === 'mongo');
+    const short = { ...video, isShort: true, slug: 'अलग-शॉर्ट' };
+    mocks.lean.mockResolvedValue(short);
+    mocks.stored.mockResolvedValue(short);
+    const { getPublicVideoForMetadata } = await import('@/lib/server/publicVideoMetadata');
+    expect(await getPublicVideoForMetadata(video._id)).toMatchObject({ slug: short.slug, isShort: true });
+    if (store === 'mongo') expect(mocks.select).toHaveBeenCalledWith(expect.stringMatching(/\bslug\b/));
+  });
   it.each([
     ['draft', { workflow: { status: 'draft' } }],
     ['scheduled', { workflow: { status: 'published', scheduledFor: '2999-01-01T00:00:00Z' } }],

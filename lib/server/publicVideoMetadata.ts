@@ -6,6 +6,7 @@ import { isPubliclyPublishedVideo } from '@/lib/content/videoPublication';
 
 export type PublicVideoMetadata = {
   id: string;
+  slug?: string;
   title: string;
   description: string;
   thumbnail: string;
@@ -23,6 +24,7 @@ type PublicVideoSource = {
   updatedAt?: string | Date;
   _id?: string;
   id?: string;
+  slug?: string;
   title?: string;
   description?: string;
   thumbnail?: string;
@@ -94,6 +96,7 @@ function toPublicVideo(input: PublicVideoSource | null | undefined): PublicVideo
 
   return {
     id,
+    slug: String(input.slug || '').trim() || undefined,
     title,
     description: String(input.description || '').trim(),
     thumbnail: resolveThumbnail(String(input.thumbnail || ''), videoUrl),
@@ -111,7 +114,7 @@ async function getMongoVideo(id: string) {
     if (!Types.ObjectId.isValid(id)) return null;
 
     const record = await Video.findOne({ _id: id, isPublished: true })
-      .select('_id title description thumbnail videoUrl duration category isShort isPublished views publishedAt updatedAt workflow processingStatus')
+      .select('_id slug title description thumbnail videoUrl duration category isShort isPublished views publishedAt updatedAt workflow processingStatus')
       .lean<PublicVideoSource | null>();
 
     return toPublicVideo(record);

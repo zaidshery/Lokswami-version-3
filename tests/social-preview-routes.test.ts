@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ video: vi.fn(), short: vi.fn(), beta: vi.fn() }));
+const mocks = vi.hoisted(() => ({ video: vi.fn(), short: vi.fn(), beta: vi.fn(), feed: vi.fn() }));
 vi.mock('react', async (importOriginal) => ({ ...await importOriginal<typeof import('react')>(), cache: <T>(fn: T) => fn }));
 vi.mock('@/lib/server/publicVideoMetadata', () => ({ getPublicVideoForMetadata: mocks.video }));
-vi.mock('@/lib/server/publicVideos', () => ({ getPublicSwipeStory: mocks.short, getPublicVideoFeedPage: vi.fn() }));
+vi.mock('@/lib/server/publicVideos', () => ({ getPublicSwipeStory: mocks.short, getPublicVideoFeedPage: mocks.feed }));
 vi.mock('@/lib/server/publicSwipeFeed', () => ({ getPublicSwipeFeedPage: vi.fn() }));
 vi.mock('@/lib/content/swipeBeta', () => ({ isSwipeBetaEnabled: mocks.beta }));
 vi.mock('@/app/(reader)/main/videos/VideosPageClient', () => ({ default: () => null }));
@@ -10,6 +10,17 @@ vi.mock('@/components/swipe/SwipeFeed', () => ({ default: () => null }));
 beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://lokswami.com'); mocks.beta.mockReturnValue(true); mocks.video.mockResolvedValue(null); mocks.short.mockResolvedValue(null); });
 afterEach(() => vi.unstubAllEnvs());
 describe('server social metadata route selectors', () => {
+  it('preserves an exact Short canonical slug and injects it when absent from the initial feed', async () => {
+    const short = { id: 'outside-feed', slug: 'अलग-शॉर्ट', isShort: true, title: 'Different headline', description: 'Description', thumbnail: '/poster.jpg', category: 'Regional' };
+    mocks.video.mockResolvedValue(short);
+    mocks.feed.mockResolvedValue({ items: [], limit: 20, hasMore: false, nextCursor: null });
+    const { generateMetadata, default: VideosPage } = await import('@/app/(reader)/main/videos/page');
+    const props = { searchParams: Promise.resolve({ video: short.id }) };
+    const canonical = `https://lokswami.com/main/shorts/${encodeURIComponent(short.slug)}`;
+    expect(await generateMetadata(props)).toMatchObject({ alternates: { canonical }, openGraph: { url: canonical } });
+    const page = await VideosPage(props);
+    expect(page.props.children[1].props.initialItems[0]).toMatchObject({ _id: short.id, slug: short.slug, isShort: true });
+  });
   it('produces selected video A metadata and strips tracking parameters', async () => {
     mocks.video.mockResolvedValue({ id: 'video-A', title: 'Video A', description: '<p>Video A description</p>', thumbnail: '/video-A.jpg', category: 'Regional' });
     const { generateMetadata } = await import('@/app/(reader)/main/videos/page');

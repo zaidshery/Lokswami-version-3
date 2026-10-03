@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cache } from 'react';
 import {
   buildVideoPageMetadata,
+  buildSwipePageMetadata,
   buildVideosPageMetadata,
 } from '@/lib/seo/readerPageMetadata';
 import { getPublicVideoForMetadata } from '@/lib/server/publicVideoMetadata';
@@ -29,6 +30,7 @@ function mapMetadataVideoToFeedItem(
 ): PublicVideoFeedItem {
   return {
     _id: video.id,
+    slug: video.slug,
     title: video.title,
     description: video.description,
     thumbnail: video.thumbnail,
@@ -81,6 +83,16 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   if (!selectedVideo) {
     const metadata = buildVideosPageMetadata();
     return selectedVideoId ? { ...metadata, robots: { index: false, follow: true } } : metadata;
+  }
+
+  if (selectedVideo.isShort && selectedVideo.slug) {
+    return buildSwipePageMetadata({
+      slug: selectedVideo.slug,
+      title: selectedVideo.title,
+      description: selectedVideo.description,
+      category: selectedVideo.category,
+      image: selectedVideo.thumbnail,
+    });
   }
 
   return buildVideoPageMetadata({
