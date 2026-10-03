@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { buildCategoryPageMetadata } from '@/lib/seo/readerPageMetadata';
 
 type LayoutContext = {
@@ -7,7 +8,11 @@ type LayoutContext = {
 
 export async function generateMetadata(context: LayoutContext): Promise<Metadata> {
   const { slug } = await context.params;
-  return buildCategoryPageMetadata(decodeURIComponent(slug));
+  try {
+    return buildCategoryPageMetadata(decodeURIComponent(slug));
+  } catch {
+    notFound();
+  }
 }
 
 export default function CategoryLayout({

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { SwipeFeedItem } from '@/components/swipe/types';
 import { trackClientEvent } from '@/lib/analytics/trackClient';
+import { buildSwipeReaderPath } from '@/lib/utils/readerContentPaths';
 
 type UseSwipeAnalyticsOptions = {
   activeItem: SwipeFeedItem | null;
@@ -22,7 +23,7 @@ export default function useSwipeAnalytics({
     (event: string, item: SwipeFeedItem, metadata: Record<string, unknown> = {}) => {
       trackClientEvent({
         event,
-        page: `/main/shorts/${item.slug}`,
+        page: buildSwipeReaderPath(item.slug),
         source: 'lokswami_swipe',
         metadata: {
           videoId: item._id,

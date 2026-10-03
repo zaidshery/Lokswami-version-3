@@ -19,7 +19,7 @@ This local slice implements **3.13A only**. B/C/D are future acceptance requirem
 | Latest news | `/main/latest` | `/news`, `/main/news` | 307 | reader pages |
 | Search | `/main/search?q=<search>` | None | Existing search; query is functional, not a new language route | search page/client |
 | Account/preferences/saved | `/main/account`, `/main/preferences`, `/main/saved` | `/profile` to account (307) | Existing signed-in guards; not content share targets | middleware; routeGuards |
-| Other reader pages | `/main/ftaftaf`, `/main/elections`, `/main/digital-newsroom`, `/main/about`, `/main/contact`, `/main/advertise`, `/main/careers`, `/main/privacy`, `/main/terms`, `/main/cookies`, `/main/disclaimer`, `/main/sitemap` | matching marketing aliases for about/contact/advertise/careers/digital-newsroom where present | Preserve existing page behavior and redirects | app/(reader)/main; app/(marketing) |
+| Other reader pages | `/main/ftaftaf`, `/main/elections`, `/main/digital-newsroom`, `/main/about`, `/main/contact`, `/main/advertise`, `/main/careers`, `/main/privacy`, `/main/terms`, `/main/cookies`, `/main/disclaimer`, `/main/sitemap` | marketing aliases for about/contact/advertise/careers; `/digital-newsroom` | Marketing aliases use 307; digital-newsroom remains a direct render of the shared page | app/(reader)/main; app/(marketing) |
 
 Taxonomy slugs (source: `READER_CATEGORIES`): regional, politics, national,
 international, sports, entertainment, technology, business, crime, madhya-pradesh,
@@ -101,3 +101,83 @@ tokens; they are not added to the editorial taxonomy in this slice.
   regressions; run build:ci before considering deployment-sensitive work complete.
 - Later PR requires CI on the exact reviewed HEAD, scope/security review and final
   owner review. This local A slice stops before remote operations and B/C/D work.
+
+## 3.13A local implementation and evidence — 3 October 2026
+
+### Baseline and isolation
+
+- Initial only modification: next-env.d.ts route types `.next/types/routes.d.ts`
+  → `.next-dev/types/routes.d.ts`. Verified generated-only and restored just that
+  file. Fetch confirmed local and remote foundation at the baseline above.
+- Baseline Homepage: `/` → 307 `/main` → 200; Top Package/navigation and 14
+  sections visible. Reader headline, metadata, content and share controls visible;
+  no browser page errors.
+- Published Reader used: `/main/article/bhopal-digital-arrest-35-lakh-cyber-fraud`.
+  Legacy `/article/6ab83cdf64b786a3b089c23b` → 308 to that path → 200.
+- Development automation worker disabled. Dev servers stopped after checks.
+- Branch: `b3/phase3.13-deep-links-sharing`; worktree:
+  `C:\Dev\Lokswami-phase3.13-deep-links-sharing`. Starting SHA equals baseline.
+  Foundation checkout remains clean. Existing installed dependencies reused
+  through a local ignored junction; no dependency or environment-source changes.
+
+### Implemented contract
+
+- `readerContentPaths` is the public helper entry point, re-exporting the existing
+  article/category authorities and adding publication path/URL builders.
+  `publicUrl` supplies token encoding, origin normalization and safe public-path
+  joining. Existing getSiteUrl import locations remain compatible.
+- Article resolver and permanent legacy redirects are reused; malformed path
+  identity produces no link. Existing article share sources now use current
+  reader authority. Historical `/a` and `/e` bridges remain accessible.
+- Category aliases normalize to existing taxonomy slugs with one 308 redirect;
+  canonical categories render directly. Invalid percent encoding returns 404 in
+  page and metadata. Unknown categories retain empty/noindex behavior.
+- Standard videos use exact `video` query selection; Swipe uses exact encoded
+  slug paths in metadata, history, analytics and existing share source. Direct
+  video lookup now uses the feed publication predicate in both stores and cannot
+  resurrect an authoritative private/missing Mongo video from a stale file copy.
+- Publication links reuse monthly/daily and base-path seams. Existing magazine
+  share sources now point to `/main/e-magazine`, preserving exact paper/page/story
+  selection. No new share controls, cards or OG images were implemented.
+- Homepage publication cards, public city taxonomy, publication service hrefs,
+  existing metadata URL construction and E-Paper sitemap entries share helpers.
+  Sitemap article authority remains the existing public service. The duplicate
+  redirecting root Homepage entry was removed; content coverage was not expanded.
+
+### Validation
+
+- Final combined suite: **38 files, 436 tests passed**. Covers new public deep
+  links, direct-video eligibility and category routes; existing article URL and
+  redirect governance; share bridges; reader metadata and video sitemap;
+  Homepage discovery/category file reuse/navigation/selection/Top Package;
+  Reader SSR/actions/header/related stories; sitemap pagination/SEO indexing;
+  public article/video/publication eligibility; publication API fallback; CMS
+  system-category protection and reader navigation.
+- New files: `tests/public-deep-links.test.ts`,
+  `tests/public-video-deep-link-eligibility.test.ts`,
+  `tests/category-deep-link-route.test.tsx`.
+- Typecheck and lint:strict pass. All changed files except the E-Paper client
+  pass zero-warning ESLint. That client has 65 existing unused-variable warnings;
+  exact baseline/current message comparison confirms no additions and zero errors.
+- Desktop 1440px and mobile 390px: article click/direct load/refresh/copy-path
+  equivalent navigation pass; legacy ID, reader ID and trailing slash redirect
+  once with 308 to the same canonical 200 page. Normal/state categories and Tech
+  alias pass. Hindi/English preference retains the same URL; no mobile overflow.
+- Exact video `6ab840b464b786a3b089c3c3` returns 200. E-Paper issue
+  `6ab7c5ca12e417f446b53cbf` and magazine issue `6ab8421f64b786a3b089c440`
+  with `paper`/`page=1` return 200. Missing article returns 404. No page errors,
+  redirect loops or 500s. Short paths and beta eligibility have focused coverage;
+  no separate live Short was required by the minimum browser matrix.
+- build:ci exits 0: compilation and all 175 static pages complete. Existing
+  no-Mongo build fallback exercised. Windows warns when tracing tries to create
+  a standalone node_modules symlink from the reused dependency junction; the
+  standalone deployment package was not validated or deployed in this slice.
+- Local review covers duplicate construction, canonical/ID/slug alignment,
+  encoding, origin/open-redirect safety, visibility, store parity, language and
+  sitemap duplication. Protected runtime/data/env/QA files are not committed.
+- Smoke-harness incident: the first pass allowed automatic web-vitals analytics
+  beacons during navigation on the staging-backed local server. No editorial
+  content/publication writes were made. Subsequent pass suppresses sendBeacon,
+  blocks service workers and intercepts writes at context scope (10 blocked).
+  No remote analytics cleanup was attempted.
+- No push, PR, merge or deployment. B/C/D implementation remains deferred.

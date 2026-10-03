@@ -3,6 +3,8 @@ import { EPAPER_CITY_OPTIONS } from '@/lib/constants/epaperCities';
 import { NEWS_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCategories';
 import { sitemapContentQueryService } from '@/lib/server/content/sitemapContentQueryService';
 import { getSiteUrl } from '@/lib/seo/articleSeo';
+import { buildEPaperReaderPath } from '@/lib/utils/readerContentPaths';
+import { toAbsolutePublicUrl } from '@/lib/utils/publicUrl';
 
 // Publication, scheduling and archive changes must be visible without a stale build-time chunk.
 export const dynamic = 'force-dynamic';
@@ -18,19 +20,7 @@ type StaticSitemapRoute = {
 };
 
 function absoluteUrl(baseUrl: string, path: string) {
-  if (!path.startsWith('/')) {
-    return `${baseUrl}/${path}`;
-  }
-  return `${baseUrl}${path}`;
-}
-
-function buildEpaperIssuePath(input: { id: string; citySlug: string; publishDate: string }) {
-  const params = new URLSearchParams({
-    paper: input.id,
-    city: input.citySlug,
-    date: input.publishDate,
-  });
-  return `/main/epaper?${params.toString()}`;
+  return toAbsolutePublicUrl(path, baseUrl);
 }
 
 function uniqueEntries(entries: MetadataRoute.Sitemap) {
@@ -99,7 +89,6 @@ export default async function sitemap(props?: {
 
   // Base routes: static pages, categories, and e-paper editions
   const staticRoutes: StaticSitemapRoute[] = [
-    { path: '/', changeFrequency: 'daily', priority: 0.7 },
     { path: '/main', changeFrequency: 'hourly', priority: 1 },
     { path: '/main/latest', changeFrequency: 'hourly', priority: 0.9 },
     { path: '/main/videos', changeFrequency: 'daily', priority: 0.8 },
@@ -135,7 +124,7 @@ export default async function sitemap(props?: {
   }));
 
   const epaperCityEntries: MetadataRoute.Sitemap = EPAPER_CITY_OPTIONS.map((city) => ({
-    url: absoluteUrl(siteUrl, `/main/epaper?city=${encodeURIComponent(city.slug)}`),
+    url: absoluteUrl(siteUrl, buildEPaperReaderPath({ city: city.slug })),
     lastModified: now,
     changeFrequency: 'daily',
     priority: 0.65,
@@ -143,7 +132,7 @@ export default async function sitemap(props?: {
 
   const epapers = await sitemapContentQueryService.listEPapers(EPAPER_SITEMAP_LIMIT);
   const epaperEntries: MetadataRoute.Sitemap = epapers.map((paper) => ({
-    url: absoluteUrl(siteUrl, buildEpaperIssuePath(paper)),
+    url: absoluteUrl(siteUrl, buildEPaperReaderPath({ paperId: paper.id, city: paper.citySlug, publishDate: paper.publishDate })),
     lastModified: new Date(paper.updatedAt),
     changeFrequency: 'weekly',
     priority: 0.7,

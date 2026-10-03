@@ -1,4 +1,6 @@
-import { getSiteUrl } from '@/lib/seo/articleSeo';
+import { buildArticlePublicPath, getSiteUrl } from '@/lib/seo/articleSeo';
+import { buildPublicationReaderPath } from '@/lib/utils/readerContentPaths';
+import type { EPaperPublicationType } from '@/lib/types/epaper';
 
 export type BuildArticleWhatsAppShareInput = {
   title: string;
@@ -32,6 +34,7 @@ export type BuildEpaperStoryShareInput = {
 };
 
 export type BuildEpaperSharePathInput = {
+  publicationType?: EPaperPublicationType;
   paperId?: string;
   page?: number;
   story?: string;
@@ -127,27 +130,11 @@ export function buildArticleWhatsAppShareUrl(input: BuildArticleWhatsAppShareInp
 }
 
 export function buildArticleSharePath({ id, slug }: BuildArticleSharePathInput) {
-  const token = cleanShareLine(slug) || cleanShareLine(id);
-  return token ? `/a/${encodeURIComponent(token)}` : '/main';
+  return buildArticlePublicPath({ id: id || '', slug }) || '/main';
 }
 
-export function buildEpaperSharePath({ paperId, page, story }: BuildEpaperSharePathInput) {
-  const cleanPaperId = cleanShareLine(paperId);
-  const pageNumber = Number.parseInt(String(page ?? ''), 10);
-  const storyToken = cleanShareLine(story);
-
-  if (!cleanPaperId) return '/main/epaper';
-
-  const params = new URLSearchParams();
-  if (Number.isFinite(pageNumber) && pageNumber > 0) {
-    params.set('p', String(Math.floor(pageNumber)));
-  }
-  if (storyToken) params.set('s', storyToken);
-
-  const query = params.toString();
-  return query
-    ? `/e/${encodeURIComponent(cleanPaperId)}?${query}`
-    : `/e/${encodeURIComponent(cleanPaperId)}`;
+export function buildEpaperSharePath({ paperId, page, story, publicationType }: BuildEpaperSharePathInput) {
+  return buildPublicationReaderPath({ paperId, page, storyToken: story, publicationType });
 }
 
 export function buildEpaperIssueShareText({

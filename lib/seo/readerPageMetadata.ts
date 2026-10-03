@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import { getSiteUrl } from '@/lib/seo/articleSeo';
 import { COMPANY_INFO } from '@/lib/constants/company';
 import { EPAPER_CITY_OPTIONS } from '@/lib/constants/epaperCities';
-import { resolveNewsCategory } from '@/lib/constants/newsCategories';
+import { getNewsCategoryHref, resolveNewsCategory } from '@/lib/constants/newsCategories';
+import { buildPublicationReaderPath, buildSwipeReaderPath, buildVideoReaderPath } from '@/lib/utils/readerContentPaths';
 import {
   formatPublicationIssueLabel,
   getPublicationTypeLabels,
   isMonthlyEPaperPublication,
-  normalizePublicationIssueMonth,
 } from '@/lib/utils/epaperPublication';
 import type { EPaperPublicationType } from '@/lib/types/epaper';
 
@@ -196,7 +196,7 @@ export function buildVideoPageMetadata(input: VideoMetadataInput) {
     description:
       description ||
       'Watch this Lokswami news video with a full preview image, headline, and quick summary.',
-    path: videoId ? `/main/videos?video=${encodeURIComponent(videoId)}` : '/main/videos',
+    path: buildVideoReaderPath(videoId),
     image: input.image,
     keywords: [
       'lokswami video',
@@ -218,7 +218,7 @@ export function buildSwipePageMetadata(input: SwipeMetadataInput) {
     description:
       description ||
       'Watch this Lokswami Swipe news update, open the quick summary, and read the complete published report.',
-    path: slug ? `/main/shorts/${encodeURIComponent(slug)}` : '/main/videos',
+    path: buildSwipeReaderPath(slug),
     image: input.image,
     keywords: [
       'lokswami swipe',
@@ -245,31 +245,10 @@ export function buildEpaperPageMetadata(input: EpaperMetadataInput) {
       ? formatPublicationIssueLabel(input.publishDate, publicationType)
       : formatMetadataDate(input.publishDate)
     : '';
-  const query = new URLSearchParams();
   const pageNumber = Number.parseInt(String(input.page ?? input.storyPage ?? ''), 10);
   const storyToken = String(input.storyToken || '').trim();
   const storyTitle = String(input.storyTitle || '').trim();
   const storyExcerpt = String(input.storyExcerpt || '').trim();
-
-  if (input.paperId?.trim()) {
-    query.set('paper', input.paperId.trim());
-  }
-  if (!isMonthly && input.city && input.city !== 'all') {
-    query.set('city', input.city);
-  }
-  if (input.publishDate) {
-    if (isMonthly) {
-      query.set('month', normalizePublicationIssueMonth(input.publishDate));
-    } else {
-      query.set('date', input.publishDate);
-    }
-  }
-  if (Number.isFinite(pageNumber) && pageNumber > 0) {
-    query.set('page', String(Math.floor(pageNumber)));
-  }
-  if (storyToken) {
-    query.set('story', storyToken);
-  }
 
   let title = `${titleName} Archive and Digital Edition`;
   let description =
@@ -303,8 +282,10 @@ export function buildEpaperPageMetadata(input: EpaperMetadataInput) {
     description = `Read the Lokswami ${contentName} for ${formattedDate} online with digital archive access, mapped stories, and downloadable pages.`;
   }
 
-  const basePath = labels.publicBasePath;
-  const path = query.size > 0 ? `${basePath}?${query.toString()}` : basePath;
+  const path = buildPublicationReaderPath({
+    publicationType, paperId: input.paperId, city: input.city,
+    publishDate: input.publishDate, page: pageNumber, storyToken,
+  });
 
   return buildMetadata({
     title,
@@ -332,7 +313,7 @@ export function buildCategoryPageMetadata(slug: string) {
     description: category
       ? `Read the latest ${category.nameEn.toLowerCase()} news, breaking updates, analysis, and top stories on Lokswami.`
       : `Read the latest news, headlines, and updates from ${displayName} on Lokswami.`,
-    path: `/main/category/${encodeURIComponent(normalizedSlug)}`,
+    path: getNewsCategoryHref(normalizedSlug) || `/main/category/${encodeURIComponent(normalizedSlug)}`,
     keywords: [
       `${displayName.toLowerCase()} news`,
       'hindi news',

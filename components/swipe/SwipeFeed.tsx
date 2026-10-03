@@ -9,6 +9,7 @@ import QuickArticleSheet from '@/components/swipe/QuickArticleSheet';
 import SwipeSettingsSheet from '@/components/swipe/SwipeSettingsSheet';
 import { SwipeEmptyState, SwipeLoadError } from '@/components/swipe/SwipeStates';
 import useSwipeAnalytics from '@/components/swipe/useSwipeAnalytics';
+import { buildSwipeReaderPath } from '@/lib/utils/readerContentPaths';
 import type {
   SwipeArticle,
   SwipeCursor,
@@ -104,7 +105,7 @@ export default function SwipeFeed({
     setPlaybackError(false);
     setSheetOpen(false);
     setSettingsOpen(false);
-    window.history.replaceState(window.history.state, '', `/main/shorts/${encodeURIComponent(activeItem.slug)}`);
+    window.history.replaceState(window.history.state, '', buildSwipeReaderPath(activeItem.slug));
   }, [activeItem]);
 
   useEffect(() => {
@@ -231,7 +232,7 @@ export default function SwipeFeed({
 
   const shareActive = useCallback(async () => {
     if (!activeItem) return;
-    const url = new URL(`/main/shorts/${activeItem.slug}`, window.location.origin).toString();
+    const url = new URL(buildSwipeReaderPath(activeItem.slug), window.location.origin).toString();
     try {
       if (navigator.share) {
         await navigator.share({ title: activeItem.title, text: activeItem.description, url });

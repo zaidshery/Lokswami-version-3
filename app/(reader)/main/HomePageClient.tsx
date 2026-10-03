@@ -36,7 +36,7 @@ import {
 import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 import { resolveNewsCategory } from '@/lib/constants/newsCategories';
 import { formatUiDate } from '@/lib/utils/dateFormat';
-import { normalizePublicationIssueMonth } from '@/lib/utils/epaperPublication';
+import { buildEMagazineReaderPath } from '@/lib/utils/readerContentPaths';
 import magazineStyles from '@/components/home/HomepageMagazine.module.css';
 
 function formatMagazineIssueLabel(value: string | undefined, language: 'en' | 'hi') {
@@ -372,10 +372,7 @@ export default function HomePage({ initialHomeFeed = null, initialDiscovery = nu
     };
   }, [hasInitialArticles, hasInitialEpaper, hasInitialEmagazine]);
 
-  const emagazineIssueMonth = normalizePublicationIssueMonth(latestEmagazine?.publishDate);
-  const emagazineHref = emagazineIssueMonth
-    ? `/main/e-magazine?month=${encodeURIComponent(emagazineIssueMonth)}`
-    : '/main/e-magazine';
+  const emagazineHref = buildEMagazineReaderPath({ publishDate: latestEmagazine?.publishDate });
   const emagazineIssueLabel = formatMagazineIssueLabel(
     latestEmagazine?.publishDate,
     language

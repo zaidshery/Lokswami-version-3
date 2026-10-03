@@ -26,7 +26,7 @@ export function resolveShortArticleTargetPath(token: string, article: ServerArti
     return buildArticlePublicPath({ id: article.id, slug: article.slug });
   }
 
-  return token ? `/main/article/${encodeURIComponent(token)}` : '/main';
+  return buildArticlePublicPath({ id: token }) || '/main';
 }
 
 export async function generateMetadata(context: PageContext): Promise<Metadata> {

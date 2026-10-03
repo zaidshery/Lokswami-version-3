@@ -6,6 +6,7 @@ import {
   getPublicEpaperStoryForMetadata,
 } from '@/lib/server/publicEpaperMetadata';
 import { buildEpaperPageMetadata } from '@/lib/seo/readerPageMetadata';
+import { buildEPaperReaderPath } from '@/lib/utils/readerContentPaths';
 import ShortEpaperRedirectClient from './ShortEpaperRedirectClient';
 
 type PageContext = {
@@ -77,12 +78,7 @@ export function resolveShortEpaperTargetPath(input: {
   const page = Number.parseInt(String(input.page || ''), 10);
   const story = decodeToken(String(input.story || ''));
 
-  const query = new URLSearchParams();
-  if (paperId) query.set('paper', paperId);
-  if (Number.isFinite(page) && page > 0) query.set('page', String(page));
-  if (story) query.set('story', story);
-
-  return query.size > 0 ? `/main/epaper?${query.toString()}` : '/main/epaper';
+  return buildEPaperReaderPath({ paperId, page, storyToken: story });
 }
 
 export default async function ShortEpaperSharePage(context: PageContext) {

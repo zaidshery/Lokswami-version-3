@@ -24,9 +24,9 @@ describe('article and e-paper share helpers', () => {
     ]);
   });
 
-  it('keeps e-paper share paths short and issue-focused', () => {
+  it('shares canonical article and exact publication paths', () => {
     expect(buildArticleSharePath({ id: 'article-1', slug: 'clean-story-slug' })).toBe(
-      '/a/clean-story-slug'
+      '/main/article/clean-story-slug'
     );
     expect(
       buildEpaperSharePath({
@@ -34,7 +34,7 @@ describe('article and e-paper share helpers', () => {
         page: 6,
         story: 'front-page-story',
       })
-    ).toBe('/e/epaper-1?p=6&s=front-page-story');
+    ).toBe('/main/epaper?paper=epaper-1&page=6&story=front-page-story');
   });
 
   it('builds e-paper issue and story share text with clear CTAs', () => {

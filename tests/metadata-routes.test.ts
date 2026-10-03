@@ -78,13 +78,10 @@ describe('metadata routes', () => {
 
     expect(listArticlesForSitemapMock).toHaveBeenCalledWith(5000);
     expect(listEPapersForSitemapMock).toHaveBeenCalledWith(1000);
+    expect(entries.some((entry) => entry.url === 'https://lokswami.com/')).toBe(false);
+    expect(entries.some((entry) => entry.url.includes('/article/article-1'))).toBe(false);
     expect(entries).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          url: 'https://lokswami.com/',
-          changeFrequency: 'daily',
-          priority: 0.7,
-        }),
         expect.objectContaining({
           url: 'https://lokswami.com/main',
           changeFrequency: 'hourly',

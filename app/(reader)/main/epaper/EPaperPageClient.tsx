@@ -1798,10 +1798,11 @@ export default function EPaperPageClient({
 
   const activePaperSharePath = activePaper
     ? buildEpaperSharePath({
+      publicationType,
       paperId: activePaper._id,
       page: activePage,
     })
-    : '/main/epaper';
+    : publicBasePath;
   const activePaperShareDateLabel = activePaper?.publishDate
       ? formatPublicationIssueLabel(activePaper.publishDate, publicationType, activePaper.publishDate)
       : selectedPublishDate;
@@ -1820,6 +1821,7 @@ export default function EPaperPageClient({
 
     const storyToken = String(activeArticle._id || activeArticle.slug || '').trim();
     const sharePath = buildEpaperSharePath({
+      publicationType,
       paperId: activePaper._id,
       page: activeArticle.pageNumber || activePage,
       story: storyToken,
