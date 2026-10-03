@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import {
   buildYouTubeEmbedUrl,
@@ -71,6 +71,33 @@ let youtubeApiPromise: Promise<YouTubeNamespace> | null = null;
 function toNumber(value: unknown, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function isValidMediaSource(url?: string): boolean {
+  if (!url) return false;
+  const trimmed = url.trim().toLowerCase();
+  if (
+    trimmed.startsWith('javascript:') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('file:') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return false;
+  }
+  return /^https?:\/\//i.test(trimmed) || trimmed.startsWith('/');
+}
+
+function getYouTubeTargetOrigin(src?: string): string {
+  if (!src) return 'https://www.youtube-nocookie.com';
+  try {
+    const origin = new URL(src).origin;
+    if (origin.endsWith('.youtube.com') || origin.endsWith('.youtube-nocookie.com')) {
+      return origin;
+    }
+  } catch {
+    // fallback
+  }
+  return 'https://www.youtube-nocookie.com';
 }
 
 function loadYouTubeIframeApi(): Promise<YouTubeNamespace> {
@@ -186,6 +213,63 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const youtubeIframeRef = useRef<HTMLIFrameElement | null>(null);
   const youtubePlayerRef = useRef<YouTubePlayer | null>(null);
   const youtubeReadyRef = useRef(false);
+  const [playbackError, setPlaybackError] = useState(false);
+  const [errorClassification, setErrorClassification] = useState<string>('generic');
+  const [retryCount, setRetryCount] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
+  const bufferTimerRef = useRef<number | null>(null);
+  const wasManuallyPausedRef = useRef(isPaused);
+  const pausedByVisibilityRef = useRef(false);
+
+  useEffect(() => {
+    wasManuallyPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  // Network offline/online tracking
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => {
+      setIsOffline(true);
+      callbacksRef.current.onPausedChange(true);
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Document visibility handling (pause on background, resume if not manually paused)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (!controlsRef.current.isPaused) {
+          pausedByVisibilityRef.current = true;
+          callbacksRef.current.onPausedChange(true);
+        }
+      } else {
+        if (pausedByVisibilityRef.current) {
+          pausedByVisibilityRef.current = false;
+          if (!wasManuallyPausedRef.current && controlsRef.current.isActive) {
+            callbacksRef.current.onPausedChange(false);
+          }
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+    };
+  }, []);
+
   const callbacksRef = useRef({
     onCaptionsChange,
     onEnded,
@@ -205,6 +289,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const youtubeId = useMemo(() => extractYouTubeVideoId(src), [src]);
   const isLiveStream = Boolean(isLive || isYouTubeLiveUrl(src));
   const isYouTube = Boolean(youtubeId);
+
+  useEffect(() => {
+    if (!isYouTube && src && !isValidMediaSource(src)) {
+      setPlaybackError(true);
+      setErrorClassification('not_supported');
+      return;
+    }
+    setPlaybackError(false);
+    setErrorClassification('generic');
+    setRetryCount(0);
+    setIsBuffering(false);
+  }, [src, videoId, isYouTube]);
+  const isSafeMediaSrc = useMemo(() => {
+    return Boolean(src && isValidMediaSource(src));
+  }, [src]);
   const progressKey = useMemo(() => `${LOCAL_PROGRESS_PREFIX}:${videoId}`, [videoId]);
   const embedUrl = useMemo(() => {
     if (!youtubeId) return '';
@@ -498,9 +597,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       if (youtubePlayerRef.current) {
         youtubePlayerRef.current.seekTo(safeSeconds, true);
       } else if (youtubeIframeRef.current) {
+        const targetOrigin = getYouTubeTargetOrigin(youtubeIframeRef.current.src);
         youtubeIframeRef.current.contentWindow?.postMessage(
           JSON.stringify({ event: 'command', func: 'seekTo', args: [safeSeconds, true] }),
-          '*'
+          targetOrigin
         );
       }
     } else if (videoRef.current) {
@@ -518,9 +618,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           if (youtubePlayerRef.current) {
             youtubePlayerRef.current.seekTo(safeSeconds, true);
           } else if (youtubeIframeRef.current) {
+            const targetOrigin = getYouTubeTargetOrigin(youtubeIframeRef.current.src);
             youtubeIframeRef.current.contentWindow?.postMessage(
               JSON.stringify({ event: 'command', func: 'seekTo', args: [safeSeconds, true] }),
-              '*'
+              targetOrigin
             );
           }
         } else if (videoRef.current) {
@@ -555,7 +656,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
         if (document.fullscreenElement) {
           void document.exitFullscreen?.();
         } else {
-          void (el.requestFullscreen?.() || (el as any).webkitRequestFullscreen?.());
+          const webkitEl = el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
+          void (el.requestFullscreen?.() || webkitEl.webkitRequestFullscreen?.());
         }
       },
     }),
@@ -600,6 +702,20 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             </div>
           </button>
         )}
+
+        {isOffline && (
+          <div
+            className="absolute inset-0 z-35 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
+            role="status"
+          >
+            <p className="text-sm font-semibold text-amber-300">
+              इंटरनेट कनेक्शन नहीं है / Offline
+            </p>
+            <p className="mt-1 text-xs text-zinc-400">
+              कृपया इंटरनेट कनेक्शन की जांच करें।
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -609,50 +725,155 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       ref={containerRef}
       className={`relative ${aspectClass} w-full overflow-hidden rounded-2xl bg-black shadow-2xl ${className}`}
     >
-      <video
-        ref={videoRef}
-        src={src}
-        poster={poster}
-        className="h-full w-full object-contain"
-        playsInline
-        autoPlay={isActive && !isPaused}
-        controls
-        muted={isMuted}
-        onLoadedMetadata={(event) => {
-          const video = event.currentTarget;
-          const safeDuration = Math.max(0, video.duration || fallbackDuration);
-          video.volume = Math.max(0, Math.min(1, defaultVolume));
-          onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
-        }}
-        onTimeUpdate={(event) => {
-          const video = event.currentTarget;
-          const safeDuration = Math.max(0, video.duration || fallbackDuration);
-          onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
-        }}
-        onPlay={() => {
-          onPausedChange(false);
-        }}
-        onPause={() => {
-          onPausedChange(true);
-        }}
-        onVolumeChange={(event) => {
-          const video = event.currentTarget;
-          onMutedChange(Boolean(video.muted || video.volume === 0));
-        }}
-        onRateChange={(event) => {
-          if (onPlaybackRateChange) {
-            onPlaybackRateChange(event.currentTarget.playbackRate);
-          }
-        }}
-        onEnded={() => {
-          if (!autoAdvance) {
+      {isSafeMediaSrc && (
+        <video
+          ref={videoRef}
+          src={src}
+          poster={poster}
+          className="h-full w-full object-contain"
+          playsInline
+          autoPlay={isActive && !isPaused}
+          controls
+          muted={isMuted}
+          onLoadedMetadata={(event) => {
+            const video = event.currentTarget;
+            const safeDuration = Math.max(0, video.duration || fallbackDuration);
+            video.volume = Math.max(0, Math.min(1, defaultVolume));
+            onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
+          }}
+          onTimeUpdate={(event) => {
+            const video = event.currentTarget;
+            const safeDuration = Math.max(0, video.duration || fallbackDuration);
+            onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
+          }}
+          onWaiting={() => {
+            if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+            bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
+          }}
+          onStalled={() => {
+            if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+            bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
+          }}
+          onPlaying={() => {
+            if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+            setIsBuffering(false);
+            onPausedChange(false);
+          }}
+          onCanPlay={() => {
+            if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+            setIsBuffering(false);
+          }}
+          onPlay={() => {
+            onPausedChange(false);
+          }}
+          onPause={() => {
             onPausedChange(true);
-          }
-          onEnded();
-        }}
-      />
+          }}
+          onVolumeChange={(event) => {
+            const video = event.currentTarget;
+            onMutedChange(Boolean(video.muted || video.volume === 0));
+          }}
+          onRateChange={(event) => {
+            if (onPlaybackRateChange) {
+              onPlaybackRateChange(event.currentTarget.playbackRate);
+            }
+          }}
+          onEnded={() => {
+            if (!autoAdvance) {
+              onPausedChange(true);
+            }
+            onEnded();
+          }}
+          onError={(event) => {
+            setPlaybackError(true);
+            setIsBuffering(false);
+            const code = event.currentTarget.error?.code;
+            if (code === 2) {
+              setErrorClassification('network');
+            } else if (code === 3) {
+              setErrorClassification('decode');
+            } else if (code === 4) {
+              setErrorClassification('not_supported');
+            } else {
+              setErrorClassification('generic');
+            }
+          }}
+        />
+      )}
 
-      {isPaused && !isLiveStream && (
+      {/* Buffering Indicator */}
+      {isBuffering && !isPaused && !playbackError && (
+        <div
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-[1px]"
+          aria-label="Loading video"
+        >
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+        </div>
+      )}
+
+      {/* Offline Alert Overlay */}
+      {isOffline && (
+        <div
+          className="absolute inset-0 z-35 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
+          role="status"
+        >
+          <p className="text-sm font-semibold text-amber-300">
+            इंटरनेट कनेक्शन नहीं है / Offline
+          </p>
+          <p className="mt-1 text-xs text-zinc-400">
+            कृपया इंटरनेट कनेक्शन की जांच करें।
+          </p>
+        </div>
+      )}
+
+      {/* Error & Bounded Retry Overlay */}
+      {(playbackError || (!isYouTube && !src)) && (
+        <div
+          className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
+          role="alert"
+        >
+          <p className="text-sm font-semibold text-zinc-200">
+            {errorClassification === 'network'
+              ? 'नेटवर्क त्रुटि: वीडियो लोड नहीं हो सका।'
+              : errorClassification === 'decode'
+              ? 'वीडियो डिकोड त्रुटि हुई।'
+              : errorClassification === 'not_supported'
+              ? 'वीडियो प्रारूप समर्थित नहीं है।'
+              : 'वीडियो लोड करने में समस्या हुई।'}
+          </p>
+          <p className="mt-1 text-xs text-zinc-400">
+            {errorClassification === 'network'
+              ? 'Network error. Please check your connection.'
+              : 'Video currently unavailable.'}
+          </p>
+          {src && errorClassification !== 'not_supported' ? (
+            retryCount < 3 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setRetryCount((c) => c + 1);
+                  setPlaybackError(false);
+                  if (videoRef.current) {
+                    videoRef.current.load();
+                    void videoRef.current.play().catch(() => {
+                      callbacksRef.current.onPausedChange(true);
+                    });
+                  }
+                }}
+                className="mt-3 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95"
+              >
+                पुनः प्रयास करें / Retry ({3 - retryCount} remaining)
+              </button>
+            ) : (
+              <p className="mt-3 text-xs text-zinc-400">
+                अधिकतम प्रयास सीमा समाप्त। कृपया पेज रिफ्रेश करें।
+              </p>
+            )
+          ) : null}
+        </div>
+      )}
+
+      {isPaused && !isLiveStream && !playbackError && (
         <button
           type="button"
           onClick={() => onPausedChange(false)}

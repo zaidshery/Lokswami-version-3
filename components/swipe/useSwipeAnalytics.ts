@@ -18,6 +18,17 @@ export default function useSwipeAnalytics({
 }: UseSwipeAnalyticsOptions) {
   const trackedRef = useRef(new Set<string>());
   const watchSecondsRef = useRef(0);
+  const isDocumentHiddenRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const handleVisibility = () => {
+      isDocumentHiddenRef.current = document.hidden;
+    };
+    handleVisibility();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
   const trackEvent = useCallback(
     (event: string, item: SwipeFeedItem, metadata: Record<string, unknown> = {}) => {
@@ -29,6 +40,8 @@ export default function useSwipeAnalytics({
           videoId: item._id,
           videoSlug: item.slug,
           mediaProvider: item.mediaProvider,
+          duration: Math.round(item.duration || 0),
+          watchedSeconds: Math.round(watchSecondsRef.current),
           ...metadata,
         },
       });
@@ -51,26 +64,60 @@ export default function useSwipeAnalytics({
     [trackEvent]
   );
 
+  const lastTimeRef = useRef(0);
+
   useEffect(() => {
     if (!activeItem) return;
     watchSecondsRef.current = 0;
+    lastTimeRef.current = 0;
     trackOnce('short_impression', activeItem);
+    trackOnce('swipe_impression', activeItem);
   }, [activeItem, trackOnce]);
 
   useEffect(() => {
-    if (!activeItem || paused || !playbackStarted) return;
-    const timer = window.setInterval(() => {
-      watchSecondsRef.current += 1;
-      const seconds = watchSecondsRef.current;
-      if (seconds >= 3) trackOnce('video_3_second_view', activeItem);
-      const duration = Math.max(1, activeItem.duration || 1);
-      const ratio = seconds / duration;
-      if (ratio >= 0.25) trackOnce('video_25_percent', activeItem);
-      if (ratio >= 0.5) trackOnce('video_50_percent', activeItem);
-      if (ratio >= 0.95) trackOnce('video_complete', activeItem);
-    }, 1000);
-    return () => window.clearInterval(timer);
+    if (!activeItem || paused || !playbackStarted || isDocumentHiddenRef.current) return;
+    trackOnce('watch_start', activeItem);
   }, [activeItem, paused, playbackStarted, trackOnce]);
 
-  return { trackEvent, trackOnce };
+  const onProgress = useCallback(
+    (currentTime: number, duration: number, confirmedPlaying = true) => {
+      if (!Number.isFinite(currentTime) || currentTime < 0 || !Number.isFinite(duration) || duration <= 0) return;
+      if (!activeItem || paused || !playbackStarted || !confirmedPlaying || isDocumentHiddenRef.current) {
+        lastTimeRef.current = currentTime;
+        return;
+      }
+
+      const prevTime = lastTimeRef.current;
+      const delta = currentTime - prevTime;
+
+      if (delta > 0 && delta <= 2) {
+        watchSecondsRef.current += delta;
+      }
+      lastTimeRef.current = currentTime;
+
+      const seconds = watchSecondsRef.current;
+      if (seconds >= 3) trackOnce('video_3_second_view', activeItem);
+      const effDuration = Math.max(1, duration || activeItem.duration || 1);
+      const watched = watchSecondsRef.current;
+
+      if (watched >= effDuration * 0.25 && currentTime >= effDuration * 0.25) {
+        trackOnce('watch_25', activeItem);
+        trackOnce('video_25_percent', activeItem);
+      }
+      if (watched >= effDuration * 0.5 && currentTime >= effDuration * 0.5) {
+        trackOnce('watch_50', activeItem);
+        trackOnce('video_50_percent', activeItem);
+      }
+      if (watched >= effDuration * 0.75 && currentTime >= effDuration * 0.75) {
+        trackOnce('watch_75', activeItem);
+      }
+      if (watched >= effDuration * 0.95 && currentTime >= effDuration * 0.95) {
+        trackOnce('watch_complete', activeItem);
+        trackOnce('video_complete', activeItem);
+      }
+    },
+    [activeItem, paused, playbackStarted, trackOnce]
+  );
+
+  return { trackEvent, trackOnce, onProgress };
 }

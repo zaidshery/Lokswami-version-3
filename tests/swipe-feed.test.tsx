@@ -100,6 +100,18 @@ describe('SwipeFeed', () => {
     expect(iframe).not.toBeNull();
     fireEvent.load(iframe!);
     fireEvent.load(iframe!);
+    expect(vi.mocked(trackClientEvent).mock.calls.some(([payload]) => payload.event === 'video_play')).toBe(false);
+    for (const [origin, source] of [
+      ['https://www.youtube-nocookie.com', window],
+      ['https://attacker-youtube-nocookie.com', iframe!.contentWindow],
+    ] as const) fireEvent(window, new MessageEvent('message', {
+      origin, source, data: JSON.stringify({ event: 'onStateChange', info: 1 }),
+    }));
+    expect(vi.mocked(trackClientEvent).mock.calls.some(([payload]) => payload.event === 'video_play')).toBe(false);
+    for (let i = 0; i < 2; i++) fireEvent(window, new MessageEvent('message', {
+      origin: 'https://www.youtube-nocookie.com', source: iframe!.contentWindow,
+      data: JSON.stringify({ event: 'onStateChange', info: 1 }),
+    }));
     const events = vi.mocked(trackClientEvent).mock.calls.map(([payload]) => payload.event);
     expect(events.filter((event) => event === 'short_impression')).toHaveLength(1);
     expect(events.filter((event) => event === 'video_play')).toHaveLength(1);
