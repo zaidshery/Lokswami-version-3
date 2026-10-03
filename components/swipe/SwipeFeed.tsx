@@ -62,6 +62,11 @@ export default function SwipeFeed({
   const [reducedMotion, setReducedMotion] = useState(false);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextCursor, setNextCursor] = useState<SwipeCursor>(initialNextCursor);
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
+  const wasManuallyPausedRef = useRef(false);
+  const pausedByVisibilityRef = useRef(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -84,9 +89,30 @@ export default function SwipeFeed({
     playbackStarted,
   });
 
+  // Network online/offline monitoring
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => {
+      setIsOffline(true);
+      setPaused(true);
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   useEffect(() => {
     try {
-      setDataSaver(window.localStorage.getItem(DATA_SAVER_KEY) !== 'false');
+      const storedDataSaver = window.localStorage.getItem(DATA_SAVER_KEY);
+      if (storedDataSaver !== null) {
+        setDataSaver(storedDataSaver !== 'false');
+      } else {
+        const hasSaveData = (navigator as unknown as { connection?: { saveData?: boolean } })?.connection?.saveData;
+        setDataSaver(hasSaveData ?? true);
+      }
       setAutoplay(window.localStorage.getItem(AUTOPLAY_KEY) !== 'false');
       const savedMute = window.localStorage.getItem(MUTE_DEFAULT_KEY);
       if (savedMute !== null) {
@@ -115,6 +141,27 @@ export default function SwipeFeed({
 
   const autoplayRef = useRef(autoplay);
   autoplayRef.current = autoplay;
+
+  // Document visibility handling (pause on background, resume if not manually paused)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (!paused) {
+          pausedByVisibilityRef.current = true;
+          setPaused(true);
+        }
+      } else {
+        if (pausedByVisibilityRef.current) {
+          pausedByVisibilityRef.current = false;
+          if (!wasManuallyPausedRef.current && autoplayRef.current) {
+            setPaused(false);
+          }
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [paused]);
 
   useEffect(() => {
     try {
@@ -199,6 +246,7 @@ export default function SwipeFeed({
         if (bounded === items.length - 1) void loadMore();
         return;
       }
+      wasManuallyPausedRef.current = false;
       const from = items[activeIndex];
       const to = items[bounded];
       trackEvent(bounded > activeIndex ? 'swipe_next' : 'swipe_back', from, {
@@ -256,7 +304,11 @@ export default function SwipeFeed({
         moveTo(activeIndex - 1);
       } else if (event.key === ' ') {
         event.preventDefault();
-        setPaused((current) => !current);
+        setPaused((current) => {
+          const next = !current;
+          wasManuallyPausedRef.current = next;
+          return next;
+        });
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -311,6 +363,16 @@ export default function SwipeFeed({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {isOffline && (
+          <div
+            role="status"
+            className="pointer-events-none absolute top-[max(env(safe-area-inset-top),3.5rem)] left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 rounded-full bg-amber-500/90 px-3 py-1 text-xs font-bold text-zinc-950 shadow-lg backdrop-blur"
+          >
+            <span className="h-2 w-2 rounded-full bg-zinc-950 animate-pulse" />
+            <span>इंटरनेट कनेक्शन नहीं है (ऑफ़लाइन)</span>
+          </div>
+        )}
+
         {visibleCards.map(({ item, position }) => (
           <SwipeVideoCard
             key={item._id}
@@ -323,7 +385,11 @@ export default function SwipeFeed({
             preloadMetadata={position === 1 && !dataSaver}
             onTogglePlayback={() => {
               setPlaybackError(false);
-              setPaused((current) => !current);
+              setPaused((current) => {
+                const next = !current;
+                wasManuallyPausedRef.current = next;
+                return next;
+              });
             }}
             onPlay={handlePlay}
             onProgress={handleProgress}

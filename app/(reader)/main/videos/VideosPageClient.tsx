@@ -8,6 +8,7 @@ import VideoFilterBar from '@/components/video/VideoFilterBar';
 import VideoWatchLaterDrawer from '@/components/video/VideoWatchLaterDrawer';
 import ShareMenu from '@/components/ui/ShareMenu';
 import { Badge } from '@/components/ui/Badge';
+import useVideoWatchTelemetry from '@/lib/analytics/useVideoWatchTelemetry';
 import { buildVideoReaderPath } from '@/lib/utils/readerContentPaths';
 import { formatUiDate } from '@/lib/utils/dateFormat';
 import {
@@ -87,6 +88,8 @@ export default function VideosPageClient({
   const [initialStartTime, setInitialStartTime] = useState(0);
 
   const playerRef = useRef<VideoPlayerHandle | null>(null);
+  const wasManuallyPausedRef = useRef(false);
+  const pausedByVisibilityRef = useRef(false);
 
   // Initialize stored bookmarks and progress
   useEffect(() => {
@@ -125,7 +128,15 @@ export default function VideosPageClient({
 
       if (event.key === ' ' || event.key === 'k' || event.key === 'K') {
         event.preventDefault();
-        setIsPaused((prev) => !prev);
+        setIsPaused((prev) => {
+          const next = !prev;
+          if (next) {
+            wasManuallyPausedRef.current = true;
+          } else {
+            wasManuallyPausedRef.current = false;
+          }
+          return next;
+        });
       } else if (event.key === 'm' || event.key === 'M') {
         event.preventDefault();
         setIsMuted((prev) => !prev);
@@ -219,14 +230,54 @@ export default function VideosPageClient({
     [videos]
   );
 
+  const mediaProvider = useMemo(() => {
+    if (!selectedVideo?.videoUrl) return 'unknown';
+    if (selectedVideo.videoUrl.includes('youtube') || selectedVideo.videoUrl.includes('youtu.be')) {
+      return 'youtube';
+    }
+    return 'html5';
+  }, [selectedVideo]);
+
+  const watchTelemetry = useVideoWatchTelemetry({
+    contentId: selectedVideo?.id || '',
+    slug: selectedVideo?.slug || '',
+    title: selectedVideo?.title || '',
+    contentType: selectedVideo?.isShort ? 'short' : 'video',
+    mediaProvider,
+    pagePath: selectedVideo ? buildVideoReaderPath(selectedVideo.id) : '/main/videos',
+    source: 'lokswami_video_hub',
+    duration: activeDuration || selectedVideo?.duration || 0,
+    isPlaying: !isPaused,
+  });
+
+  const handlePausedChange = useCallback((paused: boolean) => {
+    setIsPaused(paused);
+    if (paused) {
+      watchTelemetry.onPause();
+    } else {
+      wasManuallyPausedRef.current = false;
+      watchTelemetry.onPlay();
+    }
+  }, [watchTelemetry]);
+
+  const handleTimeChange = useCallback((curr: number, dur: number) => {
+    setCurrentTime(curr);
+    if (dur > 0) setActiveDuration(dur);
+    watchTelemetry.onTimeUpdate(curr, dur);
+  }, [watchTelemetry]);
+
   const handleSeek = useCallback((seconds: number) => {
     setCurrentTime(seconds);
+    watchTelemetry.onSeek();
     if (playerRef.current) playerRef.current.seekTo(seconds);
-  }, []);
+  }, [watchTelemetry]);
 
   const handleSelectVideo = useCallback((videoId: string) => {
     setSelectedVideoId(videoId);
     setIsPaused(false);
+    wasManuallyPausedRef.current = false;
+    setCurrentTime(0);
+    setActiveDuration(0);
     if (typeof window !== 'undefined') {
       const targetUrl = buildVideoReaderPath(videoId);
       if (window.location.pathname + window.location.search !== targetUrl) {
@@ -237,10 +288,32 @@ export default function VideosPageClient({
   }, []);
 
   const advanceToNext = useCallback(() => {
+    watchTelemetry.onEnded();
     if (queueVideos.length > 0) {
       handleSelectVideo(queueVideos[0].id);
     }
-  }, [handleSelectVideo, queueVideos]);
+  }, [handleSelectVideo, queueVideos, watchTelemetry]);
+
+  // Tab visibility: pause on background, resume only if not manually paused
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (!isPaused) {
+          pausedByVisibilityRef.current = true;
+          setIsPaused(true);
+        }
+      } else {
+        if (pausedByVisibilityRef.current) {
+          pausedByVisibilityRef.current = false;
+          if (!wasManuallyPausedRef.current) {
+            setIsPaused(false);
+          }
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isPaused]);
 
   const copy = useMemo(() => ({
     searchPlaceholder: language === 'hi' ? 'वीडियो खोजें...' : 'Search videos...',
@@ -352,12 +425,9 @@ export default function VideosPageClient({
                     language={language}
                     copy={copy}
                     onSeek={handleSeek}
-                    onPausedChange={setIsPaused}
+                    onPausedChange={handlePausedChange}
                     onMutedChange={setIsMuted}
-                    onTimeChange={(curr, dur) => {
-                      setCurrentTime(curr);
-                      if (dur > 0) setActiveDuration(dur);
-                    }}
+                    onTimeChange={handleTimeChange}
                     onAutoAdvanceChange={setAutoAdvance}
                     onCaptionsChange={setCaptionsEnabled}
                     onPlaybackRateChange={setPlaybackRate}

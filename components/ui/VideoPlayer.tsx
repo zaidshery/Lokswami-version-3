@@ -187,10 +187,68 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const youtubePlayerRef = useRef<YouTubePlayer | null>(null);
   const youtubeReadyRef = useRef(false);
   const [playbackError, setPlaybackError] = useState(false);
+  const [errorClassification, setErrorClassification] = useState<string>('generic');
+  const [retryCount, setRetryCount] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
+  const bufferTimerRef = useRef<number | null>(null);
+  const wasManuallyPausedRef = useRef(isPaused);
+  const pausedByVisibilityRef = useRef(false);
 
   useEffect(() => {
     setPlaybackError(false);
+    setErrorClassification('generic');
+    setRetryCount(0);
+    setIsBuffering(false);
   }, [src, videoId]);
+
+  useEffect(() => {
+    wasManuallyPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  // Network offline/online tracking
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => {
+      setIsOffline(true);
+      callbacksRef.current.onPausedChange(true);
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Document visibility handling (pause on background, resume if not manually paused)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (!controlsRef.current.isPaused) {
+          pausedByVisibilityRef.current = true;
+          callbacksRef.current.onPausedChange(true);
+        }
+      } else {
+        if (pausedByVisibilityRef.current) {
+          pausedByVisibilityRef.current = false;
+          if (!wasManuallyPausedRef.current && controlsRef.current.isActive) {
+            callbacksRef.current.onPausedChange(false);
+          }
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+    };
+  }, []);
 
   const callbacksRef = useRef({
     onCaptionsChange,
@@ -607,6 +665,20 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             </div>
           </button>
         )}
+
+        {isOffline && (
+          <div
+            className="absolute inset-0 z-35 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
+            role="status"
+          >
+            <p className="text-sm font-semibold text-amber-300">
+              इंटरनेट कनेक्शन नहीं है / Offline
+            </p>
+            <p className="mt-1 text-xs text-zinc-400">
+              कृपया इंटरनेट कनेक्शन की जांच करें।
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -636,6 +708,23 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           const safeDuration = Math.max(0, video.duration || fallbackDuration);
           onTimeChange(Math.max(0, video.currentTime || 0), safeDuration);
         }}
+        onWaiting={() => {
+          if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+          bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
+        }}
+        onStalled={() => {
+          if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+          bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
+        }}
+        onPlaying={() => {
+          if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+          setIsBuffering(false);
+          onPausedChange(false);
+        }}
+        onCanPlay={() => {
+          if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
+          setIsBuffering(false);
+        }}
         onPlay={() => {
           onPausedChange(false);
         }}
@@ -657,35 +746,90 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           }
           onEnded();
         }}
-        onError={() => {
+        onError={(event) => {
           setPlaybackError(true);
+          setIsBuffering(false);
+          const code = event.currentTarget.error?.code;
+          if (code === 2) {
+            setErrorClassification('network');
+          } else if (code === 3) {
+            setErrorClassification('decode');
+          } else if (code === 4) {
+            setErrorClassification('not_supported');
+          } else {
+            setErrorClassification('generic');
+          }
         }}
       />
 
+      {/* Buffering Indicator */}
+      {isBuffering && !isPaused && !playbackError && (
+        <div
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-[1px]"
+          aria-label="Loading video"
+        >
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+        </div>
+      )}
+
+      {/* Offline Alert Overlay */}
+      {isOffline && (
+        <div
+          className="absolute inset-0 z-35 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
+          role="status"
+        >
+          <p className="text-sm font-semibold text-amber-300">
+            इंटरनेट कनेक्शन नहीं है / Offline
+          </p>
+          <p className="mt-1 text-xs text-zinc-400">
+            कृपया इंटरनेट कनेक्शन की जांच करें।
+          </p>
+        </div>
+      )}
+
+      {/* Error & Bounded Retry Overlay */}
       {(playbackError || (!isYouTube && !src)) && (
         <div
           className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
           role="alert"
         >
           <p className="text-sm font-semibold text-zinc-200">
-            वीडियो लोड करने में समस्या हुई।
+            {errorClassification === 'network'
+              ? 'नेटवर्क त्रुटि: वीडियो लोड नहीं हो सका।'
+              : errorClassification === 'decode'
+              ? 'वीडियो डिकोड त्रुटि हुई।'
+              : errorClassification === 'not_supported'
+              ? 'वीडियो प्रारूप समर्थित नहीं है।'
+              : 'वीडियो लोड करने में समस्या हुई।'}
           </p>
           <p className="mt-1 text-xs text-zinc-400">
-            Video currently unavailable.
+            {errorClassification === 'network'
+              ? 'Network error. Please check your connection.'
+              : 'Video currently unavailable.'}
           </p>
           {src ? (
-            <button
-              type="button"
-              onClick={() => {
-                setPlaybackError(false);
-                if (videoRef.current) {
-                  videoRef.current.load();
-                }
-              }}
-              className="mt-3 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95"
-            >
-              पुनः प्रयास करें / Retry
-            </button>
+            retryCount < 3 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setRetryCount((c) => c + 1);
+                  setPlaybackError(false);
+                  if (videoRef.current) {
+                    videoRef.current.load();
+                    void videoRef.current.play().catch(() => {
+                      callbacksRef.current.onPausedChange(true);
+                    });
+                  }
+                }}
+                className="mt-3 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95"
+              >
+                पुनः प्रयास करें / Retry ({3 - retryCount} remaining)
+              </button>
+            ) : (
+              <p className="mt-3 text-xs text-zinc-400">
+                अधिकतम प्रयास सीमा समाप्त। कृपया पेज रिफ्रेश करें।
+              </p>
+            )
           ) : null}
         </div>
       )}

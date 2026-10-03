@@ -38,7 +38,7 @@ export default function SwipeVideoCard({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !active) return;
     video.muted = muted;
     if (paused) {
       video.pause();
@@ -50,7 +50,7 @@ export default function SwipeVideoCard({
     } else {
       onPlay();
     }
-  }, [muted, onError, onPlay, paused]);
+  }, [active, muted, onError, onPlay, paused]);
 
   // Synchronize playback and mute state to YouTube iframe
   useEffect(() => {
@@ -80,6 +80,53 @@ export default function SwipeVideoCard({
       send('setVolume', [100]);
     }
   }, [active, youtubeId, paused, muted]);
+
+  // Cleanup media when becoming inactive or unmounting
+  useEffect(() => {
+    if (!active) {
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+        } catch {
+          // ignore
+        }
+      }
+      if (iframeRef.current) {
+        try {
+          iframeRef.current.contentWindow?.postMessage(
+            JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+            '*'
+          );
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [active]);
+
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    const iframeEl = iframeRef.current;
+    return () => {
+      if (videoEl) {
+        try {
+          videoEl.pause();
+        } catch {
+          // ignore
+        }
+      }
+      if (iframeEl) {
+        try {
+          iframeEl.contentWindow?.postMessage(
+            JSON.stringify({ event: 'command', func: 'stopVideo', args: [] }),
+            '*'
+          );
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
 
   const translate = position === -1 ? '-100%' : position === 1 ? '100%' : '0%';
 
