@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import SwipeActions from '@/components/swipe/SwipeActions';
+import ShareMenu from '@/components/ui/ShareMenu';
 import SwipeVideoCard from '@/components/swipe/SwipeVideoCard';
 import QuickArticleSheet from '@/components/swipe/QuickArticleSheet';
 import SwipeSettingsSheet from '@/components/swipe/SwipeSettingsSheet';
 import { SwipeEmptyState, SwipeLoadError } from '@/components/swipe/SwipeStates';
 import useSwipeAnalytics from '@/components/swipe/useSwipeAnalytics';
+import { buildSwipeReaderPath } from '@/lib/utils/readerContentPaths';
 import type {
   SwipeArticle,
   SwipeCursor,
@@ -104,7 +106,7 @@ export default function SwipeFeed({
     setPlaybackError(false);
     setSheetOpen(false);
     setSettingsOpen(false);
-    window.history.replaceState(window.history.state, '', `/main/shorts/${encodeURIComponent(activeItem.slug)}`);
+    window.history.replaceState(window.history.state, '', buildSwipeReaderPath(activeItem.slug));
   }, [activeItem]);
 
   useEffect(() => {
@@ -229,21 +231,6 @@ export default function SwipeFeed({
     if (activeItem) trackOnce('video_playback_failure', activeItem);
   }, [activeItem, trackOnce]);
 
-  const shareActive = useCallback(async () => {
-    if (!activeItem) return;
-    const url = new URL(`/main/shorts/${activeItem.slug}`, window.location.origin).toString();
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: activeItem.title, text: activeItem.description, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-      }
-      trackEvent('swipe_share', activeItem);
-    } catch {
-      // A dismissed share sheet is not an application error.
-    }
-  }, [activeItem, trackEvent]);
-
   if (!activeItem) {
     return <SwipeEmptyState />;
   }
@@ -310,7 +297,7 @@ export default function SwipeFeed({
         settingsButtonRef={settingsButtonRef}
         onToggleMuted={() => setMuted((current) => !current)}
         onOpenSettings={() => setSettingsOpen(true)}
-        onShare={() => void shareActive()}
+        shareControl={<ShareMenu title={activeItem.title} text={activeItem.description} url={buildSwipeReaderPath(activeItem.slug)} contentType="video" contentId={activeItem._id} ariaLabel="Share this Swipe story" placement="swipe_actions" onShareEvent={(event, platform) => trackEvent(event === 'share_complete' ? 'swipe_share' : event, activeItem, { platform })} buttonClassName="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/10 [&>span]:sr-only" />}
         onOpenArticle={() => {
           if (!activeArticle) return;
           setSheetOpen(true);

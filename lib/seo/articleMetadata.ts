@@ -6,6 +6,7 @@ import {
   resolveArticleCanonicalUrl,
   toAbsoluteArticleUrl,
 } from '@/lib/seo/articleSeo';
+import { metadataText, metadataLocale, selectSocialImage } from '@/lib/seo/socialMetadata';
 
 const FALLBACK_SHARE_IMAGE = '/lokswami-share-preview.png';
 const OG_IMAGE_WIDTH = 1200;
@@ -67,14 +68,14 @@ export function buildArticlePageMetadata({
     };
   }
 
-  const seoTitle = article.seo.metaTitle || article.title;
+  const seoTitle = metadataText(article.seo.metaTitle, 300) || metadataText(article.title, 300);
   const title = `${seoTitle} | ${COMPANY_INFO.name}`;
-  const description = article.seo.metaDescription || article.summary;
+  const description = metadataText(article.seo.metaDescription) || metadataText(article.summary) || metadataText(article.title);
   const canonical = resolveArticleCanonicalUrl(
     { id: article.id, slug: article.slug, canonicalUrl: article.seo.canonicalUrl },
     siteUrl
   );
-  const ogImage = buildArticleSocialImageUrl(article, siteUrl);
+  const ogImage = selectSocialImage([article.seo.ogImage, article.image], siteUrl);
 
   return {
     title,
@@ -88,6 +89,7 @@ export function buildArticlePageMetadata({
       url: canonical,
       type: 'article',
       siteName: COMPANY_INFO.name,
+      locale: metadataLocale(article.title, article.summary),
       section: article.category,
       publishedTime: article.publishedAt,
       modifiedTime: article.updatedAt,
@@ -95,10 +97,8 @@ export function buildArticlePageMetadata({
       images: [
         {
           url: ogImage,
-          width: OG_IMAGE_WIDTH,
-          height: OG_IMAGE_HEIGHT,
-          alt: article.seo.featuredImageAlt || seoTitle,
-          type: 'image/png',
+          ...(ogImage.endsWith(FALLBACK_SHARE_IMAGE) ? { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, type: 'image/png' } : {}),
+          alt: metadataText(article.seo.featuredImageAlt, 300) || seoTitle,
         },
       ],
     },

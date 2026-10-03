@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import {
   buildVideoPageMetadata,
+  buildSwipePageMetadata,
   buildVideosPageMetadata,
 } from '@/lib/seo/readerPageMetadata';
 import { getPublicVideoForMetadata } from '@/lib/server/publicVideoMetadata';
@@ -12,6 +14,7 @@ import VideosPageClient, {
 } from './VideosPageClient';
 
 const VIDEOS_LIMIT = 20;
+const getSelectedVideo = cache(getPublicVideoForMetadata);
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -27,6 +30,7 @@ function mapMetadataVideoToFeedItem(
 ): PublicVideoFeedItem {
   return {
     _id: video.id,
+    slug: video.slug,
     title: video.title,
     description: video.description,
     thumbnail: video.thumbnail,
@@ -65,7 +69,7 @@ async function resolveSelectedVideo(searchParams?: Promise<Record<string, string
   const resolvedParams = searchParams ? await searchParams : {};
   const selectedVideoId = toSingleString(resolvedParams.video).trim();
   const selectedVideo = selectedVideoId
-    ? await getPublicVideoForMetadata(selectedVideoId)
+    ? await getSelectedVideo(selectedVideoId)
     : null;
 
   return {
@@ -75,9 +79,20 @@ async function resolveSelectedVideo(searchParams?: Promise<Record<string, string
 }
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
-  const { selectedVideo } = await resolveSelectedVideo(searchParams);
+  const { selectedVideo, selectedVideoId } = await resolveSelectedVideo(searchParams);
   if (!selectedVideo) {
-    return buildVideosPageMetadata();
+    const metadata = buildVideosPageMetadata();
+    return selectedVideoId ? { ...metadata, robots: { index: false, follow: true } } : metadata;
+  }
+
+  if (selectedVideo.isShort && selectedVideo.slug) {
+    return buildSwipePageMetadata({
+      slug: selectedVideo.slug,
+      title: selectedVideo.title,
+      description: selectedVideo.description,
+      category: selectedVideo.category,
+      image: selectedVideo.thumbnail,
+    });
   }
 
   return buildVideoPageMetadata({

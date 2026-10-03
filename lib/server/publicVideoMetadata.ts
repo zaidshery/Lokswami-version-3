@@ -2,9 +2,11 @@ import { Types } from 'mongoose';
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 import Video from '@/lib/models/Video';
 import { getStoredVideoById } from '@/lib/storage/videosFile';
+import { isPubliclyPublishedVideo, isSwipeFeedEligibleVideo } from '@/lib/content/videoPublication';
 
 export type PublicVideoMetadata = {
   id: string;
+  slug?: string;
   title: string;
   description: string;
   thumbnail: string;
@@ -17,8 +19,12 @@ export type PublicVideoMetadata = {
 };
 
 type PublicVideoSource = {
+  workflow?: unknown;
+  processingStatus?: unknown;
+  updatedAt?: string | Date;
   _id?: string;
   id?: string;
+  slug?: string;
   title?: string;
   description?: string;
   thumbnail?: string;
@@ -26,6 +32,7 @@ type PublicVideoSource = {
   duration?: number;
   category?: string;
   isShort?: boolean;
+  aspectRatio?: string;
   isPublished?: boolean;
   views?: number;
   publishedAt?: string | Date;
@@ -84,12 +91,15 @@ function toPublicVideo(input: PublicVideoSource | null | undefined): PublicVideo
           : '';
   const title = String(input.title || '').trim();
 
-  if (!id || !title || input.isPublished === false) return null;
+  if (!id || !title || !isPubliclyPublishedVideo(input)) return null;
 
   const videoUrl = String(input.videoUrl || '').trim();
 
   return {
     id,
+    slug: !input.isShort || isSwipeFeedEligibleVideo(input)
+      ? String(input.slug || '').trim() || undefined
+      : undefined,
     title,
     description: String(input.description || '').trim(),
     thumbnail: resolveThumbnail(String(input.thumbnail || ''), videoUrl),
@@ -103,20 +113,16 @@ function toPublicVideo(input: PublicVideoSource | null | undefined): PublicVideo
 }
 
 async function getMongoVideo(id: string) {
-  if (!(await isMongoAvailable({ label: 'public video metadata lookup' }))) {
-    return null;
-  }
-
   try {
     if (!Types.ObjectId.isValid(id)) return null;
 
     const record = await Video.findOne({ _id: id, isPublished: true })
-      .select('_id title description thumbnail videoUrl duration category isShort isPublished views publishedAt')
+      .select('_id slug title description thumbnail videoUrl duration category isShort aspectRatio isPublished views publishedAt updatedAt workflow processingStatus')
       .lean<PublicVideoSource | null>();
 
     return toPublicVideo(record);
   } catch (error) {
-    console.error('Failed to load public video metadata from MongoDB, falling back.', error);
+    console.error('Failed to load public video metadata from MongoDB.', error);
     return null;
   }
 }
@@ -130,8 +136,8 @@ export async function getPublicVideoForMetadata(id: string): Promise<PublicVideo
   const normalizedId = id.trim();
   if (!normalizedId) return null;
 
-  const mongoRecord = await getMongoVideo(normalizedId);
-  if (mongoRecord) return mongoRecord;
-
-  return getStoredVideo(normalizedId);
+  // An authoritative private/missing Mongo record must not resurrect a stale file copy.
+  return await isMongoAvailable({ label: 'public video metadata lookup' })
+    ? getMongoVideo(normalizedId)
+    : getStoredVideo(normalizedId);
 }

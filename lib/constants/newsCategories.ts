@@ -1,3 +1,5 @@
+import { toAbsolutePublicUrl } from '@/lib/utils/publicUrl';
+
 export type NewsCategory = {
   id: string;
   slug: string;
@@ -175,6 +177,9 @@ export function resolveNewsCategory(value: string) {
   });
 }
 
-export function getNewsCategoryHref(slug: string) {
-  return `/main/category/${slug}`;
+export function getNewsCategoryHref(value: string, siteOrigin?: string) {
+  const category = resolveNewsCategory(value);
+  if (!category) return '';
+  const path = `/main/category/${encodeURIComponent(category.slug)}`;
+  return siteOrigin === undefined ? path : toAbsolutePublicUrl(path, siteOrigin);
 }

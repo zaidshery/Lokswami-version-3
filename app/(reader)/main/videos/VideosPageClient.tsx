@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import VideoDetailHero from '@/components/video/VideoDetailHero';
 import VideoFeedGrid from '@/components/video/VideoFeedGrid';
+import ShareMenu from '@/components/ui/ShareMenu';
+import { buildVideoReaderPath } from '@/lib/utils/readerContentPaths';
 import {
   type PublicCursor,
   type PublicVideoFeedItem,
@@ -97,6 +99,7 @@ export default function VideosPageClient({
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
+      if (target?.closest('button, a, [role="menu"]')) return;
       if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
 
       if (event.key === ' ' || event.key === 'k' || event.key === 'K') {
@@ -236,6 +239,7 @@ export default function VideosPageClient({
             ) : null}
 
             {/* Mobile & Tablet Feed List (visible below player on smaller screens) */}
+            {selectedVideo ? <ShareMenu title={selectedVideo.title} url={buildVideoReaderPath(selectedVideo.id, selectedVideo.isShort ? selectedVideo.slug : undefined)} contentType="video" contentId={selectedVideo.id} language={language} ariaLabel={language === 'hi' ? 'वीडियो शेयर करें' : 'Share video'} placement="video_detail" /> : null}
             <div className="block lg:hidden">
               <VideoFeedGrid
                 layout="feed_list"

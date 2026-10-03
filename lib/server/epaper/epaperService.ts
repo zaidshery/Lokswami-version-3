@@ -4,7 +4,7 @@ import { getCitySlugFromName } from '@/lib/constants/epaperCities';
 import { resolveReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
 import { normalizeEPaperPublicationType } from '@/lib/types/epaper';
 import { isValidEpaperHotspot } from '@/lib/utils/epaperHotspotGeometry';
-import { normalizePublicationIssueMonth } from '@/lib/utils/epaperPublication';
+import { buildPublicationReaderPath } from '@/lib/utils/readerContentPaths';
 import {
   buildDigitalOceanSpacesRawAssetUrl,
   parseDigitalOceanSpacesAssetFromUrl,
@@ -76,14 +76,7 @@ function resolvePdfFormatFromUrl(value: string) {
 }
 
 function buildHomeHref(citySlug: string, publishDate: string, publicationType: 'epaper' | 'emagazine') {
-  if (publicationType === 'emagazine') {
-    const month = normalizePublicationIssueMonth(publishDate);
-    return month ? `/main/e-magazine?month=${encodeURIComponent(month)}` : '/main/e-magazine';
-  }
-  const params = new URLSearchParams();
-  if (citySlug) params.set('city', citySlug);
-  if (publishDate) params.set('date', publishDate);
-  return params.size ? `/main/epaper?${params.toString()}` : '/main/epaper';
+  return buildPublicationReaderPath({ city: citySlug, publishDate, publicationType });
 }
 
 export class EpaperService {

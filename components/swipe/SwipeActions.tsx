@@ -1,7 +1,7 @@
 'use client';
 
-import { BookOpen, Settings, Share2, Volume2, VolumeX } from 'lucide-react';
-import type { RefObject } from 'react';
+import { BookOpen, Settings, Volume2, VolumeX } from 'lucide-react';
+import type { ReactNode, RefObject } from 'react';
 
 type SwipeActionsProps = {
   muted: boolean;
@@ -11,7 +11,7 @@ type SwipeActionsProps = {
   settingsButtonRef: RefObject<HTMLButtonElement>;
   onToggleMuted: () => void;
   onOpenSettings: () => void;
-  onShare: () => void;
+  shareControl: ReactNode;
   onOpenArticle: () => void;
 };
 
@@ -26,7 +26,7 @@ export default function SwipeActions({
   settingsButtonRef,
   onToggleMuted,
   onOpenSettings,
-  onShare,
+  shareControl,
   onOpenArticle,
 }: SwipeActionsProps) {
   return (
@@ -35,9 +35,7 @@ export default function SwipeActions({
         <button type="button" className={actionClass} onClick={onToggleMuted} aria-label={muted ? 'Unmute video' : 'Mute video'}>
           {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
         </button>
-        <button type="button" className={actionClass} onClick={onShare} aria-label="Share this Swipe story">
-          <Share2 className="h-5 w-5" />
-        </button>
+        {shareControl}
         <button
           ref={settingsButtonRef}
           type="button"

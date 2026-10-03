@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import SwipeFeed from '@/components/swipe/SwipeFeed';
 import type { SwipeCursor, SwipeFeedItem } from '@/components/swipe/types';
@@ -10,6 +11,8 @@ import { buildSwipePageMetadata } from '@/lib/seo/readerPageMetadata';
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
+
+const getStory = cache(getPublicSwipeStory);
 
 type FeedResponse = {
   items?: SwipeFeedItem[];
@@ -39,10 +42,10 @@ async function getInitialFeed() {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  if (!isSwipeBetaEnabled()) return {};
+  if (!isSwipeBetaEnabled()) return { robots: { index: false, follow: false } };
   const { slug: rawSlug } = await params;
   const slug = decodeSwipeSlug(rawSlug);
-  const story = await getPublicSwipeStory(slug);
+  const story = await getStory(slug);
   if (!story) {
     return {
       title: 'Swipe story not found | Lokswami',
@@ -63,7 +66,7 @@ export default async function SwipeStoryPage({ params }: PageProps) {
   if (!isSwipeBetaEnabled()) notFound();
   const { slug: rawSlug } = await params;
   const slug = decodeSwipeSlug(rawSlug);
-  const [story, feed] = await Promise.all([getPublicSwipeStory(slug), getInitialFeed()]);
+  const [story, feed] = await Promise.all([getStory(slug), getInitialFeed()]);
   if (!story) notFound();
 
   const items = [

@@ -622,7 +622,7 @@ export default function VideoShortsFeed({
 
   const activeVideo = videos[activeIndex] || null;
   const activeReadHref = activeVideo
-    ? buildVideoReaderPath(activeVideo.id, activeVideo.title)
+    ? buildVideoReaderPath(activeVideo.id, activeVideo.slug)
     : '/main/videos';
 
   const originParam = typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : '';
@@ -665,7 +665,7 @@ export default function VideoShortsFeed({
             const youtubeId = getYouTubeId(video.videoUrl);
             const isYouTube = Boolean(youtubeId);
             const isCurrent = index === activeIndex;
-            const readHref = buildVideoReaderPath(video.id, video.title);
+            const readHref = buildVideoReaderPath(video.id, video.slug);
             const currentSeconds = currentTimeById[video.id] || 0;
             const totalDuration = durationById[video.id] || video.duration || 0;
             const progressPercent =

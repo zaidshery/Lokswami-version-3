@@ -5,6 +5,7 @@ import {
   getNewsCategoryHref,
 } from '@/lib/constants/newsCategories';
 import { EPAPER_CITY_OPTIONS } from '@/lib/constants/epaperCities';
+import { buildEPaperReaderPath } from '@/lib/utils/readerContentPaths';
 import type { PublicCategoryItem, PublicCityItem } from './articleTypes';
 
 export class PublicTaxonomyService {
@@ -24,7 +25,7 @@ export class PublicTaxonomyService {
     return EPAPER_CITY_OPTIONS.map((city) => ({
       slug: city.slug,
       name: city.name,
-      href: `/main/epaper?city=${encodeURIComponent(city.slug)}`,
+      href: buildEPaperReaderPath({ city: city.slug }),
     }));
   }
 }

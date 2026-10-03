@@ -94,7 +94,7 @@ export async function generateEPaperMetadata(
       })
     : null;
   const story =
-    storyToken && (issue?.id || paperId)
+    storyToken && issue?.id
       ? await getPublicEpaperStoryForMetadata({
           epaperId: issue?.id || paperId,
           storyToken,
@@ -102,17 +102,17 @@ export async function generateEPaperMetadata(
         })
       : null;
   const resolvedPage = requestedPage || story?.pageNumber || 0;
-  const previewQuery = new URLSearchParams({ paper: issue?.id || paperId, publicationType, brand: '1' });
-  if (story) { previewQuery.set('story', story.id); previewQuery.set('v', String(story.releaseVersion || 1)); }
-  const shareImage = issue ? `/api/og/epaper?${previewQuery}` : '';
+  const shareImage = story?.coverImagePath || story?.pageImagePath ||
+    issue?.pages?.find((page) => page.pageNumber === (resolvedPage || 1))?.imagePath || issue?.thumbnailPath;
 
   return buildEpaperPageMetadata({
+    index: !(paperId && !issue) && !(storyToken && !story),
     publicationType,
     city: issue?.citySlug || filters.city,
     publishDate: issue?.publishDate || normalizePublicationIssueDate(filters.issueDate, publicationType),
     paperId: issue?.id || paperId,
     page: resolvedPage,
-    storyToken: story?.slug || storyToken,
+    storyToken,
     issueTitle: issue?.title,
     issueCityName: issue?.cityName,
     storyTitle: story?.title,

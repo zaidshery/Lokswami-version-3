@@ -105,6 +105,34 @@ describe('SwipeFeed', () => {
     expect(events.filter((event) => event === 'video_play')).toHaveLength(1);
   });
 
+  it('shares the active canonical slug and keeps keyboard menu navigation inside the menu', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    render(<SwipeFeed initialItems={[{ ...item(1), title: 'भोपाल की बड़ी खबर आज', slug: 'bhopal-major-news-today' }, item(2)]} initialArticle={null} initialHasMore={false} initialNextCursor={null} />);
+    screen.getByRole('button', { name: 'Share this Swipe story' }).focus();
+    await user.keyboard(' ');
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: 'WhatsApp' }), { key: 'ArrowDown' });
+    expect(window.location.pathname).toBe('/main/shorts/bhopal-major-news-today');
+    await user.click(screen.getByRole('menuitem', { name: 'Copy link' }));
+    expect(writeText).toHaveBeenCalledWith('https://lokswami.com/main/shorts/bhopal-major-news-today');
+    expect(trackClientEvent).toHaveBeenCalledWith(expect.objectContaining({ event: 'swipe_share', source: 'lokswami_swipe', page: '/main/shorts/bhopal-major-news-today', metadata: expect.objectContaining({ videoSlug: 'bhopal-major-news-today', platform: 'copy' }) }));
+  });
+
+  it('keeps the active Short identity during touch scrolling inside its Share menu', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    render(<SwipeFeed initialItems={[{ ...item(1), title: 'A different headline', slug: 'first-canonical' }, item(2)]} initialArticle={null} initialHasMore={false} initialNextCursor={null} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Share this Swipe story' }));
+    const menu = await screen.findByRole('menu');
+    fireEvent.touchStart(menu, { touches: [{ clientY: 250 }] });
+    fireEvent.touchEnd(menu, { changedTouches: [{ clientY: 100 }] });
+    expect(window.location.pathname).toBe('/main/shorts/first-canonical');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link' }));
+    expect(await screen.findByRole('menuitem', { name: 'Link copied' })).toBeInTheDocument();
+    expect(writeText).toHaveBeenLastCalledWith('https://lokswami.com/main/shorts/first-canonical');
+  });
+
   it('opens an accessible settings dialog and persists Data Saver preference', async () => {
     const user = userEvent.setup();
     render(

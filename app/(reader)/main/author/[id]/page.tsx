@@ -6,7 +6,8 @@ import { notFound } from 'next/navigation';
 import connectDB from '@/lib/db/mongoose';
 import User from '@/lib/models/User';
 import { listPublicArticles } from '@/lib/server/publicArticles';
-import { getSiteUrl, toAbsoluteArticleUrl } from '@/lib/seo/articleSeo';
+import { buildReaderMetadata } from '@/lib/seo/readerPageMetadata';
+import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,9 +15,11 @@ type PageContext = { params: Promise<{ id: string }> };
 type PublicStaff = { id: string; name: string; role: string; image: string };
 
 const getPublicStaff = cache(async (encodedId: string): Promise<PublicStaff | null> => {
-  const id = decodeURIComponent(encodedId).trim();
+  let id: string;
+  try { id = decodeURIComponent(encodedId).trim(); } catch { return null; }
   if (!id) return null;
   try {
+    if (!(await isMongoAvailable({ label: 'public author metadata' }))) return null;
     await connectDB();
     const record = await User.findOne({ _id: id, isActive: { $ne: false } })
       .select('_id name role image')
@@ -38,13 +41,13 @@ const getPublicStaff = cache(async (encodedId: string): Promise<PublicStaff | nu
 export async function generateMetadata({ params }: PageContext): Promise<Metadata> {
   const { id } = await params;
   const staff = await getPublicStaff(id);
-  if (!staff) return { title: 'Author not found | Lokswami' };
-  const canonical = toAbsoluteArticleUrl(`/main/author/${encodeURIComponent(staff.id)}`, getSiteUrl());
-  return {
+  if (!staff) return { title: 'Author not found | Lokswami', robots: { index: false, follow: false } };
+  return buildReaderMetadata({
     title: `${staff.name} | Lokswami`,
     description: `Published reporting by ${staff.name} at Lokswami.`,
-    alternates: { canonical },
-  };
+    path: `/main/author/${encodeURIComponent(staff.id)}`,
+    image: staff.image,
+  });
 }
 
 export default async function AuthorProfilePage({ params }: PageContext) {

@@ -151,17 +151,16 @@ describe('article reader actions', () => {
     await user.click(screen.getByRole('button', { name: 'Save article' }));
 
     expect(mocks.routerPush).toHaveBeenCalledWith('/signin?redirect=/main/saved');
-    expect(screen.getByRole('button', { name: 'Share article on WhatsApp' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share article' })).toBeInTheDocument();
     const actions = screen.getByRole('button', { name: 'Save article' }).parentElement!;
-    expect(actions).toContainElement(screen.getByRole('button', { name: 'Share article on WhatsApp' }));
+    expect(actions).toContainElement(screen.getByRole('button', { name: 'Share article' }));
     expect(actions).toContainElement(screen.getByRole('link', { name: 'E-Paper' }));
     expect(actions.parentElement?.parentElement).toContainElement(screen.getByRole('button', { name: 'View profile picture of News Desk' }));
     expect(mocks.shareProps).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Reader story headline',
         url: '/main/article/reader-story',
-        directWhatsApp: true,
-        triggerIcon: 'whatsapp',
+        triggerIcon: 'share',
       })
     );
   });
@@ -496,7 +495,7 @@ describe('article reader actions', () => {
 
     // Verify core reader actions remain present and accessible
     expect(screen.getByRole('button', { name: 'Save article' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Share article on WhatsApp' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share article' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'E-Paper' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'E-Paper' })).not.toHaveClass('attention-pulsate-bck');
   });

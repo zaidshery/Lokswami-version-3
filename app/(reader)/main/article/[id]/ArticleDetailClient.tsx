@@ -399,8 +399,7 @@ export default function ArticleDetailClient({
               </button>
 
               <ShareMenu
-                triggerIcon="whatsapp"
-                directWhatsApp
+                triggerIcon="share"
                 title={article.title}
                 url={buildArticlePublicPath({ id: article.id, slug: article.slug })}
                 text={article.summary}
@@ -415,8 +414,8 @@ export default function ArticleDetailClient({
                 contentId={article.id}
                 placement="article_detail_header"
                 language={language}
-                triggerLabel="WhatsApp"
-                ariaLabel={language === 'hi' ? 'WhatsApp पर लेख शेयर करें' : 'Share article on WhatsApp'}
+                triggerLabel={language === 'hi' ? 'शेयर' : 'Share'}
+                ariaLabel={language === 'hi' ? 'लेख शेयर करें' : 'Share article'}
                 className="shrink-0"
                 buttonClassName="reader-touch-button reader-focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full border border-zinc-300 bg-white px-3 text-sm font-semibold leading-none text-zinc-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-orange-500/50 dark:hover:bg-orange-500/15 dark:hover:text-orange-300 sm:min-h-11 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
               />

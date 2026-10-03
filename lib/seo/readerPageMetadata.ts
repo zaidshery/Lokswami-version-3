@@ -2,16 +2,15 @@ import type { Metadata } from 'next';
 import { getSiteUrl } from '@/lib/seo/articleSeo';
 import { COMPANY_INFO } from '@/lib/constants/company';
 import { EPAPER_CITY_OPTIONS } from '@/lib/constants/epaperCities';
-import { resolveNewsCategory } from '@/lib/constants/newsCategories';
+import { getNewsCategoryHref, resolveNewsCategory } from '@/lib/constants/newsCategories';
+import { buildPublicationReaderPath, buildSwipeReaderPath, buildVideoReaderPath, toAbsolutePublicUrl } from '@/lib/utils/readerContentPaths';
 import {
   formatPublicationIssueLabel,
   getPublicationTypeLabels,
   isMonthlyEPaperPublication,
-  normalizePublicationIssueMonth,
 } from '@/lib/utils/epaperPublication';
 import type { EPaperPublicationType } from '@/lib/types/epaper';
-
-const DEFAULT_OG_IMAGE = '/lokswami-share-preview.png';
+import { metadataText, metadataLocale, selectSocialImage } from '@/lib/seo/socialMetadata';
 
 type MetadataInput = {
   title: string;
@@ -20,9 +19,11 @@ type MetadataInput = {
   keywords?: string[];
   image?: string;
   robots?: Metadata['robots'];
+  locale?: string;
 };
 
 type EpaperMetadataInput = {
+  index?: boolean;
   publicationType?: EPaperPublicationType;
   city: string;
   publishDate: string;
@@ -108,32 +109,32 @@ function buildPublicationIssueTitle(
   return `Lokswami E-Magazine${date}`;
 }
 
-function buildMetadata(input: MetadataInput): Metadata {
+export function buildReaderMetadata(input: MetadataInput): Metadata {
   const siteUrl = resolveSiteUrl();
-  const canonical = toAbsoluteUrl(input.path, siteUrl);
-  const image = toAbsoluteUrl(input.image || DEFAULT_OG_IMAGE, siteUrl);
-  const title = formatTitle(input.title);
+  const canonical = toAbsolutePublicUrl(input.path, siteUrl);
+  const image = selectSocialImage([input.image], siteUrl);
+  const title = formatTitle(metadataText(input.title, 300));
+  const description = metadataText(input.description);
 
   return {
     title,
-    description: input.description,
+    description,
     keywords: input.keywords,
     alternates: {
       canonical,
     },
     openGraph: {
       title,
-      description: input.description,
+      description,
       url: canonical,
       type: 'website',
       siteName: COMPANY_INFO.name,
-      locale: 'hi_IN',
+      locale: input.locale || metadataLocale(input.title, description),
       images: image
         ? [
             {
               url: image,
-              width: 1200,
-              height: 630,
+              ...(image.endsWith('/lokswami-share-preview.png') ? { width: 1200, height: 630 } : {}),
               alt: title,
             },
           ]
@@ -142,7 +143,7 @@ function buildMetadata(input: MetadataInput): Metadata {
     twitter: {
       card: 'summary_large_image',
       title,
-      description: input.description,
+      description,
       images: image ? [image] : undefined,
     },
     robots: input.robots || {
@@ -152,6 +153,8 @@ function buildMetadata(input: MetadataInput): Metadata {
     },
   };
 }
+
+const buildMetadata = buildReaderMetadata;
 
 export function buildLatestPageMetadata() {
   return buildMetadata({
@@ -187,8 +190,8 @@ export function buildVideosPageMetadata() {
 
 export function buildVideoPageMetadata(input: VideoMetadataInput) {
   const videoId = String(input.videoId || '').trim();
-  const title = String(input.title || '').trim();
-  const description = String(input.description || '').trim();
+  const title = metadataText(input.title, 300);
+  const description = metadataText(input.description);
   const category = String(input.category || '').trim();
 
   return buildMetadata({
@@ -196,7 +199,8 @@ export function buildVideoPageMetadata(input: VideoMetadataInput) {
     description:
       description ||
       'Watch this Lokswami news video with a full preview image, headline, and quick summary.',
-    path: videoId ? `/main/videos?video=${encodeURIComponent(videoId)}` : '/main/videos',
+    path: buildVideoReaderPath(videoId),
+    locale: metadataLocale(title, description),
     image: input.image,
     keywords: [
       'lokswami video',
@@ -209,8 +213,8 @@ export function buildVideoPageMetadata(input: VideoMetadataInput) {
 
 export function buildSwipePageMetadata(input: SwipeMetadataInput) {
   const slug = String(input.slug || '').trim();
-  const title = String(input.title || '').trim();
-  const description = String(input.description || '').trim();
+  const title = metadataText(input.title, 300);
+  const description = metadataText(input.description);
   const category = String(input.category || '').trim();
 
   return buildMetadata({
@@ -218,7 +222,8 @@ export function buildSwipePageMetadata(input: SwipeMetadataInput) {
     description:
       description ||
       'Watch this Lokswami Swipe news update, open the quick summary, and read the complete published report.',
-    path: slug ? `/main/shorts/${encodeURIComponent(slug)}` : '/main/videos',
+    path: buildSwipeReaderPath(slug),
+    locale: metadataLocale(title, description),
     image: input.image,
     keywords: [
       'lokswami swipe',
@@ -245,31 +250,10 @@ export function buildEpaperPageMetadata(input: EpaperMetadataInput) {
       ? formatPublicationIssueLabel(input.publishDate, publicationType)
       : formatMetadataDate(input.publishDate)
     : '';
-  const query = new URLSearchParams();
   const pageNumber = Number.parseInt(String(input.page ?? input.storyPage ?? ''), 10);
   const storyToken = String(input.storyToken || '').trim();
   const storyTitle = String(input.storyTitle || '').trim();
   const storyExcerpt = String(input.storyExcerpt || '').trim();
-
-  if (input.paperId?.trim()) {
-    query.set('paper', input.paperId.trim());
-  }
-  if (!isMonthly && input.city && input.city !== 'all') {
-    query.set('city', input.city);
-  }
-  if (input.publishDate) {
-    if (isMonthly) {
-      query.set('month', normalizePublicationIssueMonth(input.publishDate));
-    } else {
-      query.set('date', input.publishDate);
-    }
-  }
-  if (Number.isFinite(pageNumber) && pageNumber > 0) {
-    query.set('page', String(Math.floor(pageNumber)));
-  }
-  if (storyToken) {
-    query.set('story', storyToken);
-  }
 
   let title = `${titleName} Archive and Digital Edition`;
   let description =
@@ -303,14 +287,22 @@ export function buildEpaperPageMetadata(input: EpaperMetadataInput) {
     description = `Read the Lokswami ${contentName} for ${formattedDate} online with digital archive access, mapped stories, and downloadable pages.`;
   }
 
-  const basePath = labels.publicBasePath;
-  const path = query.size > 0 ? `${basePath}?${query.toString()}` : basePath;
+  const path = buildPublicationReaderPath({
+    publicationType, paperId: input.paperId, city: input.city,
+    publishDate: input.publishDate, page: pageNumber, storyToken,
+  });
+
+  if (!storyTitle && Number.isFinite(pageNumber) && pageNumber > 0) {
+    title += ` | Page ${pageNumber}`;
+    description += ` Page ${pageNumber}.`;
+  }
 
   return buildMetadata({
     title,
     description,
     path,
     image: input.image,
+    robots: { index: input.index !== false, follow: true, 'max-image-preview': 'large' },
     keywords: [
       isMonthly ? 'lokswami e-magazine' : 'lokswami epaper',
       isMonthly ? 'lokswami e-magazine' : 'hindi epaper',
@@ -332,7 +324,7 @@ export function buildCategoryPageMetadata(slug: string) {
     description: category
       ? `Read the latest ${category.nameEn.toLowerCase()} news, breaking updates, analysis, and top stories on Lokswami.`
       : `Read the latest news, headlines, and updates from ${displayName} on Lokswami.`,
-    path: `/main/category/${encodeURIComponent(normalizedSlug)}`,
+    path: getNewsCategoryHref(normalizedSlug) || `/main/category/${encodeURIComponent(normalizedSlug)}`,
     keywords: [
       `${displayName.toLowerCase()} news`,
       'hindi news',

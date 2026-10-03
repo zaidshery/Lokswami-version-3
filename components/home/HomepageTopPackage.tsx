@@ -12,6 +12,7 @@ import { buildArticleWhatsAppShareUrl, buildEpaperIssueWhatsAppShareUrl } from '
 import { trackClientEvent } from '@/lib/analytics/trackClient';
 import { buildArticleImageVariantUrl } from '@/lib/utils/articleMedia';
 import { formatUiDate } from '@/lib/utils/dateFormat';
+import { buildEPaperReaderPath } from '@/lib/utils/readerContentPaths';
 
 type Props = { articles: Article[]; epaper?: HomePageEpaperPreview | null; language: 'hi' | 'en'; loading?: boolean };
 const panel = 'min-w-0 rounded-editorial-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900 md:p-3.5 xl:p-4';
@@ -72,8 +73,7 @@ export function IndoreEpaper({ epaper, language }: Pick<Props, 'epaper' | 'langu
   const citySlug = String(epaper?.citySlug || '').trim().toLowerCase();
   const cityName = String(epaper?.cityName || '').trim().toLowerCase();
   const publishedIndore = epaper?.publicationType === 'epaper' && (citySlug === 'indore' || (!citySlug && cityName === 'indore')) ? epaper : null;
-  const query = publishedIndore ? new URLSearchParams({ city: 'indore', date: publishedIndore.publishDate }) : null;
-  const href = query ? `/main/epaper?${query.toString()}` : '/main/epaper';
+  const href = buildEPaperReaderPath(publishedIndore ? { city: 'indore', publishDate: publishedIndore.publishDate } : {});
   const shareLabel = language === 'hi' ? 'इंदौर ई-पेपर व्हाट्सऐप पर साझा करें' : 'Share Indore E-Paper on WhatsApp';
   const shareHref = publishedIndore ? buildEpaperIssueWhatsAppShareUrl({
     title: language === 'hi' ? 'इंदौर ई-पेपर' : 'Indore E-Paper',

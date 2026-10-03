@@ -205,7 +205,7 @@ describe('article page server rendering', () => {
       'Substantive published article body text.'
     );
     expect(container.querySelector('button[aria-label="Save article"]')).not.toBeNull();
-    expect(container.querySelector('button[aria-label="Share article on WhatsApp"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="Share article"]')).not.toBeNull();
   });
 
   it('renders a published article safely when no related article is eligible', async () => {

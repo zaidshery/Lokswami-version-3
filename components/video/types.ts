@@ -25,6 +25,7 @@ export type PublicCursor = {
 
 export type PublicVideoFeedItem = {
   _id: string;
+  slug?: string;
   title: string;
   description: string;
   thumbnail: string;
@@ -174,6 +175,7 @@ export function resolveThumbnail(item: Pick<PublicVideoFeedItem, 'thumbnail' | '
 export function mapApiVideo(item: PublicVideoFeedItem): VideoItem {
   return {
     id: safeString(item._id),
+    slug: safeString(item.slug) || undefined,
     title: safeString(item.title, 'Lokswami Video'),
     description: safeString(item.description),
     thumbnail: resolveThumbnail(item),

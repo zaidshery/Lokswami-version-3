@@ -46,7 +46,7 @@ describe('ArticleClippingModal', () => {
         article={sampleArticle}
         editionName="इंदौर संस्करण"
         publishDate="2026-09-05"
-        shareUrl="https://lokswami.com/main/epaper?article=art-1"
+        shareUrl="https://lokswami.com/main/epaper?paper=epaper-123&page=3&story=art-1"
         shareText="इंदौर में मेट्रो का विस्तार"
         language="hi"
       />
@@ -76,7 +76,7 @@ describe('ArticleClippingModal', () => {
         isOpen={true}
         onClose={vi.fn()}
         article={sampleArticle}
-        shareUrl="https://lokswami.com/main/epaper?article=art-1"
+        shareUrl="https://lokswami.com/main/epaper?paper=epaper-123&page=3&story=art-1"
         language="hi"
       />
     );
@@ -84,7 +84,7 @@ describe('ArticleClippingModal', () => {
     const copyBtn = screen.getByRole('button', { name: /Copy Link/i });
     await user.click(copyBtn);
 
-    expect(writeTextSpy).toHaveBeenCalledWith('https://lokswami.com/main/epaper?article=art-1');
+    expect(writeTextSpy).toHaveBeenCalledWith('https://lokswami.com/main/epaper?paper=epaper-123&page=3&story=art-1');
     expect(await screen.findByText('Copied')).toBeInTheDocument();
   });
 
@@ -97,7 +97,7 @@ describe('ArticleClippingModal', () => {
         isOpen={true}
         onClose={vi.fn()}
         article={sampleArticle}
-        shareUrl="https://lokswami.com/main/epaper?article=art-1"
+        shareUrl="https://lokswami.com/main/epaper?paper=epaper-123&page=3&story=art-1"
         shareText="मेट्रो समाचार"
         language="hi"
       />
@@ -107,7 +107,7 @@ describe('ArticleClippingModal', () => {
     await user.click(whatsappBtn);
 
     expect(openSpy).toHaveBeenCalledWith(
-      expect.stringContaining('https://api.whatsapp.com/send?text='),
+      expect.stringContaining('https://wa.me/?text='),
       '_blank',
       'noopener,noreferrer'
     );
