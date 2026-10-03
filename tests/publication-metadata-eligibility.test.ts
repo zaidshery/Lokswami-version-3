@@ -20,6 +20,35 @@ beforeEach(() => {
   repo.findArticle.mockResolvedValue({ _id: 'story-1', title: secret, excerpt: description, slug: 'mutable', pageNumber: 1, hotspot: snapshot.hotspot, releasedSnapshot: snapshot });
 });
 describe('publication metadata release eligibility', () => {
+  it.each(['epaper', 'emagazine'] as const)('selects an older released %s before limiting instead of a future issue', async (publicationType) => {
+    const released = { ...issue, publicationType, publishDate: new Date('2026-01-01'), publishedAt: new Date('2026-01-01') };
+    const candidates = [{ ...released, title: 'Future issue', publishDate: new Date('2999-01-01') }, released];
+    repo.findLatestEdition.mockImplementation(async (filter) => {
+      const deadline = filter.$and?.[0].publishDate.$lte as Date | undefined;
+      return candidates.find(row => !deadline || row.publishDate <= deadline) || null;
+    });
+    expect(await service.getEdition({ publicationType })).toMatchObject({ title: 'Public issue' });
+    expect(repo.listAllStored).not.toHaveBeenCalled();
+  });
+
+  it('filters future publication timestamps before selecting the latest issue', async () => {
+    const released = { ...issue, publishDate: new Date('2026-01-01'), publishedAt: new Date('2026-01-01') };
+    const candidates = [{ ...released, title: 'Future release', publishDate: new Date('2026-01-02'), publishedAt: new Date('2999-01-01') }, released];
+    repo.findLatestEdition.mockImplementation(async (filter) => {
+      const deadline = filter.$and?.[1].$or[1].publishedAt.$lte as Date | undefined;
+      return candidates.find(row => !deadline || row.publishedAt <= deadline) || null;
+    });
+    expect(await service.getEdition({ citySlug: 'indore' })).toMatchObject({ title: 'Public issue' });
+  });
+
+  it('preserves exact date identity when a future issue is not released and denies stale fallback', async () => {
+    repo.findLatestEdition.mockResolvedValueOnce(null).mockResolvedValueOnce({ _id: id });
+    expect(await service.getEdition({ citySlug: 'indore', publishDate: '2999-01-01' })).toBeNull();
+    expect(repo.findLatestEdition.mock.calls[0][0].$and).toBeDefined();
+    expect(repo.findLatestEdition.mock.calls[1][0]).toMatchObject({ citySlug: 'indore', publishDate: { $gte: new Date('2999-01-01') } });
+    expect(repo.findLatestEdition.mock.calls[1][0].$and).toBeUndefined();
+    expect(repo.listAllStored).not.toHaveBeenCalled();
+  });
   it.each(['epaper', 'emagazine'] as const)('returns public Mongo %s', async (publicationType) => {
     repo.findEditionById.mockResolvedValue({ ...issue, publicationType });
     expect(await service.getEdition({ id, publicationType })).toMatchObject({ title: 'Public issue' });

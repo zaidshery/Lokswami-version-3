@@ -47,7 +47,7 @@ export function buildSocialShareUrl(platform: SocialSharePlatform, input: ShareT
     linkedin: 'https://www.linkedin.com/sharing/share-offsite/',
   };
   const destination = new URL(destinations[platform]);
-  if (platform === 'whatsapp') destination.searchParams.set('text', [body, body.includes(url) ? '' : url].filter(Boolean).join('\n'));
+  if (platform === 'whatsapp') destination.searchParams.set('text', [body, body.split(/\s+/).includes(url) ? '' : url].filter(Boolean).join('\n'));
   else {
     destination.searchParams.set(platform === 'facebook' ? 'u' : 'url', url);
     if ((platform === 'x' || platform === 'telegram') && body) destination.searchParams.set('text', body);

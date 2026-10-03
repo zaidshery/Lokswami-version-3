@@ -52,6 +52,33 @@ describe('ShareMenu', () => {
     );
   }
 
+  it('retains the canonical WhatsApp link when custom text contains a longer destination', () => {
+    const url = 'https://lokswami.com/main/article/city-services';
+    render(<ShareMenu title="City" url={url} whatsappText={`${url}-other`} contentType="article" directWhatsApp ariaLabel="Share exact" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Share exact' }));
+    expect(new URL(openWindow.mock.calls[0][0]).searchParams.get('text')).toContain(`Read full story: ${url}`);
+  });
+
+  it('isolates portal touch gestures from the reader and resets feedback on identity change', async () => {
+    const onTouch = vi.fn();
+    const view = (url: string) => <section onTouchStart={onTouch} onTouchMove={onTouch} onTouchEnd={onTouch}><ShareMenu title="City" url={url} contentType="article" ariaLabel="Share exact" /></section>;
+    const { rerender } = render(view('/main/article/first'));
+    fireEvent.click(screen.getByRole('button', { name: 'Share exact' }));
+    const menu = await screen.findByRole('menu');
+    fireEvent.touchStart(menu, { touches: [{ clientY: 200 }] });
+    fireEvent.touchMove(menu, { touches: [{ clientY: 100 }] });
+    fireEvent.touchEnd(menu, { changedTouches: [{ clientY: 100 }] });
+    expect(onTouch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link' }));
+    expect(await screen.findByRole('menuitem', { name: 'Link copied' })).toBeInTheDocument();
+    rerender(view('/main/article/second'));
+    expect(screen.queryByRole('menu')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Share exact' }));
+    expect(await screen.findByRole('menuitem', { name: 'Copy link' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link' }));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith('https://lokswami.com/main/article/second'));
+  });
+
   it('shares directly to WhatsApp without opening a menu when requested', () => {
     render(<ShareMenu title="City services" url="https://lokswami.com/main/article/city-services" contentType="article" contentId="article-7" triggerIcon="whatsapp" directWhatsApp ariaLabel="Share on WhatsApp" />);
     const button = screen.getByRole('button', { name: 'Share on WhatsApp' });

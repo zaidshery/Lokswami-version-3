@@ -12,6 +12,12 @@ const paths = [
   buildPublicationReaderPath({ publicationType: 'emagazine', paperId: 'm1', publishDate: '2026-09-01', page: 7, storyToken: 'monthly-story' }),
 ];
 describe('canonical universal share', () => {
+  it('keeps the exact WhatsApp destination when text contains a longer URL', () => {
+    const url = origin + '/main/article/actual-story';
+    const text = url + '-other';
+    expect(new URL(buildSocialShareUrl('whatsapp', { url, text })).searchParams.get('text')).toBe(`${text}\n${url}`);
+    expect(new URL(buildSocialShareUrl('whatsapp', { url, text: `Read: ${url}` })).searchParams.get('text')).toBe(`Read: ${url}`);
+  });
   it.each(paths)('retains the exact canonical content path %s', path => {
     expect(resolveCanonicalShareUrl(path)).toBe(origin + path);
   });

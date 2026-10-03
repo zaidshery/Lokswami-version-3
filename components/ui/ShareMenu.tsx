@@ -73,7 +73,7 @@ function buildWhatsAppText(
         ? 'Open e-magazine'
         : 'Open e-paper';
   const body = customText.trim() || [title.trim(), text.trim()].filter(Boolean).join('\n');
-  const linkLine = url.trim() && !body.includes(url.trim()) ? `${cta}: ${url.trim()}` : '';
+  const linkLine = url.trim() && !body.split(/\s+/).includes(url.trim()) ? `${cta}: ${url.trim()}` : '';
   return [body, linkLine].filter(Boolean).join('\n');
 }
 
@@ -148,6 +148,9 @@ export default function ShareMenu({
   useEffect(() => {
     setCanNativeShare(typeof navigator.share === 'function');
     setResolvedUrl(resolveCanonicalShareUrl(url));
+    setIsOpen(false);
+    setCopyStatus('idle');
+    setShareStatus('');
   }, [url]);
 
   const updateMenuPosition = useCallback(() => {
@@ -328,6 +331,9 @@ export default function ShareMenu({
           role="menu"
           aria-label={displayedAriaLabel}
           onClick={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
+          onTouchEnd={(event) => event.stopPropagation()}
           onKeyDown={handleMenuKeyDown}
           className="fixed z-[160] w-[244px] rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
           style={{ left: menuPosition.left, top: menuPosition.top, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100dvh - 16px)', overflowY: 'auto' }}

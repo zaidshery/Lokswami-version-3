@@ -107,15 +107,16 @@ export class EpaperMetadataService {
           : await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), familyId: String(requested.familyId || requested._id), status: 'published', isCurrentRevision: true }, '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages');
         return mapEdition(record);
       }
-      const filter: EpaperRecord = { ...buildPublicationTypeMongoFilter(query.publicationType), status: 'published', isCurrentRevision: { $ne: false } };
-      if (query.citySlug) filter.citySlug = query.citySlug;
+      const identityFilter: EpaperRecord = { ...buildPublicationTypeMongoFilter(query.publicationType) };
+      if (query.citySlug) identityFilter.citySlug = query.citySlug;
       const range = query.publishDate ? getPublicationIssueDateRange(query.publishDate, query.publicationType) || dateRange(query.publishDate) : null;
-      if (range) filter.publishDate = range;
+      if (range) identityFilter.publishDate = range;
+      const now = new Date();
+      // Apply release eligibility before the repository's newest-row selection.
+      const filter: EpaperRecord = { ...identityFilter, status: 'published', isCurrentRevision: { $ne: false },
+        $and: [{ publishDate: { $lte: now } }, { $or: [{ publishedAt: null }, { publishedAt: { $lte: now } }] }] };
       const record = await this.repo.findLatestEdition(filter, '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages');
       if (record) return mapEdition(record);
-      const identityFilter = { ...filter };
-      delete identityFilter.status;
-      delete identityFilter.isCurrentRevision;
       const hidden = await this.repo.findLatestEdition(identityFilter, '_id');
       return hidden ? null : undefined;
     } catch (error) { console.error('Failed to load public e-paper metadata from MongoDB.', error); return null; }

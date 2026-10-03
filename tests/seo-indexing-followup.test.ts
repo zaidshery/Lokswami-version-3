@@ -37,6 +37,12 @@ describe('SEO indexing discovery and canonical consistency', () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
+  it('excludes noindex Search and private reader pages from sitemap authority', async () => {
+    const urls = (await sitemap({ id: 0 })).map(entry => new URL(entry.url).pathname);
+    for (const path of ['/main/search', '/main/account', '/main/preferences', '/main/saved']) expect(urls).not.toContain(path);
+    expect(urls).toContain('/main');
+  });
+
   it('serves the advertised sitemap as an XML index containing every generated chunk', async () => {
     const advertised = robots().sitemap as string[];
     expect(advertised[0]).toBe('https://lokswami.com/sitemap.xml');
