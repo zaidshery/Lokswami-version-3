@@ -32,6 +32,15 @@ function getYouTubeTargetOrigin(src?: string): string {
   return 'https://www.youtube-nocookie.com';
 }
 
+function syncYouTubeControls(iframe: HTMLIFrameElement, paused: boolean, muted: boolean) {
+  const send = (func: string, args: unknown[] = []) => iframe.contentWindow?.postMessage(
+    JSON.stringify({ event: 'command', func, args }), getYouTubeTargetOrigin(iframe.src)
+  );
+  send(paused ? 'pauseVideo' : 'playVideo');
+  send(muted ? 'mute' : 'unMute');
+  if (!muted) send('setVolume', [100]);
+}
+
 export default function SwipeVideoCard({
   item,
   position,
@@ -75,31 +84,7 @@ export default function SwipeVideoCard({
   // Synchronize playback and mute state to YouTube iframe
   useEffect(() => {
     if (!active || !youtubeId || !iframeRef.current) return;
-    const iframe = iframeRef.current;
-    const send = (func: string, args: unknown[] = []) => {
-      try {
-        const targetOrigin = getYouTubeTargetOrigin(iframe.src);
-        iframe.contentWindow?.postMessage(
-          JSON.stringify({ event: 'command', func, args }),
-          targetOrigin
-        );
-      } catch {
-        // PostMessage safely caught
-      }
-    };
-
-    if (paused) {
-      send('pauseVideo');
-    } else {
-      send('playVideo');
-    }
-
-    if (muted) {
-      send('mute');
-    } else {
-      send('unMute');
-      send('setVolume', [100]);
-    }
+    syncYouTubeControls(iframeRef.current, paused, muted);
   }, [active, youtubeId, paused, muted]);
 
   // Listen for confirmed playback events and progress from YouTube iframe
@@ -112,6 +97,7 @@ export default function SwipeVideoCard({
       }
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data?.event === 'onReady') syncYouTubeControls(iframe, paused, muted);
         if (data?.event === 'onStateChange' && typeof data.info === 'number') {
           playingRef.current = data.info === 1 && !paused && !document.hidden;
           if (playingRef.current) onPlay();
@@ -134,7 +120,7 @@ export default function SwipeVideoCard({
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [active, item.duration, onPlay, onProgress, paused, youtubeId]);
+  }, [active, item.duration, onPlay, onProgress, paused, muted, youtubeId]);
 
   // Cleanup media when becoming inactive or unmounting
   useEffect(() => {
@@ -203,7 +189,7 @@ export default function SwipeVideoCard({
           <iframe
             ref={iframeRef}
             title={item.title}
-            src={`https://www.youtube-nocookie.com/embed/${youtubeId}?enablejsapi=1&playsinline=1&controls=0&mute=${muted ? 1 : 0}&autoplay=${paused ? 0 : 1}&rel=0&modestbranding=1&loop=1&playlist=${youtubeId}`}
+            src={`https://www.youtube-nocookie.com/embed/${youtubeId}?enablejsapi=1&playsinline=1&controls=0&mute=1&autoplay=0&rel=0&modestbranding=1&loop=1&playlist=${youtubeId}`}
             className="h-full w-full border-0"
             allow="autoplay; encrypted-media; picture-in-picture; web-share"
             onLoad={() => {
@@ -211,6 +197,7 @@ export default function SwipeVideoCard({
                 JSON.stringify({ event: 'listening', id: item._id }),
                 'https://www.youtube-nocookie.com'
               );
+              if (iframeRef.current) syncYouTubeControls(iframeRef.current, paused, muted);
             }}
             onError={onError}
             allowFullScreen

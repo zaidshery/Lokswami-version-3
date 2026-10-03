@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import VideosPageClient from '@/app/(reader)/main/videos/VideosPageClient';
 import VideoPlayer from '@/components/ui/VideoPlayer';
@@ -71,8 +71,46 @@ const mockVideos: PublicVideoFeedItem[] = [
 describe('Video Hub 2.0 (Phase 3.14A)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     window.history.replaceState({}, '', '/main/videos');
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  });
+
+  it('hydrates an off-page saved video after reload and selects it without changing feed pagination', async () => {
+    window.localStorage.setItem('lokswami.video.watch-later.v1', JSON.stringify({ 'vid-beta': true }));
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ items: [mockVideos[1]] })));
+    render(<VideosPageClient initialItems={[mockVideos[0]]} initialLimit={20} initialHasMore={true} initialNextCursor={{ id: 'vid-alpha', publishedAt: mockVideos[0].publishedAt }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Saved videos' }));
+    const drawer = screen.getByRole('dialog');
+    fireEvent.click(await within(drawer).findByRole('button', { name: 'Beta Regional Updates' }));
+    expect(screen.getByTestId('mock-video-detail-hero')).toHaveAttribute('data-video-id', 'vid-beta');
+    expect(window.location.search).toBe('?video=vid-beta');
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/public/videos?ids=vid-beta', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fetchMock.mockRestore();
+  });
+
+  it('keeps unavailable saved videos removable instead of claiming the list is empty', async () => {
+    window.localStorage.setItem('lokswami.video.watch-later.v1', JSON.stringify({ 'vid-beta': true }));
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ items: [] })));
+    render(<VideosPageClient initialItems={[mockVideos[0]]} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Saved videos' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove unavailable saved video' }));
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem('lokswami.video.watch-later.v1') || '{}')).toEqual({}));
+    fetchMock.mockRestore();
+  });
+
+  it('preserves bookmarks after a hydration failure and retries on reopening', async () => {
+    window.localStorage.setItem('lokswami.video.watch-later.v1', JSON.stringify({ 'vid-beta': true }));
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 500 })).mockResolvedValueOnce(new Response(JSON.stringify({ items: [mockVideos[1]] })));
+    render(<VideosPageClient initialItems={[mockVideos[0]]} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Saved videos' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem('lokswami.video.watch-later.v1') || '{}')).toEqual({ 'vid-beta': true });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Saved videos' }));
+    expect(await within(screen.getByRole('dialog')).findByRole('button', { name: 'Beta Regional Updates' })).toBeInTheDocument();
+    fetchMock.mockRestore();
   });
 
   describe('Default & Direct Selection', () => {

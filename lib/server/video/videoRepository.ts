@@ -252,6 +252,24 @@ export class VideoRepository {
     });
   }
 
+  async getPublicVideosByIds(ids: string[]): Promise<PublicVideoItem[]> {
+    const requested = new Set(ids.slice(0, 50));
+    const now = new Date();
+    let rows: PublicVideoSource[];
+    if (await isMongoAvailable({ label: 'public saved videos lookup' })) {
+      const mongoIds = [...requested].filter((id) => Types.ObjectId.isValid(id));
+      // Mongo is authoritative: private/missing records must not resurrect file copies.
+      rows = await Video.find({ ...buildPublicVideoMongoFilter(now), _id: { $in: mongoIds } })
+        .select(PUBLIC_VIDEO_PROJECTION).limit(50).lean<PublicVideoSource[]>();
+    } else {
+      rows = (await listAllStoredVideos()).filter((row) => requested.has(String(row._id)));
+    }
+    return rows.flatMap((row) => {
+      const item = toPublicVideoItem(row, { now });
+      return item && requested.has(item._id) ? [item] : [];
+    });
+  }
+
   async getPublicSwipeFeedPage(
     options: PublicSwipeFeedOptions = {}
   ): Promise<CursorPageResult<PublicVideoItem>> {

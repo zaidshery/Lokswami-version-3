@@ -11,6 +11,10 @@ import type {
 
 export type { SwipeArticlePreview, PublicSwipeStory, PublicVideoFeedPageOptions };
 
+export async function getPublicVideosByIds(ids: string[]): Promise<PublicVideoItem[]> {
+  return videoService.getPublicVideosByIds(ids);
+}
+
 export async function getPublicSwipeVideoBySlug(slug: string): Promise<PublicVideoItem | null> {
   return videoService.getPublicSwipeVideoBySlug(slug);
 }

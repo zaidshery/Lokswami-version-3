@@ -1,6 +1,7 @@
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SwipeFeed from '@/components/swipe/SwipeFeed';
+import SwipeVideoCard from '@/components/swipe/SwipeVideoCard';
 import useSwipeAnalytics from '@/components/swipe/useSwipeAnalytics';
 import type { SwipeFeedItem } from '@/components/swipe/types';
 import { trackClientEvent } from '@/lib/analytics/trackClient';
@@ -56,6 +57,27 @@ describe('SwipeFeed 3.14C Resilience & Lifecycle', () => {
     );
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+  });
+
+  it('keeps the YouTube frame mounted across pause and mute controls and synchronizes after readiness', () => {
+    const item = { ...createShortItem(1), playbackUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' };
+    const props = { item, position: 0 as const, active: true, muted: true, paused: false, reducedMotion: false, preloadMetadata: false, onTogglePlayback: vi.fn(), onPlay: vi.fn(), onProgress: vi.fn(), onError: vi.fn() };
+    const { container, rerender } = render(<SwipeVideoCard {...props} />);
+    const iframe = container.querySelector('iframe')!;
+    const src = iframe.src;
+    const postMessage = vi.spyOn(iframe.contentWindow!, 'postMessage');
+    fireEvent.load(iframe);
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), 'https://www.youtube-nocookie.com');
+    rerender(<SwipeVideoCard {...props} paused muted={false} />);
+    expect(container.querySelector('iframe')).toBe(iframe);
+    expect(iframe.src).toBe(src);
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), 'https://www.youtube-nocookie.com');
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), 'https://www.youtube-nocookie.com');
+    rerender(<SwipeVideoCard {...props} muted={false} />);
+    postMessage.mockClear();
+    fireEvent(window, new MessageEvent('message', { origin: 'https://www.youtube-nocookie.com', source: iframe.contentWindow, data: JSON.stringify({ event: 'onReady' }) }));
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), 'https://www.youtube-nocookie.com');
+    expect(iframe.src).toBe(src);
   });
 
   it('renders offline pill indicator when network goes offline and removes when online', () => {

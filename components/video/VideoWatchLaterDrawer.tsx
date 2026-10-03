@@ -17,6 +17,7 @@ export interface VideoWatchLaterDrawerProps {
   onSelectVideo: (videoId: string, mode?: 'feed' | 'shorts') => void;
   onRemoveVideo: (videoId: string) => void;
   language: 'hi' | 'en';
+  status?: 'loading' | 'ready' | 'error';
 }
 
 export default function VideoWatchLaterDrawer({
@@ -27,10 +28,12 @@ export default function VideoWatchLaterDrawer({
   onSelectVideo,
   onRemoveVideo,
   language,
+  status = 'ready',
 }: VideoWatchLaterDrawerProps) {
   const drawerRef = useRef<HTMLDivElement | null>(null);
 
   const savedVideos = videos.filter((v) => savedVideoIds[v.id]);
+  const missingIds = Object.keys(savedVideoIds).filter((id) => !savedVideos.some((video) => video.id === id));
 
   useEffect(() => {
     if (!open) return;
@@ -70,7 +73,7 @@ export default function VideoWatchLaterDrawer({
                 {language === 'hi' ? 'बाद में देखें' : 'Watch Later'}
               </h2>
               <p className="text-xs text-zinc-500 dark:text-white/50">
-                {savedVideos.length} {language === 'hi' ? 'सहेजे गए वीडियो' : 'saved videos'}
+                {Object.keys(savedVideoIds).length} {language === 'hi' ? 'सहेजे गए वीडियो' : 'saved videos'}
               </p>
             </div>
           </div>
@@ -87,7 +90,15 @@ export default function VideoWatchLaterDrawer({
 
         {/* Drawer Content */}
         <div className="scrollbar-hide flex-1 overflow-y-auto p-4 space-y-3">
-          {savedVideos.length === 0 ? (
+          {status === 'loading' ? <p role="status">{language === 'hi' ? 'सहेजे गए वीडियो लोड हो रहे हैं…' : 'Loading saved videos…'}</p> : null}
+          {status === 'error' ? <p role="alert">{language === 'hi' ? 'सहेजे गए वीडियो लोड नहीं हो पाए। दोबारा खोलकर प्रयास करें।' : 'Could not load saved videos. Reopen this list to retry.'}</p> : null}
+          {status === 'ready' && missingIds.map((id) => (
+            <div key={id} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 p-3 dark:border-white/10">
+              <p className="text-sm">{language === 'hi' ? 'यह सहेजा गया वीडियो अब उपलब्ध नहीं है।' : 'This saved video is no longer available.'}</p>
+              <button type="button" onClick={() => onRemoveVideo(id)} aria-label="Remove unavailable saved video"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+          {Object.keys(savedVideoIds).length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center text-center">
               <Bookmark className="h-10 w-10 text-zinc-300 dark:text-white/20" />
               <p className="mt-3 text-sm font-semibold text-zinc-700 dark:text-white/70">

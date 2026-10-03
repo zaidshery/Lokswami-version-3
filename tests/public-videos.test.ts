@@ -70,6 +70,44 @@ function mockLegacyFind(rows: unknown[]) {
   findMock.mockReturnValue({ select });
 }
 
+describe('public saved video lookup', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('hydrates off-page file items while excluding drafts, future publications and failed processing', async () => {
+    isMongoAvailableMock.mockResolvedValue(false);
+    listAllStoredVideosMock.mockResolvedValue([
+      swipeRow(), swipeRow({ _id: 'draft', workflow: { status: 'draft' } }),
+      swipeRow({ _id: 'future', publishedAt: '2999-01-01T00:00:00Z' }),
+      swipeRow({ _id: 'failed', processingStatus: 'failed' }), swipeRow({ _id: 'unrequested' }),
+    ]);
+    const { getPublicVideosByIds } = await import('@/lib/server/publicVideos');
+    expect((await getPublicVideosByIds(['video-1', 'draft', 'future', 'failed'])).map((item) => item._id)).toEqual(['video-1']);
+  });
+
+  it('uses the public Mongo projection and does not resurrect missing/private rows from file storage', async () => {
+    isMongoAvailableMock.mockResolvedValue(true);
+    const select = vi.fn().mockReturnValue({ limit: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([]) }) });
+    findMock.mockReturnValue({ select });
+    listAllStoredVideosMock.mockResolvedValue([swipeRow()]);
+    const { getPublicVideosByIds } = await import('@/lib/server/publicVideos');
+    await expect(getPublicVideosByIds(['507f1f77bcf86cd799439011', 'video-1'])).resolves.toEqual([]);
+    expect(findMock).toHaveBeenCalledWith(expect.objectContaining({ isPublished: true, _id: { $in: ['507f1f77bcf86cd799439011'] } }));
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('workflow'));
+    expect(listAllStoredVideosMock).not.toHaveBeenCalled();
+  });
+
+  it('rechecks Mongo publication eligibility and fails closed on a Mongo query failure', async () => {
+    isMongoAvailableMock.mockResolvedValue(true);
+    const lean = vi.fn().mockResolvedValue([swipeRow({ _id: '507f1f77bcf86cd799439011', workflow: { status: 'draft' } })]);
+    findMock.mockReturnValue({ select: vi.fn().mockReturnValue({ limit: vi.fn().mockReturnValue({ lean }) }) });
+    const { getPublicVideosByIds } = await import('@/lib/server/publicVideos');
+    await expect(getPublicVideosByIds(['507f1f77bcf86cd799439011'])).resolves.toEqual([]);
+    lean.mockRejectedValueOnce(new Error('Mongo query failed'));
+    await expect(getPublicVideosByIds(['507f1f77bcf86cd799439011'])).rejects.toThrow('Mongo query failed');
+    expect(listAllStoredVideosMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('public Swipe story resolution', () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -77,6 +77,9 @@ export default function VideosPageClient({
   const [nextCursor, setNextCursor] = useState<PublicCursor | null>(initialNextCursor);
   const [cursorLimit] = useState(parseLimit(initialLimit));
   const [watchLaterIds, setWatchLaterIds] = useState<Record<string, boolean>>({});
+  const [savedVideos, setSavedVideos] = useState<VideoItem[]>([]);
+  const [savedVideosStatus, setSavedVideosStatus] = useState<'loading' | 'ready' | 'error'>('ready');
+  const availableVideos = useMemo(() => mergeUniqueVideos(videos, savedVideos), [videos, savedVideos]);
   const [resumeProgressById, setResumeProgressById] = useState<Record<string, StoredProgressEntry>>({});
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -94,14 +97,47 @@ export default function VideosPageClient({
   // Initialize stored bookmarks and progress
   useEffect(() => {
     setWatchLaterIds(readStoredIdMap(VIDEO_WATCH_LATER_KEY));
-    setResumeProgressById(readStoredProgress(videos));
 
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const t = parseInt(searchParams.get('t') || '0', 10);
       if (t > 0) setInitialStartTime(t);
     }
-  }, [videos]);
+  }, []);
+
+  useEffect(() => {
+    setResumeProgressById(readStoredProgress(availableVideos));
+  }, [availableVideos]);
+
+  // Rehydrate off-page bookmarks from the public projection, never stored CMS metadata.
+  useEffect(() => {
+    if (!isWatchLaterOpen) return;
+    const missingIds = Object.keys(watchLaterIds).filter((id) => !videos.some((video) => video.id === id));
+    const controller = new AbortController();
+    setSavedVideosStatus('loading');
+    void (async () => {
+      try {
+        const items: VideoItem[] = [];
+        for (let offset = 0; offset < missingIds.length; offset += 50) {
+          const params = new URLSearchParams({ ids: missingIds.slice(offset, offset + 50).join(',') });
+          const response = await fetch(`/api/v1/public/videos?${params}`, { signal: controller.signal });
+          if (!response.ok) throw new Error('Could not load saved videos');
+          const payload = await response.json() as { items: PublicVideoFeedItem[] };
+          items.push(...payload.items.map(mapApiVideo));
+        }
+        if (!controller.signal.aborted) {
+          setSavedVideos(items);
+          setSavedVideosStatus('ready');
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setSavedVideos([]);
+          setSavedVideosStatus('error');
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [isWatchLaterOpen, videos, watchLaterIds]);
 
   // Sync watch later bookmarks to localStorage
   const toggleWatchLater = useCallback((videoId: string) => {
@@ -195,8 +231,8 @@ export default function VideosPageClient({
   }, [cursorLimit, hasMore, isLoadingMore, language, nextCursor]);
 
   const selectedVideo = useMemo(
-    () => videos.find((v) => v.id === selectedVideoId) || videos[0] || null,
-    [selectedVideoId, videos]
+    () => availableVideos.find((v) => v.id === selectedVideoId) || videos[0] || null,
+    [selectedVideoId, videos, availableVideos]
   );
 
   const categoryOptions = useMemo(() => {
@@ -616,7 +652,8 @@ export default function VideosPageClient({
         <VideoWatchLaterDrawer
           open={isWatchLaterOpen}
           onClose={() => setIsWatchLaterOpen(false)}
-          videos={videos}
+          videos={availableVideos}
+          status={savedVideosStatus}
           savedVideoIds={watchLaterIds}
           onSelectVideo={(id) => {
             handleSelectVideo(id);
