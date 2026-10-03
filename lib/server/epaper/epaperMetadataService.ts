@@ -32,7 +32,7 @@ function mapEdition(value: unknown): PublicEpaperMetadata | null {
   return { id, citySlug: String(source.citySlug || '').trim().toLowerCase(), cityName: String(source.cityName || '').trim(),
     title: String(source.title || '').trim(), publishDate: toDateLabel(source.publishDate),
     thumbnailPath: resolveEpaperCoverImagePath({ thumbnailPath: source.thumbnailPath, thumbnail: source.thumbnail, pages: normalizedPages }),
-    pageCount: Math.max(toPositiveInt(source.pageCount, 1), normalizedPages.length, 1) };
+    pageCount: Math.max(toPositiveInt(source.pageCount, 1), normalizedPages.length, 1), pages: normalizedPages };
 }
 
 function mapStored(value: unknown): PublicEpaperMetadata | null {

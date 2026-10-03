@@ -359,3 +359,227 @@ docs/b3/PHASE3_13_DEEP_LINKS_SHARING_ACCEPTANCE.md
 
 The repair's three files remain in their separate commit. Data, environment,
 generated declarations and QA/runtime artifacts are excluded from both commits.
+
+## 3.13C — publication eligibility repair and social metadata evidence
+
+Starting HEAD was `39d59ad2c4eb586ef6d0cdf16ac7c689f3dbeecf`, with a clean
+`b3/phase3.13-deep-links-sharing` worktree. Existing A/B commits were retained.
+The initial read-only probe reproduced both defects without content writes.
+
+### Metadata architecture inventory before C
+
+| Content | Canonical / OG URL | Title / description | Image / Twitter | Robots | Finding |
+|---|---|---|---|---|---|
+| Homepage | `/main`; manually read environment | Hindi defaults | Approved brand PNG / large card | Default index | Bypassed normalized public origin helper |
+| Article | articleSeo current identity / same OG URL | SEO fields then headline/summary | Generated OG endpoint / large card | Public index; missing noindex | No locale; unbounded raw CMS text; direct image choice hidden inside renderer |
+| Category/state | Existing taxonomy authority | Taxonomy English label | Brand PNG / large card | Unknown noindex | Preserve aliases and policy; image normalization permissive |
+| Standard video | Exact selected ID / same OG URL | Selected eligible video | Thumbnail / large card | Missing selection used indexed hub | Exact unavailable selector needed noindex; fixed Hindi locale |
+| Short | Resolved canonical slug / same OG URL | Eligible Short | Poster then thumbnail / large card | Missing noindex; disabled inherited defaults | Preserve slug repair; correct content locale |
+| E-Paper | Shared issue/page/story path | Issue or story fields | Generated preview endpoint / large card | Indexed by default | Stale issue resurrection, mutable story leakage, story ID replaced by slug, page image lost |
+| E-Magazine | Shared monthly seam | Monthly issue or story | Shared generated preview / large card | Indexed by default | Same mutable story defect; no file magazine fallback |
+| Author | Encoded public staff ID; no dedicated OG URL | Public display name | Inherited brand metadata | Missing inherited defaults | Add complete public metadata and missing noindex |
+| Search | No dedicated authority | Inherited defaults | Inherited defaults | Default index | Search results should not compete with content |
+| Account/preferences/saved | Guarded utilities | Inherited defaults | Inherited defaults | robots.txt excludes crawl | Add explicit noindex layouts |
+| `/a` bridge | Article destination | Article metadata | Same article preview | noindex | Retain compatibility |
+| `/e` bridge | Publication destination | Issue/story metadata | Generated issue preview | Default index | Add noindex; safe released lookup only |
+
+### Eligibility authority and repair
+
+| Concern | Existing authority | Reuse / repair |
+|---|---|---|
+| Public article | publicArticleService / isPubliclyPublishedArticle | Unchanged; draft/future/previous-slug rules retained |
+| Direct public video | publicVideoMetadata / isPubliclyPublishedVideo | Unchanged authoritative Mongo protection |
+| Published issue | EpaperRepository status/current-revision query, publicationType family seam | Metadata retains published current family resolution and independently checks date/status |
+| Released story | resolveReleasedEpaperStory | Required; no mutable editorial field substitution |
+| Mongo availability | isMongoAvailable through repository | One availability decision per metadata lookup |
+| Legacy file issues | Existing epapersFile model, historically implicit publication | Absent status allowed only for eligible legacy records; explicit hidden/future flags denied |
+| Monthly issue | Existing publicationType/base-path/month helpers | Same release rules; no daily city/date or file-magazine invention |
+
+Repair commits:
+
+- `ec1243788ac2717f097c3a09e012d21568a76239`: release eligibility, removal of
+  mutable Mongo/file story fallbacks, and route-level unavailable-selector noindex.
+- `07df254da808ab51411b8946310d9cadf3c3305d`: explicit distinction between true
+  absence and hidden/error results, preserving eligible legacy issue fallback.
+  No repair or earlier commit was amended. The first repair checkpoint was clean;
+  the correction staged only service/test changes while preserving unfinished C.
+
+Original eligibility regression: **18 tests, 13 failed before repair**. After
+repair: **18 passed**. Initial repair/integration/domain collection: **4 files,
+54 passed**. Final exact release/fallback and route suites: **2 files, 25 passed**.
+Both repair checkpoints passed typecheck/strict lint/diff checks; repair changed
+files have zero ESLint warnings/errors.
+
+| Scenario | Mongo | File store | Final public metadata |
+|---|---|---|---|
+| Unavailable, eligible file issue | unavailable | public legacy | Allowed E-Paper issue |
+| Unavailable, hidden/future file | unavailable | hidden/future | Denied |
+| Public Mongo issue | public current family | stale | Mongo authority |
+| Hidden Mongo identity | hidden, no public current family | stale public | Denied; never read stale file |
+| True Mongo absence | absent identity | independently eligible legacy issue | Existing E-Paper fallback retained |
+| Mongo query error after availability | error | any | Fail closed |
+| Released Mongo story | valid releasedSnapshot | any | Snapshot title/excerpt, never mutable fields |
+| Unreleased Mongo story | mutable only | stale | Denied; no story file resurrection |
+| Unreleased file story | no valid snapshot | mutable hotspot | Denied |
+| Magazine file lookup | unavailable or absent | any | No unsupported magazine file fallback |
+
+Secret-sentinel coverage uses `MUTABLE_SECRET_HEADLINE_DO_NOT_EXPOSE` and
+`MUTABLE_SECRET_DESCRIPTION_DO_NOT_EXPOSE`, and conflicting `STALE_PUBLIC_COPY`.
+Released headlines differ from mutable headlines. Mongo E-Paper and magazine
+both use the same snapshot gate. An unavailable story selector keeps safe
+issue/page metadata and becomes noindex; an unavailable exact issue becomes
+noindex. Public issues remain indexable. Reader navigation policy is retained.
+
+### Final social metadata architecture
+
+Public content service -> existing A canonical helper -> normalized public origin
+-> existing articleMetadata/readerPageMetadata -> Next Metadata APIs. The small
+`socialMetadata` utility handles plain text, content language and safe image
+selection; it supplies no new route or eligibility authority.
+
+- Homepage uses `getSiteUrl` and absolute approved brand image; `/` remains a
+  redirect and is absent from the sitemap.
+- Article canonical remains current slug/ID through articleSeo. Editorial title
+  and description win, followed by headline/summary and headline fallback.
+  Image order is explicit SEO image -> hero -> approved brand PNG. Placeholder
+  illustrations do not masquerade as article-specific social images.
+- Standard video metadata selects the exact eligible ID. Missing/private/future
+  selectors get safe hub metadata with noindex. Existing direct-video store
+  protections are unchanged.
+- Short metadata uses the resolved `story.video.slug`, never its title. The
+  mandatory fixture `भोपाल की बड़ी खबर` / `bhopal-major-news` passes at helper
+  and route levels. The original Short feed repair regressions also pass.
+- Publications preserve paper/city/date/page/story for E-Paper and
+  paper/month/page/story for magazine. Story IDs stay IDs rather than being
+  silently replaced by slugs. Released story cover/page -> selected issue page
+  -> issue cover -> brand fallback supplies previews. Issue titles/descriptions
+  include page number; monthly text has no daily city/date contamination.
+- Category/state taxonomy and alias redirects remain unchanged; unknown slugs
+  remain noindex. Author metadata uses only the existing public staff name/image
+  projection and published-public articles. Missing author is noindex; build
+  lookup uses the repository's fast Mongo availability seam.
+- Search is noindex/follow. Account/preferences/saved layouts are
+  noindex/nofollow, consistent with existing private guards and robots exclusions.
+  `/a` and `/e` retain destination canonical and preview redirect compatibility;
+  both are noindex.
+- OG provides title/description/url/siteName/type/locale/image/alt. Article type
+  and real publication/modified times and author are retained. No timestamps or
+  identities are fabricated. Twitter uses matching title/description/image and
+  the existing summary_large_image card policy.
+- The existing Hindi/English detector determines content locale. Video/Short
+  detection runs on actual content before English fallback copy. No translated
+  slug, locale URL prefix or client-preference canonical is introduced.
+- Descriptions are plain text, trimmed, script/style free and bounded to 200
+  Unicode code points. Titles/alt are bounded to 300. Existing HTML stripping is
+  reused, including encoded markup handling. Next/React encode metadata values.
+- Images must be HTTP(S), with no credentials, malformed encoding, protocol
+  relative URL, traversal, admin/CMS/private path or private/internal host.
+  Relative public paths and approved CDN/DigitalOcean URLs resolve absolutely.
+  Explicit local image origins work only for configured development use.
+  Metadata performs no image fetch, download or transformation.
+- Approved fallback is the pre-existing `public/lokswami-share-preview.png`,
+  already used by root/Homepage/article/reader metadata. Sharp inspection proves
+  PNG **1200 x 630**. Its dimensions are supplied only when known; arbitrary hero
+  and thumbnail dimensions are not fabricated. No asset redesign or dependency.
+- Tracking parameters do not create canonical authority. Exact functional
+  selectors retain the A/B contract. Sitemap scope is unchanged.
+- Video and Short page lookups use React's request cache in the Next server page
+  layer. Metadata builders stay pure. Issue miss-only identity checks distinguish
+  hidden from absent; ordinary public lookups retain the existing query pattern.
+
+### Final automated and crawler/browser validation
+
+- Focused C: **9 files / 126 tests passed / 0 failed**: social-preview-metadata,
+  social-preview-routes, publication-metadata-eligibility, publication-metadata-route,
+  reader-page-metadata, swipe-metadata, share-redirect-routes,
+  seo-indexing-followup and article-url-governance.
+- Combined relevant A/B/C: **55 files / 594 tests passed / 0 failed**. Includes
+  public paths/redirects, Short repair, categories, direct-video eligibility,
+  publication links, sitemap, every Universal Share platform/native/clipboard,
+  Hindi/Unicode, issue/story sharing, Phase 3.11 Homepage discovery/rails/navigation,
+  Phase 3.12 Reader SSR/header/actions/related stories/progress, public eligibility,
+  SEO indexing and CMS system-category protection.
+- Typecheck, lint:strict, changed-file ESLint and git diff --check pass. Changed
+  files have **zero errors / zero warnings**. EPaperPageClient.tsx is untouched,
+  so its 65 inherited warnings remain unchanged; there is no warning-budget use.
+- Final build:ci exits 0, **175/175 static pages** generated. One existing
+  Windows standalone traced-file `EPERM` dependency-junction symlink warning
+  remains with the same text/cause/count as B. Packaging was not broadened.
+- Crawler requests use `facebookexternalhit/1.1` against the locally built Next
+  server, and inspect actual HTML head without executing client interactions.
+  **22 head inspections** cover Homepage, Article, exact Video, distinct-slug
+  Short, E-Paper page, magazine page, tracking query, utility/missing routes,
+  normal/state/unknown categories, author missing, bridges and released story.
+- Each supported content target asserts canonical = OG URL = exact copied B URL;
+  OG/Twitter title/description/image/card exist in HTML head. Five selected
+  content images return **200** and image content types, including DigitalOcean
+  article/page assets and YouTube thumbnails. No external social cache claim.
+- At **1440px and 390px**, five content routes each render and copy their exact
+  canonical URLs with no horizontal overflow: **10 route/share checks**. The
+  existing safe B harness additionally validates all social destinations,
+  issue/story targets, keyboard/native/copy fallbacks on the C build:
+  **18 checks passed, zero page errors**. C's final pass also has zero page errors.
+- Actual staging draft issue `6ab0da70c6aab6a2a6cab44e`, unreleased story
+  `6ab8257bc8f972f67d4a3696` and a future publication are noindex with editorial
+  fields absent from head. Future article/video fixtures were absent; in-memory
+  eligibility and exact-route tests cover them without creating staging records.
+- Actual released story `6ab7d76c12e417f446b53fa8` preserves its exact ID and page
+  in canonical/OG. Legacy article ID -> **308** -> canonical Reader and Tech
+  category alias -> **308** -> technology pass. Live sitemap Homepage/article/
+  E-Paper issue entries agree with their metadata authority.
+- QA suppresses sendBeacon before scripts, blocks service workers and intercepts
+  every non-GET/HEAD browser request locally. External playback is mocked;
+  clipboard/native/social windows are contract mocks. No editorial/publication
+  or analytics requests are forwarded; no database/file content mutations.
+- Security review covers release leakage, stale fallback, unsafe image schemes,
+  origins/credentials/traversal/malformed encoding and meta injection. Public
+  URL authority remains the configured reader origin from A. No manual meta HTML,
+  open redirect or new private lookup is introduced.
+
+### Representative crawler-visible examples
+
+Every example below has `og:url` equal to its canonical, `twitter:card` equal to
+`summary_large_image`, identical OG/Twitter images, and
+`robots=index, follow, max-image-preview:large`. Full title/description/image
+values and hidden/missing noindex results are recorded in the external QA report.
+
+| Content | Canonical path under https://lokswami.com | OG title | OG / Twitter image source |
+|---|---|---|---|
+| Article | `/main/article/bhopal-digital-arrest-35-lakh-cyber-fraud` | Current published Hindi digital-arrest headline + Lokswami | Staging public DigitalOcean article hero WebP |
+| Video | `/main/videos?video=6ab840b464b786a3b089c3c3` | `सोना कम तौलने का आरोप, ज्वेलर्स पर केस! \| Lokswami Video` | `https://i.ytimg.com/vi/CNXVN5-8_R8/hqdefault.jpg` |
+| Short | `/main/shorts/सोना-कम-तौलने-का-आरोप-ज्वेलर्स-पर-केस` (encoded once) | Same published headline + Lokswami Swipe | Same public poster |
+| E-Paper | `/main/epaper?paper=6ab7c5ca12e417f446b53cbf&city=indore&date=2026-09-25&page=2` | `Lokswami Indore E-Paper - 25 September 2026 \| Page 2` | Exact issue page 002 public WebP |
+| E-Magazine | `/main/e-magazine?paper=6ab8421f64b786a3b089c440&month=2026-09&page=2` | `Lokswami E-Magazine - September 2026 \| Page 2` | Exact monthly issue page 002 public JPEG |
+
+QA reports, read-only probes, screenshots and logs are outside Git at
+`C:\Users\PC\.codex\visualizations\2026\10\03\01a1007d-8b99-7333-a4a2-f9f8c6a147b0`.
+`phase313c-browser-report.json` records every full HTML-head value.
+
+### C commit manifest and boundaries
+
+```text
+app/(reader)/main/account/layout.tsx
+app/(reader)/main/author/[id]/page.tsx
+app/(reader)/main/epaper/EPaperPageServer.tsx
+app/(reader)/main/page.tsx
+app/(reader)/main/preferences/layout.tsx
+app/(reader)/main/saved/layout.tsx
+app/(reader)/main/search/page.tsx
+app/(reader)/main/shorts/[slug]/page.tsx
+app/(reader)/main/videos/page.tsx
+app/e/[paper]/page.tsx
+lib/seo/articleMetadata.ts
+lib/seo/readerPageMetadata.ts
+lib/seo/socialMetadata.ts
+lib/server/epaper/epaperMetadataService.ts
+lib/server/epaper/epaperTypes.ts
+tests/share-redirect-routes.test.ts
+tests/social-preview-metadata.test.ts
+tests/social-preview-routes.test.ts
+docs/b3/PHASE3_13_DEEP_LINKS_SHARING_ACCEPTANCE.md
+```
+
+Repair files are separately committed. Protected data/analytics/categories,
+next-env.d.ts, env files and runtime/QA artifacts are excluded. Exact final C SHA
+and clean checkpoint are recorded in the owner-facing completion report.
+No push, PR, merge, deployment, remote CI/review/cache refresh or 3.13D work.

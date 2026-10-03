@@ -33,7 +33,7 @@ export async function generateMetadata(context: PageContext): Promise<Metadata> 
     ? await getPublicEpaperForMetadata({ id: paperId, publicationType: 'epaper' })
     : null;
   const story =
-    storyToken && (issue?.id || paperId)
+    storyToken && issue?.id
       ? await getPublicEpaperStoryForMetadata({
           epaperId: issue?.id || paperId,
           storyToken,
@@ -42,24 +42,17 @@ export async function generateMetadata(context: PageContext): Promise<Metadata> 
       : null;
 
   const resolvedPage = page || story?.pageNumber || 1;
-  const previewQuery = new URLSearchParams({
-    paper: issue?.id || paperId,
-    publicationType: 'epaper',
-    brand: '1',
-  });
-  if (story) {
-    previewQuery.set('story', story.id);
-    previewQuery.set('v', String(story.releaseVersion || 1));
-  }
-  const shareImage = issue ? `/api/og/epaper?${previewQuery}` : '';
+  const shareImage = story?.coverImagePath || story?.pageImagePath ||
+    issue?.pages?.find((item) => item.pageNumber === resolvedPage)?.imagePath || issue?.thumbnailPath;
 
   return buildEpaperPageMetadata({
+    index: false,
     publicationType: 'epaper',
     city: issue?.citySlug || '',
     publishDate: issue?.publishDate || '',
     paperId: issue?.id || paperId,
     page: resolvedPage,
-    storyToken: story?.slug || storyToken,
+    storyToken,
     issueTitle: issue?.title,
     issueCityName: issue?.cityName,
     storyTitle: story?.title,

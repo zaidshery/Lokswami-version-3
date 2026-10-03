@@ -96,6 +96,7 @@ export type PublicEpaperListInput = {
 };
 
 export type PublicEpaperMetadata = {
+  pages?: Array<{ pageNumber: number; imagePath: string }>;
   id: string;
   citySlug: string;
   cityName: string;
