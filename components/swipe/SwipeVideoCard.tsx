@@ -15,7 +15,7 @@ type SwipeVideoCardProps = {
   preloadMetadata: boolean;
   onTogglePlayback: () => void;
   onPlay: () => void;
-  onProgress: (currentTime: number, duration: number) => void;
+  onProgress: (currentTime: number, duration: number, confirmedPlaying?: boolean) => void;
   onError: () => void;
 };
 
@@ -47,6 +47,7 @@ export default function SwipeVideoCard({
 }: SwipeVideoCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const playingRef = useRef(false);
   const youtubeId = extractYouTubeVideoId(item.playbackUrl || item.videoUrl);
 
   useEffect(() => {
@@ -54,14 +55,20 @@ export default function SwipeVideoCard({
     if (!video || !active) return;
     video.muted = muted;
     if (paused) {
+      playingRef.current = false;
       video.pause();
       return;
     }
     const playResult = video.play();
     if (playResult && typeof playResult.then === 'function') {
-      void playResult.then(onPlay).catch(onError);
-    } else {
-      onPlay();
+      let canceled = false;
+      void playResult.then(() => {
+        if (!canceled && !document.hidden) {
+          playingRef.current = true;
+          onPlay();
+        }
+      }).catch(() => { if (!canceled) onError(); });
+      return () => { canceled = true; playingRef.current = false; };
     }
   }, [active, muted, onError, onPlay, paused]);
 
@@ -99,22 +106,25 @@ export default function SwipeVideoCard({
   useEffect(() => {
     if (!active || !youtubeId) return;
     const handleMessage = (event: MessageEvent) => {
-      const origin = event.origin;
-      if (!origin.endsWith('.youtube.com') && !origin.endsWith('.youtube-nocookie.com')) {
+      const iframe = iframeRef.current;
+      if (!iframe || event.source !== iframe.contentWindow || event.origin !== new URL(iframe.src).origin) {
         return;
       }
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data?.event === 'onStateChange' && data.info === 1) {
-          onPlay();
+        if (data?.event === 'onStateChange' && typeof data.info === 'number') {
+          playingRef.current = data.info === 1 && !paused && !document.hidden;
+          if (playingRef.current) onPlay();
         } else if (data?.event === 'infoDelivery' && data.info) {
-          if (data.info.playerState === 1) {
-            onPlay();
+          if (typeof data.info.playerState === 'number') {
+            playingRef.current = data.info.playerState === 1 && !paused && !document.hidden;
+            if (playingRef.current) onPlay();
           }
           if (typeof data.info.currentTime === 'number') {
             onProgress(
               data.info.currentTime,
-              typeof data.info.duration === 'number' ? data.info.duration : item.duration
+              typeof data.info.duration === 'number' ? data.info.duration : item.duration,
+              playingRef.current && !paused && !document.hidden
             );
           }
         }
@@ -124,7 +134,7 @@ export default function SwipeVideoCard({
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [active, item.duration, onPlay, onProgress, youtubeId]);
+  }, [active, item.duration, onPlay, onProgress, paused, youtubeId]);
 
   // Cleanup media when becoming inactive or unmounting
   useEffect(() => {
@@ -196,6 +206,12 @@ export default function SwipeVideoCard({
             src={`https://www.youtube-nocookie.com/embed/${youtubeId}?enablejsapi=1&playsinline=1&controls=0&mute=${muted ? 1 : 0}&autoplay=${paused ? 0 : 1}&rel=0&modestbranding=1&loop=1&playlist=${youtubeId}`}
             className="h-full w-full border-0"
             allow="autoplay; encrypted-media; picture-in-picture; web-share"
+            onLoad={() => {
+              iframeRef.current?.contentWindow?.postMessage(
+                JSON.stringify({ event: 'listening', id: item._id }),
+                'https://www.youtube-nocookie.com'
+              );
+            }}
             onError={onError}
             allowFullScreen
           />
@@ -210,11 +226,14 @@ export default function SwipeVideoCard({
             muted={muted}
             preload="auto"
             loop
-            onPlay={onPlay}
+            onPlaying={() => { playingRef.current = true; onPlay(); }}
+            onPause={() => { playingRef.current = false; }}
+            onWaiting={() => { playingRef.current = false; }}
+            onStalled={() => { playingRef.current = false; }}
             onError={onError}
             onTimeUpdate={(event) => {
               const video = event.currentTarget;
-              onProgress(video.currentTime, Number.isFinite(video.duration) ? video.duration : item.duration);
+              onProgress(video.currentTime, Number.isFinite(video.duration) ? video.duration : item.duration, playingRef.current && !video.paused && !video.seeking);
             }}
           >
             {item.captionUrl ? (

@@ -183,6 +183,38 @@ describe('SwipeFeed 3.14C Resilience & Lifecycle', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Video paused.');
   });
 
+  it('excludes unconfirmed, paused, hidden, buffering and seek progress from watch milestones', () => {
+    const item = createShortItem(11);
+    item.duration = 40;
+    const { result, rerender } = renderHook(
+      ({ paused, playbackStarted }) => useSwipeAnalytics({ activeItem: item, paused, playbackStarted }),
+      { initialProps: { paused: false, playbackStarted: false } }
+    );
+    const progress = (from: number, to: number, playing = true) => {
+      for (let t = from; t <= to; t++) act(() => result.current.onProgress(t, 40, playing));
+    };
+    progress(1, 10);
+    rerender({ paused: false, playbackStarted: true });
+    progress(11, 20, false);
+    rerender({ paused: true, playbackStarted: true });
+    progress(21, 30);
+    rerender({ paused: false, playbackStarted: true });
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      fireEvent(document, new Event('visibilitychange'));
+    });
+    progress(31, 40);
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      fireEvent(document, new Event('visibilitychange'));
+      result.current.onProgress(100, 40);
+      result.current.onProgress(Number.NaN, 40);
+    });
+    expect(trackClientEvent).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'watch_25' }));
+    progress(101, 110);
+    expect(vi.mocked(trackClientEvent).mock.calls.filter(([event]) => event.event === 'watch_25')).toHaveLength(1);
+  });
+
   it('drives Swipe watch milestones from confirmed onProgress rather than synthetic timer', () => {
     const item = createShortItem(10);
     item.duration = 40;

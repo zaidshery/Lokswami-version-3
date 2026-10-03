@@ -339,8 +339,8 @@ export default function SwipeFeed({
   }, [activeItem, trackOnce]);
 
   const handleProgress = useCallback(
-    (currentTime: number, duration: number) => {
-      onProgress(currentTime, duration);
+    (currentTime: number, duration: number, confirmedPlaying?: boolean) => {
+      onProgress(currentTime, duration, confirmedPlaying);
     },
     [onProgress]
   );

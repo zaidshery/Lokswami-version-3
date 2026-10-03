@@ -75,13 +75,14 @@ export default function useSwipeAnalytics({
   }, [activeItem, trackOnce]);
 
   useEffect(() => {
-    if (!activeItem || paused || !playbackStarted) return;
+    if (!activeItem || paused || !playbackStarted || isDocumentHiddenRef.current) return;
     trackOnce('watch_start', activeItem);
   }, [activeItem, paused, playbackStarted, trackOnce]);
 
   const onProgress = useCallback(
-    (currentTime: number, duration: number) => {
-      if (!activeItem || paused || isDocumentHiddenRef.current) {
+    (currentTime: number, duration: number, confirmedPlaying = true) => {
+      if (!Number.isFinite(currentTime) || currentTime < 0 || !Number.isFinite(duration) || duration <= 0) return;
+      if (!activeItem || paused || !playbackStarted || !confirmedPlaying || isDocumentHiddenRef.current) {
         lastTimeRef.current = currentTime;
         return;
       }
@@ -115,7 +116,7 @@ export default function useSwipeAnalytics({
         trackOnce('video_complete', activeItem);
       }
     },
-    [activeItem, paused, trackOnce]
+    [activeItem, paused, playbackStarted, trackOnce]
   );
 
   return { trackEvent, trackOnce, onProgress };
