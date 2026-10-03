@@ -181,3 +181,181 @@ tokens; they are not added to the editorial taxonomy in this slice.
   blocks service workers and intercepts writes at context scope (10 blocked).
   No remote analytics cleanup was attempted.
 - No push, PR, merge or deployment. B/C/D implementation remains deferred.
+
+## 3.13A Short identity correction + 3.13B local evidence
+
+### Starting state and isolated repair
+
+- Starting HEAD: `0a599a5cb5049a4c70b84655f915424133a461e7` on
+  `b3/phase3.13-deep-links-sharing`. The intentional unfinished B diff consisted
+  of 13 modified files and two new files; it was preserved without reset,
+  checkout, stash, amendment or blanket staging.
+- Separate repair commit: `77b41cde366116d40ea155e0116b08901107e14a`,
+  `fix(video): use canonical short slug in feed links`. Only
+  `components/ui/VideoShortsFeed.tsx`, `components/video/types.ts` and
+  `tests/video-shorts-canonical-identity.test.tsx` were staged. B remained intact.
+- The two defective feed calls at lines 625 and 668 supplied `(id, title)`.
+  Both now supply `(id, slug)`. The public video adapter preserves its optional
+  authoritative slug rather than dropping it. Feed publication eligibility is
+  unchanged. No title-to-slug conversion was added to the UI.
+- Five new regression cases failed before the repair and passed afterward:
+  distinct Hindi/English title and slug, encoded Hindi slug, missing slug and
+  adapter preservation. Missing slug uses the existing exact video-ID fallback.
+- The previously failing article SSR test passed on the first resumed run.
+  The exact previous broader collection then passed: **44 files / 460 tests**.
+  Repair/deep-link coverage passed: **9 files / 70 tests**.
+
+### Video/Short route call-site audit
+
+| Source | Identity supplied | Destination / action |
+|---|---|---|
+| VideoShortsFeed active share | `activeVideo.id, activeVideo.slug` | Fix title argument; exact Short or ID fallback |
+| VideoShortsFeed card link | `video.id, video.slug` | Same fix and fallback |
+| HomeShortsSection | `short.id, short.slug` | Already correct; retained |
+| HomeVideosSection | `video.id` | Exact standard video ID; retained |
+| VideosPageClient share | `selectedVideo.id` | Exact current video ID; added B integration |
+| Video sitemap | ID, slug only for Short | Already correct; retained |
+| Video metadata | `videoId` | Standard video ID; retained |
+| Short metadata | `slug` | Canonical Short slug; retained |
+| SwipeFeed history and previous/next selection | active item slug | Existing history helper retained |
+| SwipeFeed share and analytics hook | active item slug | Shared menu; existing anonymous analytics hook retained |
+
+All production `buildVideoReaderPath` and `buildSwipeReaderPath` calls were
+inspected. None supplies a title as the canonical slug after this correction.
+
+### Share architecture before and after
+
+| Area | Before B | URL authority / B change |
+|---|---|---|
+| Article Reader | Direct WhatsApp header; shared menu on cards | Existing `buildArticlePublicPath`; header opens universal menu |
+| Standard video | No active selection share control | `buildVideoReaderPath(selectedVideo.id)`; shared menu follows queue selection |
+| Legacy Short presentation | ShareMenu; title incorrectly passed as slug | Repair supplies canonical slug to existing helper |
+| Swipe Short reader | Separate native/clipboard callback and runtime origin | `buildSwipeReaderPath(activeItem.slug)`; same shared menu and anonymous analytics |
+| E-Paper issue/story | Toolbar menu and modal-specific copy/WhatsApp | Existing publication bridge now preserves city/date/page/story; shared story/clipping menu |
+| Magazine issue/story | Same shared publication infrastructure | Monthly/global seam retained: paper/month/page/story, no daily city/date |
+
+Content identity flows through the 3.13A helper, `resolveCanonicalShareUrl`,
+then `universalShare` service/native/copy functions. Relative URLs use the
+configured public origin via `getSiteUrl`/`toAbsolutePublicUrl`. Absolute inputs
+must match that origin and a supported canonical reader route. Unknown query
+keys, duplicate dimensions, credentials, fragments, malformed encoding,
+traversal, schemes, legacy bridges and arbitrary origins are rejected.
+The older generic absolute helper remains for asset URLs, outside share targets.
+
+### Destinations and interaction behavior
+
+- WhatsApp: `wa.me` with encoded branded text and one canonical URL.
+- Facebook: existing `facebook.com/sharer/sharer.php`, canonical `u` only;
+  no deprecated title/image parameter assumptions or preview work.
+- X: `x.com/intent/tweet`, canonical `url` plus encoded headline. The compatible
+  intent route is retained on the current X hostname.
+- Telegram: `t.me/share/url`, separately encoded `url` and `text`, following
+  [Telegram's custom-button contract](https://core.telegram.org/widgets/share).
+- Existing LinkedIn option is preserved alongside the required destinations.
+- Native share returns shared/cancelled/unavailable/failed without uncaught
+  rejections. Success closes and restores focus. Cancellation/rejection keeps
+  social/copy choices and a localized hint; cancellation is not logged as an
+  application error. Unsupported browsers omit the native option.
+- Copy uses Clipboard API, then the synchronous textarea fallback after API
+  absence/rejection. Fallback removes the textarea and restores focus. Only an
+  actual successful copy reports success; failure leaves perceivable retry
+  feedback. External popup opening does not claim completed sharing, and Copy
+  remains available if the browser blocks the window.
+- Portal menu uses viewport width/height limits and scrolling, sits above
+  publication dialogs, supports arrow/Home/End/Escape and restores trigger
+  focus. Trigger/menu keys are isolated from video playback/navigation shortcuts.
+  Existing visual styles are reused. Short events retain `lokswami_swipe`
+  privacy behavior and canonical slug metadata through `useSwipeAnalytics`.
+
+### Final automated validation
+
+- Focused sharing plus defect/integration coverage: **10 files / 110 tests
+  passed / 0 failed**.
+- Final broader collection: **48 files / 498 tests passed / 0 failed**. Includes
+  the former 44-file collection, repair, video selection, Homepage Short cards
+  and anonymous Swipe analytics privacy. Covers Phase 3.11 Homepage rails,
+  discovery/navigation/selection, Phase 3.12 Reader actions/header/SSR/related
+  stories/progress, publication routes/domain seams, sitemaps, SEO indexing,
+  category routes/system protection and public video eligibility.
+- English/Hindi, spaces, ampersands, question marks, percent signs, Unicode,
+  encoded path segments and pre-existing publication query dimensions pass.
+  Admin/CMS/internal/loopback/arbitrary-origin, malformed scheme/encoding,
+  traversal and markup-as-text cases pass. No dangerous HTML interpolation.
+- Typecheck and strict lint pass. Changed-file ESLint has zero errors and no
+  new warnings. Exact rule/message comparisons: E-Paper **65 -> 65**, clipping
+  modal **1 -> 1**, story modal **1 -> 1**, clipping test **1 -> 1**,
+  repaired legacy Short feed **5 -> 5** (73 inherited warnings across repair/B);
+  all other changed source/test files have zero warnings.
+- `build:ci` passes, including all **175** static pages. The existing Windows
+  warning remains one failed traced-file copy caused by the dependency junction
+  (`EPERM`, symlink into `.next/standalone/node_modules`). Text/cause/count are
+  unchanged; standalone deployment packaging is outside this slice.
+- Final diff checks and explicit protected-file audit pass before the separate
+  local B commit. The dev server is stopped and the repository's production
+  preparation restores the generated declaration's baseline reference. B's exact
+  commit SHA is recorded in the owner-facing report.
+
+### Browser evidence and limits
+
+Read-only staging-backed local server on port 3001, automation worker disabled,
+with `NEXT_PUBLIC_SITE_URL=https://lokswami.com` supplied only to the QA process.
+At **1440px** and **390px**, seven cases per width pass: Article, exact standard
+Video, real Short, E-Paper issue/story and magazine issue/story. Every case checks
+all four service destinations, exact copied URL, labels, menu viewport bounds,
+arrow navigation, Escape/focus restoration and absence of horizontal overflow.
+Desktop additionally activates the trigger with Space and Copy with Enter.
+
+- Article: `/main/article/bhopal-digital-arrest-35-lakh-cyber-fraud`.
+- Video: `6ab840b464b786a3b089c3c3` via exact `video` query.
+- Short slug: `सोना-कम-तौलने-का-आरोप-ज्वेलर्स-पर-केस`, distinct from title
+  `सोना कम तौलने का आरोप, ज्वेलर्स पर केस!`; copied/service path uses the encoded
+  canonical slug once. English/Hindi deliberately different fixtures also have
+  component regression coverage.
+- E-Paper: `6ab7c5ca12e417f446b53cbf`, Indore, `2026-09-25`, page 2; story
+  `6ab7d76c12e417f446b53fa8` retains all five dimensions.
+- Magazine: `6ab8421f64b786a3b089c440`, `2026-09`, page 2; story
+  `6ab9e63d41d2101b3bbd0811` retains its page 1 selection and monthly semantics.
+- Four additional browser checks cover native success/cancellation/rejection,
+  unsupported native sharing, truthful Clipboard failure and successful fallback.
+  Native, clipboard and external window contracts are mocked; no OS share sheet
+  or third-party social post is claimed. External YouTube playback transport is
+  mocked to isolate share checks from intermittent provider errors. Local browser
+  preferences suppress unrelated onboarding; reader UI source is unchanged.
+- Final browser pass: **18 checks passed**, **zero page errors**, **zero
+  non-GET/HEAD requests forwarded**. With external player transport mocked,
+  no non-GET/HEAD requests reached the interception rule in that final pass.
+- Harness suppresses sendBeacon before app scripts, blocks service workers and
+  fulfills every non-GET/HEAD browser request locally. No staging editorial or
+  publication mutations occur. Final browser report, logs and screenshots live
+  outside the repository in the task visualization directory.
+- Original A commits are retained. No dependency upgrades, push, PR, merge,
+  deployment or 3.13C/D implementation is part of this completion.
+
+### B file scope
+
+The separate B commit contains exactly these 19 files:
+
+```text
+app/(reader)/main/article/[id]/ArticleDetailClient.tsx
+app/(reader)/main/epaper/EPaperPageClient.tsx
+app/(reader)/main/videos/VideosPageClient.tsx
+components/epaper/reader/modals/ArticleClippingModal.tsx
+components/epaper/reader/modals/ArticleStoryModal.tsx
+components/swipe/SwipeActions.tsx
+components/swipe/SwipeFeed.tsx
+components/ui/ShareMenu.tsx
+lib/utils/articleShare.ts
+lib/utils/universalShare.ts
+tests/article-page-ssr.test.tsx
+tests/article-reader-actions.test.tsx
+tests/article-share.test.ts
+tests/epaper-clipping-modal.test.tsx
+tests/share-menu.test.tsx
+tests/swipe-feed.test.tsx
+tests/universal-share.test.ts
+tests/video-page-share.test.tsx
+docs/b3/PHASE3_13_DEEP_LINKS_SHARING_ACCEPTANCE.md
+```
+
+The repair's three files remain in their separate commit. Data, environment,
+generated declarations and QA/runtime artifacts are excluded from both commits.

@@ -1,6 +1,7 @@
 import { buildArticlePublicPath, getSiteUrl } from '@/lib/seo/articleSeo';
 import { buildPublicationReaderPath } from '@/lib/utils/readerContentPaths';
 import type { EPaperPublicationType } from '@/lib/types/epaper';
+import { buildWhatsAppShareUrl } from './universalShare';
 
 export type BuildArticleWhatsAppShareInput = {
   title: string;
@@ -38,6 +39,9 @@ export type BuildEpaperSharePathInput = {
   paperId?: string;
   page?: number;
   story?: string;
+  city?: string;
+  publishDate?: string;
+  month?: string;
 };
 
 export type BuildArticleSharePathInput = {
@@ -126,15 +130,15 @@ export function buildArticleWhatsAppShareText({
 
 export function buildArticleWhatsAppShareUrl(input: BuildArticleWhatsAppShareInput) {
   const text = buildArticleWhatsAppShareText(input);
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  return buildWhatsAppShareUrl({ url: input.articleUrl, text });
 }
 
 export function buildArticleSharePath({ id, slug }: BuildArticleSharePathInput) {
   return buildArticlePublicPath({ id: id || '', slug }) || '/main';
 }
 
-export function buildEpaperSharePath({ paperId, page, story, publicationType }: BuildEpaperSharePathInput) {
-  return buildPublicationReaderPath({ paperId, page, storyToken: story, publicationType });
+export function buildEpaperSharePath({ paperId, page, story, publicationType, city, publishDate, month }: BuildEpaperSharePathInput) {
+  return buildPublicationReaderPath({ paperId, page, storyToken: story, publicationType, city, publishDate, month });
 }
 
 export function buildEpaperIssueShareText({
@@ -161,7 +165,7 @@ export function buildEpaperIssueShareText({
 
 export function buildEpaperIssueWhatsAppShareUrl(input: BuildEpaperIssueShareInput) {
   const text = buildEpaperIssueShareText(input);
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  return buildWhatsAppShareUrl({ url: input.issueUrl, text });
 }
 
 export function buildEpaperStoryShareText({
@@ -196,5 +200,5 @@ export function buildEpaperStoryShareText({
 
 export function buildEpaperStoryWhatsAppShareUrl(input: BuildEpaperStoryShareInput) {
   const text = buildEpaperStoryShareText(input);
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  return buildWhatsAppShareUrl({ url: input.storyUrl, text });
 }

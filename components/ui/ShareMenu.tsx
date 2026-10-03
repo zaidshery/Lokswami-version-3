@@ -19,7 +19,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { trackClientEvent } from '@/lib/analytics/trackClient';
-import { toAbsoluteShareUrl } from '@/lib/utils/articleShare';
+import { buildSocialShareUrl, copyCanonicalUrl, resolveCanonicalShareUrl, shareNative } from '@/lib/utils/universalShare';
 
 export type ShareContentType = 'article' | 'epaper' | 'emagazine' | 'video';
 export type SharePlatform =
@@ -28,6 +28,7 @@ export type SharePlatform =
   | 'facebook'
   | 'x'
   | 'linkedin'
+  | 'telegram'
   | 'copy';
 
 type ShareMenuProps = {
@@ -46,6 +47,7 @@ type ShareMenuProps = {
   className?: string;
   buttonClassName?: string;
   align?: 'start' | 'end';
+  onShareEvent?: (event: 'share_click' | 'share_complete', platform: SharePlatform) => void;
 };
 
 type MenuPosition = {
@@ -85,51 +87,13 @@ function buildExternalShareUrl(
     contentType: ShareContentType;
   }
 ) {
-  const encodedUrl = encodeURIComponent(input.url);
-
-  if (platform === 'whatsapp') {
-    const message = buildWhatsAppText(
-      input.title,
-      input.text,
-      input.whatsappText,
-      input.url,
-      input.contentType
-    );
-    return `https://wa.me/?text=${encodeURIComponent(message)}`;
-  }
-
-  if (platform === 'facebook') {
-    return `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
-  }
-
-  if (platform === 'x') {
-    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(input.title)}&url=${encodedUrl}`;
-  }
-
-  return `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
-}
-
-async function copyText(value: string) {
-  if (typeof navigator.clipboard?.writeText === 'function') {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = value;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-
-  try {
-    if (!document.execCommand('copy')) {
-      throw new Error('Copy command was unavailable.');
-    }
-  } finally {
-    textarea.remove();
-  }
+  return buildSocialShareUrl(platform, {
+    url: input.url,
+    title: input.title,
+    text: platform === 'whatsapp'
+      ? buildWhatsAppText(input.title, input.text, input.whatsappText, input.url, input.contentType)
+      : input.title,
+  });
 }
 
 export default function ShareMenu({
@@ -148,14 +112,15 @@ export default function ShareMenu({
   className = '',
   buttonClassName = '',
   align = 'end',
+  onShareEvent,
 }: ShareMenuProps) {
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const copyResetTimerRef = useRef<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
-  const [resolvedUrl, setResolvedUrl] = useState(url);
+  const [resolvedUrl, setResolvedUrl] = useState('');
+  const [shareStatus, setShareStatus] = useState('');
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [menuPosition, setMenuPosition] = useState<MenuPosition>({
     left: VIEWPORT_MARGIN,
@@ -182,16 +147,8 @@ export default function ShareMenu({
 
   useEffect(() => {
     setCanNativeShare(typeof navigator.share === 'function');
-    setResolvedUrl(toAbsoluteShareUrl(url, window.location.origin));
+    setResolvedUrl(resolveCanonicalShareUrl(url));
   }, [url]);
-
-  useEffect(() => {
-    return () => {
-      if (copyResetTimerRef.current !== null) {
-        window.clearTimeout(copyResetTimerRef.current);
-      }
-    };
-  }, []);
 
   const updateMenuPosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -265,6 +222,10 @@ export default function ShareMenu({
 
   const trackShare = useCallback(
     (event: 'share_click' | 'share_complete', platform: SharePlatform) => {
+      if (onShareEvent) {
+        onShareEvent(event, platform);
+        return;
+      }
       trackClientEvent({
         event,
         source: 'share_menu',
@@ -276,20 +237,18 @@ export default function ShareMenu({
         },
       });
     },
-    [contentId, contentType, placement]
+    [contentId, contentType, placement, onShareEvent]
   );
 
   const handleNativeShare = async () => {
     trackShare('share_click', 'native');
-    try {
-      await navigator.share({ title, text: text || undefined, url: resolvedUrl });
+    const result = await shareNative({ title, text, url: resolvedUrl });
+    if (result === 'shared') {
       trackShare('share_complete', 'native');
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        console.error('Native share failed:', error);
-      }
-    } finally {
       closeMenu(true);
+    } else {
+      setShareStatus(language === 'hi' ? 'नीचे शेयर करने का तरीका चुनें।' : 'Choose a sharing option below.');
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     }
   };
 
@@ -304,31 +263,37 @@ export default function ShareMenu({
       url: resolvedUrl,
       contentType,
     });
-    window.open(shareUrl, '_blank', 'noopener,noreferrer');
-    trackShare('share_complete', platform);
-    closeMenu(true);
+    if (!shareUrl) return;
+    try {
+      window.open(shareUrl, '_blank', 'noopener,noreferrer');
+      // Opening a destination cannot confirm that the user completed a share.
+      setShareStatus(language === 'hi' ? 'विंडो न खुले तो लिंक कॉपी करें।' : 'If no window opens, use Copy link.');
+    } catch {
+      setShareStatus(language === 'hi' ? 'लिंक कॉपी करके शेयर करें।' : 'Use Copy link to share.');
+    }
   };
 
   const handleCopy = async () => {
     trackShare('share_click', 'copy');
     try {
-      await copyText(resolvedUrl);
+      if (!await copyCanonicalUrl(resolvedUrl)) throw new Error('Copy failed');
       trackShare('share_complete', 'copy');
       setCopyStatus('copied');
     } catch {
       setCopyStatus('failed');
     }
 
-    if (copyResetTimerRef.current !== null) {
-      window.clearTimeout(copyResetTimerRef.current);
-    }
-    copyResetTimerRef.current = window.setTimeout(() => {
-      setCopyStatus('idle');
-      closeMenu(true);
-    }, 1_500);
+    // Keep failure feedback available until another attempt or dismissal.
   };
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    // Reader playback/navigation shortcuts must not consume menu keystrokes.
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu(true);
+      return;
+    }
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
 
     const items = Array.from(
@@ -364,8 +329,8 @@ export default function ShareMenu({
           aria-label={displayedAriaLabel}
           onClick={(event) => event.stopPropagation()}
           onKeyDown={handleMenuKeyDown}
-          className="fixed z-[100] w-[244px] rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
-          style={{ left: menuPosition.left, top: menuPosition.top }}
+          className="fixed z-[160] w-[244px] rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+          style={{ left: menuPosition.left, top: menuPosition.top, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100dvh - 16px)', overflowY: 'auto' }}
         >
           {canNativeShare ? (
             <button
@@ -417,6 +382,11 @@ export default function ShareMenu({
             <Linkedin aria-hidden="true" className="h-4 w-4 text-sky-700" />
             LinkedIn
           </button>
+          <button type="button" role="menuitem" onClick={() => handleExternalShare('telegram')} className={itemClassName}>
+            <MessageCircle aria-hidden="true" className="h-4 w-4 text-sky-600" />
+            Telegram
+          </button>
+          <p role="status" className="px-3 text-xs text-zinc-600 dark:text-zinc-300">{shareStatus}</p>
           <div className="my-1 h-px bg-zinc-200 dark:bg-zinc-700" aria-hidden="true" />
           <button
             type="button"
@@ -453,15 +423,18 @@ export default function ShareMenu({
         ref={triggerRef}
         type="button"
         data-share-action
+        disabled={!resolvedUrl}
         aria-haspopup={directWhatsApp ? undefined : 'menu'}
         aria-expanded={directWhatsApp ? undefined : isOpen}
         aria-controls={isOpen ? menuId : undefined}
         aria-label={displayedAriaLabel}
+        onKeyDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
           if (directWhatsApp) { handleExternalShare('whatsapp'); return; }
           setCopyStatus('idle');
+          setShareStatus('');
           setIsOpen((current) => !current);
         }}
         className={buttonClassName || 'reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'}
@@ -475,6 +448,7 @@ export default function ShareMenu({
         <span>{displayedTriggerLabel}</span>
       </button>
       {menu}
+      {directWhatsApp ? <span role="status" className="sr-only">{shareStatus}</span> : null}
     </div>
   );
 }

@@ -29,6 +29,7 @@ export interface ArticleStoryModalProps {
   pageImageUrl?: string;
   language?: 'en' | 'hi';
   onShareWhatsApp?: () => void;
+  shareControl?: React.ReactNode;
   onShareClipping?: () => void;
   onPlayAudio?: () => void;
   onPauseAudio?: () => void;
@@ -52,6 +53,7 @@ function ArticleStoryModalContent({
   pageImageUrl,
   language = 'hi',
   onShareWhatsApp,
+  shareControl,
   onShareClipping,
   onPlayAudio,
   onPauseAudio,
@@ -284,7 +286,7 @@ function ArticleStoryModalContent({
               </div>
             ) : null}
 
-            {onShareWhatsApp ? (
+            {shareControl || (onShareWhatsApp ? (
               <button
                 type="button"
                 onClick={onShareWhatsApp}
@@ -294,7 +296,7 @@ function ArticleStoryModalContent({
                 <Share2 className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Share</span>
               </button>
-            ) : null}
+            ) : null)}
 
             {onShareClipping ? (
               <button
