@@ -17,9 +17,17 @@ function pages(value: unknown) {
   return Array.isArray(value) ? value.map(asObject).map((item) => ({ pageNumber: toPositiveInt(item.pageNumber), imagePath: String(item.imagePath || '').trim() })).filter((item) => item.pageNumber) : [];
 }
 
+// Legacy file issues have no status field; explicit hidden states always win.
+function isReleasedIssue(source: EpaperRecord) {
+  if (!Object.keys(source).length || (source.status != null && source.status !== 'published') || source.isPublished === false || source.isCurrentRevision === false) return false;
+  const date = Date.parse(String(source.publishDate || source.publishedAt || ''));
+  const publishedAt = source.publishedAt ? Date.parse(String(source.publishedAt)) : date;
+  return Number.isFinite(date) && date <= Date.now() && Number.isFinite(publishedAt) && publishedAt <= Date.now();
+}
+
 function mapEdition(value: unknown): PublicEpaperMetadata | null {
   const source = asObject(value); const id = firstNonEmptyString(source._id, source.id);
-  if (!id) return null;
+  if (!id || !isReleasedIssue(source)) return null;
   const normalizedPages = pages(source.pages);
   return { id, citySlug: String(source.citySlug || '').trim().toLowerCase(), cityName: String(source.cityName || '').trim(),
     title: String(source.title || '').trim(), publishDate: toDateLabel(source.publishDate),
@@ -28,7 +36,7 @@ function mapEdition(value: unknown): PublicEpaperMetadata | null {
 }
 
 function mapStored(value: unknown): PublicEpaperMetadata | null {
-  const source = asObject(value); const id = String(source._id || '').trim(); if (!id) return null;
+  const source = asObject(value); const id = String(source._id || '').trim(); if (!id || !isReleasedIssue(source)) return null;
   return { id, citySlug: getCitySlugFromName(String(source.city || '')), cityName: String(source.city || '').trim(),
     title: String(source.title || '').trim(), publishDate: String(source.publishDate || '').trim() || toDateLabel(source.publishedAt),
     thumbnailPath: firstNonEmptyString(source.thumbnailPath, source.thumbnail), pageCount: Math.max(toPositiveInt(source.pages, 1), 1) };
@@ -41,14 +49,14 @@ function mapStory(value: unknown): PublicEpaperStoryMetadata | null {
 }
 
 function storedStory(value: unknown, tokenInput: string): PublicEpaperStoryMetadata | null {
-  const source = asObject(value); const token = tokenInput.trim().toLowerCase(); if (!token) return null;
+  const source = asObject(value); const token = tokenInput.trim().toLowerCase(); if (!token || !isReleasedIssue(source)) return null;
   const hotspots = Array.isArray(source.articleHotspots) ? source.articleHotspots.map(asObject) : [];
   for (let index = 0; index < hotspots.length; index += 1) {
-    const hotspot = hotspots[index]; const title = String(hotspot.title || '').trim();
-    const slug = (title || `story-${index + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'story';
+    const hotspot = hotspots[index];
     const id = `${String(source._id)}-${String(hotspot.id || index + 1)}`;
-    if (token !== slug && token !== id.toLowerCase()) continue;
-    return { id, slug, title: title || `Story ${index + 1}`, excerpt: String(hotspot.text || '').trim(), coverImagePath: '', pageNumber: toPositiveInt(hotspot.page, 1) };
+    const released = resolveReleasedEpaperStory({ ...hotspot, _id: id });
+    if (!released || (token !== String(released.slug).toLowerCase() && token !== id.toLowerCase())) continue;
+    return mapStory(released);
   }
   return null;
 }
@@ -65,7 +73,7 @@ export class EpaperMetadataService {
   async getEdition(query: PublicEpaperMetadataQuery) {
     const publicationType = resolveEPaperPublicationType(query.publicationType);
     const normalized = { publicationType, id: query.id?.trim() || '', citySlug: isMonthlyEPaperPublication(publicationType) ? '' : query.citySlug?.trim().toLowerCase() || '', publishDate: query.publishDate?.trim() || '' };
-    const mongo = await this.mongoEdition(normalized); if (mongo) return mongo;
+    if (await this.repo.isPublicMongoAvailable('public e-paper metadata lookup')) return this.mongoEdition(normalized);
     if (publicationType !== 'epaper') return null;
     if (normalized.id) return mapStored(await this.repo.getStoredById(normalized.id));
     const rows = await this.repo.listAllStored();
@@ -77,13 +85,12 @@ export class EpaperMetadataService {
   async getStory(query: PublicEpaperStoryMetadataQuery) {
     const publicationType = resolveEPaperPublicationType(query.publicationType);
     const epaperId = query.epaperId?.trim() || ''; const storyToken = query.storyToken?.trim() || '';
-    const mongo = await this.mongoStory({ publicationType, epaperId, storyToken }); if (mongo) return mongo;
+    if (await this.repo.isPublicMongoAvailable('public e-paper story metadata lookup')) return this.mongoStory({ publicationType, epaperId, storyToken });
     if (publicationType !== 'epaper' || !epaperId || !storyToken) return null;
     return storedStory(await this.repo.getStoredById(epaperId), storyToken);
   }
 
   private async mongoEdition(query: Required<Pick<PublicEpaperMetadataQuery, 'publicationType'>> & { id: string; citySlug: string; publishDate: string }) {
-    if (!(await this.repo.isPublicMongoAvailable('public e-paper metadata lookup'))) return null;
     try {
       if (query.id) {
         const requested = this.repo.isValidId(query.id)
@@ -91,37 +98,32 @@ export class EpaperMetadataService {
           : await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), familyId: query.id, status: 'published', isCurrentRevision: true }, '_id familyId status isCurrentRevision publicationType');
         if (!requested || resolveEPaperPublicationType(requested.publicationType) !== query.publicationType) return null;
         const record = requested.status === 'published' && requested.isCurrentRevision !== false
-          ? await this.repo.findEditionById(String(requested._id), '_id citySlug cityName title publishDate thumbnailPath thumbnail pageCount pages')
-          : await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), familyId: String(requested.familyId || requested._id), status: 'published', isCurrentRevision: true }, '_id citySlug cityName title publishDate thumbnailPath thumbnail pageCount pages');
+          ? await this.repo.findEditionById(String(requested._id), '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages')
+          : await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), familyId: String(requested.familyId || requested._id), status: 'published', isCurrentRevision: true }, '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages');
         return mapEdition(record);
       }
       const filter: EpaperRecord = { ...buildPublicationTypeMongoFilter(query.publicationType), status: 'published', isCurrentRevision: { $ne: false } };
       if (query.citySlug) filter.citySlug = query.citySlug;
       const range = query.publishDate ? getPublicationIssueDateRange(query.publishDate, query.publicationType) || dateRange(query.publishDate) : null;
       if (range) filter.publishDate = range;
-      return mapEdition(await this.repo.findLatestEdition(filter, '_id citySlug cityName title publishDate thumbnailPath thumbnail pageCount pages'));
-    } catch (error) { console.error('Failed to load public e-paper metadata from MongoDB, falling back.', error); return null; }
+      return mapEdition(await this.repo.findLatestEdition(filter, '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages'));
+    } catch (error) { console.error('Failed to load public e-paper metadata from MongoDB.', error); return null; }
   }
 
   private async mongoStory(query: { publicationType: EPaperPublicationType; epaperId: string; storyToken: string }) {
-    if (!query.epaperId || !query.storyToken || !(await this.repo.isPublicMongoAvailable('public e-paper story metadata lookup'))) return null;
+    if (!query.epaperId || !query.storyToken) return null;
     try {
       if (!this.repo.isValidId(query.epaperId)) return null;
-      const parent = await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), _id: this.repo.toObjectId(query.epaperId), status: 'published', isCurrentRevision: { $ne: false } }, '_id pages');
-      if (!parent) return null;
+      const parent = await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), _id: this.repo.toObjectId(query.epaperId), status: 'published', isCurrentRevision: { $ne: false } }, '_id status isCurrentRevision publishDate publishedAt pages');
+      if (!parent || !isReleasedIssue(parent)) return null;
       const token = query.storyToken.toLowerCase(); const clauses: EpaperRecord[] = [{ 'releasedSnapshot.slug': token }, { slug: token }];
       if (this.repo.isValidId(query.storyToken)) clauses.push({ _id: this.repo.toObjectId(query.storyToken) });
       const record = await this.repo.findArticle({ epaperId: this.repo.toObjectId(query.epaperId), $or: clauses }, '_id epaperId slug title excerpt pageNumber coverImagePath hotspot releasedSnapshot');
       if (!record) return null;
       const released = resolveReleasedEpaperStory(record);
       if (released) { const mapped = mapStory(released); return mapped ? { ...mapped, releaseVersion: Number(released.releaseVersion || 1), hotspot: released.hotspot as EPaperArticleHotspot, pageImagePath: String(released.pageImagePath || '') } : null; }
-      const hotspot = asObject(record.hotspot); const w = Number(hotspot.w || 0); const h = Number(hotspot.h || 0);
-      if (!record.title || w <= 0 || h <= 0) return null;
-      const pageNumber = toPositiveInt(record.pageNumber, 1); const page = pages(parent.pages).find((item) => item.pageNumber === pageNumber);
-      return { id: String(record._id), slug: String(record.slug || ''), title: String(record.title || ''), excerpt: String(record.excerpt || ''),
-        coverImagePath: String(record.coverImagePath || ''), pageNumber, releaseVersion: 1,
-        hotspot: { x: Number(hotspot.x || 0), y: Number(hotspot.y || 0), w, h }, pageImagePath: String(page?.imagePath || '') };
-    } catch (error) { console.error('Failed to load public e-paper story metadata from MongoDB, falling back.', error); return null; }
+      return null;
+    } catch (error) { console.error('Failed to load public e-paper story metadata from MongoDB.', error); return null; }
   }
 }
 

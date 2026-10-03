@@ -23,6 +23,7 @@ type MetadataInput = {
 };
 
 type EpaperMetadataInput = {
+  index?: boolean;
   publicationType?: EPaperPublicationType;
   city: string;
   publishDate: string;
@@ -292,6 +293,7 @@ export function buildEpaperPageMetadata(input: EpaperMetadataInput) {
     description,
     path,
     image: input.image,
+    robots: { index: input.index !== false, follow: true, 'max-image-preview': 'large' },
     keywords: [
       isMonthly ? 'lokswami e-magazine' : 'lokswami epaper',
       isMonthly ? 'lokswami e-magazine' : 'hindi epaper',

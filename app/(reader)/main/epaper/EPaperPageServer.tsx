@@ -94,7 +94,7 @@ export async function generateEPaperMetadata(
       })
     : null;
   const story =
-    storyToken && (issue?.id || paperId)
+    storyToken && issue?.id
       ? await getPublicEpaperStoryForMetadata({
           epaperId: issue?.id || paperId,
           storyToken,
@@ -107,6 +107,7 @@ export async function generateEPaperMetadata(
   const shareImage = issue ? `/api/og/epaper?${previewQuery}` : '';
 
   return buildEpaperPageMetadata({
+    index: !(paperId && !issue) && !(storyToken && !story),
     publicationType,
     city: issue?.citySlug || filters.city,
     publishDate: issue?.publishDate || normalizePublicationIssueDate(filters.issueDate, publicationType),
