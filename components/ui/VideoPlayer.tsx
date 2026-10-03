@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import {
   buildYouTubeEmbedUrl,
@@ -186,6 +186,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const youtubeIframeRef = useRef<HTMLIFrameElement | null>(null);
   const youtubePlayerRef = useRef<YouTubePlayer | null>(null);
   const youtubeReadyRef = useRef(false);
+  const [playbackError, setPlaybackError] = useState(false);
+
+  useEffect(() => {
+    setPlaybackError(false);
+  }, [src, videoId]);
+
   const callbacksRef = useRef({
     onCaptionsChange,
     onEnded,
@@ -555,7 +561,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
         if (document.fullscreenElement) {
           void document.exitFullscreen?.();
         } else {
-          void (el.requestFullscreen?.() || (el as any).webkitRequestFullscreen?.());
+          const webkitEl = el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
+          void (el.requestFullscreen?.() || webkitEl.webkitRequestFullscreen?.());
         }
       },
     }),
@@ -650,9 +657,40 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           }
           onEnded();
         }}
+        onError={() => {
+          setPlaybackError(true);
+        }}
       />
 
-      {isPaused && !isLiveStream && (
+      {(playbackError || (!isYouTube && !src)) && (
+        <div
+          className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
+          role="alert"
+        >
+          <p className="text-sm font-semibold text-zinc-200">
+            वीडियो लोड करने में समस्या हुई।
+          </p>
+          <p className="mt-1 text-xs text-zinc-400">
+            Video currently unavailable.
+          </p>
+          {src ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPlaybackError(false);
+                if (videoRef.current) {
+                  videoRef.current.load();
+                }
+              }}
+              className="mt-3 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95"
+            >
+              पुनः प्रयास करें / Retry
+            </button>
+          ) : null}
+        </div>
+      )}
+
+      {isPaused && !isLiveStream && !playbackError && (
         <button
           type="button"
           onClick={() => onPausedChange(false)}
