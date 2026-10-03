@@ -34,6 +34,15 @@ describe('direct video selection uses feed eligibility', () => {
     expect(await getPublicVideoForMetadata(video._id)).toMatchObject({ slug: short.slug, isShort: true });
     if (store === 'mongo') expect(mocks.select).toHaveBeenCalledWith(expect.stringMatching(/\bslug\b/));
   });
+  it.each(['mongo', 'file'])('keeps a legacy horizontal Short on its eligible exact-video route in %s mode', async (store) => {
+    mocks.available.mockResolvedValue(store === 'mongo');
+    const short = { ...video, isShort: true, slug: 'horizontal-legacy', aspectRatio: '16:9' };
+    mocks.lean.mockResolvedValue(short);
+    mocks.stored.mockResolvedValue(short);
+    const { getPublicVideoForMetadata } = await import('@/lib/server/publicVideoMetadata');
+    expect(await getPublicVideoForMetadata(video._id)).toMatchObject({ id: video._id, slug: undefined });
+    if (store === 'mongo') expect(mocks.select).toHaveBeenCalledWith(expect.stringMatching(/\baspectRatio\b/));
+  });
   it.each([
     ['draft', { workflow: { status: 'draft' } }],
     ['scheduled', { workflow: { status: 'published', scheduledFor: '2999-01-01T00:00:00Z' } }],

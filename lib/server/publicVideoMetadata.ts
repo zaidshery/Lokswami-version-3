@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 import Video from '@/lib/models/Video';
 import { getStoredVideoById } from '@/lib/storage/videosFile';
-import { isPubliclyPublishedVideo } from '@/lib/content/videoPublication';
+import { isPubliclyPublishedVideo, isSwipeFeedEligibleVideo } from '@/lib/content/videoPublication';
 
 export type PublicVideoMetadata = {
   id: string;
@@ -32,6 +32,7 @@ type PublicVideoSource = {
   duration?: number;
   category?: string;
   isShort?: boolean;
+  aspectRatio?: string;
   isPublished?: boolean;
   views?: number;
   publishedAt?: string | Date;
@@ -96,7 +97,9 @@ function toPublicVideo(input: PublicVideoSource | null | undefined): PublicVideo
 
   return {
     id,
-    slug: String(input.slug || '').trim() || undefined,
+    slug: !input.isShort || isSwipeFeedEligibleVideo(input)
+      ? String(input.slug || '').trim() || undefined
+      : undefined,
     title,
     description: String(input.description || '').trim(),
     thumbnail: resolveThumbnail(String(input.thumbnail || ''), videoUrl),
@@ -114,7 +117,7 @@ async function getMongoVideo(id: string) {
     if (!Types.ObjectId.isValid(id)) return null;
 
     const record = await Video.findOne({ _id: id, isPublished: true })
-      .select('_id slug title description thumbnail videoUrl duration category isShort isPublished views publishedAt updatedAt workflow processingStatus')
+      .select('_id slug title description thumbnail videoUrl duration category isShort aspectRatio isPublished views publishedAt updatedAt workflow processingStatus')
       .lean<PublicVideoSource | null>();
 
     return toPublicVideo(record);
