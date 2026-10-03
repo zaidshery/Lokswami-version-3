@@ -239,7 +239,7 @@ export default function VideosPageClient({
             ) : null}
 
             {/* Mobile & Tablet Feed List (visible below player on smaller screens) */}
-            {selectedVideo ? <ShareMenu title={selectedVideo.title} url={buildVideoReaderPath(selectedVideo.id)} contentType="video" contentId={selectedVideo.id} language={language} ariaLabel={language === 'hi' ? 'वीडियो शेयर करें' : 'Share video'} placement="video_detail" /> : null}
+            {selectedVideo ? <ShareMenu title={selectedVideo.title} url={buildVideoReaderPath(selectedVideo.id, selectedVideo.isShort ? selectedVideo.slug : undefined)} contentType="video" contentId={selectedVideo.id} language={language} ariaLabel={language === 'hi' ? 'वीडियो शेयर करें' : 'Share video'} placement="video_detail" /> : null}
             <div className="block lg:hidden">
               <VideoFeedGrid
                 layout="feed_list"
