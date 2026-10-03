@@ -73,7 +73,11 @@ export class EpaperMetadataService {
   async getEdition(query: PublicEpaperMetadataQuery) {
     const publicationType = resolveEPaperPublicationType(query.publicationType);
     const normalized = { publicationType, id: query.id?.trim() || '', citySlug: isMonthlyEPaperPublication(publicationType) ? '' : query.citySlug?.trim().toLowerCase() || '', publishDate: query.publishDate?.trim() || '' };
-    if (await this.repo.isPublicMongoAvailable('public e-paper metadata lookup')) return this.mongoEdition(normalized);
+    if (await this.repo.isPublicMongoAvailable('public e-paper metadata lookup')) {
+      const mongo = await this.mongoEdition(normalized);
+      // Undefined means true absence; null means authoritative rejection/error.
+      if (mongo !== undefined) return mongo;
+    }
     if (publicationType !== 'epaper') return null;
     if (normalized.id) return mapStored(await this.repo.getStoredById(normalized.id));
     const rows = await this.repo.listAllStored();
@@ -95,8 +99,9 @@ export class EpaperMetadataService {
       if (query.id) {
         const requested = this.repo.isValidId(query.id)
           ? await this.repo.findEditionById(query.id, '_id familyId status isCurrentRevision publicationType')
-          : await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), familyId: query.id, status: 'published', isCurrentRevision: true }, '_id familyId status isCurrentRevision publicationType');
-        if (!requested || resolveEPaperPublicationType(requested.publicationType) !== query.publicationType) return null;
+          : await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), familyId: query.id }, '_id familyId status isCurrentRevision publicationType');
+        if (!requested) return undefined;
+        if (resolveEPaperPublicationType(requested.publicationType) !== query.publicationType) return null;
         const record = requested.status === 'published' && requested.isCurrentRevision !== false
           ? await this.repo.findEditionById(String(requested._id), '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages')
           : await this.repo.findEdition({ ...buildPublicationTypeMongoFilter(query.publicationType), familyId: String(requested.familyId || requested._id), status: 'published', isCurrentRevision: true }, '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages');
@@ -106,7 +111,13 @@ export class EpaperMetadataService {
       if (query.citySlug) filter.citySlug = query.citySlug;
       const range = query.publishDate ? getPublicationIssueDateRange(query.publishDate, query.publicationType) || dateRange(query.publishDate) : null;
       if (range) filter.publishDate = range;
-      return mapEdition(await this.repo.findLatestEdition(filter, '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages'));
+      const record = await this.repo.findLatestEdition(filter, '_id status isCurrentRevision citySlug cityName title publishDate publishedAt thumbnailPath thumbnail pageCount pages');
+      if (record) return mapEdition(record);
+      const identityFilter = { ...filter };
+      delete identityFilter.status;
+      delete identityFilter.isCurrentRevision;
+      const hidden = await this.repo.findLatestEdition(identityFilter, '_id');
+      return hidden ? null : undefined;
     } catch (error) { console.error('Failed to load public e-paper metadata from MongoDB.', error); return null; }
   }
 

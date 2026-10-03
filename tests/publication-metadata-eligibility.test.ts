@@ -30,7 +30,7 @@ describe('publication metadata release eligibility', () => {
     repo.getStoredById.mockResolvedValue({ ...issue, status: undefined });
     expect(await service.getEdition({ id })).toMatchObject({ title: 'Public issue' });
   });
-  it.each([{ status: 'draft' }, { status: 'unreleased' }, { publishDate: '2999-01-01' }, { isCurrentRevision: false }, { isPublished: false }])('rejects hidden/future file %j', async (hidden) => {
+  it.each([{ status: 'draft' }, { status: 'unreleased' }, { publishDate: '2999-01-01' }, { publishedAt: '2999-01-01' }, { isCurrentRevision: false }, { isPublished: false }])('rejects hidden/future file %j', async (hidden) => {
     repo.isPublicMongoAvailable.mockResolvedValue(false);
     repo.getStoredById.mockResolvedValue({ ...issue, ...hidden });
     expect(await service.getEdition({ id })).toBeNull();
@@ -41,14 +41,23 @@ describe('publication metadata release eligibility', () => {
     expect(await service.getEdition({ id })).toBeNull();
     expect(repo.getStoredById).not.toHaveBeenCalled();
   });
-  it('treats authoritative Mongo absence like direct video metadata', async () => {
+  it('preserves existing legacy issue fallback for true Mongo absence', async () => {
     repo.findEditionById.mockResolvedValue(null);
-    expect(await service.getEdition({ id })).toBeNull();
-    expect(repo.getStoredById).not.toHaveBeenCalled();
+    expect(await service.getEdition({ id })).toMatchObject({ title: 'STALE_PUBLIC_COPY' });
+    expect(repo.getStoredById).toHaveBeenCalledWith(id);
   });
   it('rejects future Mongo issues', async () => {
     repo.findEditionById.mockResolvedValue({ ...issue, publishDate: '2999-01-01' });
     expect(await service.getEdition({ id })).toBeNull();
+  });
+  it('denies archive fallback when a hidden Mongo issue matches the same filters', async () => {
+    repo.findLatestEdition.mockResolvedValueOnce(null).mockResolvedValueOnce({ _id: id });
+    expect(await service.getEdition({ citySlug: 'indore', publishDate: '2026-01-01' })).toBeNull();
+    expect(repo.listAllStored).not.toHaveBeenCalled();
+  });
+  it('retains eligible legacy archive fallback on true absence', async () => {
+    repo.findLatestEdition.mockResolvedValue(null);
+    expect(await service.getEdition({ publishDate: '2026-01-01' })).toMatchObject({ title: 'Public issue' });
   });
   it.each(['epaper', 'emagazine'] as const)('uses only the released %s snapshot', async (publicationType) => {
     expect(await service.getStory({ epaperId: id, storyToken: 'story-1', publicationType })).toMatchObject({ title: snapshot.title, excerpt: snapshot.excerpt });
