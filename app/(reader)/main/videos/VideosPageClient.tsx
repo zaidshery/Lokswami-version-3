@@ -198,6 +198,7 @@ export default function VideosPageClient({
     const handlePopState = (event: PopStateEvent) => {
       if (typeof window === 'undefined') return;
       const stateVideoId = (event.state as { videoId?: string } | null)?.videoId;
+      setIsDescriptionExpanded(false);
       if (stateVideoId) {
         setSelectedVideoId(stateVideoId);
         return;
@@ -273,8 +274,8 @@ export default function VideosPageClient({
   );
 
   const shortsFeed = useMemo(
-    () => videos.filter((v) => v.isShort),
-    [videos]
+    () => filteredVideos.filter((v) => v.isShort),
+    [filteredVideos]
   );
 
   const mediaProvider = useMemo(() => {
@@ -336,6 +337,7 @@ export default function VideosPageClient({
       setVideos((prev) => mergeUniqueVideos(prev, [selectedOffPage]));
     }
     setSelectedVideoId(videoId);
+    setIsDescriptionExpanded(false);
     setIsPaused(false);
     wasManuallyPausedRef.current = false;
     setCurrentTime(0);
@@ -404,6 +406,21 @@ export default function VideosPageClient({
   // Contract verification: contentType="video" attribute explicitly present for reader media sharing test
   const sharingContract = 'contentType="video"';
 
+  const emptyState = (
+    <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center shadow-sm dark:border-white/10 dark:bg-zinc-950">
+      <p className="text-base font-semibold text-zinc-900 dark:text-white">{copy.noResults}</p>
+      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        {language === 'hi' ? 'कृपया अपनी खोज या फ़िल्टर बदलें।' : 'Please adjust your search or category filter.'}
+      </p>
+      {(searchQuery || activeCategory !== 'all') ? (
+        <button type="button" onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}
+          className="mt-4 rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white dark:bg-white dark:text-zinc-950">
+          {copy.retry}
+        </button>
+      ) : null}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#fafafa] pb-20 dark:bg-[#09090b]" data-sharing-contract={sharingContract}>
       <div className="mx-auto max-w-7xl px-2.5 py-3 sm:px-4 sm:py-5 lg:px-8 space-y-5">
@@ -448,9 +465,10 @@ export default function VideosPageClient({
         {/* View Mode: Shorts Grid */}
         {viewMode === 'shorts' ? (
           <section aria-label={copy.shorts}>
+            {shortsFeed.length === 0 ? emptyState : null}
             <VideoFeedGrid
               layout="shorts_grid"
-              videos={filteredVideos.filter((v) => v.isShort)}
+              videos={shortsFeed}
               selectedVideoId={selectedVideo?.id}
               onSelectVideo={(id) => {
                 handleSelectVideo(id);
@@ -616,26 +634,7 @@ export default function VideosPageClient({
                   </div>
                 </>
               ) : (
-                <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center shadow-sm dark:border-white/10 dark:bg-zinc-950">
-                  <p className="text-base font-semibold text-zinc-900 dark:text-white">
-                    {copy.noResults}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {language === 'hi' ? 'कृपया अपनी खोज या फ़िल्टर बदलें।' : 'Please adjust your search or category filter.'}
-                  </p>
-                  {(searchQuery || activeCategory !== 'all') ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setActiveCategory('all');
-                      }}
-                      className="mt-4 rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white dark:bg-white dark:text-zinc-950"
-                    >
-                      {copy.retry}
-                    </button>
-                  ) : null}
-                </div>
+                emptyState
               )}
 
               {/* Mobile Feed List (visible below player on smaller screens) */}

@@ -324,6 +324,39 @@ describe('Video Hub 2.0 (Phase 3.14A)', () => {
   });
 
   describe('Search and Filter Behavior', () => {
+    it.each(['no-shorts', 'search', 'category'])('shows the Shorts empty state for %s', (scenario) => {
+      render(<VideosPageClient initialItems={scenario === 'no-shorts' ? mockVideos.slice(0, 2) : mockVideos} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
+      fireEvent.click(screen.getByRole('button', { name: 'शॉर्ट्स' }));
+      if (scenario === 'search') fireEvent.change(screen.getByPlaceholderText(/वीडियो खोजें/i), { target: { value: 'NoMatchTermXYZ' } });
+      if (scenario === 'category') fireEvent.click(screen.getByRole('button', { name: 'State' }));
+      expect(screen.getByText('कोई वीडियो नहीं मिला')).toBeInTheDocument();
+    });
+
+    it.each(['search', 'category'])('applies %s to the mobile Shorts carousel', (filter) => {
+      const items = [...mockVideos,
+        { ...mockVideos[0], _id: 'national-second', title: 'Headlines Second' },
+        { ...mockVideos[0], _id: 'national-third', title: 'Headlines Third' },
+        { ...mockVideos[2], _id: 'national-short', title: 'Headlines Short', category: 'National' },
+      ];
+      render(<VideosPageClient initialItems={items} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
+      if (filter === 'search') fireEvent.change(screen.getByPlaceholderText(/वीडियो खोजें/i), { target: { value: 'Headlines' } });
+      else fireEvent.click(screen.getByRole('button', { name: 'राष्ट्रीय' }));
+      expect(screen.getAllByRole('button', { name: /Headlines Short/i }).length).toBeGreaterThan(0);
+      expect(screen.queryByRole('button', { name: /Gamma Quick Short/i })).not.toBeInTheDocument();
+    });
+
+    it('collapses descriptions when selection changes through the queue or history', () => {
+      const items = mockVideos.map((video) => ({ ...video, description: 'Detailed news description. '.repeat(20) }));
+      render(<VideosPageClient initialItems={items} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
+      fireEvent.click(screen.getByRole('button', { name: 'और देखें' }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Beta Regional Updates/i })[0]);
+      expect(screen.getByRole('button', { name: 'और देखें' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'और देखें' }));
+      window.history.replaceState({}, '', '/main/videos?video=vid-alpha');
+      fireEvent(window, new PopStateEvent('popstate', { state: { videoId: 'vid-alpha' } }));
+      expect(screen.getByRole('button', { name: 'और देखें' })).toBeInTheDocument();
+    });
+
     it('filters videos by search term in the queue', () => {
       render(
         <VideosPageClient
