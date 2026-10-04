@@ -294,6 +294,7 @@ export default function VideosPageClient({
     pagePath: selectedVideo ? buildVideoReaderPath(selectedVideo.id) : '/main/videos',
     source: 'lokswami_video_hub',
     duration: activeDuration || selectedVideo?.duration || 0,
+    playbackRate,
     isPlaying: !isPaused,
   });
 

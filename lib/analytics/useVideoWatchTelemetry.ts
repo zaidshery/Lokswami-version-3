@@ -12,6 +12,7 @@ export type VideoWatchTelemetryOptions = {
   pagePath: string;
   source: 'lokswami_video_hub' | 'lokswami_swipe';
   duration?: number;
+  playbackRate?: number;
   isPlaying: boolean;
   isBuffering?: boolean;
 };
@@ -34,9 +35,13 @@ export default function useVideoWatchTelemetry({
   pagePath,
   source,
   duration = 0,
+  playbackRate = 1,
   isPlaying,
   isBuffering = false,
 }: VideoWatchTelemetryOptions): VideoWatchTelemetryReturn {
+  const continuityLimit = 2 * (
+    Number.isFinite(playbackRate) && playbackRate >= 0.5 && playbackRate <= 2 ? playbackRate : 1
+  );
   const firedMilestonesRef = useRef<Set<string>>(new Set());
   const watchedSecondsRef = useRef<number>(0);
   const lastActiveContentIdRef = useRef<string>(contentId);
@@ -158,8 +163,9 @@ export default function useVideoWatchTelemetry({
       const delta = currentTime - prevTime;
 
       // Only accumulate if continuous normal playback (delta > 0 and <= 2 seconds).
-      // If user jumped/seeked forward (delta > 2s) or backward (delta < 0), do not credit skipped range!
-      if (delta > 0 && delta <= 2) {
+      // Media time advances faster at higher speeds; retain the two-second continuity window.
+      // Explicit seeks still reset the baseline above, even for small jumps within this limit.
+      if (delta > 0 && delta <= continuityLimit) {
         watchedSecondsRef.current += delta;
         emitMilestone('watch_start');
       }
@@ -167,7 +173,7 @@ export default function useVideoWatchTelemetry({
       lastTimeRef.current = currentTime;
       checkMilestones(currentTime, currentDuration);
     },
-    [checkMilestones, emitMilestone, isBuffering, isPlaying]
+    [checkMilestones, continuityLimit, emitMilestone, isBuffering, isPlaying]
   );
 
   const onSeek = useCallback(() => {

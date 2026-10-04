@@ -8,6 +8,30 @@ vi.mock('@/lib/analytics/trackClient', () => ({
 }));
 
 describe('useVideoWatchTelemetry', () => {
+  it('credits continuous 2x playback with poll jitter while excluding seeks', () => {
+    const { result } = renderHook(() => useVideoWatchTelemetry({
+      contentId: 'fast-playback', contentType: 'video', pagePath: '/main/videos',
+      source: 'lokswami_video_hub', duration: 8, isPlaying: true, playbackRate: 2,
+    }));
+    act(() => {
+      result.current.onPlay();
+      result.current.onTimeUpdate(2.2, 8);
+      result.current.onTimeUpdate(4.4, 8);
+      result.current.onTimeUpdate(6.6, 8);
+      result.current.onTimeUpdate(8, 8);
+    });
+    expect(result.current.getAccumulatedWatchTime()).toBeCloseTo(8);
+    for (const event of ['watch_25', 'watch_50', 'watch_75', 'watch_complete']) {
+      expect(trackClientEvent).toHaveBeenCalledWith(expect.objectContaining({ event }));
+    }
+    act(() => {
+      result.current.onSeek();
+      result.current.onTimeUpdate(10, 40);
+      result.current.onTimeUpdate(30, 40);
+    });
+    expect(result.current.getAccumulatedWatchTime()).toBeCloseTo(8);
+  });
+
   it('gates progress and completion on provider confirmation, including failed resume', () => {
     const { result } = renderHook(() => useVideoWatchTelemetry({
       contentId: 'unconfirmed', contentType: 'video', pagePath: '/main/videos',
