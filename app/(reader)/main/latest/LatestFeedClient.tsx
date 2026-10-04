@@ -158,10 +158,10 @@ export default function LatestFeedClient({
 
   return (
     <div className="space-y-6">
-      <nav className="flex items-center gap-2 text-sm text-lokswami-text-muted">
+      <nav className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
         <span>{t.breadcrumb}</span>
-        <ChevronRight className="h-4 w-4" />
-        <span className="text-lokswami-white">{t.title}</span>
+        <ChevronRight className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+        <span className="font-semibold text-zinc-900 dark:text-zinc-100">{t.title}</span>
       </nav>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -170,8 +170,8 @@ export default function LatestFeedClient({
             <Sparkles className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="text-2xl font-bold text-lokswami-white">{t.title}</h1>
-            <p className="text-sm text-lokswami-text-secondary">
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t.title}</h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
               {sortedArticles.length} {t.countLabel} • {t.subtitle}
             </p>
           </div>
@@ -181,24 +181,24 @@ export default function LatestFeedClient({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'latest' | 'popular')}
-            className="reader-focus-ring min-h-11 min-w-[124px] rounded-lg border border-lokswami-border bg-lokswami-surface px-3 py-2 text-sm text-lokswami-white focus:border-lokswami-red sm:min-w-[140px]"
+            className="reader-focus-ring min-h-11 min-w-[124px] rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 sm:min-w-[140px]"
             data-swipe-ignore="true"
           >
             <option value="latest">{t.latest}</option>
             <option value="popular">{t.popular}</option>
           </select>
 
-          <div className="flex shrink-0 items-center rounded-lg border border-lokswami-border bg-lokswami-surface" data-swipe-ignore="true">
+          <div className="flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900" data-swipe-ignore="true">
             <button
               onClick={() => setViewMode('grid')}
-              className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-l-lg ${viewMode === 'grid' ? 'text-lokswami-red' : 'text-lokswami-text-secondary hover:text-lokswami-white'}`}
+              className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-l-lg transition-colors ${viewMode === 'grid' ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'}`}
               aria-label="Grid view"
             >
               <Grid3X3 className="h-5 w-5" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-r-lg ${viewMode === 'list' ? 'text-lokswami-red' : 'text-lokswami-text-secondary hover:text-lokswami-white'}`}
+              className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-r-lg transition-colors ${viewMode === 'list' ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'}`}
               aria-label="List view"
             >
               <List className="h-5 w-5" />
@@ -228,7 +228,7 @@ export default function LatestFeedClient({
           </div>
         )
       ) : (
-        <div className="rounded-xl border border-lokswami-border bg-lokswami-surface p-10 text-center text-lokswami-text-secondary">
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-10 text-center text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
           {t.empty}
         </div>
       )}
@@ -239,13 +239,13 @@ export default function LatestFeedClient({
             type="button"
             onClick={handleLoadMore}
             disabled={isLoadingMore}
-            className="reader-touch-button reader-focus-ring min-h-12 w-full rounded-full border border-lokswami-border bg-lokswami-surface px-8 py-3 text-lokswami-text-secondary transition-colors hover:border-lokswami-red hover:text-lokswami-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="reader-touch-button reader-focus-ring min-h-12 w-full rounded-full border border-zinc-200 bg-white px-8 py-3 text-zinc-700 shadow-sm transition-colors hover:border-brand-500 hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-brand-500/50 dark:hover:bg-brand-950/40 dark:hover:text-brand-400 sm:w-auto"
           >
             {isLoadingMore ? t.loadingMore : t.loadMore}
           </button>
         </div>
       ) : sortedArticles.length > 0 ? (
-        <p className="pt-2 text-center text-sm text-lokswami-text-secondary">{t.noMore}</p>
+        <p className="pt-2 text-center text-sm text-zinc-500 dark:text-zinc-400">{t.noMore}</p>
       ) : null}
     </div>
   );

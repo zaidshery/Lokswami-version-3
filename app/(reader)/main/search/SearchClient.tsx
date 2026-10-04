@@ -10,7 +10,7 @@ import { Search, X, TrendingUp, Clock, Filter } from 'lucide-react';
 import { categoryMatches, fetchMergedLiveArticles } from '@/lib/content/liveArticles';
 
 const TRENDING_SEARCHES: Record<'hi' | 'en', string[]> = {
-  hi: ['IPL 2026', 'Lok Sabha', 'Mausam Update', 'Gold Price'],
+  hi: ['आईपीएल 2026', 'लोकसभा', 'मौसम अपडेट', 'सोने का भाव'],
   en: ['IPL 2026', 'Lok Sabha', 'Weather Update', 'Gold Price'],
 };
 
@@ -27,7 +27,7 @@ export default function SearchClient() {
 
   const categoryOptions = useMemo(
     () => [
-      { slug: 'all', label: language === 'hi' ? 'Sabhi Categories' : 'All Categories' },
+      { slug: 'all', label: language === 'hi' ? 'सभी श्रेणियां' : 'All Categories' },
       ...NEWS_CATEGORY_DEFINITIONS.map((item) => ({
         slug: item.slug,
         label: language === 'hi' ? item.name : item.nameEn,
@@ -122,37 +122,37 @@ export default function SearchClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-lokswami-white">
-          <span className="h-8 w-1 rounded-full bg-lokswami-red" />
-          {language === 'hi' ? 'Khoj' : 'Search'}
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          <span className="h-8 w-1 rounded-full bg-brand-500" />
+          {language === 'hi' ? 'खोज' : 'Search'}
         </h1>
       </div>
 
       <form onSubmit={handleSearch} className="relative" data-swipe-ignore="true">
-        <div className="flex items-center overflow-hidden rounded-xl border border-lokswami-border bg-lokswami-surface transition-colors focus-within:border-lokswami-red">
-          <Search className="ml-4 h-5 w-5 text-lokswami-text-muted" />
+        <div className="flex items-center overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-colors focus-within:border-brand-500 dark:border-zinc-800 dark:bg-zinc-900">
+          <Search className="ml-4 h-5 w-5 text-zinc-400 dark:text-zinc-500" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={language === 'hi' ? 'Khabar khoje...' : 'Search news...'}
-            className="min-h-12 flex-1 bg-transparent px-4 py-3.5 text-lokswami-white placeholder:text-lokswami-text-muted focus:outline-none"
+            placeholder={language === 'hi' ? 'समाचार खोजें...' : 'Search news...'}
+            className="min-h-12 flex-1 bg-transparent px-4 py-3.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100 dark:placeholder:text-zinc-500"
           />
           {query ? (
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="reader-touch-button reader-focus-ring inline-flex h-12 w-12 items-center justify-center text-lokswami-text-muted hover:text-lokswami-white"
-              aria-label="Clear query"
+              className="reader-touch-button reader-focus-ring inline-flex h-12 w-12 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+              aria-label={language === 'hi' ? 'खोज साफ़ करें' : 'Clear search query'}
             >
               <X className="h-5 w-5" />
             </button>
           ) : null}
           <button
             type="submit"
-            className="reader-touch-button reader-focus-ring min-h-12 bg-lokswami-red px-5 font-medium text-white transition-colors hover:bg-lokswami-red/90 sm:px-6"
+            className="reader-touch-button reader-focus-ring min-h-12 bg-brand-500 px-5 font-semibold text-white transition-colors hover:bg-brand-600 sm:px-6"
           >
-            {language === 'hi' ? 'Khoje' : 'Search'}
+            {language === 'hi' ? 'खोजें' : 'Search'}
           </button>
         </div>
       </form>
@@ -160,7 +160,7 @@ export default function SearchClient() {
       {query ? (
         <div className="flex flex-wrap items-center gap-3" data-swipe-ignore="true">
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-lokswami-text-muted" />
+            <Filter className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
             <select
               value={selectedCategory}
               onChange={(e) => {
@@ -168,7 +168,7 @@ export default function SearchClient() {
                 setSelectedCategory(next);
                 void performSearch(query, sourceArticles, next, sortBy);
               }}
-              className="reader-focus-ring min-h-11 rounded-lg border border-lokswami-border bg-lokswami-surface px-3 py-2 text-sm text-lokswami-white focus:border-lokswami-red"
+              className="reader-focus-ring min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
             >
               {categoryOptions.map((option) => (
                 <option key={option.slug} value={option.slug}>
@@ -186,11 +186,11 @@ export default function SearchClient() {
                 setSortBy(next);
                 void performSearch(query, sourceArticles, selectedCategory, next);
               }}
-              className="reader-focus-ring min-h-11 rounded-lg border border-lokswami-border bg-lokswami-surface px-3 py-2 text-sm text-lokswami-white focus:border-lokswami-red"
+              className="reader-focus-ring min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
             >
-              <option value="relevance">{language === 'hi' ? 'Prasangikta' : 'Relevance'}</option>
-              <option value="latest">{language === 'hi' ? 'Taaza' : 'Latest'}</option>
-              <option value="popular">{language === 'hi' ? 'Lokpriya' : 'Popular'}</option>
+              <option value="relevance">{language === 'hi' ? 'प्रासंगिकता' : 'Relevance'}</option>
+              <option value="latest">{language === 'hi' ? 'ताज़ा' : 'Latest'}</option>
+              <option value="popular">{language === 'hi' ? 'लोकप्रिय' : 'Popular'}</option>
             </select>
           </div>
         </div>
@@ -199,9 +199,9 @@ export default function SearchClient() {
       {query ? (
         <div>
           <div className="mb-4 space-y-3">
-            <p className="text-lokswami-text-secondary">
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
               {language === 'hi'
-                ? `"${query}" ke liye ${searchResults.length} parinaam`
+                ? `"${query}" के लिए ${searchResults.length} परिणाम`
                 : `${searchResults.length} results for "${query}"`}
             </p>
           </div>
@@ -213,14 +213,14 @@ export default function SearchClient() {
               ))}
             </div>
           ) : (
-            <div className="py-16 text-center">
-              <Search className="mx-auto mb-4 h-16 w-16 text-lokswami-text-muted" />
-              <h3 className="mb-2 text-xl font-semibold text-lokswami-white">
-                {language === 'hi' ? 'Koi result nahi mila' : 'No results found'}
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900/60">
+              <Search className="mx-auto mb-4 h-16 w-16 text-zinc-400 dark:text-zinc-600" />
+              <h3 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+                {language === 'hi' ? 'कोई परिणाम नहीं मिला' : 'No results found'}
               </h3>
-              <p className="text-lokswami-text-secondary">
+              <p className="text-zinc-600 dark:text-zinc-400">
                 {language === 'hi'
-                  ? 'Kripya alag keyword ke saath dubara try karein.'
+                  ? 'कृपया अलग कीवर्ड के साथ पुनः प्रयास करें।'
                   : 'Please try searching with different keywords.'}
               </p>
             </div>
@@ -229,9 +229,9 @@ export default function SearchClient() {
       ) : (
         <div className="space-y-8">
           <section>
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-lokswami-white">
-              <TrendingUp className="h-5 w-5 text-lokswami-red" />
-              {language === 'hi' ? 'Trending Searches' : 'Trending Searches'}
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+              <TrendingUp className="h-5 w-5 text-brand-500" />
+              {language === 'hi' ? 'ट्रेंडिंग खोजें' : 'Trending Searches'}
             </h2>
             <div className="flex flex-wrap gap-2">
               {TRENDING_SEARCHES[language].map((term) => (
@@ -241,7 +241,7 @@ export default function SearchClient() {
                     setQuery(term);
                     void performSearch(term, sourceArticles, selectedCategory, sortBy);
                   }}
-                  className="reader-touch-button reader-focus-ring min-h-11 rounded-full bg-lokswami-surface px-4 py-2 text-sm text-lokswami-text-secondary transition-colors hover:bg-lokswami-red hover:text-lokswami-white"
+                  className="reader-touch-button reader-focus-ring min-h-11 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-brand-500 hover:bg-brand-50 hover:text-brand-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-brand-500/50 dark:hover:bg-brand-950/40 dark:hover:text-brand-400"
                 >
                   {term}
                 </button>
@@ -250,9 +250,9 @@ export default function SearchClient() {
           </section>
 
           <section>
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-lokswami-white">
-              <Clock className="h-5 w-5 text-lokswami-red" />
-              {language === 'hi' ? 'Recent Searches' : 'Recent Searches'}
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+              <Clock className="h-5 w-5 text-brand-500" />
+              {language === 'hi' ? 'हाल की खोजें' : 'Recent Searches'}
             </h2>
             <div className="space-y-2">
               {TRENDING_SEARCHES[language].slice(0, 3).map((term) => (
@@ -262,10 +262,10 @@ export default function SearchClient() {
                     setQuery(term);
                     void performSearch(term, sourceArticles, selectedCategory, sortBy);
                   }}
-                  className="reader-touch-button reader-focus-ring flex min-h-12 w-full items-center justify-between rounded-lg bg-lokswami-surface p-3 text-left transition-colors hover:bg-lokswami-black"
+                  className="reader-touch-button reader-focus-ring flex min-h-12 w-full items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/80"
                 >
-                  <span className="text-lokswami-text-secondary">{term}</span>
-                  <Clock className="h-4 w-4 text-lokswami-text-muted" />
+                  <span className="text-zinc-800 dark:text-zinc-200">{term}</span>
+                  <Clock className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
                 </button>
               ))}
             </div>
