@@ -219,18 +219,19 @@ export class VideoRepository {
     const limit = options.limit ?? 20;
     const cursorPublishedAt = options.cursorPublishedAt;
     const cursorId = options.cursorId;
+    const now = new Date();
 
     if (await isMongoAvailable({ label: 'public videos feed page' })) {
       try {
         return await cursorPage<PublicVideoItem>({
           model: Video,
-          mongoFilter: { isPublished: true },
+          mongoFilter: buildPublicVideoMongoFilter(now),
           mongoProjection: PUBLIC_VIDEO_PROJECTION,
           limit,
           dateField: 'publishedAt',
           cursorPublishedAt,
           cursorId,
-          mapItem: (raw) => toPublicVideoItem(asObject(raw)),
+          mapItem: (raw) => toPublicVideoItem(asObject(raw), { now }),
         });
       } catch (error) {
         console.error(
@@ -242,12 +243,30 @@ export class VideoRepository {
 
     const rows = await listAllStoredVideos();
     return cursorPage<PublicVideoItem>({
-      arrayItems: rows.filter((item) => isPubliclyPublishedVideo(item)),
+      arrayItems: rows.filter((item) => isPubliclyPublishedVideo(item, now)),
       limit,
       dateField: 'publishedAt',
       cursorPublishedAt,
       cursorId,
-      mapItem: (raw) => toPublicVideoItem(asObject(raw)),
+      mapItem: (raw) => toPublicVideoItem(asObject(raw), { now }),
+    });
+  }
+
+  async getPublicVideosByIds(ids: string[]): Promise<PublicVideoItem[]> {
+    const requested = new Set(ids.slice(0, 50));
+    const now = new Date();
+    let rows: PublicVideoSource[];
+    if (await isMongoAvailable({ label: 'public saved videos lookup' })) {
+      const mongoIds = [...requested].filter((id) => Types.ObjectId.isValid(id));
+      // Mongo is authoritative: private/missing records must not resurrect file copies.
+      rows = await Video.find({ ...buildPublicVideoMongoFilter(now), _id: { $in: mongoIds } })
+        .select(PUBLIC_VIDEO_PROJECTION).limit(50).lean<PublicVideoSource[]>();
+    } else {
+      rows = (await listAllStoredVideos()).filter((row) => requested.has(String(row._id)));
+    }
+    return rows.flatMap((row) => {
+      const item = toPublicVideoItem(row, { now });
+      return item && requested.has(item._id) ? [item] : [];
     });
   }
 
@@ -353,9 +372,10 @@ export class VideoRepository {
     const videoRows = limits.videos > 0 || limits.shorts > 0
       ? await listAllStoredVideos()
       : [];
+    const now = new Date();
     return {
-      rawVideos: videoRows.filter((item) => item.isPublished !== false && !item.isShort),
-      rawShorts: videoRows.filter((item) => item.isPublished !== false && Boolean(item.isShort)),
+      rawVideos: videoRows.filter((item) => !item.isShort && isPubliclyPublishedVideo(item, now)),
+      rawShorts: videoRows.filter((item) => isSwipeFeedEligibleVideo(item, now)),
     };
   }
 }

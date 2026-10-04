@@ -1,0 +1,311 @@
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot } from 'react-dom/client';
+import SwipeFeed from '@/components/swipe/SwipeFeed';
+import SwipeVideoCard from '@/components/swipe/SwipeVideoCard';
+import useSwipeAnalytics from '@/components/swipe/useSwipeAnalytics';
+import type { SwipeFeedItem } from '@/components/swipe/types';
+import { trackClientEvent } from '@/lib/analytics/trackClient';
+
+vi.mock('@/lib/analytics/trackClient', () => ({
+  trackClientEvent: vi.fn(),
+}));
+
+function createShortItem(index: number): SwipeFeedItem {
+  return {
+    _id: `short-${index}`,
+    slug: `short-slug-${index}`,
+    articleId: '',
+    title: `Short title ${index}`,
+    description: `Description ${index}`,
+    thumbnail: `/thumb-${index}.jpg`,
+    posterUrl: `/poster-${index}.jpg`,
+    videoUrl: `https://example.com/short-${index}.mp4`,
+    playbackUrl: `https://example.com/short-${index}.mp4`,
+    hlsUrl: '',
+    mediaProvider: 'spaces-mp4',
+    aspectRatio: '9:16',
+    captionUrl: '',
+    transcript: '',
+    processingStatus: 'ready',
+    instagramUrl: '',
+    youtubeUrl: '',
+    duration: 30,
+    category: 'General',
+    isShort: true,
+    isPublished: true,
+    shortsRank: index,
+    views: 10,
+    createdAt: '2026-09-01T09:00:00.000Z',
+    publishedAt: '2026-09-01T09:00:00.000Z',
+    updatedAt: '2026-09-01T09:00:00.000Z',
+  };
+}
+
+describe('SwipeFeed 3.14C Resilience & Lifecycle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockReturnValue({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })
+    );
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+  });
+
+  it('hydrates an initially offline feed without regenerating server markup', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    const element = <SwipeFeed initialItems={[createShortItem(1)]} initialArticle={null} initialHasMore={false} initialNextCursor={null} />;
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')!;
+    const container = document.createElement('div');
+    try {
+      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: undefined });
+      container.innerHTML = renderToString(element);
+    } finally { Object.defineProperty(globalThis, 'navigator', descriptor); }
+    document.body.appendChild(container);
+    // Match browser media initialization absent from JSDOM's HTML parser.
+    container.querySelectorAll('video').forEach((video) => { video.muted = video.defaultMuted; });
+    const onRecoverableError = vi.fn();
+    let root: ReturnType<typeof hydrateRoot>;
+    await act(async () => { root = hydrateRoot(container, element, { onRecoverableError }); });
+    try {
+      expect(onRecoverableError).not.toHaveBeenCalled();
+      expect(container).toHaveTextContent(/ऑफ़लाइन/);
+    } finally {
+      await act(async () => root!.unmount());
+      container.remove();
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    }
+  });
+
+  it('keeps the YouTube frame mounted across pause and mute controls and synchronizes after readiness', () => {
+    const item = { ...createShortItem(1), playbackUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' };
+    const props = { item, position: 0 as const, active: true, muted: true, paused: false, reducedMotion: false, preloadMetadata: false, onTogglePlayback: vi.fn(), onPlay: vi.fn(), onProgress: vi.fn(), onError: vi.fn() };
+    const { container, rerender } = render(<SwipeVideoCard {...props} />);
+    const iframe = container.querySelector('iframe')!;
+    const src = iframe.src;
+    const postMessage = vi.spyOn(iframe.contentWindow!, 'postMessage');
+    fireEvent.load(iframe);
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), 'https://www.youtube-nocookie.com');
+    rerender(<SwipeVideoCard {...props} paused muted={false} />);
+    expect(container.querySelector('iframe')).toBe(iframe);
+    expect(iframe.src).toBe(src);
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), 'https://www.youtube-nocookie.com');
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), 'https://www.youtube-nocookie.com');
+    rerender(<SwipeVideoCard {...props} muted={false} />);
+    postMessage.mockClear();
+    fireEvent(window, new MessageEvent('message', { origin: 'https://www.youtube-nocookie.com', source: iframe.contentWindow, data: JSON.stringify({ event: 'onReady' }) }));
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), 'https://www.youtube-nocookie.com');
+    expect(iframe.src).toBe(src);
+  });
+
+  it('renders offline pill indicator when network goes offline and removes when online', () => {
+    render(
+      <SwipeFeed
+        initialItems={[createShortItem(1), createShortItem(2)]}
+        initialArticle={null}
+        initialHasMore={false}
+        initialNextCursor={null}
+      />
+    );
+
+    expect(screen.queryByText(/इंटरनेट कनेक्शन नहीं है \(ऑफ़लाइन\)/i)).not.toBeInTheDocument();
+
+    // Trigger offline
+    act(() => {
+      fireEvent(window, new Event('offline'));
+    });
+    expect(screen.getByText(/इंटरनेट कनेक्शन नहीं है \(ऑफ़लाइन\)/i)).toBeInTheDocument();
+
+    // Trigger online
+    act(() => {
+      fireEvent(window, new Event('online'));
+    });
+    expect(screen.queryByText(/इंटरनेट कनेक्शन नहीं है \(ऑफ़लाइन\)/i)).not.toBeInTheDocument();
+  });
+
+  it('pauses playback on document background and resumes if not manually paused', () => {
+    const { container } = render(
+      <SwipeFeed
+        initialItems={[createShortItem(1), createShortItem(2)]}
+        initialArticle={null}
+        initialHasMore={false}
+        initialNextCursor={null}
+      />
+    );
+
+    const video = container.querySelector('video')!;
+    expect(video).toBeInTheDocument();
+
+    // Background tab
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      fireEvent(document, new Event('visibilitychange'));
+    });
+
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+
+    // Foreground tab
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      fireEvent(document, new Event('visibilitychange'));
+    });
+
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+  });
+
+  it('preserves manual pause across document visibility changes', async () => {
+    render(
+      <SwipeFeed
+        initialItems={[createShortItem(1), createShortItem(2)]}
+        initialArticle={null}
+        initialHasMore={false}
+        initialNextCursor={null}
+      />
+    );
+
+    // Manually pause using Space key
+    act(() => {
+      fireEvent.keyDown(window, { key: ' ' });
+    });
+
+    const playCallsBefore = vi.mocked(HTMLMediaElement.prototype.play).mock.calls.length;
+
+    // Background tab
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      fireEvent(document, new Event('visibilitychange'));
+    });
+
+    // Foreground tab
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      fireEvent(document, new Event('visibilitychange'));
+    });
+
+    // play() should NOT have been called again because user explicitly manually paused!
+    const playCallsAfter = vi.mocked(HTMLMediaElement.prototype.play).mock.calls.length;
+    expect(playCallsAfter).toBe(playCallsBefore);
+  });
+
+  it('detects Data Saver from navigator.connection.saveData when no stored preference exists', () => {
+    Object.defineProperty(navigator, 'connection', {
+      configurable: true,
+      value: { saveData: true },
+    });
+
+    render(
+      <SwipeFeed
+        initialItems={[createShortItem(1)]}
+        initialArticle={null}
+        initialHasMore={false}
+        initialNextCursor={null}
+      />
+    );
+
+    const settingsButton = screen.getByRole('button', {
+      name: 'Open Swipe settings. Data Saver is on',
+    });
+    expect(settingsButton).toBeInTheDocument();
+  });
+
+  it.each([true, false])('reapplies the stored mute default %s when navigating stories', async (muteDefault) => {
+    window.localStorage.setItem('lokswami.swipe.mute-default.v1', String(muteDefault));
+    const { container } = render(
+      <SwipeFeed initialItems={[createShortItem(1), createShortItem(2)]} initialArticle={null} initialHasMore={false} initialNextCursor={null} />
+    );
+    const activeVideo = () => container.querySelector<HTMLVideoElement>('[data-active="true"] video')!;
+    expect(activeVideo().muted).toBe(muteDefault);
+    fireEvent.click(screen.getByRole('button', { name: muteDefault ? 'Unmute video' : 'Mute video' }));
+    expect(activeVideo().muted).toBe(!muteDefault);
+    fireEvent.keyDown(window, { key: 'ArrowDown' });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Short title 2');
+    expect(activeVideo().muted).toBe(muteDefault);
+    expect(window.localStorage.getItem('lokswami.swipe.mute-default.v1')).toBe(String(muteDefault));
+    await act(async () => undefined);
+  });
+
+  it('applies stored autoplay=false preference to the initial story', () => {
+    window.localStorage.setItem('lokswami.swipe.autoplay.v1', 'false');
+
+    render(
+      <SwipeFeed
+        initialItems={[createShortItem(1)]}
+        initialArticle={null}
+        initialHasMore={false}
+        initialNextCursor={null}
+      />
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Video paused.');
+  });
+
+  it('excludes unconfirmed, paused, hidden, buffering and seek progress from watch milestones', () => {
+    const item = createShortItem(11);
+    item.duration = 40;
+    const { result, rerender } = renderHook(
+      ({ paused, playbackStarted }) => useSwipeAnalytics({ activeItem: item, paused, playbackStarted }),
+      { initialProps: { paused: false, playbackStarted: false } }
+    );
+    const progress = (from: number, to: number, playing = true) => {
+      for (let t = from; t <= to; t++) act(() => result.current.onProgress(t, 40, playing));
+    };
+    progress(1, 10);
+    rerender({ paused: false, playbackStarted: true });
+    progress(11, 20, false);
+    rerender({ paused: true, playbackStarted: true });
+    progress(21, 30);
+    rerender({ paused: false, playbackStarted: true });
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      fireEvent(document, new Event('visibilitychange'));
+    });
+    progress(31, 40);
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      fireEvent(document, new Event('visibilitychange'));
+      result.current.onProgress(100, 40);
+      result.current.onProgress(Number.NaN, 40);
+    });
+    expect(trackClientEvent).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'watch_25' }));
+    progress(101, 110);
+    expect(vi.mocked(trackClientEvent).mock.calls.filter(([event]) => event.event === 'watch_25')).toHaveLength(1);
+  });
+
+  it('drives Swipe watch milestones from confirmed onProgress rather than synthetic timer', () => {
+    const item = createShortItem(10);
+    item.duration = 40;
+    const { result } = renderHook(() =>
+      useSwipeAnalytics({
+        activeItem: item,
+        paused: false,
+        playbackStarted: true,
+      })
+    );
+
+    // Initial state does not fire watch_25
+    expect(trackClientEvent).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'watch_25' }));
+
+    // Progress 10s (25% of 40s) via onProgress ticks
+    for (let t = 1; t <= 10; t++) {
+      act(() => {
+        result.current.onProgress(t, 40);
+      });
+    }
+
+    expect(trackClientEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'watch_25',
+        metadata: expect.objectContaining({ videoId: item._id }),
+      })
+    );
+  });
+});

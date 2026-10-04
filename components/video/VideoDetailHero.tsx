@@ -35,7 +35,9 @@ export interface VideoDetailHeroProps {
     shorts?: string;
   };
   onSeek?: (seconds: number) => void;
+  onSeeking?: () => void;
   onPausedChange: (paused: boolean) => void;
+  onPlaybackChange?: (playing: boolean) => void;
   onMutedChange: (muted: boolean) => void;
   onTimeChange?: (current: number, duration: number) => void;
   onAutoAdvanceChange?: (autoAdvance: boolean) => void;
@@ -43,6 +45,7 @@ export interface VideoDetailHeroProps {
   onPlaybackRateChange: (rate: (typeof PLAYER_SPEED_OPTIONS)[number]) => void;
   onToggleWatchLater?: (videoId: string) => void;
   onAdvanceToNext: () => void;
+  onEnded?: () => void;
   onBackToList?: () => void;
   isMobileModal?: boolean;
 }
@@ -57,11 +60,14 @@ export default function VideoDetailHero({
   playbackRate,
   initialStartTime = 0,
   onPausedChange,
+  onPlaybackChange,
   onMutedChange,
   onTimeChange,
+  onSeeking,
   onCaptionsChange,
   onPlaybackRateChange,
   onAdvanceToNext,
+  onEnded,
   onBackToList,
   isMobileModal = false,
 }: VideoDetailHeroProps) {
@@ -112,11 +118,14 @@ export default function VideoDetailHero({
             isShort={selectedVideo.isShort}
             className="h-full w-full object-contain"
             onPausedChange={onPausedChange}
+            onPlaybackChange={onPlaybackChange}
             onMutedChange={onMutedChange}
+            onSeeking={onSeeking}
             onTimeChange={(current, dur) => {
               if (onTimeChange) onTimeChange(current, dur);
             }}
             onEnded={() => {
+              onEnded?.();
               if (!autoAdvance) {
                 onPausedChange(true);
                 return;

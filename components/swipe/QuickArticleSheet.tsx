@@ -27,6 +27,7 @@ export default function QuickArticleSheet({
 
   useEffect(() => {
     if (!open) return;
+    const returnFocusEl = returnFocusRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     closeRef.current?.focus();
@@ -57,7 +58,7 @@ export default function QuickArticleSheet({
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
-      returnFocusRef.current?.focus();
+      returnFocusEl?.focus();
     };
   }, [onClose, open, returnFocusRef]);
 
@@ -76,6 +77,8 @@ export default function QuickArticleSheet({
         aria-describedby="quick-article-summary"
         className="max-h-[82dvh] w-full overflow-y-auto rounded-t-[28px] bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-4 text-zinc-950 shadow-2xl dark:bg-zinc-950 dark:text-white"
         onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+        onTouchEnd={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300 dark:bg-zinc-700" />
         <div className="flex items-start justify-between gap-4">

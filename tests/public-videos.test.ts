@@ -70,6 +70,68 @@ function mockLegacyFind(rows: unknown[]) {
   findMock.mockReturnValue({ select });
 }
 
+describe('public saved video lookup', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each(['file', 'mongo'] as const)('excludes ineligible homepage rows in %s fallback', async (store) => {
+    findMock.mockImplementation(() => { throw new Error('Mongo unavailable'); });
+    const validVideo = regularRow('public-video', '2026-09-01T08:00:00Z');
+    const validShort = swipeRow();
+    const rejected = [
+      { workflow: { status: 'draft' } },
+      { workflow: { status: 'scheduled', scheduledFor: '2999-01-01T00:00:00Z' } },
+      { publishedAt: '2999-01-01T00:00:00Z' },
+      { processingStatus: 'failed' }, { processingStatus: 'processing' }, { isPublished: false },
+    ];
+    listAllStoredVideosMock.mockResolvedValue([
+      validVideo, validShort,
+      ...rejected.flatMap((values, index) => [
+        regularRow(`hidden-video-${index}`, '2026-09-01T08:00:00Z', values),
+        swipeRow({ _id: `hidden-short-${index}`, ...values }),
+      ]),
+      swipeRow({ _id: 'landscape-short', aspectRatio: '16:9' }),
+    ]);
+    const { videoRepository } = await import('@/lib/server/video/videoRepository');
+    const result = await videoRepository.getHomeFeedVideos({ videos: 6, shorts: 6 }, store);
+    expect(result.rawVideos).toEqual([validVideo]);
+    expect(result.rawShorts).toEqual([validShort]);
+  });
+
+  it('hydrates off-page file items while excluding drafts, future publications and failed processing', async () => {
+    isMongoAvailableMock.mockResolvedValue(false);
+    listAllStoredVideosMock.mockResolvedValue([
+      swipeRow(), swipeRow({ _id: 'draft', workflow: { status: 'draft' } }),
+      swipeRow({ _id: 'future', publishedAt: '2999-01-01T00:00:00Z' }),
+      swipeRow({ _id: 'failed', processingStatus: 'failed' }), swipeRow({ _id: 'unrequested' }),
+    ]);
+    const { getPublicVideosByIds } = await import('@/lib/server/publicVideos');
+    expect((await getPublicVideosByIds(['video-1', 'draft', 'future', 'failed'])).map((item) => item._id)).toEqual(['video-1']);
+  });
+
+  it('uses the public Mongo projection and does not resurrect missing/private rows from file storage', async () => {
+    isMongoAvailableMock.mockResolvedValue(true);
+    const select = vi.fn().mockReturnValue({ limit: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([]) }) });
+    findMock.mockReturnValue({ select });
+    listAllStoredVideosMock.mockResolvedValue([swipeRow()]);
+    const { getPublicVideosByIds } = await import('@/lib/server/publicVideos');
+    await expect(getPublicVideosByIds(['507f1f77bcf86cd799439011', 'video-1'])).resolves.toEqual([]);
+    expect(findMock).toHaveBeenCalledWith(expect.objectContaining({ isPublished: true, _id: { $in: ['507f1f77bcf86cd799439011'] } }));
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('workflow'));
+    expect(listAllStoredVideosMock).not.toHaveBeenCalled();
+  });
+
+  it('rechecks Mongo publication eligibility and fails closed on a Mongo query failure', async () => {
+    isMongoAvailableMock.mockResolvedValue(true);
+    const lean = vi.fn().mockResolvedValue([swipeRow({ _id: '507f1f77bcf86cd799439011', workflow: { status: 'draft' } })]);
+    findMock.mockReturnValue({ select: vi.fn().mockReturnValue({ limit: vi.fn().mockReturnValue({ lean }) }) });
+    const { getPublicVideosByIds } = await import('@/lib/server/publicVideos');
+    await expect(getPublicVideosByIds(['507f1f77bcf86cd799439011'])).resolves.toEqual([]);
+    lean.mockRejectedValueOnce(new Error('Mongo query failed'));
+    await expect(getPublicVideosByIds(['507f1f77bcf86cd799439011'])).rejects.toThrow('Mongo query failed');
+    expect(listAllStoredVideosMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('public Swipe story resolution', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -210,6 +272,27 @@ describe('public regular video feed domain boundary', () => {
     expect(page.items.map((item) => item._id)).toEqual(['file-video']);
     expect(findMock).toHaveBeenCalledTimes(1);
     expect(listAllStoredVideosMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('queries Mongo with full publication filter before cursor limit when Mongo is available', async () => {
+    isMongoAvailableMock.mockResolvedValue(true);
+    const mockQuery = {
+      select: vi.fn().mockReturnThis(),
+      sort: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue([regularRow('mongo-video', '2026-09-01T01:00:00.000Z')]),
+    };
+    findMock.mockReturnValue(mockQuery);
+    const { getPublicVideoFeedPage } = await import('@/lib/server/publicVideos');
+
+    const page = await getPublicVideoFeedPage({ limit: 10 });
+
+    expect(page.items.map((item) => item._id)).toEqual(['mongo-video']);
+    expect(findMock).toHaveBeenCalledTimes(1);
+    const mongoFilter = findMock.mock.calls[0][0];
+    expect(mongoFilter.isPublished).toBe(true);
+    expect(mongoFilter.$and).toBeDefined();
+    expect(listAllStoredVideosMock).not.toHaveBeenCalled();
   });
 });
 

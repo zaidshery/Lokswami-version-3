@@ -19,6 +19,10 @@ import type {
 export class VideoService {
   constructor(private readonly repo: VideoRepository = videoRepository) {}
 
+  async getPublicVideosByIds(ids: string[]): Promise<PublicVideoItem[]> {
+    return this.repo.getPublicVideosByIds(ids);
+  }
+
   async getPublicVideoFeedPage(
     options: PublicVideoFeedPageOptions = {}
   ): Promise<CursorPageResult<PublicVideoItem>> {
