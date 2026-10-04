@@ -123,6 +123,7 @@ export default function SwipeFeed({
       if (savedMute !== null) {
         const isMuted = savedMute === 'true';
         setMuteDefault(isMuted);
+        muteDefaultRef.current = isMuted;
         setMuted(isMuted);
       }
     } catch {
@@ -146,6 +147,8 @@ export default function SwipeFeed({
 
   const autoplayRef = useRef(autoplay);
   autoplayRef.current = autoplay;
+  const muteDefaultRef = useRef(muteDefault);
+  muteDefaultRef.current = muteDefault;
 
   // Document visibility handling (pause on background, resume if not manually paused)
   useEffect(() => {
@@ -187,6 +190,7 @@ export default function SwipeFeed({
   useEffect(() => {
     if (!activeItem) return;
     setPaused(!autoplayRef.current);
+    setMuted(muteDefaultRef.current);
     setPlaybackStarted(false);
     setPlaybackError(false);
     setSheetOpen(false);

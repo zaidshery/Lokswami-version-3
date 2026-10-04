@@ -190,6 +190,22 @@ describe('SwipeFeed 3.14C Resilience & Lifecycle', () => {
     expect(settingsButton).toBeInTheDocument();
   });
 
+  it.each([true, false])('reapplies the stored mute default %s when navigating stories', async (muteDefault) => {
+    window.localStorage.setItem('lokswami.swipe.mute-default.v1', String(muteDefault));
+    const { container } = render(
+      <SwipeFeed initialItems={[createShortItem(1), createShortItem(2)]} initialArticle={null} initialHasMore={false} initialNextCursor={null} />
+    );
+    const activeVideo = () => container.querySelector<HTMLVideoElement>('[data-active="true"] video')!;
+    expect(activeVideo().muted).toBe(muteDefault);
+    fireEvent.click(screen.getByRole('button', { name: muteDefault ? 'Unmute video' : 'Mute video' }));
+    expect(activeVideo().muted).toBe(!muteDefault);
+    fireEvent.keyDown(window, { key: 'ArrowDown' });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Short title 2');
+    expect(activeVideo().muted).toBe(muteDefault);
+    expect(window.localStorage.getItem('lokswami.swipe.mute-default.v1')).toBe(String(muteDefault));
+    await act(async () => undefined);
+  });
+
   it('applies stored autoplay=false preference to the initial story', () => {
     window.localStorage.setItem('lokswami.swipe.autoplay.v1', 'false');
 
