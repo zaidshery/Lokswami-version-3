@@ -248,6 +248,16 @@
       --reader-top-chrome-height: 8.9375rem;
     }
   }
+
+  /* Low-height viewport (e.g. mobile landscape) chrome compaction */
+  @media (max-height: 500px) {
+    :root {
+      --reader-top-chrome-height: 3.5rem;
+    }
+    .reader-secondary-chrome {
+      display: none !important;
+    }
+  }
   
   /* Safe area for notched phones */
   .pb-safe {

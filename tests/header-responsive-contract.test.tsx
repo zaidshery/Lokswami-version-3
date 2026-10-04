@@ -105,7 +105,9 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(toggle).toHaveAttribute('aria-pressed', 'false');
       expect(toggle.querySelector('svg')).toBeInTheDocument();
       expect(toggle.className).toContain('h-11');
-      expect(toggle.className).toContain('w-[42px]');
+      expect(toggle.className).toContain('w-11');
+      expect(toggle.className).toContain('min-w-[44px]');
+      expect(toggle.className).toContain('min-h-[44px]');
     });
 
     it('uses the canonical proportional wordmark and compact mobile E-Paper action', () => {

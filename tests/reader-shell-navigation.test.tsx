@@ -219,11 +219,12 @@ describe('Phase 3.3: Reader Shell & Navigation Contracts', () => {
 
     it('provides >=44x44 voice toggle target', () => {
       render(<BreakingNews />);
-      const voiceButtons = screen.queryAllByRole('button', { name: /वॉइस/i });
-      if (voiceButtons.length > 0) {
-        expect(voiceButtons[0].className).toContain('min-h-[44px]');
-        expect(voiceButtons[0].className).toContain('min-w-[44px]');
-      }
+      const voiceButton = screen.getByRole('button', { name: /breaking news voice|वॉइस/i });
+      expect(voiceButton).toBeInTheDocument();
+      expect(voiceButton.className).toContain('after:h-11');
+      expect(voiceButton.className).toContain('after:w-11');
+      expect(voiceButton.className).toContain('after:min-h-[44px]');
+      expect(voiceButton.className).toContain('after:min-w-[44px]');
     });
   });
 
