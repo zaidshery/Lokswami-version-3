@@ -77,19 +77,37 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
   });
 
   describe('Canonical Viewport Definitions', () => {
-    it('defines all 9 canonical viewports required by Phase 3 specification', () => {
-      const expectedWidths = [360, 375, 390, 412, 430, 768, 820, 1024, 1440];
-      const actualWidths = CANONICAL_VIEWPORTS.map((v: { width: number }) => v.width);
+    it('defines all canonical viewports required by Phase 3 specification including 320px narrow and 844x390 landscape (ISSUE-MOB-09)', () => {
+      const requiredPairs = [
+        { width: 320, height: 740 },
+        { width: 360, height: 800 },
+        { width: 375, height: 812 },
+        { width: 390, height: 844 },
+        { width: 412, height: 915 },
+        { width: 430, height: 932 },
+        { width: 768, height: 1024 },
+        { width: 820, height: 1180 },
+        { width: 844, height: 390 },
+        { width: 1024, height: 768 },
+        { width: 1440, height: 900 },
+      ];
 
-      expect(actualWidths).toEqual(expectedWidths);
+      for (const req of requiredPairs) {
+        const found = CANONICAL_VIEWPORTS.find(
+          (v: { width: number; height: number }) => v.width === req.width && v.height === req.height
+        );
+        expect(found, `Expected canonical viewport ${req.width}x${req.height} to be defined`).toBeDefined();
+      }
     });
 
-    it('provides valid dimensions and labels for each viewport', () => {
+    it('provides valid dimensions, labels, and types (portrait/landscape/tablet/desktop) for each viewport', () => {
+      const validTypes = new Set(['portrait', 'landscape', 'tablet', 'desktop']);
       for (const vp of CANONICAL_VIEWPORTS) {
         expect(vp.width).toBeGreaterThan(0);
         expect(vp.height).toBeGreaterThan(0);
         expect(typeof vp.label).toBe('string');
         expect(vp.label.length).toBeGreaterThan(0);
+        expect(validTypes.has(vp.type)).toBe(true);
       }
     });
   });
@@ -165,8 +183,8 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
       // - route
       expect(stdout).toMatch(/Route:\s+\/main/i);
       // - viewport
-      expect(stdout).toMatch(/Viewport:\s+390px/i);
-      expect(stdout).toMatch(/Viewport:\s+1440px/i);
+      expect(stdout).toMatch(/Viewport:\s+390[×x]/i);
+      expect(stdout).toMatch(/Viewport:\s+1440[×x]/i);
       // - load result
       expect(stdout).toMatch(/Load:\s+HTTP 200/i);
       // - browser console/page errors
@@ -179,7 +197,7 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
       expect(stdout).toMatch(/Overflow:\s+None/i);
 
       // Summary verification
-      expect(stdout).toMatch(/Responsive QA Summary:\s+9\/9 PASSED/i);
+      expect(stdout).toMatch(new RegExp(`Responsive QA Summary:\\s+${CANONICAL_VIEWPORTS.length}\\/${CANONICAL_VIEWPORTS.length} PASSED`, 'i'));
       expect(stdout).toMatch(/PASS: All canonical viewports validated with zero horizontal overflow/i);
     }, 120000);
 
@@ -192,11 +210,13 @@ describe('B3 Development Accelerator v1 — Responsive QA Runner Validation', ()
       });
 
       expect(totalFailures).toBe(0);
-      expect(results.length).toBe(9);
+      expect(results.length).toBe(CANONICAL_VIEWPORTS.length);
 
       for (const item of results) {
         expect(item.route).toBe('/main');
         expect(typeof item.viewport).toBe('number');
+        expect(typeof item.height).toBe('number');
+        expect(typeof item.type).toBe('string');
         expect(item.status).toBe(200);
         expect(item.loadResult).toBe('HTTP 200');
         expect(item.passed).toBe(true);

@@ -28,15 +28,19 @@ const projectRoot = path.resolve(__dirname, '..', '..');
 const artifactsDir = path.join(projectRoot, 'artifacts', 'phase3-qa');
 
 const CANONICAL_VIEWPORTS = [
-  { width: 360, height: 800, label: 'Compact Android' },
-  { width: 375, height: 667, label: 'Compact iOS' },
-  { width: 390, height: 844, label: 'Baseline Mobile (iPhone 12/13/14/15)' },
-  { width: 412, height: 915, label: 'Modern Android' },
-  { width: 430, height: 932, label: 'Large Mobile (iPhone Plus/Max)' },
-  { width: 768, height: 1024, label: 'Portrait Tablet (iPad)' },
-  { width: 820, height: 1180, label: 'Mid Tablet (iPad Air)' },
-  { width: 1024, height: 1366, label: 'Landscape Tablet / Small Laptop' },
-  { width: 1440, height: 900, label: 'Standard Desktop' },
+  { width: 320, height: 740, label: 'Narrow Mobile', type: 'portrait' },
+  { width: 360, height: 800, label: 'Compact Android', type: 'portrait' },
+  { width: 375, height: 667, label: 'Compact iOS SE', type: 'portrait' },
+  { width: 375, height: 812, label: 'Compact iOS Mini (X/12/13 mini)', type: 'portrait' },
+  { width: 390, height: 844, label: 'Baseline Mobile (iPhone 12/13/14/15)', type: 'portrait' },
+  { width: 412, height: 915, label: 'Modern Android (Pixel/Galaxy)', type: 'portrait' },
+  { width: 430, height: 932, label: 'Large Mobile (iPhone Plus/Max)', type: 'portrait' },
+  { width: 768, height: 1024, label: 'Portrait Tablet (iPad)', type: 'tablet' },
+  { width: 820, height: 1180, label: 'Mid Tablet (iPad Air)', type: 'tablet' },
+  { width: 844, height: 390, label: 'Short Mobile Landscape (iPhone)', type: 'landscape' },
+  { width: 1024, height: 768, label: 'Landscape Tablet (iPad)', type: 'landscape' },
+  { width: 1024, height: 1366, label: 'Portrait Large Tablet (iPad Pro)', type: 'tablet' },
+  { width: 1440, height: 900, label: 'Standard Desktop Reference', type: 'desktop' },
 ];
 
 function parseCliArgs() {
@@ -121,9 +125,13 @@ async function launchBrowser() {
     return await chromium.launch({ headless: true });
   } catch (err) {
     try {
-      return await chromium.launch({ channel: 'msedge', headless: true });
+      return await chromium.launch({ channel: 'chrome', headless: true });
     } catch {
-      throw err;
+      try {
+        return await chromium.launch({ channel: 'msedge', headless: true });
+      } catch {
+        throw err;
+      }
     }
   }
 }
@@ -260,7 +268,7 @@ async function runResponsiveQA(customOptions = {}) {
         const errorSummaryText = `console: ${consoleErrors.length}, page: ${pageErrors.length}`;
 
         console.log(
-          `${statusTag} Route: ${route} | Viewport: ${String(vp.width).padStart(4)}px (${vp.label.padEnd(20)}) | ` +
+          `${statusTag} Route: ${route} | Viewport: ${String(vp.width).padStart(4)}×${String(vp.height).padEnd(4)} [${(vp.type || 'unknown').padEnd(9)}] (${vp.label.padEnd(25)}) | ` +
           `Load: ${loadResultText} | Errors (${errorSummaryText}) | ` +
           `innerWidth: ${metrics.innerWidth}px | scrollWidth: ${metrics.scrollWidth}px | ` +
           `Overflow: ${overflowText}`
@@ -280,6 +288,8 @@ async function runResponsiveQA(customOptions = {}) {
         results.push({
           route,
           viewport: vp.width,
+          height: vp.height,
+          type: vp.type,
           label: vp.label,
           status: httpStatus,
           loadResult: loadResultText,
