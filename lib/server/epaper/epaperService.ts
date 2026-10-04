@@ -1,9 +1,8 @@
 import 'server-only';
 
 import { getCitySlugFromName } from '@/lib/constants/epaperCities';
-import { resolveReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
+import { isReleasedEpaperIssue, resolveReleasedEpaperStory } from '@/lib/content/epaperStoryPublication';
 import { normalizeEPaperPublicationType } from '@/lib/types/epaper';
-import { isValidEpaperHotspot } from '@/lib/utils/epaperHotspotGeometry';
 import { buildPublicationReaderPath } from '@/lib/utils/readerContentPaths';
 import {
   buildDigitalOceanSpacesRawAssetUrl,
@@ -28,15 +27,6 @@ import {
   type PublicEpaperFeedItem,
   type PublicEpaperListInput,
 } from './epaperTypes';
-
-function toSlug(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'story';
-}
-
-function toFraction(value: unknown) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? Math.min(1, Math.max(0, numeric / 100)) : 0;
-}
 
 function mapPublicArticle(value: unknown) {
   const source = asObject(value);
@@ -104,7 +94,7 @@ export class EpaperService {
 
   async getPublicEditionDetail(id: string, publicationType: 'epaper' | 'emagazine', pageNumber?: number) {
     const result = await this.repo.findPublicEdition(id, publicationType);
-    if (!result.edition) {
+    if (!result.edition || !isReleasedEpaperIssue(asObject(result.edition))) {
       throw new EpaperNotFoundError(result.store === 'file' && publicationType === 'emagazine' ? 'E-magazine not found' : 'E-paper not found');
     }
 
@@ -116,20 +106,9 @@ export class EpaperService {
         pageNumber: index + 1, imagePath: '', width: undefined, height: undefined,
       }));
       const hotspots = Array.isArray(source.articleHotspots) ? source.articleHotspots.map(asObject) : [];
-      const filtered = pageNumber ? hotspots.filter((item) => Number(item.page) === pageNumber) : hotspots;
-      const articles = filtered.map((item, index) => {
-        const title = String(item.title || '').trim();
-        return {
-          _id: `${String(source._id)}-${String(item.id || index + 1)}`,
-          epaperId: String(source._id),
-          pageNumber: toPositiveInt(item.page, 1),
-          title: title || `Story ${index + 1}`,
-          slug: toSlug(title || `story-${index + 1}`),
-          excerpt: String(item.text || '').trim(), contentHtml: '', coverImagePath: '',
-          hotspot: { x: toFraction(item.x), y: toFraction(item.y), w: Math.max(toFraction(item.width), 0.0001), h: Math.max(toFraction(item.height), 0.0001) },
-          createdAt: source.publishedAt, updatedAt: source.updatedAt,
-        };
-      });
+      const articles = hotspots.map((item, index) => resolveReleasedEpaperStory({
+        ...item, _id: `${String(source._id)}-${String(item.id || index + 1)}`, epaperId: String(source._id),
+      })).filter(Boolean).map(mapPublicArticle).filter((story) => !pageNumber || story.pageNumber === pageNumber);
       return {
         _id: String(source._id), citySlug: getCitySlugFromName(String(source.city || '')),
         cityName: String(source.city || ''), title: String(source.title || ''), publicationType: 'epaper' as const,
@@ -149,23 +128,7 @@ export class EpaperService {
       const released = asObject(source.releasedSnapshot);
       return Number(released.pageNumber || source.pageNumber) === pageNumber;
     }) : result.articles;
-    const articles = records.map((record) => {
-      const released = resolveReleasedEpaperStory(asObject(record));
-      if (released) return released;
-      const source = asObject(record);
-      const hotspot = asObject(source.hotspot);
-      if (!source.title || !isValidEpaperHotspot({
-        x: Number(hotspot.x), y: Number(hotspot.y),
-        w: Number(hotspot.w), h: Number(hotspot.h),
-      })) return null;
-      const currentPage = toPositiveInt(source.pageNumber, 1);
-      return {
-        ...source,
-        pageNumber: currentPage,
-        pageImagePath: pages.find((page) => page.pageNumber === currentPage)?.imagePath || '',
-        releaseVersion: 1,
-      };
-    }).filter(Boolean).map(mapPublicArticle);
+    const articles = records.map((record) => resolveReleasedEpaperStory(asObject(record))).filter(Boolean).map(mapPublicArticle);
 
     return {
       _id: String(edition._id), citySlug: String(edition.citySlug || ''), cityName: String(edition.cityName || ''),

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { Types, type ClientSession } from 'mongoose';
+import { isReleasedEpaperIssue } from '@/lib/content/epaperStoryPublication';
 import connectDB from '@/lib/db/mongoose';
 import { isMongoAvailable, reportMongoUnavailable } from '@/lib/db/mongoAvailability';
 import EPaper, { EPAPER_ACTIVE_DRAFT_INDEX } from '@/lib/models/EPaper';
@@ -83,6 +84,7 @@ function filterStoredRows(input: PublicEpaperListInput | PublicEpaperFeedInput) 
     const cityName = input.filters.citySlug ? getCityNameFromSlug(input.filters.citySlug) : '';
     const date = input.filters.parsedDate ? input.filters.parsedDate.toISOString().slice(0, 10) : '';
     return rows.filter((row) => {
+      if (!isReleasedEpaperIssue(asObject(row))) return false;
       if (cityName && row.city !== cityName) return false;
       if (date && row.publishDate !== date) return false;
       if (!date && input.filters.month && !String(row.publishDate || '').startsWith(`${input.filters.month}-`)) return false;
@@ -274,6 +276,7 @@ export class EpaperRepository {
         mongoFilter: buildPublicEpaperMongoQuery(input.filters, {
           status: 'published',
           isCurrentRevision: { $ne: false },
+          $and: [{ publishDate: { $lte: new Date() } }, { $or: [{ publishedAt: null }, { publishedAt: { $lte: new Date() } }] }],
         }),
         mongoProjection: PUBLIC_PROJECTION,
         limit: input.limit,
@@ -309,9 +312,9 @@ export class EpaperRepository {
       const query = buildPublicEpaperMongoQuery(input.filters, {
         status: 'published',
         isCurrentRevision: { $ne: false },
+        $and: [{ publishDate: { $lte: new Date() } }, { $or: [{ publishedAt: null }, { publishedAt: { $lte: new Date() } }] }],
       });
       const total = await EPaper.countDocuments(query);
-      if (total === 0 && storedRows.length > 0) return fileResult;
       const records = await EPaper.find(query)
         .sort({ publishDate: -1, createdAt: -1 })
         .skip(start)

@@ -13,6 +13,17 @@ import {
 import type { PublicArticleResolution } from '@/lib/server/publicArticles';
 import { buildArticleRedirectPath } from '@/lib/seo/articleSeo';
 import type { Article } from '@/lib/mock/data';
+import type { Metadata } from 'next';
+import { loadPublicationArticleReader } from '@/lib/server/epaper/epaperArticleReader';
+
+export async function generateMetadata({ params, searchParams }: ArticleDetailPageProps): Promise<Metadata> {
+  const query = searchParams ? await searchParams : {};
+  if (!query.paper) return {};
+  const { id } = await params;
+  const data = await loadPublicationArticleReader(id, query);
+  if (!data) return { robots: { index: false, follow: false }, title: 'Story unavailable' };
+  return { title: data.article.title, description: data.article.summary, alternates: { canonical: data.articlePath }, robots: { index: false, follow: true }, openGraph: { title: data.article.title, description: data.article.summary, url: data.articlePath } };
+}
 
 type ArticleDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -81,6 +92,12 @@ async function loadResolvedArticleDetailPageData(
 
 export default async function ArticleDetailPage({ params, searchParams }: ArticleDetailPageProps) {
   const { id } = await params;
+  const query = searchParams ? await searchParams : {};
+  if (query.paper) {
+    const data = await loadPublicationArticleReader(id, query);
+    if (!data) notFound();
+    return <ArticleDetailClient article={data.article} relatedArticles={[]} publicationContext={{ returnPath: data.returnPath, articlePath: data.articlePath, issueTitle: data.issueTitle }} />;
+  }
   const resolution = await resolvePublicArticleToken(id);
   if (resolution.kind === 'missing') notFound();
   if (resolution.kind === 'ambiguous' || resolution.kind === 'unavailable') {

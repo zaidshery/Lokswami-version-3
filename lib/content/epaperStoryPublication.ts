@@ -1,6 +1,13 @@
 import type { EPaperArticleHotspot } from '@/lib/types/epaper';
 import { isValidEpaperHotspot } from '@/lib/utils/epaperHotspotGeometry';
 
+export function isReleasedEpaperIssue(source: Record<string, unknown>) {
+  if (!Object.keys(source).length || (source.status != null && source.status !== 'published') || source.isPublished === false || source.isCurrentRevision === false) return false;
+  const date = Date.parse(String(source.publishDate || source.publishedAt || ''));
+  const releasedAt = source.publishedAt ? Date.parse(String(source.publishedAt)) : date;
+  return Number.isFinite(date) && date <= Date.now() && Number.isFinite(releasedAt) && releasedAt <= Date.now();
+}
+
 export interface ReleasedEpaperStory {
   title: string;
   slug: string;

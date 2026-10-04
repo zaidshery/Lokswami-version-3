@@ -1,9 +1,10 @@
 'use client';
 
-import React, { memo, useEffect, useRef } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Newspaper } from 'lucide-react';
 import type { EPaperArticleRecord } from '@/lib/types/epaper';
+import styles from './reader.module.css';
 
 export interface PageStripItem {
   pageNumber: number;
@@ -18,6 +19,8 @@ export interface EPaperPageStripProps {
   onSelectPage: (pageNumber: number) => void;
   isOpen?: boolean;
   className?: string;
+  companionPage?: number;
+  onReturnToReading?: () => void;
 }
 
 /**
@@ -30,9 +33,12 @@ function EPaperPageStripComponent({
   onSelectPage,
   isOpen = true,
   className = '',
+  companionPage,
+  onReturnToReading,
 }: EPaperPageStripProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const activeThumbnailRef = useRef<HTMLButtonElement | null>(null);
+  const [failedImages, setFailedImages] = useState<string[]>([]);
 
   // Auto-scroll to center active page thumbnail
   useEffect(() => {
@@ -41,28 +47,33 @@ function EPaperPageStripComponent({
       scrollContainerRef.current
     ) {
       activeThumbnailRef.current.scrollIntoView({
-        behavior: 'smooth',
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
         block: 'nearest',
         inline: 'center',
       });
     }
   }, [activePage, isOpen]);
 
-  if (!isOpen || pages.length === 0) return null;
+  if (pages.length === 0) return null;
 
   return (
     <nav
       aria-label="Page navigation thumbnails"
-      className={`border-t border-zinc-200/90 bg-white/95 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 sm:rounded-b-2xl ${className}`}
+      id="publication-page-thumbnails"
+      hidden={!isOpen}
+      className={`${styles.controls} shrink-0 border-t border-zinc-200/90 bg-white/95 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 sm:rounded-b-2xl ${className}`}
     >
+      {isOpen ? <>
+      {onReturnToReading ? <div className={`${styles.stripHeading} flex items-center justify-between px-4 pt-1 text-xs text-zinc-500`}><span>Choose a page</span><button type="button" onClick={onReturnToReading} className="min-h-11 rounded-lg px-2 font-semibold text-red-700 dark:text-red-300 sm:min-h-8">Return to reading</button></div> : null}
       <div
         ref={scrollContainerRef}
         tabIndex={0}
         aria-label="Page thumbnails list"
-        className="flex items-center gap-3 overflow-x-auto px-4 py-2.5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700"
+        className={`${styles.stripList} flex items-center gap-3 overflow-x-auto px-4 py-2.5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700`}
       >
         {pages.map((page) => {
           const isActive = page.pageNumber === activePage;
+          const inSpread = isActive || page.pageNumber === companionPage;
           const storyCount = page.storyCount ?? (page.articles?.length || 0);
 
           return (
@@ -73,22 +84,24 @@ function EPaperPageStripComponent({
               onClick={() => onSelectPage(page.pageNumber)}
               aria-label={`Jump to page ${page.pageNumber}`}
               aria-current={isActive ? 'page' : undefined}
-              className={`group relative flex shrink-0 flex-col items-center rounded-lg border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                isActive
-                  ? 'border-orange-500 shadow-md shadow-orange-500/20'
+              aria-pressed={inSpread}
+              className={`group relative flex shrink-0 flex-col items-center rounded-lg border-2 transition-colors duration-200 ${
+                inSpread
+                  ? 'border-red-600 shadow-md shadow-red-600/10'
                   : 'border-transparent hover:border-zinc-300 dark:hover:border-zinc-700'
               }`}
             >
               {/* Thumbnail Container */}
-              <div className="relative h-20 w-14 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800 sm:h-24 sm:w-16">
-                {page.imagePath ? (
+              <div className={`${styles.thumbnailImage} relative h-20 w-14 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800 sm:h-24 sm:w-16`}>
+                {page.imagePath && !failedImages.includes(page.imagePath) ? (
                   <Image
                     src={page.imagePath}
                     alt={`Page ${page.pageNumber}`}
                     fill
                     sizes="64px"
-                    className="object-cover transition-transform duration-200 group-hover:scale-105"
-                    quality={50}
+                    className="object-contain"
+                    quality={55}
+                    onError={() => setFailedImages((failed) => [...failed, page.imagePath!])}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-zinc-400 dark:text-zinc-500">
@@ -107,8 +120,8 @@ function EPaperPageStripComponent({
               {/* Page Number Label */}
               <span
                 className={`mt-1 text-[11px] font-semibold ${
-                  isActive
-                    ? 'text-orange-600 dark:text-orange-400'
+                  inSpread
+                    ? 'text-red-700 dark:text-red-300'
                     : 'text-zinc-600 dark:text-zinc-400'
                 }`}
               >
@@ -118,6 +131,7 @@ function EPaperPageStripComponent({
           );
         })}
       </div>
+      </> : null}
     </nav>
   );
 }
