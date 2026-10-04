@@ -125,12 +125,26 @@ function buildSocialEmbedMarkup(platform: string, input: string) {
 </aside>`.trim();
 }
 
+function wrapTables(html: string) {
+  if (!/<table\b/i.test(html)) return html;
+
+  return html.replace(
+    /(<div\b[^>]*\bclass=(?:'[^']*article-table-wrap[^']*'|"[^"]*article-table-wrap[^"]*")[^>]*>[\s\S]*?<\/div>)|(<table\b[\s\S]*?<\/table>)/gi,
+    (match, alreadyWrapped, rawTable) => {
+      if (alreadyWrapped) return alreadyWrapped;
+      const content = rawTable || match;
+      return `<div class="article-table-wrap" data-swipe-ignore="true" tabindex="0" role="region" aria-label="Table">${content}</div>`;
+    }
+  );
+}
+
 export function renderArticleRichContent(rawContent: string) {
   const source = rawContent.trim();
   if (!source) return '';
 
   let html = HTML_TAG_PATTERN.test(source) ? source : toParagraphHtml(source);
   html = sanitizeInputHtml(html);
+  html = wrapTables(html);
 
   html = html.replace(
     YOUTUBE_LINK_PATTERN,
