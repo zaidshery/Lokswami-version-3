@@ -35,6 +35,26 @@ describe('Video Hub provider-confirmed telemetry', () => {
   });
   afterEach(() => { delete window.YT; vi.restoreAllMocks(); });
 
+  it('reports confirmed completion even with auto-advance disabled', async () => {
+    const { container } = mount();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Autoplay next' }));
+    const video = container.querySelector('video')!;
+    fireEvent.ended(video);
+    expect(vi.mocked(trackClientEvent).mock.calls.filter(([event]) => event.event === 'watch_complete')).toHaveLength(0);
+    vi.mocked(HTMLMediaElement.prototype.play).mockResolvedValue();
+    fireEvent.playing(video);
+    Object.defineProperty(video, 'duration', { configurable: true, value: 2 });
+    video.currentTime = 0;
+    fireEvent.timeUpdate(video);
+    video.currentTime = 1;
+    fireEvent.timeUpdate(video);
+    video.currentTime = 2;
+    fireEvent.ended(video);
+    expect(vi.mocked(trackClientEvent).mock.calls.filter(([event]) => event.event === 'watch_complete')).toHaveLength(1);
+    expect(window.location.pathname).toBe('/main/videos');
+  });
+
   it('does not count rejected Play, play events, or source errors', async () => {
     const { container } = mount();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument());
@@ -68,11 +88,13 @@ describe('Video Hub provider-confirmed telemetry', () => {
   });
 
   it('requires the current YouTube API player PLAYING event and ignores raw forged messages', async () => {
+    const pollSpy = vi.spyOn(window, 'setInterval');
+    let providerTime = 0;
     type Namespace = NonNullable<typeof window.YT>;
     let events: ConstructorParameters<Namespace['Player']>[1]['events'];
     const player = {
-      destroy: vi.fn(), getAvailablePlaybackRates: () => [1], getCurrentTime: () => 0,
-      getDuration: () => 100, getPlaybackRate: () => 1, mute: vi.fn(), pauseVideo: vi.fn(),
+      destroy: vi.fn(), getAvailablePlaybackRates: () => [1], getCurrentTime: () => providerTime,
+      getDuration: () => 2, getPlaybackRate: () => 1, mute: vi.fn(), pauseVideo: vi.fn(),
       playVideo: vi.fn(), seekTo: vi.fn(), setPlaybackRate: vi.fn(), setVolume: vi.fn(), unMute: vi.fn(),
     };
     window.YT = {
@@ -83,6 +105,7 @@ describe('Video Hub provider-confirmed telemetry', () => {
     };
     const { container } = mount('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     await waitFor(() => expect(events!).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Autoplay next' }));
     act(() => events!.onReady({ target: player, data: undefined }));
     expect(player.playVideo).toHaveBeenCalled();
     expect(starts()).toHaveLength(0);
@@ -102,5 +125,13 @@ describe('Video Hub provider-confirmed telemetry', () => {
       events!.onStateChange({ target: player, data: 1 });
     });
     expect(starts()).toHaveLength(1);
+    const poll = pollSpy.mock.calls.find(([, interval]) => interval === 1000)![0] as () => void;
+    act(() => poll());
+    providerTime = 1;
+    act(() => poll());
+    expect(vi.mocked(trackClientEvent).mock.calls.filter(([event]) => event.event === 'watch_complete')).toHaveLength(0);
+    providerTime = 2;
+    act(() => events!.onStateChange({ target: player, data: 0 }));
+    expect(vi.mocked(trackClientEvent).mock.calls.filter(([event]) => event.event === 'watch_complete')).toHaveLength(1);
   });
 });

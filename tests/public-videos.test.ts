@@ -73,6 +73,30 @@ function mockLegacyFind(rows: unknown[]) {
 describe('public saved video lookup', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it.each(['file', 'mongo'] as const)('excludes ineligible homepage rows in %s fallback', async (store) => {
+    findMock.mockImplementation(() => { throw new Error('Mongo unavailable'); });
+    const validVideo = regularRow('public-video', '2026-09-01T08:00:00Z');
+    const validShort = swipeRow();
+    const rejected = [
+      { workflow: { status: 'draft' } },
+      { workflow: { status: 'scheduled', scheduledFor: '2999-01-01T00:00:00Z' } },
+      { publishedAt: '2999-01-01T00:00:00Z' },
+      { processingStatus: 'failed' }, { processingStatus: 'processing' }, { isPublished: false },
+    ];
+    listAllStoredVideosMock.mockResolvedValue([
+      validVideo, validShort,
+      ...rejected.flatMap((values, index) => [
+        regularRow(`hidden-video-${index}`, '2026-09-01T08:00:00Z', values),
+        swipeRow({ _id: `hidden-short-${index}`, ...values }),
+      ]),
+      swipeRow({ _id: 'landscape-short', aspectRatio: '16:9' }),
+    ]);
+    const { videoRepository } = await import('@/lib/server/video/videoRepository');
+    const result = await videoRepository.getHomeFeedVideos({ videos: 6, shorts: 6 }, store);
+    expect(result.rawVideos).toEqual([validVideo]);
+    expect(result.rawShorts).toEqual([validShort]);
+  });
+
   it('hydrates off-page file items while excluding drafts, future publications and failed processing', async () => {
     isMongoAvailableMock.mockResolvedValue(false);
     listAllStoredVideosMock.mockResolvedValue([

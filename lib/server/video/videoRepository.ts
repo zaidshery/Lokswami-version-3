@@ -372,9 +372,10 @@ export class VideoRepository {
     const videoRows = limits.videos > 0 || limits.shorts > 0
       ? await listAllStoredVideos()
       : [];
+    const now = new Date();
     return {
-      rawVideos: videoRows.filter((item) => item.isPublished !== false && !item.isShort),
-      rawShorts: videoRows.filter((item) => item.isPublished !== false && Boolean(item.isShort)),
+      rawVideos: videoRows.filter((item) => !item.isShort && isPubliclyPublishedVideo(item, now)),
+      rawShorts: videoRows.filter((item) => isSwipeFeedEligibleVideo(item, now)),
     };
   }
 }

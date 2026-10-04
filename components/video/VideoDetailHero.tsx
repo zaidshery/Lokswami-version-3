@@ -45,6 +45,7 @@ export interface VideoDetailHeroProps {
   onPlaybackRateChange: (rate: (typeof PLAYER_SPEED_OPTIONS)[number]) => void;
   onToggleWatchLater?: (videoId: string) => void;
   onAdvanceToNext: () => void;
+  onEnded?: () => void;
   onBackToList?: () => void;
   isMobileModal?: boolean;
 }
@@ -66,6 +67,7 @@ export default function VideoDetailHero({
   onCaptionsChange,
   onPlaybackRateChange,
   onAdvanceToNext,
+  onEnded,
   onBackToList,
   isMobileModal = false,
 }: VideoDetailHeroProps) {
@@ -123,6 +125,7 @@ export default function VideoDetailHero({
               if (onTimeChange) onTimeChange(current, dur);
             }}
             onEnded={() => {
+              onEnded?.();
               if (!autoAdvance) {
                 onPausedChange(true);
                 return;

@@ -422,6 +422,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                 return;
               }
 
+              if (event.data === youtube.PlayerState.ENDED) {
+                callbacksRef.current.onTimeChange(
+                  Math.max(0, event.target.getCurrentTime() || 0),
+                  Math.max(0, event.target.getDuration() || fallbackDuration)
+                );
+                callbacksRef.current.onEnded();
+              }
               callbacksRef.current.onPlaybackChange?.(false);
 
               if (event.data === youtube.PlayerState.PAUSED) {
@@ -429,9 +436,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                 return;
               }
 
-              if (event.data === youtube.PlayerState.ENDED) {
-                callbacksRef.current.onEnded();
-              }
             },
           },
         });
@@ -723,7 +727,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
 
         {isOffline && (
           <div
-            className="absolute inset-0 z-35 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
+            className="absolute inset-0 z-[35] flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
             role="status"
           >
             <p className="text-sm font-semibold text-amber-300">
@@ -800,7 +804,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               onPlaybackRateChange(event.currentTarget.playbackRate);
             }
           }}
-          onEnded={() => {
+          onEnded={(event) => {
+            onTimeChange(event.currentTarget.currentTime, event.currentTarget.duration || fallbackDuration);
             if (!autoAdvance) {
               onPausedChange(true);
             }
@@ -837,7 +842,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       {/* Offline Alert Overlay */}
       {isOffline && (
         <div
-          className="absolute inset-0 z-35 flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
+          className="absolute inset-0 z-[35] flex flex-col items-center justify-center bg-black/85 p-6 text-center text-white backdrop-blur-sm"
           role="status"
         >
           <p className="text-sm font-semibold text-amber-300">

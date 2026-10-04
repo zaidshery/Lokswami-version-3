@@ -343,11 +343,10 @@ export default function VideosPageClient({
   }, [availableVideos, videos]);
 
   const advanceToNext = useCallback(() => {
-    watchTelemetry.onEnded();
     if (queueVideos.length > 0) {
       handleSelectVideo(queueVideos[0].id);
     }
-  }, [handleSelectVideo, queueVideos, watchTelemetry]);
+  }, [handleSelectVideo, queueVideos]);
 
   // Tab visibility: pause on background, resume only if not manually paused
   useEffect(() => {
@@ -490,6 +489,7 @@ export default function VideosPageClient({
                     onPlaybackRateChange={setPlaybackRate}
                     onToggleWatchLater={toggleWatchLater}
                     onAdvanceToNext={advanceToNext}
+                    onEnded={watchTelemetry.onEnded}
                   />
 
                   {/* Selected Video Information & Action Controls */}
