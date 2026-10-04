@@ -81,10 +81,6 @@ import {
   type SavedEpaperStoryEntry,
 } from '@/lib/utils/epaperReaderLibrary';
 import {
-  resolveEpaperPreviewMaxZoom,
-  resolveEpaperTouchPreviewMaxZoom,
-} from '@/lib/utils/epaperPageImage';
-import {
   type EPaperCityFilter,
 } from '@/lib/utils/publicEpaperFilters';
 import type {
@@ -403,6 +399,7 @@ const EPAPER_LAST_PAGE_STORAGE_KEY = 'lokswami_epaper_last_page_v1';
 const EPAPER_ZOOM_HINT_STORAGE_KEY = 'lokswami_epaper_zoom_hint_seen_v1';
 const EPAPER_OFFLINE_CACHE_NAME = 'lokswami-epaper-offline-v2';
 const MIN_PREVIEW_ZOOM = 1;
+const MAX_PREVIEW_ZOOM = 4;
 const PREVIEW_ZOOM_STEP = 0.2;
 const PREVIEW_DOUBLE_TAP_ZOOM = 2;
 const MIN_ARTICLE_IMAGE_ZOOM = 1;
@@ -1735,9 +1732,7 @@ export default function EPaperPageClient({
   const previewNaturalWidth =
     previewImageMetrics.src === previewSrc ? previewImageMetrics.naturalWidth : 0;
   const previewSourceWidth = previewNaturalWidth || Number(activePageMeta?.width || 0);
-  const maxPreviewZoom = isCoarsePointer
-    ? resolveEpaperTouchPreviewMaxZoom(previewSourceWidth)
-    : resolveEpaperPreviewMaxZoom(previewSourceWidth);
+  const maxPreviewZoom = MAX_PREVIEW_ZOOM;
   const isPreviewZoomed = previewZoom > MIN_PREVIEW_ZOOM + 0.01;
   const maxReaderPage = Math.max(1, Number(activePaper?.pageCount || 1));
   const maxSpreadStartPage = Math.max(1, maxReaderPage - 1);
@@ -3269,6 +3264,8 @@ export default function EPaperPageClient({
               currentPage={activePage}
               pageCount={activePaper.pageCount}
               zoom={previewZoom}
+              minZoom={MIN_PREVIEW_ZOOM}
+              maxZoom={maxPreviewZoom}
               canUseSpreadMode={canUseSpreadMode}
               isSpreadMode={shouldShowSpreadMode}
               canGoPrevious={canGoPreviousPage}

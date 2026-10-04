@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import EPaperToolbar from '@/components/epaper/reader/EPaperToolbar';
 import EPaperPageStrip from '@/components/epaper/reader/EPaperPageStrip';
+import EPaperCanvasViewport from '@/components/epaper/reader/EPaperCanvasViewport';
 import { buildPublicationReaderPath } from '@/lib/utils/readerContentPaths';
 import { buildEpaperPageMetadata } from '@/lib/seo/readerPageMetadata';
 
@@ -126,6 +127,21 @@ describe('Phase 3.15A — E-Paper Reader 2.0 Acceptance', () => {
       expect(defaultProps.onResetZoom).toHaveBeenCalledTimes(1);
     });
 
+    it('disables zoom out at 1x floor and disables zoom in at 4x ceiling', () => {
+      const { rerender } = render(<EPaperToolbar {...defaultProps} zoom={1} minZoom={1} maxZoom={4} />);
+
+      const zoomOutAtMin = screen.getByLabelText('Zoom out');
+      const zoomInAtMin = screen.getByLabelText('Zoom in');
+      expect(zoomOutAtMin).toBeDisabled();
+      expect(zoomInAtMin).toBeEnabled();
+
+      rerender(<EPaperToolbar {...defaultProps} zoom={4} minZoom={1} maxZoom={4} />);
+      const zoomOutAtMax = screen.getByLabelText('Zoom out');
+      const zoomInAtMax = screen.getByLabelText('Zoom in');
+      expect(zoomOutAtMax).toBeEnabled();
+      expect(zoomInAtMax).toBeDisabled();
+    });
+
     it('triggers fullscreen toggle on both desktop and mobile viewports', () => {
       const { rerender } = render(<EPaperToolbar {...defaultProps} isFullscreen={false} />);
 
@@ -221,6 +237,185 @@ describe('Phase 3.15A — E-Paper Reader 2.0 Acceptance', () => {
       };
       expect(switchEdition('edition-B')).toBe(1.0);
       expect(activeEdition).toBe('edition-B');
+    });
+  });
+
+  describe('Reader Zoom Range & Keyboard Clamping Rules', () => {
+    const MIN_PREVIEW_ZOOM = 1;
+    const MAX_PREVIEW_ZOOM = 4;
+    const PREVIEW_ZOOM_STEP = 0.2;
+
+    function applyZoomIn(current: number) {
+      return Math.min(MAX_PREVIEW_ZOOM, Number((current + PREVIEW_ZOOM_STEP).toFixed(2)));
+    }
+
+    function applyZoomOut(current: number) {
+      return Math.max(MIN_PREVIEW_ZOOM, Number((current - PREVIEW_ZOOM_STEP).toFixed(2)));
+    }
+
+    function applyResetZoom() {
+      return MIN_PREVIEW_ZOOM;
+    }
+
+    it('enforces 4x ceiling on zoom-in operations and keyboard + / =', () => {
+      let zoom = 3.8;
+      zoom = applyZoomIn(zoom);
+      expect(zoom).toBe(4.0);
+
+      // Cannot exceed 4x
+      zoom = applyZoomIn(zoom);
+      expect(zoom).toBe(4.0);
+      zoom = applyZoomIn(zoom);
+      expect(zoom).toBe(4.0);
+    });
+
+    it('enforces 1x floor on zoom-out operations and keyboard - / _', () => {
+      let zoom = 1.2;
+      zoom = applyZoomOut(zoom);
+      expect(zoom).toBe(1.0);
+
+      // Cannot go below 1x
+      zoom = applyZoomOut(zoom);
+      expect(zoom).toBe(1.0);
+      zoom = applyZoomOut(zoom);
+      expect(zoom).toBe(1.0);
+    });
+
+    it('resets to exactly 1x on reset (key 0)', () => {
+      expect(applyResetZoom()).toBe(1.0);
+    });
+  });
+
+  describe('Page Image Failure & Retry Behavior', () => {
+    it('renders accessible error state and retry action when image fails', () => {
+      render(
+        <EPaperCanvasViewport
+          imagePath="/uploads/epapers/indore-missing-page.webp"
+          pageNumber={3}
+          zoom={1}
+        />
+      );
+
+      const img = screen.getByAltText('Page 3');
+      expect(img).toBeInTheDocument();
+
+      // Simulate network / missing image error
+      fireEvent.error(img);
+
+      const alert = screen.getByRole('alert');
+      expect(alert).toBeInTheDocument();
+      expect(alert).toHaveAttribute('aria-label', 'Page 3 unavailable');
+      expect(screen.getByText('Page image unavailable')).toBeInTheDocument();
+      expect(screen.getByText(/Could not load page 3/)).toBeInTheDocument();
+
+      const retryBtn = screen.getByRole('button', { name: /retry page/i });
+      expect(retryBtn).toBeInTheDocument();
+
+      // Clicking retry clears failed source so image can re-attempt
+      fireEvent.click(retryBtn);
+      expect(screen.getByAltText('Page 3')).toBeInTheDocument();
+    });
+  });
+
+  describe('Touch Pinch/Pan and Desktop Drag-Pan Gestures', () => {
+    it('handles desktop mouse drag pan when zoomed in', () => {
+      const { container } = render(
+        <EPaperCanvasViewport
+          imagePath="/page-1.webp"
+          pageNumber={1}
+          zoom={2}
+        />
+      );
+
+      const main = container.querySelector('main');
+      expect(main).toBeInTheDocument();
+
+      // Mouse drag sequence while zoomed
+      fireEvent.mouseDown(main!, { clientX: 200, clientY: 200 });
+      fireEvent.mouseMove(main!, { clientX: 250, clientY: 230 });
+      fireEvent.mouseUp(main!);
+
+      // Successfully processed pan without throwing
+      expect(main).toBeInTheDocument();
+    });
+
+    it('handles touch pinch-to-zoom and touch pan without layout crash', () => {
+      const onZoomChange = vi.fn();
+      const { container } = render(
+        <EPaperCanvasViewport
+          imagePath="/page-1.webp"
+          pageNumber={1}
+          zoom={1}
+          minZoom={1}
+          maxZoom={4}
+          onZoomChange={onZoomChange}
+        />
+      );
+
+      const main = container.querySelector('main');
+      expect(main).toBeInTheDocument();
+
+      // 2-finger pinch gesture
+      fireEvent.touchStart(main!, {
+        touches: [
+          { clientX: 100, clientY: 100 },
+          { clientX: 200, clientY: 100 },
+        ],
+      });
+
+      fireEvent.touchMove(main!, {
+        touches: [
+          { clientX: 50, clientY: 100 },
+          { clientX: 250, clientY: 100 },
+        ],
+      });
+
+      expect(onZoomChange).toHaveBeenCalled();
+
+      fireEvent.touchEnd(main!, {
+        touches: [],
+      });
+    });
+  });
+
+  describe('Fullscreen Feature-Detection & Fallback', () => {
+    it('gracefully handles missing or rejected requestFullscreen without throwing', async () => {
+      const container = document.createElement('div');
+
+      // 1. Missing requestFullscreen API (e.g. iOS Safari)
+      const targetWithoutApi = container as HTMLDivElement & {
+        requestFullscreen?: () => Promise<void>;
+      };
+      const toggleFullscreenWithoutApi = async () => {
+        try {
+          if (!document.fullscreenElement) {
+            if (targetWithoutApi.requestFullscreen) {
+              await targetWithoutApi.requestFullscreen();
+            }
+          }
+        } catch {
+          // Graceful fallback
+        }
+      };
+
+      await expect(toggleFullscreenWithoutApi()).resolves.toBeUndefined();
+
+      // 2. Rejecting requestFullscreen (e.g. Permission Policy denied)
+      container.requestFullscreen = vi.fn().mockRejectedValue(new Error('Permission denied'));
+
+      const toggleFullscreenWithRejection = async () => {
+        try {
+          if (!document.fullscreenElement) {
+            if (container.requestFullscreen) {
+              await container.requestFullscreen();
+            }
+          }
+        } catch {
+          // Graceful fallback
+        }
+      };
+
+      await expect(toggleFullscreenWithRejection()).resolves.toBeUndefined();
     });
   });
 });

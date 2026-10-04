@@ -8,7 +8,7 @@ import React, {
   useState,
   type TouchEvent as ReactTouchEvent,
 } from 'react';
-import { Loader2, Newspaper, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Newspaper, Minus, Plus, RotateCcw } from 'lucide-react';
 import EPaperHotspotLayer from './EPaperHotspotLayer';
 import type { EPaperArticleRecord } from '@/lib/types/epaper';
 
@@ -47,7 +47,7 @@ function EPaperCanvasViewportComponent({
   pageNumber,
   zoom,
   minZoom = 1,
-  maxZoom = 6,
+  maxZoom = 4,
   onZoomChange,
   articles = [],
   activeStoryId,
@@ -200,10 +200,10 @@ function EPaperCanvasViewportComponent({
         let nextZoom = 1;
         let targetX = 0;
         let targetY = 0;
-        if (zoom < 2.5) {
-          nextZoom = 3;
-        } else if (zoom < 4.5) {
-          nextZoom = Math.min(maxZoom, 5.5);
+        if (zoom < 1.9) {
+          nextZoom = 2;
+        } else if (zoom < 3.9) {
+          nextZoom = Math.min(maxZoom, 4);
         } else {
           nextZoom = 1;
         }
@@ -407,8 +407,29 @@ function EPaperCanvasViewportComponent({
                 draggable={false}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-zinc-100 dark:bg-zinc-800">
-                <Newspaper className="h-12 w-12 text-zinc-400" />
+              <div
+                className="flex h-full min-h-[360px] w-full flex-col items-center justify-center p-8 bg-zinc-100 dark:bg-zinc-800 text-center"
+                role="alert"
+                aria-label={`Page ${pageNumber} unavailable`}
+              >
+                <Newspaper className="h-12 w-12 text-zinc-400 dark:text-zinc-500 mb-2" />
+                <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                  Page image unavailable
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-[220px]">
+                  Could not load page {pageNumber}. Please check your connection or retry.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFailedSource('');
+                    setLoadedSource('');
+                  }}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-2xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Retry page
+                </button>
               </div>
             )}
 
@@ -482,7 +503,7 @@ function EPaperCanvasViewportComponent({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            const nextZoom = zoom < 2.5 ? 3 : zoom < 4.5 ? Math.min(maxZoom, 5.5) : 1;
+            const nextZoom = zoom < 1.9 ? 2 : zoom < 3.9 ? Math.min(maxZoom, 4) : 1;
             onZoomChange?.(nextZoom);
             applyTransform(nextZoom === 1 ? 0 : panRef.current.x, nextZoom === 1 ? 0 : panRef.current.y, nextZoom);
           }}

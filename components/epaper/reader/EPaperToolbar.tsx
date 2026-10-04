@@ -25,6 +25,8 @@ export interface EPaperToolbarProps {
   currentPage: number;
   pageCount: number;
   zoom: number;
+  minZoom?: number;
+  maxZoom?: number;
   canUseSpreadMode?: boolean;
   isSpreadMode?: boolean;
   canGoPrevious?: boolean;
@@ -62,6 +64,8 @@ function EPaperToolbarComponent({
   currentPage,
   pageCount,
   zoom,
+  minZoom = 1,
+  maxZoom = 4,
   canUseSpreadMode = false,
   isSpreadMode = false,
   canGoPrevious = false,
@@ -230,9 +234,10 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onZoomOut}
+              disabled={zoom <= minZoom}
               aria-label="Zoom out"
               title="Zoom out"
-              className="inline-flex h-8 w-7 items-center justify-center rounded-l-lg text-zinc-800 transition hover:bg-zinc-200 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className="inline-flex h-8 w-7 items-center justify-center rounded-l-lg text-zinc-800 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               <Minus className="h-3.5 w-3.5" />
             </button>
@@ -242,9 +247,10 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onZoomIn}
+              disabled={zoom >= maxZoom}
               aria-label="Zoom in"
               title="Zoom in"
-              className={`inline-flex h-8 w-7 items-center justify-center text-zinc-800 transition hover:bg-zinc-200 dark:text-zinc-100 dark:hover:bg-zinc-700 ${
+              className={`inline-flex h-8 w-7 items-center justify-center text-zinc-800 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-100 dark:hover:bg-zinc-700 ${
                 onResetZoom ? '' : 'rounded-r-lg'
               }`}
             >
