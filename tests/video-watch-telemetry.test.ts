@@ -8,6 +8,42 @@ vi.mock('@/lib/analytics/trackClient', () => ({
 }));
 
 describe('useVideoWatchTelemetry', () => {
+  it('gates progress and completion on provider confirmation, including failed resume', () => {
+    const { result } = renderHook(() => useVideoWatchTelemetry({
+      contentId: 'unconfirmed', contentType: 'video', pagePath: '/main/videos',
+      source: 'lokswami_video_hub', duration: 4, isPlaying: true,
+    }));
+    act(() => {
+      for (let time = 1; time <= 4; time++) result.current.onTimeUpdate(time, 4);
+      result.current.onEnded();
+    });
+    expect(trackClientEvent).not.toHaveBeenCalled();
+    expect(result.current.getAccumulatedWatchTime()).toBe(0);
+    act(() => {
+      result.current.onPlay();
+      result.current.onPause();
+      result.current.onTimeUpdate(5, 4);
+    });
+    expect(result.current.getAccumulatedWatchTime()).toBe(0);
+    expect(trackClientEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not confirm hidden or buffering playback', () => {
+    const { result, rerender } = renderHook(({ buffering }) => useVideoWatchTelemetry({
+      contentId: 'blocked', contentType: 'video', pagePath: '/main/videos',
+      source: 'lokswami_video_hub', duration: 4, isPlaying: true, isBuffering: buffering,
+    }), { initialProps: { buffering: true } });
+    act(() => result.current.onPlay());
+    rerender({ buffering: false });
+    act(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      result.current.onPlay();
+      result.current.onTimeUpdate(1, 4);
+      result.current.onEnded();
+    });
+    expect(trackClientEvent).not.toHaveBeenCalled();
+  });
   it('does not credit repeated small seeks and resumes credit after continuous playback', () => {
     const { result } = renderHook(() => useVideoWatchTelemetry({
       contentId: 'small-seeks', contentType: 'video', pagePath: '/main/videos',
@@ -22,6 +58,7 @@ describe('useVideoWatchTelemetry', () => {
     expect(result.current.getAccumulatedWatchTime()).toBe(0);
     expect(trackClientEvent).not.toHaveBeenCalled();
     act(() => {
+      result.current.onPlay();
       for (let time = 31; time <= 40; time++) result.current.onTimeUpdate(time, 40);
     });
     expect(result.current.getAccumulatedWatchTime()).toBe(10);
@@ -230,6 +267,7 @@ describe('useVideoWatchTelemetry', () => {
     });
 
     act(() => {
+      result.current.onPlay();
       result.current.onTimeUpdate(5, 60);
     });
     // delta between 4 and 5 is 1s, so now 3

@@ -303,8 +303,12 @@ export default function VideosPageClient({
       watchTelemetry.onPause();
     } else {
       wasManuallyPausedRef.current = false;
-      watchTelemetry.onPlay();
     }
+  }, [watchTelemetry]);
+
+  const handlePlaybackChange = useCallback((playing: boolean) => {
+    if (playing) watchTelemetry.onPlay();
+    else watchTelemetry.onPause();
   }, [watchTelemetry]);
 
   const handleTimeChange = useCallback((curr: number, dur: number) => {
@@ -478,6 +482,7 @@ export default function VideosPageClient({
                     onSeek={handleSeek}
                     onSeeking={watchTelemetry.onSeek}
                     onPausedChange={handlePausedChange}
+                    onPlaybackChange={handlePlaybackChange}
                     onMutedChange={setIsMuted}
                     onTimeChange={handleTimeChange}
                     onAutoAdvanceChange={setAutoAdvance}

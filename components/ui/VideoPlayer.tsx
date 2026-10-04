@@ -172,6 +172,8 @@ export interface VideoPlayerProps {
   isShort?: boolean;
   className?: string;
   onPausedChange: (paused: boolean) => void;
+  // Provider events only; playback requests never confirm playback.
+  onPlaybackChange?: (playing: boolean) => void;
   onMutedChange: (muted: boolean) => void;
   onTimeChange: (currentTime: number, duration: number) => void;
   onSeeking?: () => void;
@@ -201,6 +203,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     isShort = false,
     className = '',
     onPausedChange,
+    onPlaybackChange,
     onMutedChange,
     onTimeChange,
     onSeeking,
@@ -273,6 +276,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   }, []);
 
   const callbacksRef = useRef({
+    onPlaybackChange,
     onCaptionsChange,
     onEnded,
     onMutedChange,
@@ -320,6 +324,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   }, [youtubeId, isLiveStream]);
 
   callbacksRef.current = {
+    onPlaybackChange,
     onCaptionsChange,
     onEnded,
     onMutedChange,
@@ -409,11 +414,15 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               );
             },
             onStateChange: (event) => {
+              if (disposed || event.target !== youtubePlayerRef.current) return;
               if (event.data === 3) callbacksRef.current.onSeeking?.();
               if (event.data === youtube.PlayerState.PLAYING) {
                 callbacksRef.current.onPausedChange(false);
+                callbacksRef.current.onPlaybackChange?.(true);
                 return;
               }
+
+              callbacksRef.current.onPlaybackChange?.(false);
 
               if (event.data === youtube.PlayerState.PAUSED) {
                 callbacksRef.current.onPausedChange(true);
@@ -759,10 +768,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           onSeeking={() => callbacksRef.current.onSeeking?.()}
           onSeeked={() => callbacksRef.current.onSeeking?.()}
           onWaiting={() => {
+            callbacksRef.current.onPlaybackChange?.(false);
             if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
             bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
           }}
           onStalled={() => {
+            callbacksRef.current.onPlaybackChange?.(false);
             if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
             bufferTimerRef.current = window.setTimeout(() => setIsBuffering(true), 250);
           }}
@@ -770,12 +781,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
             setIsBuffering(false);
             onPausedChange(false);
+            callbacksRef.current.onPlaybackChange?.(true);
           }}
           onCanPlay={() => {
             if (bufferTimerRef.current) window.clearTimeout(bufferTimerRef.current);
             setIsBuffering(false);
           }}
           onPause={() => {
+            callbacksRef.current.onPlaybackChange?.(false);
             onPausedChange(true);
           }}
           onVolumeChange={(event) => {
@@ -794,6 +807,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             onEnded();
           }}
           onError={(event) => {
+            callbacksRef.current.onPlaybackChange?.(false);
             setPlaybackError(true);
             setIsBuffering(false);
             const code = event.currentTarget.error?.code;

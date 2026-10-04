@@ -37,6 +37,7 @@ export interface VideoDetailHeroProps {
   onSeek?: (seconds: number) => void;
   onSeeking?: () => void;
   onPausedChange: (paused: boolean) => void;
+  onPlaybackChange?: (playing: boolean) => void;
   onMutedChange: (muted: boolean) => void;
   onTimeChange?: (current: number, duration: number) => void;
   onAutoAdvanceChange?: (autoAdvance: boolean) => void;
@@ -58,6 +59,7 @@ export default function VideoDetailHero({
   playbackRate,
   initialStartTime = 0,
   onPausedChange,
+  onPlaybackChange,
   onMutedChange,
   onTimeChange,
   onSeeking,
@@ -114,6 +116,7 @@ export default function VideoDetailHero({
             isShort={selectedVideo.isShort}
             className="h-full w-full object-contain"
             onPausedChange={onPausedChange}
+            onPlaybackChange={onPlaybackChange}
             onMutedChange={onMutedChange}
             onSeeking={onSeeking}
             onTimeChange={(current, dur) => {

@@ -42,7 +42,10 @@ export default function useVideoWatchTelemetry({
   const lastActiveContentIdRef = useRef<string>(contentId);
   const lastTimeRef = useRef<number>(0);
   const seekPendingRef = useRef(false);
+  const confirmedPlayingRef = useRef(false);
   const isDocumentHiddenRef = useRef<boolean>(false);
+
+  if (!isPlaying || isBuffering) confirmedPlayingRef.current = false;
 
   // Reset milestone accumulation when contentId changes
   if (lastActiveContentIdRef.current !== contentId) {
@@ -50,6 +53,7 @@ export default function useVideoWatchTelemetry({
     watchedSecondsRef.current = 0;
     lastTimeRef.current = 0;
     seekPendingRef.current = false;
+    confirmedPlayingRef.current = false;
   }
 
   // Track document visibility to suspend watch time while tab is hidden
@@ -57,6 +61,7 @@ export default function useVideoWatchTelemetry({
     if (typeof document === 'undefined') return;
     const updateVisibility = () => {
       isDocumentHiddenRef.current = document.hidden;
+      if (document.hidden) confirmedPlayingRef.current = false;
     };
     updateVisibility();
     document.addEventListener('visibilitychange', updateVisibility);
@@ -119,19 +124,22 @@ export default function useVideoWatchTelemetry({
   );
 
   const onPlay = useCallback(() => {
+    if (isDocumentHiddenRef.current || isBuffering) return;
+    confirmedPlayingRef.current = true;
     emitMilestone('watch_start');
-  }, [emitMilestone]);
+  }, [emitMilestone, isBuffering]);
 
   const onPause = useCallback(() => {
-    // Pause stops time accumulation
+    confirmedPlayingRef.current = false;
   }, []);
 
   const onEnded = useCallback(() => {
+    if (!firedMilestonesRef.current.has(`${contentId}:watch_start`)) return;
     const effDuration = Math.max(0, duration);
     if (effDuration <= 0 || watchedSecondsRef.current >= effDuration * 0.95) {
       emitMilestone('watch_complete');
     }
-  }, [duration, emitMilestone]);
+  }, [contentId, duration, emitMilestone]);
 
   const onTimeUpdate = useCallback(
     (currentTime: number, currentDuration?: number) => {
@@ -141,7 +149,7 @@ export default function useVideoWatchTelemetry({
         lastTimeRef.current = currentTime;
         return;
       }
-      if (!isPlaying || isBuffering || isDocumentHiddenRef.current) {
+      if (!confirmedPlayingRef.current || !isPlaying || isBuffering || isDocumentHiddenRef.current) {
         lastTimeRef.current = currentTime;
         return;
       }
