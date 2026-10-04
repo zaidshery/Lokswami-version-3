@@ -13,7 +13,12 @@ import {
   resolvePublicEpaperCityFilter,
   type EPaperCityFilter,
 } from '@/lib/utils/publicEpaperFilters';
-import type { EPaperPublicationType } from '@/lib/types/epaper';
+import type {
+  EPaperArticleRecord,
+  EPaperPublicationType,
+  EPaperRecord,
+} from '@/lib/types/epaper';
+import { epaperService } from '@/lib/server/epaper/epaperService';
 import {
   isMonthlyEPaperPublication,
   normalizePublicationIssueDate,
@@ -205,6 +210,24 @@ export async function renderEPaperPage(
   const publicBasePath =
     publicationType === 'emagazine' ? '/main/e-magazine' : '/main/epaper';
 
+  const requestedPaperId = toSingleString(resolvedParams.paper).trim();
+  const requestedPage = parsePositiveInt(resolvedParams.page);
+  const storyToken = toSingleString(resolvedParams.story).trim();
+
+  let initialDetail: (EPaperRecord & { articles: EPaperArticleRecord[] }) | null = null;
+  let isRequestedPaperUnavailable = false;
+
+  if (requestedPaperId) {
+    try {
+      initialDetail = (await epaperService.getPublicEditionDetail(
+        requestedPaperId,
+        publicationType
+      )) as unknown as (EPaperRecord & { articles: EPaperArticleRecord[] });
+    } catch {
+      isRequestedPaperUnavailable = true;
+    }
+  }
+
   return (
     <EPaperPageClient
       initialItems={initial.items}
@@ -215,6 +238,11 @@ export async function renderEPaperPage(
       initialPublishDate={filters.issueDate}
       publicationType={publicationType}
       publicBasePath={publicBasePath}
+      initialDetail={initialDetail}
+      initialPaperId={requestedPaperId}
+      initialPage={requestedPage || 1}
+      initialStoryToken={storyToken}
+      isRequestedPaperUnavailable={isRequestedPaperUnavailable}
     />
   );
 }

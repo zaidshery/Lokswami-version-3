@@ -68,11 +68,13 @@ function inferArticleContentLanguage(article: ReaderArticle | null): 'hi' | 'en'
 type ArticleDetailClientProps = {
   article: ReaderArticle | null;
   relatedArticles: ReaderArticle[];
+  publicationContext?: { returnPath: string; articlePath: string; issueTitle: string };
 };
 
 export default function ArticleDetailClient({
   article,
   relatedArticles,
+  publicationContext,
 }: ArticleDetailClientProps) {
   const router = useRouter();
   const language = useAppStore((state) => state.language);
@@ -89,7 +91,7 @@ export default function ArticleDetailClient({
   const hasTrackedReadRef = useRef(false);
   const readingProgressRef = useRef(0);
   const isSignedIn = Boolean(currentUser);
-  const canSaveArticle = Boolean(article && MONGO_OBJECT_ID_REGEX.test(article.id));
+  const canSaveArticle = Boolean(!publicationContext && article && MONGO_OBJECT_ID_REGEX.test(article.id));
   const articleContentLanguage = useMemo(() => inferArticleContentLanguage(article), [article]);
   const isBookmarked = Boolean(
     article && Array.isArray(savedArticleIds) && savedArticleIds.includes(article.id)
@@ -130,7 +132,7 @@ export default function ArticleDetailClient({
 
   const trackArticleRead = useCallback(
     async (completionPercent: number) => {
-      if (!article || !MONGO_OBJECT_ID_REGEX.test(article.id) || hasTrackedReadRef.current) {
+      if (publicationContext || !article || !MONGO_OBJECT_ID_REGEX.test(article.id) || hasTrackedReadRef.current) {
         return;
       }
 
@@ -152,7 +154,7 @@ export default function ArticleDetailClient({
         hasTrackedReadRef.current = false;
       }
     },
-    [article]
+    [article, publicationContext]
   );
 
   useEffect(() => {
@@ -401,7 +403,7 @@ export default function ArticleDetailClient({
               <ShareMenu
                 triggerIcon="share"
                 title={article.title}
-                url={buildArticlePublicPath({ id: article.id, slug: article.slug })}
+                url={publicationContext?.returnPath || buildArticlePublicPath({ id: article.id, slug: article.slug })}
                 text={article.summary}
                 whatsappText={buildArticleWhatsAppShareText({
                   title: article.title,
@@ -421,7 +423,7 @@ export default function ArticleDetailClient({
               />
 
               <Link
-                href="/main/epaper"
+                href={publicationContext?.returnPath || '/main/epaper'}
                 className="reader-touch-link reader-focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-3 text-sm font-semibold leading-none text-orange-700 transition hover:bg-orange-100 dark:border-orange-500/45 dark:bg-orange-500/12 dark:text-orange-300 dark:hover:bg-orange-500/20 sm:min-h-11 sm:px-3.5 sm:text-sm sm:font-bold sm:leading-normal"
                 aria-label={language === 'hi' ? '\u0908-\u092a\u0947\u092a\u0930' : 'E-Paper'}
               >

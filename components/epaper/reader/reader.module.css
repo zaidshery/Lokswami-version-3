@@ -1,0 +1,86 @@
+.canvas {
+  background-image: radial-gradient(ellipse at center, transparent 25%, rgb(0 0 0 / 5%) 100%);
+}
+
+.book {
+  position: relative;
+  box-shadow: 0 18px 40px -16px rgb(0 0 0 / 35%), 3px 3px 0 #d4d4d8, 5px 5px 0 #fafafa, 6px 6px 0 #a1a1aa;
+}
+
+.page {
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%);
+}
+
+.spread::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 24px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgb(0 0 0 / 12%), transparent);
+  pointer-events: none;
+}
+
+.controls :is(button, select, a):focus-visible,
+.canvas:focus-visible {
+  outline: 2px solid #dc2626;
+  outline-offset: 3px;
+}
+
+.controls button { touch-action: manipulation; }
+
+@media (max-width: 639px) {
+  .storySharingOpen { padding-bottom: var(--story-sharing-height, 128px); }
+  .storyNavigation { position: relative; }
+  .storyNavigation > div { position: absolute; top: 0; right: 8px; padding: 0; }
+  .storyNavigation > div > span { display: none; }
+  .storyNavigation > details > summary { min-height: 44px; padding-top: 12px; padding-bottom: 12px; padding-right: 140px; }
+}
+.storyNavigationPlaceholder { min-height: 44px; }
+
+/* Keep the publication visible in phone/tablet landscape while pages stay open. */
+@media (max-height: 500px) {
+  .storyNavigationPlaceholder { min-height: 32px; }
+  .readerOverlay { padding: 0; }
+  .readerFrame { height: 100dvh; border-radius: 0; }
+  .toolbar { padding-top: 4px; padding-bottom: 4px; }
+  .toolbar > div:nth-last-child(2) { margin-top: 0; padding-top: 0; }
+  .stripHeading { display: none; }
+  .stripList { padding-top: 4px; padding-bottom: 4px; gap: 8px; }
+  .thumbnailImage { height: 44px; width: 44px; }
+  .canvas { padding-top: 8px; }
+  .storyNavigation { position: relative; }
+  .storyNavigation > div { position: absolute; top: 0; right: 12px; padding: 0; }
+  .storyNavigation > div > span { display: none; }
+  .storyNavigation > div > button { min-height: 32px; }
+  .storyNavigation > details > summary { min-height: 32px; padding-top: 8px; padding-bottom: 8px; padding-right: 140px; }
+}
+@media (max-height: 500px) and (min-width: 500px) {
+  .canvas { padding-bottom: 8px; }
+  .canvas :global([data-testid='mobile-epaper-zoom-hud']) { left: auto; right: 8px; transform: none; }
+}
+
+@media (hover: none) {
+  .canvas [data-hotspot-id] > span { display: none; }
+}
+
+.turnStage { position: absolute; inset: 0; perspective: 1800px; pointer-events: none; z-index: 40; }
+.turnLeaf, .turnUnderlay { position: absolute; inset: 0; background: #fafafa; }
+.turnSpread .turnLeaf, .turnSpread .turnUnderlay { width: 50%; }
+.turnForward.turnSpread .turnLeaf, .turnForward.turnSpread .turnUnderlay { left: 50%; }
+.turnLeaf { transform-style: preserve-3d; }
+.turnForward .turnLeaf { transform-origin: left center; animation: leaf-forward 520ms cubic-bezier(.4,0,.2,1) forwards; }
+.turnBackward .turnLeaf { transform-origin: right center; animation: leaf-backward 520ms cubic-bezier(.4,0,.2,1) forwards; }
+.turnFront, .turnBack { position: absolute; inset: 0; backface-visibility: hidden; background: #fafafa; overflow: hidden; }
+.turnBack { transform: rotateY(180deg); }
+.turnStage img { width: 100%; height: 100%; object-fit: fill; }
+.turnFront::after, .turnBack::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(0 0 0 / 18%), transparent 35%, rgb(0 0 0 / 6%)); animation: leaf-shade 520ms cubic-bezier(.4,0,.2,1) forwards; }
+@keyframes leaf-forward { to { transform: rotateY(-180deg); } }
+@keyframes leaf-backward { to { transform: rotateY(180deg); } }
+@keyframes leaf-shade { 0%,100% { opacity: 0; } 50% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .book { animation: none; }
+  .turnLeaf { animation-duration: 1ms !important; }
+  .controls *, .canvas * { transition: none !important; }
+}

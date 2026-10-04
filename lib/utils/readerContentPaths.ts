@@ -68,3 +68,10 @@ export function buildEMagazineReaderPath(input: Omit<PublicationReaderLink, 'pub
 export function buildPublicationReaderUrl(input: PublicationReaderLink, siteOrigin?: string) {
   return toAbsolutePublicUrl(buildPublicationReaderPath(input), siteOrigin);
 }
+
+/** The existing Article Reader, scoped to a released publication story. */
+export function buildPublicationArticlePath(input: PublicationReaderLink & { storyToken: string }) {
+  const query = new URLSearchParams(buildPublicationReaderPath(input).split('?')[1]);
+  if (input.publicationType === 'emagazine') query.set('publicationType', 'emagazine');
+  return `/main/article/${encodePublicPathToken(input.storyToken)}?${query.toString()}`;
+}

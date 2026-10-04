@@ -22,7 +22,7 @@ function EPaperHotspotLayerComponent({
   activeStoryId,
   onSelectStory,
   visible = true,
-  showHints = true,
+  showHints = false,
   className = '',
 }: EPaperHotspotLayerProps) {
   if (!visible || articles.length === 0) return null;
@@ -49,32 +49,25 @@ function EPaperHotspotLayerComponent({
               e.stopPropagation();
               onSelectStory(article);
             }}
-            onMouseEnter={() => {
-              if (typeof window !== 'undefined' && article.epaperId && article._id) {
-                const preloader = new window.Image();
-                preloader.src = `/api/epapers/${encodeURIComponent(article.epaperId)}/articles/${encodeURIComponent(article._id)}/share-image?publicationType=epaper&brand=1${article.releaseVersion ? `&v=${article.releaseVersion}` : ''}`;
-              }
-            }}
             style={{
               position: 'absolute',
               ...position,
             }}
             aria-label={`Read story: ${article.title}`}
+            tabIndex={articles.length > 8 ? -1 : 0}
             title={article.title}
             className={`group pointer-events-auto cursor-pointer rounded-sm border transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-red-500/80 ${
-              !showHints ? 'border-transparent bg-transparent' : isActive
-                ? 'border-red-600 bg-red-600/25 shadow-[0_0_12px_rgba(220,38,38,0.45)] ring-2 ring-red-500'
-                : 'border-red-500/30 bg-red-500/[0.04] hover:border-red-600 hover:bg-red-500/20 hover:shadow-md'
+              isActive ? 'border-red-600 bg-red-600/[0.06] ring-1 ring-red-500'
+                : showHints ? 'border-red-500/30 bg-red-500/[0.02] hover:border-red-600 hover:bg-red-500/[0.04] focus-visible:border-red-600 focus-visible:bg-red-500/[0.04]'
+                  : 'border-transparent bg-transparent hover:border-red-600/60 hover:bg-red-500/[0.04] focus-visible:border-red-600 focus-visible:bg-red-500/[0.04]'
             }`}
           >
             {/* Visual indicator badge on hover or when active */}
-            {showHints ? <span
-              className={`absolute bottom-1 right-1 hidden rounded bg-zinc-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm transition-opacity group-hover:inline-block ${
-                isActive ? 'inline-block bg-orange-600' : ''
-              }`}
+            <span
+              className="absolute bottom-1 right-1 hidden rounded bg-zinc-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-white group-hover:inline-block group-focus-visible:inline-block"
             >
-              Read
-            </span> : null}
+              Read story
+            </span>
           </button>
         );
       })}

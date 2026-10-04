@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ArticleClippingModal from '@/components/epaper/reader/modals/ArticleClippingModal';
@@ -25,6 +25,26 @@ describe('ArticleClippingModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it('offers only image sharing and downloading in the reader panel', () => {
+    render(<ArticleClippingModal embedded isOpen article={sampleArticle} onClose={vi.fn()} language="en" />);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByRole('button',{name:'Share image'})).toBeEnabled();
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(screen.getByRole('link',{name:'Download image'})).toBeVisible();
+    expect(screen.queryByRole('button', {name:'Share link'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name:'Close clipping tools'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name:'Copy Link'})).not.toBeInTheDocument();
+  });
+
+  it('embeds clipping tools without opening another image reader or fetching a preview', () => {
+    render(<ArticleClippingModal embedded isOpen article={sampleArticle} onClose={vi.fn()} publicationType="emagazine" />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mock-clipping-image')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', {name:'Download image'})).toHaveAttribute('href', expect.stringContaining('publicationType=emagazine'));
+    expect(screen.getByRole('button', {name:'Share image'})).toBeEnabled();
   });
 
   it('renders null when isOpen is false', () => {
