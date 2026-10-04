@@ -145,6 +145,11 @@ type EPaperPageClientProps = {
   initialPublishDate: string;
   publicationType?: EPaperPublicationType;
   publicBasePath?: string;
+  initialDetail?: (EPaperRecord & { articles: EPaperArticleRecord[] }) | null;
+  initialPaperId?: string;
+  initialPage?: number;
+  initialStoryToken?: string;
+  isRequestedPaperUnavailable?: boolean;
 };
 
 const COPY = {
@@ -979,6 +984,11 @@ export default function EPaperPageClient({
   initialPublishDate,
   publicationType = 'epaper',
   publicBasePath = '/main/epaper',
+  initialDetail = null,
+  initialPaperId = '',
+  initialPage = 1,
+  initialStoryToken = '',
+  isRequestedPaperUnavailable = false,
 }: EPaperPageClientProps) {
   const language = useAppStore((state) => state.language);
   const theme = useAppStore((state) => state.theme);
@@ -1013,15 +1023,23 @@ export default function EPaperPageClient({
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement | null>(null);
 
-  const [activePaper, setActivePaper] = useState<(EPaperRecord & { articles: EPaperArticleRecord[] }) | null>(null);
-  const [activePage, setActivePage] = useState(1);
+  const [activePaper, setActivePaper] = useState<(EPaperRecord & { articles: EPaperArticleRecord[] }) | null>(initialDetail);
+  const [activePage, setActivePage] = useState(() => {
+    if (initialDetail && initialDetail.pageCount) {
+      return clampPage(initialPage, 1, Math.max(1, initialDetail.pageCount));
+    }
+    return initialPage > 0 ? initialPage : 1;
+  });
   const [activeArticle, setActiveArticle] = useState<EPaperArticleRecord | null>(null);
   const [articleReaderMode, setArticleReaderMode] = useState<ArticleReaderMode>('story');
   const [articleTextScale, setArticleTextScale] = useState(1);
   const [isPreparingArticleListen, setIsPreparingArticleListen] = useState(false);
   const [isPlayingArticleAudio, setIsPlayingArticleAudio] = useState(false);
   const [articleListenError, setArticleListenError] = useState('');
-  const [pendingStorySlug, setPendingStorySlug] = useState('');
+  const [pendingStorySlug, setPendingStorySlug] = useState(initialStoryToken);
+  const [isEditionUnavailable, setIsEditionUnavailable] = useState(isRequestedPaperUnavailable);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const readerContainerRef = useRef<HTMLDivElement | null>(null);
   const [savedPapers, setSavedPapers] = useState<SavedEpaperPaperEntry[]>([]);
   const [savedStories, setSavedStories] = useState<SavedEpaperStoryEntry[]>([]);
   const [readerNotice, setReaderNotice] = useState<ReaderActionNotice | null>(null);
@@ -1043,7 +1061,9 @@ export default function EPaperPageClient({
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const [isWideScreen, setIsWideScreen] = useState(false);
 
-  const [pendingPaperId, setPendingPaperId] = useState('');
+  const [pendingPaperId, setPendingPaperId] = useState(
+    initialDetail ? '' : initialPaperId
+  );
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isClippingModalOpen, setIsClippingModalOpen] = useState(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -1384,14 +1404,28 @@ export default function EPaperPageClient({
 
       setActivePaper(payload.data);
       setPageTurnDirection(0);
-      setActivePage(
-        clampPage(pageToOpen, 1, Math.max(1, Number(payload.data.pageCount || 1)))
-      );
+      const targetPage = clampPage(pageToOpen, 1, Math.max(1, Number(payload.data.pageCount || 1)));
+      setActivePage(targetPage);
       setActiveArticle(null);
       setPreviewZoom(1);
       setPdfFallbackPreview('');
       setFallbackError('');
       setIsOverflowOpen(false);
+      setIsEditionUnavailable(false);
+
+      if (typeof window !== 'undefined') {
+        const params = buildReaderSearchParams({
+          city: (payload.data.citySlug as EPaperCityFilter) || selectedCity,
+          publishDate: payload.data.publishDate || selectedPublishDate,
+          publicationType,
+          paperId: payload.data._id,
+          page: targetPage,
+        });
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        if (window.location.search !== `?${params.toString()}`) {
+          window.history.pushState({ page: targetPage, paperId: payload.data._id }, '', nextUrl);
+        }
+      }
     } catch (err: unknown) {
       setError(toErrorMessage(err, `Failed to open ${publicationLabels.lowercase}`));
     }
@@ -1400,6 +1434,8 @@ export default function EPaperPageClient({
     publicationLabels.lowercase,
     publicationType,
     savedPapers,
+    selectedCity,
+    selectedPublishDate,
     showReaderNotice,
     t.offlineCachedNotice,
   ]);
@@ -1462,45 +1498,137 @@ export default function EPaperPageClient({
     return activePaper.articles.filter((item) => item.pageNumber === activePage);
   }, [activePaper, activePage]);
 
-  const goToRelativePage = useCallback(
-    (delta: number) => {
-      if (!activePaper || !delta) return;
-      const maxPages = Math.max(1, Number(activePaper.pageCount || 1));
-      const step = shouldShowSpreadMode && maxPages > 1 ? 2 : 1;
-
-      setActivePage((current) => {
-        const nextPage = clampPage(current + delta * step, 1, maxPages);
-        if (nextPage !== current) {
-          setPageTurnDirection(delta > 0 ? 1 : -1);
-          setActiveArticle(null);
-        }
-        return nextPage;
-      });
-    },
-    [activePaper, shouldShowSpreadMode]
-  );
-
   const navigateToPage = useCallback(
     (nextPage: number) => {
       if (!activePaper) return;
       const maxPages = Math.max(1, Number(activePaper.pageCount || 1));
+      const resolvedPage = clampPage(nextPage, 1, maxPages);
 
       setActivePage((current) => {
-        const resolvedPage = clampPage(nextPage, 1, maxPages);
         if (resolvedPage !== current) {
           setPageTurnDirection(resolvedPage > current ? 1 : -1);
           setActiveArticle(null);
         }
         return resolvedPage;
       });
+
+      if (typeof window !== 'undefined') {
+        const params = buildReaderSearchParams({
+          city: (activePaper.citySlug as EPaperCityFilter) || selectedCity,
+          publishDate: activePaper.publishDate || selectedPublishDate,
+          publicationType,
+          paperId: activePaper._id,
+          page: resolvedPage,
+        });
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        if (window.location.search !== `?${params.toString()}`) {
+          window.history.pushState({ page: resolvedPage, paperId: activePaper._id }, '', nextUrl);
+        }
+      }
     },
-    [activePaper]
+    [activePaper, publicationType, selectedCity, selectedPublishDate]
   );
+
+  const goToRelativePage = useCallback(
+    (delta: number) => {
+      if (!activePaper || !delta) return;
+      const maxPages = Math.max(1, Number(activePaper.pageCount || 1));
+      const step = shouldShowSpreadMode && maxPages > 1 ? 2 : 1;
+      const targetPage = clampPage(activePage + delta * step, 1, maxPages);
+      if (targetPage !== activePage) {
+        navigateToPage(targetPage);
+      }
+    },
+    [activePage, activePaper, navigateToPage, shouldShowSpreadMode]
+  );
+
   const zoomPreviewOut = useCallback(() => {
     setPreviewZoom((current) =>
       Math.max(MIN_PREVIEW_ZOOM, Number((current - PREVIEW_ZOOM_STEP).toFixed(2)))
     );
   }, []);
+
+  const resetPreviewZoom = useCallback(() => {
+    setPreviewZoom(1);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (typeof document === 'undefined') return;
+    try {
+      if (!document.fullscreenElement) {
+        if (readerContainerRef.current?.requestFullscreen) {
+          await readerContainerRef.current.requestFullscreen();
+        } else if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      }
+    } catch {
+      // Graceful fallback when Fullscreen API is unsupported or rejected
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleCloseReader = useCallback(() => {
+    setActivePaper(null);
+    setActiveArticle(null);
+    if (typeof window !== 'undefined') {
+      const params = buildReaderSearchParams({
+        city: selectedCity,
+        publishDate: selectedPublishDate,
+        publicationType,
+      });
+      const nextUrl = params.toString()
+        ? `${window.location.pathname}?${params.toString()}`
+        : window.location.pathname;
+      window.history.pushState({}, '', nextUrl);
+    }
+  }, [publicationType, selectedCity, selectedPublishDate]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const paper = (params.get('paper') || '').trim();
+      const page = Number.parseInt(params.get('page') || '', 10);
+      const story = (params.get('story') || '').trim();
+
+      if (paper) {
+        if (activePaper && activePaper._id === paper) {
+          if (Number.isFinite(page) && page > 0) {
+            const safePage = clampPage(Math.floor(page), 1, Math.max(1, Number(activePaper.pageCount || 1)));
+            setActivePage(safePage);
+          }
+          if (story) {
+            const matchedArticle = activePaper.articles.find(
+              (item) => item.slug === story || item._id === story
+            );
+            if (matchedArticle) setActiveArticle(matchedArticle);
+          } else {
+            setActiveArticle(null);
+          }
+        } else {
+          void openPaper(paper, Number.isFinite(page) ? page : 1);
+        }
+      } else if (activePaper) {
+        setActivePaper(null);
+        setActiveArticle(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activePaper, openPaper]);
+
 
   useEffect(() => {
     if (!activePaper || !pendingStorySlug) return;
@@ -1532,19 +1660,12 @@ export default function EPaperPageClient({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (activePaper) return;
 
-    const effectivePaperId = activePaper?._id || pendingPaperId;
-    const effectiveStoryToken = String(
-      activeArticle?.slug || activeArticle?._id || pendingStorySlug || ''
-    ).trim();
-    const effectivePage = effectivePaperId ? activePage : 0;
     const params = buildReaderSearchParams({
       city: selectedCity,
       publishDate: selectedPublishDate,
       publicationType,
-      paperId: effectivePaperId,
-      page: effectivePage,
-      story: effectiveStoryToken,
     });
     const nextUrl = params.toString()
       ? `${window.location.pathname}?${params.toString()}`
@@ -1552,12 +1673,7 @@ export default function EPaperPageClient({
 
     window.history.replaceState(window.history.state, '', nextUrl);
   }, [
-    activeArticle?._id,
-    activeArticle?.slug,
-    activePage,
-    activePaper?._id,
-    pendingPaperId,
-    pendingStorySlug,
+    activePaper,
     publicationType,
     selectedCity,
     selectedPublishDate,
@@ -1635,6 +1751,76 @@ export default function EPaperPageClient({
       Math.min(maxPreviewZoom, Number((current + PREVIEW_ZOOM_STEP).toFixed(2)))
     );
   }, [maxPreviewZoom]);
+
+  useEffect(() => {
+    if (!activePaper) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (activeArticle || isClippingModalOpen || isDownloadModalOpen) {
+        if (event.key === 'Escape') {
+          if (isClippingModalOpen) setIsClippingModalOpen(false);
+          else if (isDownloadModalOpen) setIsDownloadModalOpen(false);
+          else if (activeArticle) setActiveArticle(null);
+        }
+        return;
+      }
+
+      switch (event.key) {
+        case 'ArrowRight':
+          event.preventDefault();
+          goToRelativePage(1);
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          goToRelativePage(-1);
+          break;
+        case '+':
+        case '=':
+          event.preventDefault();
+          zoomPreviewIn();
+          break;
+        case '-':
+        case '_':
+          event.preventDefault();
+          zoomPreviewOut();
+          break;
+        case '0':
+          event.preventDefault();
+          resetPreviewZoom();
+          break;
+        case 'Escape':
+          if (document.fullscreenElement) {
+            void document.exitFullscreen?.();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    activePaper,
+    activeArticle,
+    isClippingModalOpen,
+    isDownloadModalOpen,
+    goToRelativePage,
+    zoomPreviewIn,
+    zoomPreviewOut,
+    resetPreviewZoom,
+  ]);
 
   const onPreviewImageLoad = useCallback(
     (event: ReactSyntheticEvent<HTMLImageElement>) => {
@@ -2819,6 +3005,36 @@ export default function EPaperPageClient({
           </div>
         </div>
 
+        {isEditionUnavailable ? (
+          <div
+            role="alert"
+            className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 p-5 text-center dark:border-amber-900/60 dark:bg-amber-950/40"
+          >
+            <Newspaper className="mx-auto h-10 w-10 text-amber-600 dark:text-amber-400" />
+            <h3 className="mt-2 text-base font-bold text-amber-900 dark:text-amber-200">
+              {language === 'hi' ? 'यह संस्करण उपलब्ध नहीं है' : 'Edition Unavailable'}
+            </h3>
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+              {language === 'hi'
+                ? 'अनुरोधित ई-पेपर संस्करण उपलब्ध नहीं है या हटा दिया गया है।'
+                : 'The requested e-paper edition is unavailable or has not been published.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditionUnavailable(false);
+                if (typeof window !== 'undefined') {
+                  const url = publicationType === 'emagazine' ? '/main/e-magazine' : '/main/epaper';
+                  window.history.pushState({}, '', url);
+                }
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+            >
+              {language === 'hi' ? 'सभी संस्करण देखें' : 'View all editions'}
+            </button>
+          </div>
+        ) : null}
+
         {error ? (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
             {error}
@@ -3039,7 +3255,7 @@ export default function EPaperPageClient({
       </section>
 
       {activePaper ? (
-        <div className={`fixed inset-0 z-[95] bg-zinc-950/70 p-0 backdrop-blur-md sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
+        <div ref={readerContainerRef} className={`fixed inset-0 z-[95] bg-zinc-950/70 p-0 backdrop-blur-md sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
           <div className="relative mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden border-0 bg-white shadow-2xl dark:bg-zinc-950 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-200 sm:dark:border-zinc-800">
             <EPaperToolbar
               title={activePaper.title}
@@ -3062,14 +3278,14 @@ export default function EPaperPageClient({
               onPageSelect={navigateToPage}
               onZoomIn={zoomPreviewIn}
               onZoomOut={zoomPreviewOut}
+              onResetZoom={resetPreviewZoom}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
               onToggleSpreadMode={() =>
                 setReaderDisplayMode((mode) => (mode === 'spread' ? 'single' : 'spread'))
               }
               onOpenDownload={() => setIsDownloadModalOpen(true)}
-              onClose={() => {
-                setActivePaper(null);
-                setActiveArticle(null);
-              }}
+              onClose={handleCloseReader}
               shareUrl={activePaperSharePath}
               shareText={activePaperShareText}
               shareContentType={publicationType === 'emagazine' ? 'emagazine' : 'epaper'}

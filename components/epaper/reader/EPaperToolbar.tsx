@@ -11,7 +11,9 @@ import {
   Sun,
   X,
   Bookmark,
-  Sparkles,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
 } from 'lucide-react';
 import Logo from '@/components/layout/Logo';
 import ShareMenu from '@/components/ui/ShareMenu';
@@ -32,6 +34,9 @@ export interface EPaperToolbarProps {
   onPageSelect: (page: number) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onResetZoom?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
   onToggleSpreadMode?: () => void;
   onOpenDownload?: () => void;
   onClose: () => void;
@@ -66,6 +71,9 @@ function EPaperToolbarComponent({
   onPageSelect,
   onZoomIn,
   onZoomOut,
+  onResetZoom,
+  isFullscreen = false,
+  onToggleFullscreen,
   onToggleSpreadMode,
   onOpenDownload,
   onClose,
@@ -99,6 +107,17 @@ function EPaperToolbarComponent({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {onToggleFullscreen ? (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          ) : null}
           {onToggleTheme ? (
             <button
               type="button"
@@ -225,10 +244,23 @@ function EPaperToolbarComponent({
               onClick={onZoomIn}
               aria-label="Zoom in"
               title="Zoom in"
-              className="inline-flex h-8 w-7 items-center justify-center rounded-r-lg text-zinc-800 transition hover:bg-zinc-200 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className={`inline-flex h-8 w-7 items-center justify-center text-zinc-800 transition hover:bg-zinc-200 dark:text-zinc-100 dark:hover:bg-zinc-700 ${
+                onResetZoom ? '' : 'rounded-r-lg'
+              }`}
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
+            {onResetZoom ? (
+              <button
+                type="button"
+                onClick={onResetZoom}
+                aria-label="Reset zoom"
+                title="Reset zoom"
+                className="inline-flex h-8 w-7 items-center justify-center rounded-r-lg border-l border-zinc-300/80 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              >
+                <RotateCcw className="h-3 w-3" />
+              </button>
+            ) : null}
           </div>
 
           {canUseSpreadMode && onToggleSpreadMode ? (
@@ -241,6 +273,18 @@ function EPaperToolbarComponent({
             >
               <span className="hidden lg:inline">{isSpreadMode ? 'Single page' : 'Spread view'}</span>
               <span className="lg:hidden">{isSpreadMode ? '1P' : '2P'}</span>
+            </button>
+          ) : null}
+
+          {onToggleFullscreen ? (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            >
+              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
           ) : null}
 

@@ -36,7 +36,10 @@ function EPaperPageStripComponent({
 
   // Auto-scroll to center active page thumbnail
   useEffect(() => {
-    if (activeThumbnailRef.current && scrollContainerRef.current) {
+    if (
+      typeof activeThumbnailRef.current?.scrollIntoView === 'function' &&
+      scrollContainerRef.current
+    ) {
       activeThumbnailRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'nearest',
