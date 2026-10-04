@@ -10,7 +10,7 @@
   - `3.16B` (`8727597`): `feat(mobile): polish search and reader feeds`
   - `3.16C` (`3bfe0f6`): `feat(mobile): contain article rich content`
   - `3.16D` (`dcd5813`): `feat(mobile): harden shorts landscape interactions`
-  - `3.16E` (current): `test(mobile): complete Phase 3.16 acceptance`
+  - `3.16E` (`f3f187d`): `test(mobile): complete Phase 3.16 acceptance`
 - **Canonical Audit Plan**: [`docs/b3/PHASE3_16_MOBILE_AUDIT.md`](file:///c:/Dev/Lokswami-version-3/docs/b3/PHASE3_16_MOBILE_AUDIT.md)
 - **Final Acceptance Verdict**: **SAFE TO PREPARE FOR PR** (All canonical issues `ISSUE-MOB-01` through `ISSUE-MOB-09` verified resolved with zero P0/P1 blockers).
 
@@ -22,10 +22,10 @@
 |---|---|---|---|---|
 | **ISSUE-MOB-01** | P1 | Low-Height Viewport / Shell | Secondary chrome compaction in `@media (max-height: 500px)` (hides BreakingNews bar & secondary category bar; sets header height to 3.5rem; expands reading viewport from ~41% to >=69%). | **VERIFIED RESOLVED** |
 | **ISSUE-MOB-02** | P1 | Safe Area / Root Layout | Configured `viewportFit: 'cover'` in `app/layout.tsx` metadata viewport export to enable notch/home-indicator safe-area environment insets. | **VERIFIED RESOLVED** |
-| **ISSUE-MOB-03** | P2 | Search / Category / Latest Feeds | Removed hardcoded slate/zinc hex backgrounds and dark borders; unified semantic CSS variable surfaces (`var(--bg-primary)`, `var(--bg-surface)`, `var(--border-subtle)`) across both light and dark themes. | **VERIFIED RESOLVED** |
-| **ISSUE-MOB-04** | P2 | Search Devanagari Hindi | Replaced English / Hinglish placeholder search controls with authentic Devanagari strings (खोजें, सभी श्रेणियाँ, सभी प्रकार, तिथि अनुसार फ़िल्टर). | **VERIFIED RESOLVED** |
-| **ISSUE-MOB-05** | P2 | Article Rich Content Overflow | Implemented automatic table wrapping with `.articleTableScrollWrapper` in `ArticleReader.module.css` and contained `<pre><code>` blocks with local `overflow-x: auto`, preventing document-level horizontal spill. | **VERIFIED RESOLVED** |
-| **ISSUE-MOB-06** | P2 | Shorts Short Landscape Collisions | Restructured Shorts overlay for short landscape (`@media (orientation: landscape) and (max-height: 500px)`): horizontal split layout, side action rail, scaled action buttons (36px with 44px touch targets), bottom-left caption box with max-height 32vh, avoiding collisions. | **VERIFIED RESOLVED** |
+| **ISSUE-MOB-03** | P2 | Search / Category / Latest Feeds | Normalized semantic Tailwind light/dark surfaces (`text-zinc-900 dark:text-zinc-100`, `bg-white dark:bg-zinc-900`, `border-zinc-200 dark:border-zinc-800`, `brand-*` accents) across Search, Category, and Latest feeds, eliminating hardcoded inconsistent shades. | **VERIFIED RESOLVED** |
+| **ISSUE-MOB-04** | P2 | Search Devanagari Hindi | Replaced English / Hinglish placeholder search controls with authentic Devanagari strings (`खोज`, `समाचार खोजें...`, `खोजें`, `सभी श्रेणियां`, `प्रासंगिकता`, `ताज़ा`, `लोकप्रिय`, `खोज साफ़ करें`, `कोई परिणाम नहीं मिला`, `ट्रेंडिंग खोजें`, `हाल की खोजें`). | **VERIFIED RESOLVED** |
+| **ISSUE-MOB-05** | P2 | Article Rich Content Overflow | Implemented automatic table wrapping with `.article-table-wrap` (styled in `ArticleReader.module.css` with `overflow-x: auto` and `overscroll-behavior-inline: contain`) and contained `<pre><code>` blocks with local `overflow-x: auto`, preventing document-level horizontal spill. | **VERIFIED RESOLVED** |
+| **ISSUE-MOB-06** | P2 | Shorts Low-Height Collisions | Hardened Shorts overlay for low-height viewports via `@media (max-height: 520px)`: action stack bottom offset compacted to `bottom: calc(var(--reader-bottom-nav-space) + 0.75rem)` with reduced gap/padding (0.375rem) and safe-area right inset; action buttons retain standard `h-11 w-11` (min 44×44px); caption box repositioned with right clearance (`right: 4.75rem`) and two-line clamp; article CTA maintains minimum 44px target without control collisions. | **VERIFIED RESOLVED** |
 | **ISSUE-MOB-07** | P3 | Touch Target: Breaking News Audio | Added touch hit pseudo-element (`::before`) extending tap target to >=44×44px while preserving 36px visual bar height. | **VERIFIED RESOLVED** |
 | **ISSUE-MOB-08** | P3 | Touch Target: Header Controls | Standardized Header ePaper shortcut and language toggle to >=44×44px hit bounds while strictly preventing 320px width horizontal overflow. | **VERIFIED RESOLVED** |
 | **ISSUE-MOB-09** | P3 | QA Suite: Responsive Infrastructure | Expanded `CANONICAL_VIEWPORTS` in `scripts/phase3/responsive-qa.js` from 9 to 13 viewports (adding 320×740 narrow mobile, 375×812 compact iOS mini, 844×390 short landscape, 1024×768 landscape tablet) with type classification (`portrait`, `landscape`, `tablet`, `desktop`). | **VERIFIED RESOLVED** |
@@ -67,19 +67,19 @@ Automated responsive verification across all 13 canonical viewports via [`script
 
 ### B. Global Navigation
 - **Header**: Compact mobile brand bar, >=44×44px language toggle and ePaper buttons. Zero 320px width overflow.
-- **BottomNav**: Sticky mobile bottom navigation (Home, Shorts, Videos, E-Paper, Menu) visible in mobile portrait; hides or remains unobtrusive when appropriate.
+- **BottomNav**: Sticky mobile bottom navigation with six core items (Home, E-Paper, E-Mag, Video, Quick, Profile/Login) visible in mobile portrait with safe-area padding; active state styling and touch hit bounds >=48px.
 - **Drawer Menu**: Fullscreen slide-over drawer with touch tap targets >=48px, keyboard trap, and backdrop dismiss.
 - **Low-Height Shell Compaction**: When `max-height <= 500px`, secondary category bar and BreakingNews bar collapse, giving >=69% viewport to content.
 
 ### C. Search & Feeds (`/main/search`, `/main/category/[slug]`, `/main/latest`)
-- **Themes**: Validated in both Light and Dark mode; semantic tokens prevent washed-out text or inverted boxes.
-- **Hindi Localization**: Search UI features authentic Hindi strings (खोजें, फ़िल्टर, सभी श्रेणियाँ, सभी प्रकार).
-- **Controls & Filters**: Dropdowns and chips wrap cleanly; clear query button resets state; empty state renders supportive guidance.
+- **Themes**: Validated in both Light and Dark mode using normalized Tailwind semantic tokens (`text-zinc-900 dark:text-zinc-100`, `bg-white dark:bg-zinc-900`, `border-zinc-200 dark:border-zinc-800`), preventing washed-out text or inverted boxes.
+- **Hindi Localization**: Search UI features authentic Hindi strings (`खोज`, `समाचार खोजें...`, `खोजें`, `सभी श्रेणियां`, `प्रासंगिकता`, `ताज़ा`, `लोकप्रिय`, `खोज साफ़ करें`, `कोई परिणाम नहीं मिला`, `ट्रेंडिंग खोजें`, `हाल की खोजें`).
+- **Controls & Filters**: Category and sorting dropdowns wrap cleanly; clear query button resets state; empty state renders supportive guidance.
 
 ### D. Article Reader (`/main/article/[slug]`)
 - **Typography**: Dual-font readability (Devanagari / Latin) tested with optimal line-height and letter-spacing.
-- **Rich Content Containment**: Wide HTML tables are automatically wrapped in `.articleTableScrollWrapper` with localized horizontal scrolling. Code blocks contain `overflow-x: auto` without page overflow.
-- **Reader Actions**: Audio listen button, text size controls, bookmarking, and share triggers maintain >=44×44px tap targets.
+- **Rich Content Containment**: Wide HTML tables are automatically wrapped in `.article-table-wrap` with localized horizontal scrolling (`overflow-x: auto`, `overscroll-behavior-inline: contain`). Code blocks contain `overflow-x: auto` without page overflow.
+- **Reader Actions**: Verified real reader controls including bookmark/save toggle, share sheet, E-Paper shortcut, audio listen/read-aloud player, and AI summary maintain >=44×44px tap targets.
 - **BottomNav Spacing**: Article footer includes safe-area and BottomNav clearance preventing content occlusion.
 
 ### E. Video Hub (`/main/videos`)
@@ -89,7 +89,7 @@ Automated responsive verification across all 13 canonical viewports via [`script
 
 ### F. Shorts Experience (`/main/shorts`)
 - **Gestures**: Vertical swipe thresholding smoothly advances or snaps back; nested horizontal touch gestures are isolated.
-- **Short Landscape (844×390 / 740×360)**: Compact landscape media styling positions controls on the side rail and caption box in the lower-left, preventing overlap with the video subject or player controls.
+- **Low-Height Compaction (`@media (max-height: 520px)`)**: Action stack bottom offset compacted to `bottom: calc(var(--reader-bottom-nav-space) + 0.75rem)` with reduced gap/padding (0.375rem) and safe-area right inset; action buttons retain standard `h-11 w-11` (min 44×44px touch targets); caption box pinned with right clearance (`right: 4.75rem`) and two-line clamp; article CTA maintains minimum 44px touch target without control collisions.
 - **Quick Article Sheet**: Bottom sheet modal contains safe scroll, drag handle, and dismiss button.
 
 ### G. E-Paper Reader (`/main/epaper`)
@@ -119,7 +119,7 @@ Automated responsive verification across all 13 canonical viewports via [`script
 - Header Language switcher: `>=44×44px`
 - Breaking News audio toggle: `>=44×44px` (touch-hit zone)
 - BottomNav items: `>=48×48px`
-- Shorts Action buttons: `>=44×44px` (touch bounds)
+- Shorts Action buttons: `>=44×44px` (`h-11 w-11 min 44×44px`)
 - Article Reader action toolbar buttons: `>=44×44px`
 
 ---
@@ -142,12 +142,13 @@ Automated responsive verification across all 13 canonical viewports via [`script
 | **Strict Lint** | `npm run lint:strict` | **PASS (0 warnings)** | Core domains, security, and storage clean. |
 | **Security Suite** | `npm run test:security` | **PASS (73/73 passed)** | Rate limiting, validation, audit logs, and admin routes verified. |
 | **Governance Suite** | `npm run test:governance` | **PASS (17/17 passed)** | Permissions and operational diagnostics verified. |
+| **Scope & Secrets Safety** | `npm run check:phase3-scope` | **PASS (EXIT 0)** | Zero dangerous or unapproved artifacts across all branch files. |
 | **Focused 3.16 Suite** | `vitest run tests/phase316* ...` | **PASS (102/102 passed)** | 7 test files, 102 tests passed across 3.16A–E. |
-| **CI Build** | `npm run build:ci` | **PASS** | Production Next.js build compiled successfully. |
+| **CI Build** | `npm run build:ci` | **PASS (EXIT 0)** | Production Next.js build compiled successfully. |
 | **Git Diff Check** | `git diff --check origin/b3/foundation...HEAD` | **PASS** | Zero whitespace or formatting errors in branch diff. |
 | **Auth Guards** | `npm run test:auth-guards` | **PASS (7 cases)** | Auth redirect and reader session guards verified. |
 | **Admin Credentials** | `npm run test:admin-credentials` | **PASS** | Admin credential parsing and bcrypt normalization verified. |
-| **Full Test Suite** | `npm run test:ci` | **385/386 files passed** | 3,130 tests passed. Sole failure in `phase3-scope-checker.test.ts` due to local uncommitted data noise in `data/analytics-events.json`. Separately verified 0 branch violations. |
+| **Full Test Suite** | `npm run test:ci` | **PASS (EXIT 0)** | All 386 test files passed, 3,131 tests passed cleanly on exact committed branch tree in clean verification worktree. Auth guards and admin credentials verified. |
 
 ---
 
