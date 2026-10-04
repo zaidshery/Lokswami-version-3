@@ -1,5 +1,7 @@
 import { createRef, useState } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import VideoPlayer, { type VideoPlayerHandle } from '@/components/ui/VideoPlayer';
 
@@ -9,6 +11,31 @@ describe('VideoPlayer resilience & lifecycle', () => {
     autoAdvance: true, playbackRate: 1, defaultVolume: 1, captionsEnabled: false,
     onMutedChange: vi.fn(), onTimeChange: vi.fn(), onEnded: vi.fn(),
   };
+
+  it('hydrates offline entry without regenerating the server tree', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    const element = <VideoPlayer {...commonProps} src="https://example.com/video.mp4" isPaused={false} onPausedChange={vi.fn()} />;
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')!;
+    const container = document.createElement('div');
+    try {
+      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: undefined });
+      container.innerHTML = renderToString(element);
+    } finally { Object.defineProperty(globalThis, 'navigator', descriptor); }
+    document.body.appendChild(container);
+    // JSDOM does not initialize the media muted property from the parsed defaultMuted attribute.
+    container.querySelectorAll('video').forEach((video) => { video.muted = video.defaultMuted; });
+    const onRecoverableError = vi.fn();
+    let root: ReturnType<typeof hydrateRoot>;
+    await act(async () => { root = hydrateRoot(container, element, { onRecoverableError }); });
+    try {
+      expect(onRecoverableError).not.toHaveBeenCalled();
+      expect(container).toHaveTextContent(/Offline/);
+    } finally {
+      await act(async () => root!.unmount());
+      container.remove();
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    }
+  });
 
   it('keeps the YouTube iframe stable across controlled visibility pauses and mute changes', () => {
     function ControlledPlayer() {

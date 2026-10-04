@@ -35,6 +35,20 @@ describe('Video Hub provider-confirmed telemetry', () => {
   });
   afterEach(() => { delete window.YT; vi.restoreAllMocks(); });
 
+  it('does not issue new play requests for ordinary progress renders', async () => {
+    vi.mocked(HTMLMediaElement.prototype.play).mockResolvedValue();
+    const { container } = mount();
+    const video = container.querySelector('video')!;
+    await act(async () => { fireEvent.playing(video); });
+    const playCalls = vi.mocked(HTMLMediaElement.prototype.play).mock.calls.length;
+    Object.defineProperty(video, 'duration', { configurable: true, value: 100 });
+    for (const time of [1, 2, 3]) {
+      video.currentTime = time;
+      await act(async () => { fireEvent.timeUpdate(video); });
+    }
+    expect(vi.mocked(HTMLMediaElement.prototype.play)).toHaveBeenCalledTimes(playCalls);
+  });
+
   it('reports confirmed completion even with auto-advance disabled', async () => {
     const { container } = mount();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument());

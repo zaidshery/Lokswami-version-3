@@ -285,7 +285,13 @@ export default function VideosPageClient({
     return 'html5';
   }, [selectedVideo]);
 
-  const watchTelemetry = useVideoWatchTelemetry({
+  const {
+    onPlay: watchOnPlay,
+    onPause: watchOnPause,
+    onTimeUpdate: watchOnTimeUpdate,
+    onSeek: watchOnSeek,
+    onEnded: watchOnEnded,
+  } = useVideoWatchTelemetry({
     contentId: selectedVideo?.id || '',
     slug: selectedVideo?.slug || '',
     title: selectedVideo?.title || '',
@@ -301,28 +307,28 @@ export default function VideosPageClient({
   const handlePausedChange = useCallback((paused: boolean) => {
     setIsPaused(paused);
     if (paused) {
-      watchTelemetry.onPause();
+      watchOnPause();
     } else {
       wasManuallyPausedRef.current = false;
     }
-  }, [watchTelemetry]);
+  }, [watchOnPause]);
 
   const handlePlaybackChange = useCallback((playing: boolean) => {
-    if (playing) watchTelemetry.onPlay();
-    else watchTelemetry.onPause();
-  }, [watchTelemetry]);
+    if (playing) watchOnPlay();
+    else watchOnPause();
+  }, [watchOnPlay, watchOnPause]);
 
   const handleTimeChange = useCallback((curr: number, dur: number) => {
     setCurrentTime(curr);
     if (dur > 0) setActiveDuration(dur);
-    watchTelemetry.onTimeUpdate(curr, dur);
-  }, [watchTelemetry]);
+    watchOnTimeUpdate(curr, dur);
+  }, [watchOnTimeUpdate]);
 
   const handleSeek = useCallback((seconds: number) => {
     setCurrentTime(seconds);
-    watchTelemetry.onSeek();
+    watchOnSeek();
     if (playerRef.current) playerRef.current.seekTo(seconds);
-  }, [watchTelemetry]);
+  }, [watchOnSeek]);
 
   const handleSelectVideo = useCallback((videoId: string) => {
     const selectedOffPage = availableVideos.find((v) => v.id === videoId);
@@ -480,7 +486,7 @@ export default function VideosPageClient({
                     language={language}
                     copy={copy}
                     onSeek={handleSeek}
-                    onSeeking={watchTelemetry.onSeek}
+                    onSeeking={watchOnSeek}
                     onPausedChange={handlePausedChange}
                     onPlaybackChange={handlePlaybackChange}
                     onMutedChange={setIsMuted}
@@ -490,7 +496,7 @@ export default function VideosPageClient({
                     onPlaybackRateChange={setPlaybackRate}
                     onToggleWatchLater={toggleWatchLater}
                     onAdvanceToNext={advanceToNext}
-                    onEnded={watchTelemetry.onEnded}
+                    onEnded={watchOnEnded}
                   />
 
                   {/* Selected Video Information & Action Controls */}

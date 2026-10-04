@@ -62,9 +62,7 @@ export default function SwipeFeed({
   const [reducedMotion, setReducedMotion] = useState(false);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextCursor, setNextCursor] = useState<SwipeCursor>(initialNextCursor);
-  const [isOffline, setIsOffline] = useState(
-    typeof navigator !== 'undefined' ? !navigator.onLine : false
-  );
+  const [isOffline, setIsOffline] = useState(false);
   const wasManuallyPausedRef = useRef(false);
   const pausedByVisibilityRef = useRef(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -91,6 +89,7 @@ export default function SwipeFeed({
 
   // Network online/offline monitoring
   useEffect(() => {
+    setIsOffline(!navigator.onLine);
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => {
       setIsOffline(true);

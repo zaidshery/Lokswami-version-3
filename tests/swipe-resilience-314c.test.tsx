@@ -1,5 +1,7 @@
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot } from 'react-dom/client';
 import SwipeFeed from '@/components/swipe/SwipeFeed';
 import SwipeVideoCard from '@/components/swipe/SwipeVideoCard';
 import useSwipeAnalytics from '@/components/swipe/useSwipeAnalytics';
@@ -57,6 +59,31 @@ describe('SwipeFeed 3.14C Resilience & Lifecycle', () => {
     );
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+  });
+
+  it('hydrates an initially offline feed without regenerating server markup', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    const element = <SwipeFeed initialItems={[createShortItem(1)]} initialArticle={null} initialHasMore={false} initialNextCursor={null} />;
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')!;
+    const container = document.createElement('div');
+    try {
+      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: undefined });
+      container.innerHTML = renderToString(element);
+    } finally { Object.defineProperty(globalThis, 'navigator', descriptor); }
+    document.body.appendChild(container);
+    // Match browser media initialization absent from JSDOM's HTML parser.
+    container.querySelectorAll('video').forEach((video) => { video.muted = video.defaultMuted; });
+    const onRecoverableError = vi.fn();
+    let root: ReturnType<typeof hydrateRoot>;
+    await act(async () => { root = hydrateRoot(container, element, { onRecoverableError }); });
+    try {
+      expect(onRecoverableError).not.toHaveBeenCalled();
+      expect(container).toHaveTextContent(/ऑफ़लाइन/);
+    } finally {
+      await act(async () => root!.unmount());
+      container.remove();
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    }
   });
 
   it('keeps the YouTube frame mounted across pause and mute controls and synchronizes after readiness', () => {

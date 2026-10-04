@@ -222,9 +222,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const [errorClassification, setErrorClassification] = useState<string>('generic');
   const [retryCount, setRetryCount] = useState(0);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [isOffline, setIsOffline] = useState(
-    typeof navigator !== 'undefined' ? !navigator.onLine : false
-  );
+  const [isOffline, setIsOffline] = useState(false);
   const bufferTimerRef = useRef<number | null>(null);
   const wasManuallyPausedRef = useRef(isPaused);
   const pausedByVisibilityRef = useRef(false);
@@ -235,6 +233,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
 
   // Network offline/online tracking
   useEffect(() => {
+    setIsOffline(!navigator.onLine);
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => {
       setIsOffline(true);
