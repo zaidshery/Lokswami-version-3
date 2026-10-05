@@ -289,6 +289,53 @@ export default function ShareMenu({
     // Keep failure feedback available until another attempt or dismissal.
   };
 
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+function isTabbableVisible(el: HTMLElement): boolean {
+  if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') {
+    return false;
+  }
+  if (typeof window !== 'undefined') {
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') {
+      return false;
+    }
+  }
+  return true;
+}
+
+function findAdjacentTabbableElement(
+  reference: HTMLElement,
+  forward: boolean,
+  containerToExclude?: HTMLElement | null
+): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+
+  const elements = Array.from(
+    document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+  ).filter((el) => {
+    if (containerToExclude && containerToExclude.contains(el)) return false;
+    if (el.hasAttribute('disabled')) return false;
+    if (el.tabIndex < 0) return false;
+    return isTabbableVisible(el);
+  });
+
+  const index = elements.indexOf(reference);
+  if (index === -1) return null;
+
+  if (forward) {
+    return elements[index + 1] || null;
+  }
+  return elements[index - 1] || null;
+}
+
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     // Reader playback/navigation shortcuts must not consume menu keystrokes.
     event.stopPropagation();
@@ -297,6 +344,25 @@ export default function ShareMenu({
       closeMenu(true);
       return;
     }
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      const forward = !event.shiftKey;
+      const trigger = triggerRef.current;
+      const menuEl = menuRef.current;
+      closeMenu(false);
+
+      if (trigger) {
+        const target = findAdjacentTabbableElement(trigger, forward, menuEl);
+        if (target) {
+          target.focus();
+        } else {
+          trigger.focus();
+        }
+      }
+      return;
+    }
+
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
 
     const items = Array.from(
@@ -342,6 +408,7 @@ export default function ShareMenu({
             <button
               type="button"
               role="menuitem"
+              tabIndex={-1}
               onClick={() => void handleNativeShare()}
               className={itemClassName}
             >
@@ -353,6 +420,7 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => handleExternalShare('whatsapp')}
             className={itemClassName}
           >
@@ -362,6 +430,7 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => handleExternalShare('facebook')}
             className={itemClassName}
           >
@@ -371,6 +440,7 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => handleExternalShare('x')}
             className={itemClassName}
           >
@@ -382,13 +452,20 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => handleExternalShare('linkedin')}
             className={itemClassName}
           >
             <Linkedin aria-hidden="true" className="h-4 w-4 text-sky-700" />
             LinkedIn
           </button>
-          <button type="button" role="menuitem" onClick={() => handleExternalShare('telegram')} className={itemClassName}>
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => handleExternalShare('telegram')}
+            className={itemClassName}
+          >
             <MessageCircle aria-hidden="true" className="h-4 w-4 text-sky-600" />
             Telegram
           </button>
@@ -397,6 +474,7 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => void handleCopy()}
             className={itemClassName}
           >
@@ -434,7 +512,15 @@ export default function ShareMenu({
         aria-expanded={directWhatsApp ? undefined : isOpen}
         aria-controls={isOpen ? menuId : undefined}
         aria-label={displayedAriaLabel}
-        onKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === 'ArrowDown' && !isOpen && !directWhatsApp) {
+            event.preventDefault();
+            setCopyStatus('idle');
+            setShareStatus('');
+            setIsOpen(true);
+          }
+        }}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
