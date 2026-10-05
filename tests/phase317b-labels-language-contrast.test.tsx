@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react';
 import fs from 'fs';
 import path from 'path';
 
@@ -317,19 +317,75 @@ describe('Phase 3.17B — Forms, Live Regions, Language Metadata, State Semantic
   });
 
   describe('5. Reader Auth Mode State Semantics (ISSUE-A11Y-08)', () => {
-    it('renders reader sub-mode toggle with tablist and aria-selected semantics', () => {
+    it('does not render incomplete role="tab" or role="tablist" semantics in auth mode switchers', () => {
       render(<SignInPageClient adminCredentialsEnabled={false} adminGoogleEnabled={false} />);
 
-      const tablists = screen.getAllByRole('tablist');
-      expect(tablists.length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByRole('tab')).toHaveLength(0);
+      expect(screen.queryAllByRole('tablist')).toHaveLength(0);
+    });
 
-      const signInTabs = screen.getAllByRole('tab', { name: /Sign In|लॉगिन करें/i });
-      expect(signInTabs.length).toBeGreaterThanOrEqual(1);
-      expect(signInTabs[0]).toHaveAttribute('aria-selected', 'true');
+    it('exposes aria-pressed and meaningful accessible names for Reader vs Newsroom Team portal switchers', () => {
+      render(<SignInPageClient adminCredentialsEnabled={false} adminGoogleEnabled={false} />);
 
-      const registerTabs = screen.getAllByRole('tab', { name: /Create Account|नया खाता बनाएं/i });
-      expect(registerTabs.length).toBeGreaterThanOrEqual(1);
-      expect(registerTabs[0]).toHaveAttribute('aria-selected', 'false');
+      const readerBtns = screen.getAllByRole('button', { name: /Reader & Subscriber/i });
+      const staffBtns = screen.getAllByRole('button', { name: /Newsroom Team/i });
+
+      expect(readerBtns.length).toBeGreaterThanOrEqual(1);
+      expect(staffBtns.length).toBeGreaterThanOrEqual(1);
+
+      // Initially reader mode is active
+      expect(readerBtns[0]).toHaveAttribute('aria-pressed', 'true');
+      expect(staffBtns[0]).toHaveAttribute('aria-pressed', 'false');
+
+      // Click to switch to staff mode
+      act(() => {
+        fireEvent.click(staffBtns[0]);
+      });
+
+      expect(staffBtns[0]).toHaveAttribute('aria-pressed', 'true');
+      expect(readerBtns[0]).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('exposes aria-pressed and updates state when toggling Sign In and Create Account', () => {
+      render(<SignInPageClient adminCredentialsEnabled={false} adminGoogleEnabled={false} />);
+
+      const signInBtns = screen.getAllByRole('button', { name: /^Sign In$/i });
+      const createAccountBtns = screen.getAllByRole('button', { name: /^Create Account$/i });
+
+      expect(signInBtns.length).toBeGreaterThanOrEqual(1);
+      expect(createAccountBtns.length).toBeGreaterThanOrEqual(1);
+
+      // Initially Sign In is active
+      expect(signInBtns[0]).toHaveAttribute('aria-pressed', 'true');
+      expect(createAccountBtns[0]).toHaveAttribute('aria-pressed', 'false');
+
+      // Click to switch to Create Account
+      act(() => {
+        fireEvent.click(createAccountBtns[0]);
+      });
+
+      expect(createAccountBtns[0]).toHaveAttribute('aria-pressed', 'true');
+      expect(signInBtns[0]).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('supports native keyboard focusability and button activation via Tab and click', () => {
+      render(<SignInPageClient adminCredentialsEnabled={false} adminGoogleEnabled={false} />);
+
+      const readerBtn = screen.getAllByRole('button', { name: /Reader & Subscriber/i })[0];
+      const staffBtn = screen.getAllByRole('button', { name: /Newsroom Team/i })[0];
+
+      // Native buttons are keyboard-focusable in normal tab order
+      readerBtn.focus();
+      expect(document.activeElement).toBe(readerBtn);
+
+      staffBtn.focus();
+      expect(document.activeElement).toBe(staffBtn);
+
+      // Standard button can be activated via click / Enter
+      act(() => {
+        fireEvent.click(staffBtn);
+      });
+      expect(staffBtn).toHaveAttribute('aria-pressed', 'true');
     });
   });
 

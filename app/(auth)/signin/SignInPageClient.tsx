@@ -307,13 +307,12 @@ function AuthFormContent({
         </p>
       </motion.div>
 
-      {/* Portal Tab Switcher: Reader vs Staff */}
+      {/* Portal Mode Switcher: Reader vs Staff */}
       <motion.div variants={formItemVariants} className="mb-4">
-        <div className="flex rounded-2xl bg-zinc-100 p-1.5 dark:bg-zinc-800" role="tablist" aria-label="Sign-in portal selection">
+        <div className="flex rounded-2xl bg-zinc-100 p-1.5 dark:bg-zinc-800" role="group" aria-label="Sign-in portal selection">
           <button
             type="button"
-            role="tab"
-            aria-selected={authPortalTab === 'reader'}
+            aria-pressed={authPortalTab === 'reader'}
             onClick={() => onAuthPortalTabChange('reader')}
             className={`reader-focus-ring flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
               authPortalTab === 'reader'
@@ -326,8 +325,7 @@ function AuthFormContent({
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={authPortalTab === 'staff'}
+            aria-pressed={authPortalTab === 'staff'}
             onClick={() => onAuthPortalTabChange('staff')}
             className={`reader-focus-ring flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
               authPortalTab === 'staff'
@@ -358,11 +356,10 @@ function AuthFormContent({
       {authPortalTab === 'reader' ? (
         <div className="space-y-4">
           {/* Sub-toggle: Sign In vs Create Account */}
-          <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900" role="tablist" aria-label="Reader account mode">
+          <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900" role="group" aria-label="Reader account mode">
             <button
               type="button"
-              role="tab"
-              aria-selected={readerMode === 'signin'}
+              aria-pressed={readerMode === 'signin'}
               onClick={() => onReaderModeChange('signin')}
               className={`reader-focus-ring flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
                 readerMode === 'signin'
@@ -374,8 +371,7 @@ function AuthFormContent({
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={readerMode === 'register'}
+              aria-pressed={readerMode === 'register'}
               onClick={() => onReaderModeChange('register')}
               className={`reader-focus-ring flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
                 readerMode === 'register'
