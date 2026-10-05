@@ -368,20 +368,20 @@ describe('Phase 3.17A — Global Semantics, Heading Structure, Visible Focus & M
         }
       };
 
-      assertButtonHasRing('Back to editions');
-      assertButtonHasRing('Previous page');
-      assertButtonHasRing('Next page');
-      assertButtonHasRing('Zoom in');
-      assertButtonHasRing('Zoom out');
-      assertButtonHasRing('Reset zoom');
-      assertButtonHasRing('Switch to spread view');
-      assertButtonHasRing('Enter fullscreen');
-      assertButtonHasRing('Save for later');
-      assertButtonHasRing('Download edition');
-      assertButtonHasRing('Switch reader to dark mode');
-      assertButtonHasRing('Close');
-      assertButtonHasRing('Hide pages');
-      expect(screen.getByRole('combobox', { name: 'Jump to page' })).toHaveClass('reader-focus-ring');
+      assertButtonHasRing(/Back to editions|संस्करणों पर वापस जाएं/);
+      assertButtonHasRing(/Previous page|पिछला पृष्ठ/);
+      assertButtonHasRing(/Next page|अगला पृष्ठ/);
+      assertButtonHasRing(/Zoom in|ज़ूम इन/);
+      assertButtonHasRing(/Zoom out|ज़ूम आउट/);
+      assertButtonHasRing(/Reset zoom|ज़ूम रीसेट करें/);
+      assertButtonHasRing(/Switch to spread view|दो पेज दृश्य में बदलें/);
+      assertButtonHasRing(/Enter fullscreen|फुलस्क्रीन करें/);
+      assertButtonHasRing(/Save for later|बाद के लिए सहेजें/);
+      assertButtonHasRing(/Download edition|संस्करण डाउनलोड करें/);
+      assertButtonHasRing(/Switch reader to dark mode|डार्क मोड में बदलें/);
+      assertButtonHasRing(/Close|रीडर बंद करें|बंद करें/);
+      assertButtonHasRing(/Hide pages|पृष्ठ छुपाएं/);
+      expect(screen.getByRole('combobox', { name: /Jump to page|पृष्ठ पर जाएं/ })).toHaveClass('reader-focus-ring');
     });
 
     it('verifies EPaperStoryPreview controls carry reader-focus-ring', () => {
@@ -398,15 +398,15 @@ describe('Phase 3.17A — Global Semantics, Heading Structure, Visible Focus & M
         />
       );
 
-      expect(screen.getByRole('button', { name: 'Close story' })).toHaveClass('reader-focus-ring');
-      expect(screen.getByRole('button', { name: 'Share story' })).toHaveClass('reader-focus-ring');
+      expect(screen.getByRole('button', { name: /Close story|खबर बंद करें/ })).toHaveClass('reader-focus-ring');
+      expect(screen.getByRole('button', { name: /Share story|खबर साझा करें/ })).toHaveClass('reader-focus-ring');
       expect(screen.getByRole('button', { name: 'विजुअल' })).toHaveClass('reader-focus-ring');
       expect(screen.getByRole('button', { name: 'टेक्स्ट' })).toHaveClass('reader-focus-ring');
-      expect(screen.getByRole('button', { name: /Listen to story|सुनें/i })).toHaveClass('reader-focus-ring');
+      expect(screen.getByRole('button', { name: /Listen to story|सुनें|खबर सुनें/i })).toHaveClass('reader-focus-ring');
       expect(screen.getByRole('link', { name: 'पूरी खबर पढ़ें' })).toHaveClass('reader-focus-ring');
-      expect(screen.getByRole('button', { name: 'Zoom in story image' })).toHaveClass('reader-focus-ring');
-      expect(screen.getByRole('button', { name: 'Zoom out story image' })).toHaveClass('reader-focus-ring');
-      expect(screen.getByRole('button', { name: 'Fit story image' })).toHaveClass('reader-focus-ring');
+      expect(screen.getByRole('button', { name: /Zoom in story image|ज़ूम इन/ })).toHaveClass('reader-focus-ring');
+      expect(screen.getByRole('button', { name: /Zoom out story image|ज़ूम आउट/ })).toHaveClass('reader-focus-ring');
+      expect(screen.getByRole('button', { name: /Fit story image|स्क्रीन में फ़िट करें|पूरा पृष्ठ|खबर क्लिपिंग/ })).toHaveClass('reader-focus-ring');
     });
   });
 

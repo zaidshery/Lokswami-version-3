@@ -269,7 +269,7 @@ export default function SavedArticlesPage() {
                       <p className="mt-1 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
                         {item.summary}
                       </p>
-                      <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-500 sm:text-xs">
+                      <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 sm:text-xs">
                         {formatPublishedAt(item.publishedAt, language)}
                       </p>
                     </div>

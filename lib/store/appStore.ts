@@ -12,6 +12,11 @@ function applyThemeToDom(theme: 'dark' | 'light') {
   root.style.colorScheme = theme;
 }
 
+export function applyLanguageToDom(language: 'hi' | 'en') {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = language;
+}
+
 function readSystemTheme(): 'dark' | 'light' {
   if (typeof window === 'undefined') return 'dark';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -130,10 +135,16 @@ export const useAppStore = create<AppState>()(
 
       // Language
       language: 'hi',
-      toggleLanguage: () => set((state) => ({ 
-        language: state.language === 'hi' ? 'en' : 'hi' 
-      })),
-      setLanguage: (language) => set({ language }),
+      toggleLanguage: () =>
+        set((state) => {
+          const nextLang = state.language === 'hi' ? 'en' : 'hi';
+          applyLanguageToDom(nextLang);
+          return { language: nextLang };
+        }),
+      setLanguage: (language) => {
+        applyLanguageToDom(language);
+        set({ language });
+      },
       
       // UI State
       isMobileMenuOpen: false,
@@ -202,6 +213,9 @@ export const useAppStore = create<AppState>()(
         const pref = state?.themePreference;
         const resolved = (pref === 'light' || pref === 'dark') ? pref : readSystemTheme();
         applyThemeToDom(resolved);
+        if (state?.language) {
+          applyLanguageToDom(state.language);
+        }
       },
     }
   )

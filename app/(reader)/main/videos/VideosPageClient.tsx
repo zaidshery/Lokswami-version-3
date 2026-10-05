@@ -604,7 +604,7 @@ export default function VideosPageClient({
                         className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                           autoAdvance
                             ? 'border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-white/15 dark:bg-white/10 dark:text-white'
-                            : 'border-zinc-200 text-zinc-500 dark:border-white/5 dark:text-zinc-500'
+                            : 'border-zinc-200 text-zinc-500 dark:border-white/5 dark:text-zinc-400'
                         }`}
                         aria-pressed={autoAdvance}
                         aria-label={copy.autoAdvance}

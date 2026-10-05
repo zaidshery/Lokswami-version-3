@@ -136,7 +136,8 @@ export default function SearchClient() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={language === 'hi' ? 'समाचार खोजें...' : 'Search news...'}
-            className="min-h-12 flex-1 bg-transparent px-4 py-3.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            aria-label={language === 'hi' ? 'समाचार खोजें' : 'Search news'}
+            className="min-h-12 flex-1 bg-transparent px-4 py-3.5 text-zinc-900 placeholder:text-zinc-500 focus:outline-none dark:text-zinc-100 dark:placeholder:text-zinc-400"
           />
           {query ? (
             <button
@@ -163,6 +164,7 @@ export default function SearchClient() {
             <Filter className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
             <select
               value={selectedCategory}
+              aria-label={language === 'hi' ? 'श्रेणी चुनें' : 'Choose category'}
               onChange={(e) => {
                 const next = e.target.value;
                 setSelectedCategory(next);
@@ -181,6 +183,7 @@ export default function SearchClient() {
           <div className="flex items-center gap-2">
             <select
               value={sortBy}
+              aria-label={language === 'hi' ? 'क्रमबद्ध करें' : 'Sort articles'}
               onChange={(e) => {
                 const next = (e.target.value as 'relevance' | 'latest' | 'popular') || 'relevance';
                 setSortBy(next);
@@ -198,11 +201,13 @@ export default function SearchClient() {
 
       {query ? (
         <div>
-          <div className="mb-4 space-y-3">
+          <div className="mb-4 space-y-3" role="status" aria-live="polite" aria-atomic="true">
             <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              {language === 'hi'
-                ? `"${query}" के लिए ${searchResults.length} परिणाम`
-                : `${searchResults.length} results for "${query}"`}
+              {searchResults.length === 0
+                ? (language === 'hi' ? `"${query}" के लिए कोई परिणाम नहीं मिला` : `No results found for "${query}"`)
+                : (language === 'hi'
+                    ? `"${query}" के लिए ${searchResults.length} परिणाम मिले`
+                    : `${searchResults.length} results found for "${query}"`)}
             </p>
           </div>
 

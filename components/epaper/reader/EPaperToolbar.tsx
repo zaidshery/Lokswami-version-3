@@ -46,6 +46,7 @@ export interface EPaperToolbarProps {
   shareUrl: string;
   shareText: string;
   shareContentType?: 'epaper' | 'emagazine';
+  publicationType?: 'epaper' | 'emagazine';
   shareContentId?: string;
   language?: 'en' | 'hi';
   isSaved?: boolean;
@@ -88,6 +89,7 @@ function EPaperToolbarComponent({
   shareUrl,
   shareText,
   shareContentType = 'epaper',
+  publicationType,
   shareContentId = '',
   language = 'hi',
   isSaved = false,
@@ -98,7 +100,47 @@ function EPaperToolbarComponent({
   thumbnailsOpen = true,
   onToggleThumbnails,
 }: EPaperToolbarProps) {
+  const isEmagazine = publicationType === 'emagazine' || shareContentType === 'emagazine';
   const pageLabel = isSpreadMode && companionPage ? `${currentPage}–${companionPage}` : `${currentPage}`;
+
+  const copy = {
+    closeReader: language === 'hi' ? 'रीडर बंद करें' : 'Close reader',
+    backToEditions: language === 'hi'
+      ? (isEmagazine ? 'अंकों पर वापस जाएं' : 'संस्करणों पर वापस जाएं')
+      : (isEmagazine ? 'Back to issues' : 'Back to editions'),
+    back: language === 'hi' ? 'वापस' : 'Back',
+    previousPage: language === 'hi' ? 'पिछला पृष्ठ' : 'Previous page',
+    nextPage: language === 'hi' ? 'अगला पृष्ठ' : 'Next page',
+    page: language === 'hi' ? 'पृष्ठ ' : 'Page ',
+    jumpToPage: language === 'hi' ? 'पृष्ठ पर जाएं' : 'Jump to page',
+    zoomIn: language === 'hi' ? 'ज़ूम इन' : 'Zoom in',
+    zoomOut: language === 'hi' ? 'ज़ूम आउट' : 'Zoom out',
+    resetZoom: language === 'hi' ? 'ज़ूम रीसेट करें' : 'Reset zoom',
+    enterFullscreen: language === 'hi' ? 'फुलस्क्रीन करें' : 'Enter fullscreen',
+    exitFullscreen: language === 'hi' ? 'फुलस्क्रीन से बाहर निकलें' : 'Exit fullscreen',
+    switchToSinglePage: language === 'hi' ? 'सिंगल पेज दृश्य में बदलें' : 'Switch to single page view',
+    switchToSpread: language === 'hi' ? 'दो पेज दृश्य में बदलें' : 'Switch to spread view',
+    singlePage: language === 'hi' ? 'सिंगल पेज' : 'Single page',
+    spreadView: language === 'hi' ? 'दो पेज' : 'Spread view',
+    saved: language === 'hi' ? 'सहेजा गया' : 'Saved',
+    saveForLater: language === 'hi' ? 'बाद के लिए सहेजें' : 'Save for later',
+    downloadEdition: language === 'hi'
+      ? (isEmagazine ? 'अंक डाउनलोड करें' : 'संस्करण डाउनलोड करें')
+      : (isEmagazine ? 'Download issue' : 'Download edition'),
+    download: language === 'hi' ? 'डाउनलोड' : 'Download',
+    shareEdition: language === 'hi'
+      ? (isEmagazine ? 'अंक साझा करें' : 'संस्करण साझा करें')
+      : (isEmagazine ? 'Share issue' : 'Share edition'),
+    share: language === 'hi' ? 'साझा करें' : 'Share',
+    switchToLightMode: language === 'hi' ? 'लाइट मोड में बदलें' : 'Switch reader to light mode',
+    switchToDarkMode: language === 'hi' ? 'डार्क मोड में बदलें' : 'Switch reader to dark mode',
+    lightMode: language === 'hi' ? 'लाइट मोड' : 'Light mode',
+    darkMode: language === 'hi' ? 'डार्क मोड' : 'Dark mode',
+    close: language === 'hi' ? 'बंद करें' : 'Close',
+    hidePages: language === 'hi' ? 'पृष्ठ छुपाएं' : 'Hide pages',
+    showPages: language === 'hi' ? 'पृष्ठ दिखाएं' : 'Show pages',
+  };
+
   return (
     <header className={`${styles.toolbar} ${styles.controls} relative z-40 w-full shrink-0 border-b border-zinc-200/90 bg-white/95 px-2.5 py-2 shadow-xs backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 sm:rounded-t-2xl sm:px-3 lg:px-4`}>
       <h1 className="sr-only">
@@ -109,7 +151,7 @@ function EPaperToolbarComponent({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close reader"
+          aria-label={copy.closeReader}
           className="reader-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100/90 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -126,8 +168,8 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onToggleFullscreen}
-              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              aria-label={isFullscreen ? copy.exitFullscreen : copy.enterFullscreen}
+              title={isFullscreen ? copy.exitFullscreen : copy.enterFullscreen}
               className="reader-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -137,8 +179,8 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onToggleTheme}
-              aria-label={theme === 'dark' ? 'Switch reader to light mode' : 'Switch reader to dark mode'}
-              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              aria-label={theme === 'dark' ? copy.switchToLightMode : copy.switchToDarkMode}
+              title={theme === 'dark' ? copy.lightMode : copy.darkMode}
               className="reader-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -153,8 +195,8 @@ function EPaperToolbarComponent({
             contentId={shareContentId}
             placement="publication_reader_mobile_toolbar"
             language={language}
-            triggerLabel="Share"
-            ariaLabel="Share edition"
+            triggerLabel={copy.share}
+            ariaLabel={copy.shareEdition}
             buttonClassName="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 [&>span]:hidden"
           />
         </div>
@@ -167,12 +209,12 @@ function EPaperToolbarComponent({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Back to editions"
-            title="Back to editions"
+            aria-label={copy.backToEditions}
+            title={copy.backToEditions}
             className="reader-focus-ring inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 dark:hover:text-white"
           >
             <ChevronLeft className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Back</span>
+            <span className="hidden sm:inline">{copy.back}</span>
           </button>
 
           <span className="hidden text-zinc-300 dark:text-zinc-700 md:inline">|</span>
@@ -196,17 +238,17 @@ function EPaperToolbarComponent({
             type="button"
             onClick={onPreviousPage}
             disabled={!canGoPrevious}
-            aria-label="Previous page"
-            title="Previous page"
+            aria-label={copy.previousPage}
+            title={copy.previousPage}
             className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
 
           <div className="inline-flex items-center rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 py-1 text-center text-xs font-semibold text-zinc-800 shadow-2xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100">
-            <span className="hidden md:inline">Page&nbsp;</span>
+            <span className="hidden md:inline">{copy.page}</span>
             <span>{pageLabel}</span>
-            <span className="mx-1 text-zinc-400 dark:text-zinc-500">/</span>
+            <span className="mx-1 text-zinc-400 dark:text-zinc-400">/</span>
             <span>{pageCount}</span>
           </div>
 
@@ -214,13 +256,12 @@ function EPaperToolbarComponent({
             type="button"
             onClick={onNextPage}
             disabled={!canGoNext}
-            aria-label="Next page"
-            title="Next page"
+            aria-label={copy.nextPage}
+            title={copy.nextPage}
             className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
-
         </div>
 
         {/* Right: Zoom, Spread mode, Bookmark, Download, Share, Close */}
@@ -231,8 +272,8 @@ function EPaperToolbarComponent({
               type="button"
               onClick={onZoomOut}
               disabled={zoom <= minZoom}
-              aria-label="Zoom out"
-              title="Zoom out"
+              aria-label={copy.zoomOut}
+              title={copy.zoomOut}
               className="reader-focus-ring inline-flex h-8 w-7 items-center justify-center rounded-l-lg text-zinc-800 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               <Minus className="h-3.5 w-3.5" />
@@ -244,8 +285,8 @@ function EPaperToolbarComponent({
               type="button"
               onClick={onZoomIn}
               disabled={zoom >= maxZoom}
-              aria-label="Zoom in"
-              title="Zoom in"
+              aria-label={copy.zoomIn}
+              title={copy.zoomIn}
               className={`reader-focus-ring inline-flex h-8 w-7 items-center justify-center text-zinc-800 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-100 dark:hover:bg-zinc-700 ${
                 onResetZoom ? '' : 'rounded-r-lg'
               }`}
@@ -256,8 +297,8 @@ function EPaperToolbarComponent({
               <button
                 type="button"
                 onClick={onResetZoom}
-                aria-label="Reset zoom"
-                title="Reset zoom"
+                aria-label={copy.resetZoom}
+                title={copy.resetZoom}
                 className="reader-focus-ring inline-flex h-8 w-7 items-center justify-center rounded-r-lg border-l border-zinc-300/80 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700"
               >
                 <RotateCcw className="h-3 w-3" />
@@ -269,11 +310,11 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onToggleSpreadMode}
-              title={isSpreadMode ? 'Switch to single page view' : 'Switch to spread view'}
-              aria-label={isSpreadMode ? 'Switch to single page view' : 'Switch to spread view'}
+              title={isSpreadMode ? copy.switchToSinglePage : copy.switchToSpread}
+              aria-label={isSpreadMode ? copy.switchToSinglePage : copy.switchToSpread}
               className="reader-focus-ring inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
-              <span className="hidden lg:inline">{isSpreadMode ? 'Single page' : 'Spread view'}</span>
+              <span className="hidden lg:inline">{isSpreadMode ? copy.singlePage : copy.spreadView}</span>
               <span className="lg:hidden">{isSpreadMode ? '1P' : '2P'}</span>
             </button>
           ) : null}
@@ -282,8 +323,8 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onToggleFullscreen}
-              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              aria-label={isFullscreen ? copy.exitFullscreen : copy.enterFullscreen}
+              title={isFullscreen ? copy.exitFullscreen : copy.enterFullscreen}
               className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -294,8 +335,8 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onToggleSave}
-              aria-label={isSaved ? 'Saved' : 'Save for later'}
-              title={isSaved ? 'Saved' : 'Save for later'}
+              aria-label={isSaved ? copy.saved : copy.saveForLater}
+              title={isSaved ? copy.saved : copy.saveForLater}
               className={`reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border shadow-2xs transition ${
                 isSaved
                   ? 'border-orange-500 bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400'
@@ -310,12 +351,12 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onOpenDownload}
-              aria-label="Download edition"
-              title="Download edition"
+              aria-label={copy.downloadEdition}
+              title={copy.downloadEdition}
               className="reader-focus-ring inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 md:px-2.5 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               <Download className="h-3.5 w-3.5 shrink-0" />
-              <span className="hidden xl:inline">Download</span>
+              <span className="hidden xl:inline">{copy.download}</span>
             </button>
           ) : null}
 
@@ -328,8 +369,8 @@ function EPaperToolbarComponent({
             contentId={shareContentId}
             placement="publication_reader_desktop_toolbar"
             language={language}
-            triggerLabel="Share"
-            ariaLabel="Share edition"
+            triggerLabel={copy.share}
+            ariaLabel={copy.shareEdition}
             buttonClassName="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 md:px-2.5 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 [&>span]:hidden xl:[&>span]:inline"
           />
 
@@ -337,8 +378,8 @@ function EPaperToolbarComponent({
             <button
               type="button"
               onClick={onToggleTheme}
-              aria-label={theme === 'dark' ? 'Switch reader to light mode' : 'Switch reader to dark mode'}
-              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              aria-label={theme === 'dark' ? copy.switchToLightMode : copy.switchToDarkMode}
+              title={theme === 'dark' ? copy.lightMode : copy.darkMode}
               className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -348,8 +389,8 @@ function EPaperToolbarComponent({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
-            title="Close reader"
+            aria-label={copy.close}
+            title={copy.closeReader}
             className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-red-900/60 dark:hover:bg-red-950/40 dark:hover:text-red-300"
           >
             <X className="h-4 w-4" />
@@ -358,15 +399,15 @@ function EPaperToolbarComponent({
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 border-t border-zinc-100 pt-2 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
         <div className="flex min-w-0 items-center gap-1.5">
-          <button type="button" onClick={onPreviousPage} disabled={!canGoPrevious} aria-label="Previous page on mobile" className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 disabled:opacity-30 dark:bg-zinc-800 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <select value={currentPage} onChange={(e) => onPageSelect(Number(e.target.value))} aria-label="Jump to page" className="reader-focus-ring h-11 max-w-28 rounded-lg border border-zinc-200 bg-white px-2 font-semibold text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 sm:h-8">
-            {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => <option key={page} value={page}>Page {page}</option>)}
+          <button type="button" onClick={onPreviousPage} disabled={!canGoPrevious} aria-label={copy.previousPage} className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 disabled:opacity-30 dark:bg-zinc-800 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+          <select value={currentPage} onChange={(e) => onPageSelect(Number(e.target.value))} aria-label={copy.jumpToPage} className="reader-focus-ring h-11 max-w-28 rounded-lg border border-zinc-200 bg-white px-2 font-semibold text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 sm:h-8">
+            {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => <option key={page} value={page}>{language === 'hi' ? `पृष्ठ ${page}` : `Page ${page}`}</option>)}
           </select>
-          <button type="button" onClick={onNextPage} disabled={!canGoNext} aria-label="Next page on mobile" className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 disabled:opacity-30 dark:bg-zinc-800 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+          <button type="button" onClick={onNextPage} disabled={!canGoNext} aria-label={copy.nextPage} className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 disabled:opacity-30 dark:bg-zinc-800 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         </div>
-        <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">Page {pageLabel} of {pageCount}</span>
+        <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">{language === 'hi' ? `पृष्ठ ${pageLabel} / ${pageCount}` : `Page ${pageLabel} of ${pageCount}`}</span>
         <span aria-hidden="true" className="hidden sm:inline">{Math.round(((companionPage && isSpreadMode ? companionPage : currentPage) / Math.max(1, pageCount)) * 100)}% through this issue</span>
-        {onToggleThumbnails ? <button type="button" aria-expanded={thumbnailsOpen} aria-controls="publication-page-thumbnails" onClick={onToggleThumbnails} className="reader-focus-ring min-h-11 shrink-0 rounded-lg px-2 font-semibold text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-zinc-800 sm:min-h-8">{thumbnailsOpen ? 'Hide pages' : 'Show pages'}</button> : null}
+        {onToggleThumbnails ? <button type="button" aria-expanded={thumbnailsOpen} aria-controls="publication-page-thumbnails" onClick={onToggleThumbnails} className="reader-focus-ring min-h-11 shrink-0 rounded-lg px-2 font-semibold text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-zinc-800 sm:min-h-8">{thumbnailsOpen ? copy.hidePages : copy.showPages}</button> : null}
       </div>
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-zinc-200 dark:bg-zinc-800"><div className="h-full bg-red-600" style={{ width: `${Math.min(100, ((isSpreadMode && companionPage ? companionPage : currentPage) / Math.max(1, pageCount)) * 100)}%` }} /></div>
     </header>

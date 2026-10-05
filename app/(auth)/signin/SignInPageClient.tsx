@@ -309,11 +309,13 @@ function AuthFormContent({
 
       {/* Portal Tab Switcher: Reader vs Staff */}
       <motion.div variants={formItemVariants} className="mb-4">
-        <div className="flex rounded-2xl bg-zinc-100 p-1.5 dark:bg-zinc-800">
+        <div className="flex rounded-2xl bg-zinc-100 p-1.5 dark:bg-zinc-800" role="tablist" aria-label="Sign-in portal selection">
           <button
             type="button"
+            role="tab"
+            aria-selected={authPortalTab === 'reader'}
             onClick={() => onAuthPortalTabChange('reader')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
+            className={`reader-focus-ring flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
               authPortalTab === 'reader'
                 ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
                 : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -324,8 +326,10 @@ function AuthFormContent({
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={authPortalTab === 'staff'}
             onClick={() => onAuthPortalTabChange('staff')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
+            className={`reader-focus-ring flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
               authPortalTab === 'staff'
                 ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
                 : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -341,6 +345,8 @@ function AuthFormContent({
       {errorMessage ? (
         <motion.div
           variants={formItemVariants}
+          role="alert"
+          aria-live="assertive"
           className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 flex-none" />
@@ -352,11 +358,13 @@ function AuthFormContent({
       {authPortalTab === 'reader' ? (
         <div className="space-y-4">
           {/* Sub-toggle: Sign In vs Create Account */}
-          <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900" role="tablist" aria-label="Reader account mode">
             <button
               type="button"
+              role="tab"
+              aria-selected={readerMode === 'signin'}
               onClick={() => onReaderModeChange('signin')}
-              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+              className={`reader-focus-ring flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
                 readerMode === 'signin'
                   ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-800 dark:text-zinc-100'
                   : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -366,8 +374,10 @@ function AuthFormContent({
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={readerMode === 'register'}
               onClick={() => onReaderModeChange('register')}
-              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+              className={`reader-focus-ring flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
                 readerMode === 'register'
                   ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-800 dark:text-zinc-100'
                   : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'

@@ -11,6 +11,7 @@ import SwipeSettingsSheet from '@/components/swipe/SwipeSettingsSheet';
 import { SwipeEmptyState, SwipeLoadError } from '@/components/swipe/SwipeStates';
 import useSwipeAnalytics from '@/components/swipe/useSwipeAnalytics';
 import { buildSwipeReaderPath } from '@/lib/utils/readerContentPaths';
+import { useAppStore } from '@/lib/store/appStore';
 import type {
   SwipeArticle,
   SwipeCursor,
@@ -50,6 +51,7 @@ export default function SwipeFeed({
   initialHasMore,
   initialNextCursor,
 }: SwipeFeedProps) {
+  const { language } = useAppStore();
   const [items, setItems] = useState(() => mergeUnique(initialItems));
   const [activeIndex, setActiveIndex] = useState(0);
   const [muted, setMuted] = useState(true);
@@ -413,7 +415,7 @@ export default function SwipeFeed({
         <div className="swipe-top-bar absolute left-[max(env(safe-area-inset-left),0.75rem)] top-[max(env(safe-area-inset-top),0.75rem)] z-30 flex items-center gap-3">
           <Link
             href="/main/videos"
-            aria-label="Back to videos"
+            aria-label={language === 'hi' ? 'वीडियो पर वापस जाएं' : 'Back to videos'}
             className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-full bg-black/50 backdrop-blur"
           >
             <ChevronLeft className="h-6 w-6" />
@@ -444,7 +446,7 @@ export default function SwipeFeed({
               url={buildSwipeReaderPath(activeItem.slug)}
               contentType="video"
               contentId={activeItem._id}
-              ariaLabel="Share this Swipe story"
+              ariaLabel={language === 'hi' ? 'यह स्वाइप स्टोरी साझा करें' : 'Share this Swipe story'}
               placement="swipe_actions"
               onShareEvent={(event, platform) =>
                 trackEvent(event === 'share_complete' ? 'swipe_share' : event, activeItem, { platform })
@@ -460,20 +462,26 @@ export default function SwipeFeed({
         />
 
         <p className="sr-only" aria-live="polite">
-          {`Story ${activeIndex + 1} of ${items.length}: ${activeItem.title}`}
+          {language === 'hi'
+            ? `स्टोरी ${activeIndex + 1}/${items.length}: ${activeItem.title}`
+            : `Story ${activeIndex + 1} of ${items.length}: ${activeItem.title}`}
         </p>
         <p className="sr-only" aria-live="polite" role="status">
           {playbackError
-            ? 'Playback failed. Press play to try again.'
+            ? (language === 'hi' ? 'प्लेबैक विफल रहा। पुनः प्रयास करने के लिए प्ले दबाएं।' : 'Playback failed. Press play to try again.')
             : paused
-              ? 'Video paused.'
+              ? (language === 'hi' ? 'वीडियो रुका हुआ है।' : 'Video paused.')
               : playbackStarted
                 ? muted
-                  ? 'Video playing muted.'
-                  : 'Video playing with sound.'
-                : 'Video loading.'}
+                  ? (language === 'hi' ? 'वीडियो बिना आवाज़ के चल रहा है।' : 'Video playing muted.')
+                  : (language === 'hi' ? 'वीडियो आवाज़ के साथ चल रहा है।' : 'Video playing with sound.')
+                : (language === 'hi' ? 'वीडियो लोड हो रहा है।' : 'Video loading.')}
         </p>
-        {loadingMore ? <p className="sr-only" aria-live="polite">Loading more Swipe stories</p> : null}
+        {loadingMore ? (
+          <p className="sr-only" aria-live="polite">
+            {language === 'hi' ? 'और स्वाइप स्टोरीज़ लोड हो रही हैं' : 'Loading more Swipe stories'}
+          </p>
+        ) : null}
         {loadError ? <SwipeLoadError message={loadError} onRetry={() => void loadMore()} /> : null}
 
         {activeArticle ? (
@@ -506,7 +514,7 @@ export default function SwipeFeed({
           type="button"
           onClick={() => moveTo(activeIndex - 1)}
           disabled={activeIndex === 0}
-          aria-label="Previous story"
+          aria-label={language === 'hi' ? 'पिछली स्टोरी' : 'Previous story'}
           className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95"
         >
           <ChevronUp className="h-6 w-6" />
@@ -515,7 +523,7 @@ export default function SwipeFeed({
           type="button"
           onClick={() => moveTo(activeIndex + 1)}
           disabled={activeIndex === items.length - 1 && (!hasMore || loadingMore)}
-          aria-label="Next story"
+          aria-label={language === 'hi' ? 'अगली स्टोरी' : 'Next story'}
           className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95"
         >
           <ChevronDown className="h-6 w-6" />
