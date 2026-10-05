@@ -75,6 +75,7 @@ export default function SwipeFeed({
   });
 
   const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
   const lastWheelTime = useRef<number>(0);
   const articleButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
@@ -284,6 +285,7 @@ export default function SwipeFeed({
     (event: React.TouchEvent) => {
       if (sheetOpen || settingsOpen) return;
       touchStartY.current = event.changedTouches[0]?.clientY ?? null;
+      touchStartX.current = event.changedTouches[0]?.clientX ?? null;
     },
     [settingsOpen, sheetOpen]
   );
@@ -291,12 +293,16 @@ export default function SwipeFeed({
   const handleTouchEnd = useCallback(
     (event: React.TouchEvent) => {
       if (sheetOpen || settingsOpen) return;
-      const start = touchStartY.current;
+      const startY = touchStartY.current;
+      const startX = touchStartX.current;
       touchStartY.current = null;
-      if (start == null) return;
-      const delta = start - (event.changedTouches[0]?.clientY ?? start);
-      if (Math.abs(delta) < 48) return;
-      moveTo(activeIndex + (delta > 0 ? 1 : -1));
+      touchStartX.current = null;
+      if (startY == null) return;
+      const deltaY = startY - (event.changedTouches[0]?.clientY ?? startY);
+      const deltaX = Math.abs((startX ?? 0) - (event.changedTouches[0]?.clientX ?? (startX ?? 0)));
+      if (Math.abs(deltaY) < 48) return;
+      if (deltaX > Math.abs(deltaY)) return;
+      moveTo(activeIndex + (deltaY > 0 ? 1 : -1));
     },
     [activeIndex, moveTo, settingsOpen, sheetOpen]
   );
@@ -404,7 +410,7 @@ export default function SwipeFeed({
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-44 bg-gradient-to-b from-black/75 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-72 bg-gradient-to-t from-black/90 via-black/45 to-transparent" />
 
-        <div className="absolute left-3 top-[max(env(safe-area-inset-top),0.75rem)] z-30 flex items-center gap-3">
+        <div className="swipe-top-bar absolute left-[max(env(safe-area-inset-left),0.75rem)] top-[max(env(safe-area-inset-top),0.75rem)] z-30 flex items-center gap-3">
           <Link
             href="/main/videos"
             aria-label="Back to videos"
@@ -418,7 +424,7 @@ export default function SwipeFeed({
           </div>
         </div>
 
-        <div className="pointer-events-none absolute bottom-[calc(var(--reader-bottom-nav-space)+4.5rem)] left-4 right-20 z-30">
+        <div className="swipe-caption-box pointer-events-none absolute bottom-[calc(var(--reader-bottom-nav-space)+4.5rem)] left-[max(env(safe-area-inset-left),1rem)] right-20 z-30">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-400">{activeItem.category}</p>
           <h1 className="mt-2 line-clamp-3 text-xl font-extrabold leading-7 drop-shadow-lg">{activeItem.title}</h1>
         </div>

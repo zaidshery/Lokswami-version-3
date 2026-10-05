@@ -335,6 +335,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   themeColor: '#e72129',
+  viewportFit: 'cover',
 };
 
 /** Renders the shared HTML shell and top-level client providers. */

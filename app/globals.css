@@ -248,6 +248,16 @@
       --reader-top-chrome-height: 8.9375rem;
     }
   }
+
+  /* Low-height viewport (e.g. mobile landscape) chrome compaction */
+  @media (max-height: 500px) {
+    :root {
+      --reader-top-chrome-height: 3.5rem;
+    }
+    .reader-secondary-chrome {
+      display: none !important;
+    }
+  }
   
   /* Safe area for notched phones */
   .pb-safe {
@@ -292,6 +302,31 @@
 
   .reader-bottom-safe-pad {
     padding-bottom: calc(var(--reader-bottom-nav-space) + 0.75rem);
+  }
+
+  /* Low-height viewport (e.g. mobile landscape) Shorts chrome compaction (ISSUE-MOB-06) */
+  @media (max-height: 520px) {
+    .swipe-actions-stack {
+      bottom: calc(var(--reader-bottom-nav-space) + 0.75rem) !important;
+      gap: 0.375rem !important;
+      padding: 0.375rem !important;
+      right: max(env(safe-area-inset-right), 0.75rem) !important;
+    }
+    .swipe-caption-box {
+      bottom: calc(var(--reader-bottom-nav-space) + 3.25rem) !important;
+      left: max(env(safe-area-inset-left), 1rem) !important;
+      right: 4.75rem !important;
+    }
+    .swipe-caption-box h1 {
+      -webkit-line-clamp: 2 !important;
+      font-size: 1rem !important;
+      line-height: 1.35 !important;
+    }
+    .swipe-article-cta {
+      bottom: calc(var(--reader-bottom-nav-space) + 0.75rem) !important;
+      left: max(env(safe-area-inset-left), 1rem) !important;
+      min-height: 44px !important;
+    }
   }
 
   .cnp-surface {

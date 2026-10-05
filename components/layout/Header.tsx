@@ -99,7 +99,7 @@ export default function Header() {
             {/* Required actions remain visible at every width. */}
             <Link
               href="/main/epaper"
-              className="editorial-focus-ring inline-flex h-11 w-[42px] min-w-[42px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40 md:w-auto md:flex-row md:gap-1.5 md:rounded-xl md:border md:border-brand-500/30 md:bg-brand-500 md:px-3 md:text-xs md:font-semibold md:text-white md:shadow-sm md:hover:bg-brand-600 md:dark:text-white order-0"
+              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40 md:w-auto md:flex-row md:gap-1.5 md:rounded-xl md:border md:border-brand-500/30 md:bg-brand-500 md:px-3 md:text-xs md:font-semibold md:text-white md:shadow-sm md:hover:bg-brand-600 md:dark:text-white order-0"
               aria-label="E-Paper"
               title={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
             >
@@ -113,7 +113,7 @@ export default function Header() {
               data-testid="reader-mobile-language"
               aria-label={language === 'hi' ? 'Language: HI. Switch to English' : 'Language: EN. Switch to Hindi'}
               aria-pressed={language === 'en'}
-              className="editorial-focus-ring inline-flex h-11 w-[42px] !min-w-[42px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 md:hidden order-1">
+              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 md:hidden order-1">
               <Languages className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
               <span className="text-[9px] leading-none">{language === 'hi' ? 'HI' : 'EN'}</span>
             </button>
@@ -276,7 +276,7 @@ export default function Header() {
         </div>
       </ReaderHeaderContainer>
 
-      <div data-testid="reader-category-bar" className="min-w-0 border-t border-zinc-200/80 dark:border-zinc-800">
+      <div data-testid="reader-category-bar" className="reader-secondary-chrome min-w-0 border-t border-zinc-200/80 dark:border-zinc-800">
         <ReaderHeaderContainer>
           <div className="scrollbar-hide reader-scroll-x flex h-11 min-w-0 items-center overflow-x-auto overscroll-x-contain touch-pan-x" data-swipe-ignore="true">
             <DesktopNav className="min-w-max py-0" />

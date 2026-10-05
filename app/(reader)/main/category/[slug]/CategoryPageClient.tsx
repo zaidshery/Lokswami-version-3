@@ -147,10 +147,10 @@ export default function CategoryPageClient({
 
   return (
     <div className="space-y-6">
-      <nav className="flex items-center gap-2 text-sm text-lokswami-text-muted">
+      <nav className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
         <span>{language === 'hi' ? '\u0939\u094b\u092e' : 'Home'}</span>
-        <ChevronRight className="h-4 w-4" />
-        <span className="text-lokswami-white">
+        <ChevronRight className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
           {language === 'hi' ? category.name : category.nameEn}
         </span>
       </nav>
@@ -159,10 +159,10 @@ export default function CategoryPageClient({
         <div className="flex items-center gap-4">
           <span className="text-3xl sm:text-4xl">{category.icon}</span>
           <div>
-            <h1 className="text-2xl font-bold text-lokswami-white">
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
               {language === 'hi' ? category.name : category.nameEn}
             </h1>
-            <p className="text-sm text-lokswami-text-secondary">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
               {categoryArticles.length}{' '}
               {language === 'hi' ? '\u0916\u092c\u0930\u0947\u0902' : 'articles'}
             </p>
@@ -173,7 +173,7 @@ export default function CategoryPageClient({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'latest' | 'popular')}
-            className="reader-focus-ring min-h-11 min-w-[124px] rounded-lg border border-lokswami-border bg-lokswami-surface px-3 py-2 text-sm text-lokswami-white focus:border-lokswami-red sm:min-w-[140px]"
+            className="reader-focus-ring min-h-11 min-w-[124px] rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 sm:min-w-[140px]"
             data-swipe-ignore="true"
           >
             <option value="latest">
@@ -186,13 +186,13 @@ export default function CategoryPageClient({
             </option>
           </select>
 
-          <div className="flex shrink-0 items-center rounded-lg border border-lokswami-border bg-lokswami-surface" data-swipe-ignore="true">
+          <div className="flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900" data-swipe-ignore="true">
             <button
               onClick={() => setViewMode('grid')}
-              className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-l-lg ${
+              className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-l-lg transition-colors ${
                 viewMode === 'grid'
-                  ? 'text-lokswami-red'
-                  : 'text-lokswami-text-secondary hover:text-lokswami-white'
+                  ? 'text-brand-600 dark:text-brand-400'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
               }`}
               aria-label="Grid view"
             >
@@ -200,10 +200,10 @@ export default function CategoryPageClient({
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-r-lg ${
+              className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-r-lg transition-colors ${
                 viewMode === 'list'
-                  ? 'text-lokswami-red'
-                  : 'text-lokswami-text-secondary hover:text-lokswami-white'
+                  ? 'text-brand-600 dark:text-brand-400'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
               }`}
               aria-label="List view"
             >
@@ -247,7 +247,7 @@ export default function CategoryPageClient({
                 Math.min(current + CATEGORY_LOAD_MORE_STEP, sortedArticles.length)
               )
             }
-            className="reader-touch-button reader-focus-ring min-h-12 w-full rounded-full border border-lokswami-border bg-lokswami-surface px-8 py-3 text-lokswami-text-secondary transition-colors hover:border-lokswami-red hover:text-lokswami-white sm:w-auto"
+            className="reader-touch-button reader-focus-ring min-h-12 w-full rounded-full border border-zinc-200 bg-white px-8 py-3 text-zinc-700 shadow-sm transition-colors hover:border-brand-500 hover:bg-brand-50 hover:text-brand-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-brand-500/50 dark:hover:bg-brand-950/40 dark:hover:text-brand-400 sm:w-auto"
           >
             {language === 'hi'
               ? '\u0914\u0930 \u0916\u092c\u0930\u0947\u0902 \u0932\u094b\u0921 \u0915\u0930\u0947\u0902'
@@ -257,8 +257,8 @@ export default function CategoryPageClient({
       ) : null}
 
       {otherArticles.length === 0 && !heroArticle ? (
-        <div className="py-16 text-center">
-          <p className="text-lokswami-text-secondary">
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-10 text-center text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+          <p>
             {language === 'hi'
               ? '\u0907\u0938 \u0936\u094d\u0930\u0947\u0923\u0940 \u092e\u0947\u0902 \u0915\u094b\u0908 \u0916\u092c\u0930 \u0928\u0939\u0940\u0902 \u092e\u093f\u0932\u0940'
               : 'No articles found in this category'}
