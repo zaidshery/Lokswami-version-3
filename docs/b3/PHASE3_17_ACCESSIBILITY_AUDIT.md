@@ -378,7 +378,7 @@ The repository defines two primary focus ring utilities in `app/globals.css`:
 | **ISSUE-A11Y-06** | **P2** | 1.3.1, 3.3.2, 4.1.2 | `/main/search`, `/main/category/[slug]`, `/main/latest` | Search `<input>` lacks label; filter and sort `<select>` elements lack accessible names. | Form inputs have explicit `aria-label` or associated `<label>`. | Placeholder text treated as sole input identifier. | `SearchClient.tsx`, `CategoryPageClient.tsx`, `LatestFeedClient.tsx` | **3.17B** |
 | **ISSUE-A11Y-07** | **P2** | 4.1.3 | `/main/search` | Search results count updates in DOM without screen-reader announcement. | Search results status container includes `role="status"` and `aria-live="polite"`. | Static `<p>` tag without ARIA live region semantics. | `SearchClient.tsx` | **3.17B** |
 | **ISSUE-A11Y-08** | **P2** | 1.4.1, 4.1.2 | Category, Latest, Video filter bars | Grid/List view mode and Feed/Shorts toggles convey active state only via color. | Toggle buttons include `aria-pressed="true"` / `"false"` or tab semantics. | Active state applied via class switching without ARIA state attributes. | `CategoryPageClient.tsx`, `LatestFeedClient.tsx`, `VideoFilterBar.tsx`, `SignInPageClient.tsx` | **3.17B** |
-| **ISSUE-A11Y-09** | **P2** | 1.4.3, 1.4.11 | Category badges, dark mode text | Badge text `#e72129` on `#fff1f2` (4.21:1) and dark text `zinc-500` (4.08:1) fail 4.5:1 ratio. | Adjusted foreground colors meet or exceed 4.5:1 AA contrast ratio. | Low-contrast palette pairings on tinted and dark surfaces. | `app/globals.css`, `CategoryBadge.tsx`, `SearchClient.tsx`, `EPaperPageClient.tsx` | **3.17B** |
+| **ISSUE-A11Y-09** | **P2** | 1.4.3, 1.4.11 | Category badges, dark mode text, placeholders | Measured contrast failures: brand-500 on brand-50 (4.21:1), zinc-500 on zinc-950 (4.08:1), dark placeholder contrast (3.82:1), light placeholder contrast (2.60:1). | Adjusted foreground colors meet or exceed normal text >= 4.5:1, large text >= 3:1, and applicable non-text UI/focus >= 3:1. | Low-contrast palette pairings on tinted and dark surfaces. | `app/globals.css`, `CategoryBadge.tsx`, `SearchClient.tsx`, `EPaperPageClient.tsx` | **3.17B** |
 | **ISSUE-A11Y-10** | **P2** | 2.2.2, 2.3.3 | Global reader shell | Framer Motion animations continue running when `prefers-reduced-motion` is enabled. | Framer Motion respects user reduced-motion preference globally. | Missing `<MotionConfig reducedMotion="user">` at root provider level. | `app/layout.tsx` | **3.17A** |
 | **ISSUE-A11Y-11** | **P2** | 4.1.2, 3.1.2 | `SwipeFeed`, `BreakingNews`, `EPaperToolbar` | Live region updates and action buttons announce English strings in Hindi mode. | All live announcements and accessible labels reflect the active reader language. | Hardcoded English string literals in ARIA attributes. | `SwipeFeed.tsx`, `BreakingNews.tsx`, `EPaperToolbar.tsx`, `EPaperStoryPreview.tsx` | **3.17B** |
 | **ISSUE-A11Y-12** | **P2** | 4.1.2, 1.3.1 | `lib/utils/articleRichContent.ts` | Table scroll wrapper hardcodes static English `aria-label="Table"`. | Wrapper uses table caption if available, or localized label (`सारणी` / `Table`). | Static template string in `wrapTables` utility. | `lib/utils/articleRichContent.ts` | **3.17C** |
@@ -464,14 +464,14 @@ Phase 3.17E: Cross-Product WCAG QA, Automated Axe Tooling & Final Acceptance
 - **Acceptance Criteria:** Tables announced in Hindi (`सारणी`) or English (`Table`) or caption text; `ShareMenu` traps or closes cleanly on `Tab`.
 
 ### Subphase 3.17D — Video Hub, Shorts & E-Paper / E-Magazine Interaction Accessibility
-- **Objective:** Provide on-screen non-gesture Next/Previous alternatives for Shorts on mobile; add visible focus rings to Video Hub and E-Paper toolbar controls; ensure accessible alternative text for E-Paper story clippings.
+- **Objective:** Provide on-screen non-gesture Next/Previous alternatives for Shorts on mobile; ensure accessible alternative text for E-Paper story clippings; improve touch target sizes on auxiliary toolbars (focus rings completed in 3.17A; 3.17D must not repeat focus-ring work).
 - **Assigned Issues:** ISSUE-A11Y-02, ISSUE-A11Y-15.
 - **Affected Surfaces:**
   - `components/swipe/SwipeFeed.tsx` (mobile on-screen Next/Previous buttons or gesture-free controls)
-  - `components/video/VideoDetailHero.tsx` & `VideoFilterBar.tsx` (focus rings, button hit areas)
-  - `components/epaper/reader/EPaperToolbar.tsx` & `EPaperStoryPreview.tsx` (focus rings, hit areas)
+  - `components/video/VideoDetailHero.tsx` & `VideoFilterBar.tsx` (button hit areas)
+  - `components/epaper/reader/EPaperToolbar.tsx` & `EPaperStoryPreview.tsx` (hit areas)
 - **Tests:** `tests/swipe-feed.test.tsx`, `tests/epaper-reader.test.tsx`.
-- **Acceptance Criteria:** Shorts can be operated on mobile without swipe gestures; all toolbar buttons have visible focus rings; story clippings provide accessible text alternative.
+- **Acceptance Criteria:** Shorts can be operated on mobile without swipe gestures; toolbar button hit areas meet or exceed target size standards; story clippings provide accessible text alternative. Focus-ring work is verified as already completed in 3.17A and is not repeated here.
 
 ### Subphase 3.17E — Cross-Product WCAG QA, Automated Axe Tooling & Final Acceptance
 - **Objective:** Install `@axe-core/playwright` as single devDependency; implement automated accessibility audit suite; perform complete manual keyboard journey and screen-reader verification; run full CI verification gates.
@@ -493,7 +493,7 @@ For Phase 3.17 to be accepted, the Lokswami public reader platform must satisfy 
 4. **Semantics & Landmarks:** Unique landmark labels for multiple navigation zones; logical heading hierarchy without broken jumps; meaningful `<h1>` on every page including E-Paper and E-Magazine.
 5. **Form Accessibility:** All inputs and select controls must have programmatic accessible labels; search results count announced via live regions.
 6. **Color Independence:** No state (active page, selected view, bookmark status) conveyed by color alone.
-7. **Color Contrast:** All body, headline, and essential UI text meets or exceeds 4.5:1 (normal text) and 3:1 (large text / UI components).
+7. **Color Contrast:** All body, headline, and essential UI text meets or exceeds normal text >= 4.5:1, large text >= 3:1, and applicable non-text UI/focus >= 3:1.
 8. **Reduced Motion:** System `prefers-reduced-motion: reduce` respected across CSS animations and Framer Motion spring transitions.
 9. **Pointer Alternatives:** Gesture-dependent features (e.g. mobile Shorts swipe) must have single-point activation alternatives.
 10. **Bilingual Correctness:** Switching reader language between Hindi and English must dynamically update `document.documentElement.lang`.

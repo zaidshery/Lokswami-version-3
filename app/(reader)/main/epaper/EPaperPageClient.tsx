@@ -2987,6 +2987,16 @@ export default function EPaperPageClient({
 
   return (
     <div className="relative pb-2 md:pb-4">
+      {!activePaper ? (
+        <h1 className="sr-only">
+          {isMonthlyPublication
+            ? (language === 'hi' ? 'ई-मैगज़ीन' : 'E-Magazine')
+            : (language === 'hi' ? 'ई-पेपर' : 'E-Paper')}
+          {selectedPublishDate
+            ? ` - ${isMonthlyPublication ? selectedPublishDate : selectedIssueDateLabel}`
+            : ''}
+        </h1>
+      ) : null}
       <div className="pointer-events-none absolute -top-10 right-3 h-44 w-44 rounded-full bg-orange-200/30 blur-3xl dark:bg-orange-900/12 sm:-top-12 sm:right-6 sm:h-56 sm:w-56" />
       <div className="pointer-events-none absolute top-[24rem] -left-12 h-52 w-52 rounded-full bg-cyan-200/28 blur-3xl dark:bg-cyan-900/12 sm:top-[27rem] sm:h-64 sm:w-64" />
 

@@ -146,7 +146,7 @@ export default function VideoDetailHero({
           <button
             type="button"
             onClick={onBackToList}
-            className="absolute left-3 top-3 z-50 rounded-full bg-black/60 p-2 backdrop-blur transition-all hover:bg-black/80 active:scale-90"
+            className="reader-focus-ring absolute left-3 top-3 z-50 rounded-full bg-black/60 p-2 backdrop-blur transition-all hover:bg-black/80 active:scale-90"
             aria-label="Back to list"
           >
             <ChevronLeft className="h-5 w-5 text-white" />

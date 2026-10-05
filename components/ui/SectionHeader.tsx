@@ -6,7 +6,7 @@ export interface SectionHeaderProps {
   title: string;
   href?: string;
   ctaText?: string;
-  level?: 'h1' | 'h2' | 'h3' | 'h4';
+  level?: 'h1' | 'h2' | 'h3' | 'h4' | 'div' | 'p';
   accentColor?: string;
   icon?: ReactNode;
   className?: string;

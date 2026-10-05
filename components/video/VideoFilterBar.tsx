@@ -91,7 +91,7 @@ export default function VideoFilterBar({
             <button
               type="button"
               onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 hover:bg-zinc-200 dark:hover:bg-white/10"
+              className="reader-focus-ring absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 hover:bg-zinc-200 dark:hover:bg-white/10"
               aria-label="Clear search"
             >
               <X className="h-3.5 w-3.5 text-zinc-500 dark:text-white/60" />
@@ -104,7 +104,7 @@ export default function VideoFilterBar({
           <button
             type="button"
             onClick={() => onViewModeChange('feed')}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            className={`reader-focus-ring flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
               viewMode === 'feed'
                 ? 'bg-[#ff6257] text-white shadow-sm'
                 : 'text-zinc-600 hover:text-zinc-950 dark:text-white/70 dark:hover:text-white'
@@ -116,7 +116,7 @@ export default function VideoFilterBar({
           <button
             type="button"
             onClick={() => onViewModeChange('shorts')}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            className={`reader-focus-ring flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
               viewMode === 'shorts'
                 ? 'bg-[#ff6257] text-white shadow-sm'
                 : 'text-zinc-600 hover:text-zinc-950 dark:text-white/70 dark:hover:text-white'
@@ -132,7 +132,7 @@ export default function VideoFilterBar({
           <button
             type="button"
             onClick={onOpenWatchLater}
-            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-700 transition hover:bg-zinc-200 active:scale-95 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/15"
+            className="reader-focus-ring relative flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-700 transition hover:bg-zinc-200 active:scale-95 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/15"
             aria-label="Saved videos"
             title="Saved videos"
           >
@@ -150,7 +150,7 @@ export default function VideoFilterBar({
           <button
             type="button"
             onClick={() => setIsOptionsExpanded((prev) => !prev)}
-            className={`flex h-9 w-9 items-center justify-center rounded-full border transition-all active:scale-95 ${
+            className={`reader-focus-ring flex h-9 w-9 items-center justify-center rounded-full border transition-all active:scale-95 ${
               isOptionsExpanded
                 ? 'border-zinc-400 bg-zinc-200 text-zinc-950 dark:border-white/30 dark:bg-white/20 dark:text-white'
                 : 'border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:border-white/10 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/15'
@@ -177,7 +177,7 @@ export default function VideoFilterBar({
                         onViewModeChange('feed');
                         setIsOptionsExpanded(false);
                       }}
-                      className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      className={`reader-focus-ring flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         viewMode === 'feed'
                           ? 'bg-red-600 text-white shadow-md'
                           : 'bg-white/10 text-white/80 hover:bg-white/15'
@@ -191,7 +191,7 @@ export default function VideoFilterBar({
                         onViewModeChange('shorts');
                         setIsOptionsExpanded(false);
                       }}
-                      className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      className={`reader-focus-ring flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         viewMode === 'shorts'
                           ? 'bg-red-600 text-white shadow-md'
                           : 'bg-white/10 text-white/80 hover:bg-white/15'
@@ -214,7 +214,7 @@ export default function VideoFilterBar({
                         onSortModeChange('latest');
                         setIsOptionsExpanded(false);
                       }}
-                      className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      className={`reader-focus-ring flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         sortMode === 'latest'
                           ? 'bg-white text-zinc-950 font-bold shadow-md'
                           : 'bg-white/10 text-white/80 hover:bg-white/15'
@@ -228,7 +228,7 @@ export default function VideoFilterBar({
                         onSortModeChange('trending');
                         setIsOptionsExpanded(false);
                       }}
-                      className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      className={`reader-focus-ring flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         sortMode === 'trending'
                           ? 'bg-white text-zinc-950 font-bold shadow-md'
                           : 'bg-white/10 text-white/80 hover:bg-white/15'
@@ -258,7 +258,7 @@ export default function VideoFilterBar({
                             onCategoryChange(category);
                             setIsOptionsExpanded(false);
                           }}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                          className={`reader-focus-ring rounded-full px-3 py-1 text-xs font-semibold transition ${
                             isActive
                               ? 'bg-red-600 text-white shadow'
                               : 'bg-white/10 text-white/80 hover:bg-white/15'
@@ -287,7 +287,7 @@ export default function VideoFilterBar({
               key={category}
               type="button"
               onClick={() => onCategoryChange(category)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`reader-focus-ring shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
                 isActive
                   ? 'bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-black'
                   : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/6 dark:text-white/68 dark:hover:bg-white/12'

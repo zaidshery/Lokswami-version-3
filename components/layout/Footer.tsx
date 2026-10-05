@@ -182,9 +182,9 @@ function FooterSection({
       </details>
 
       <div className="hidden md:block">
-        <h4 className="mb-3 border-b border-zinc-200 pb-2 text-[1.28rem] font-semibold leading-tight tracking-tight text-zinc-900 dark:border-zinc-800 dark:text-zinc-50">
+        <h3 className="mb-3 border-b border-zinc-200 pb-2 text-[1.28rem] font-semibold leading-tight tracking-tight text-zinc-900 dark:border-zinc-800 dark:text-zinc-50">
           {title}
-        </h4>
+        </h3>
         <ul className={listClassName}>
           {items.map((item) => (
             <li key={item.href}>
@@ -360,9 +360,9 @@ export default function Footer() {
             </details>
 
             <div className="hidden md:block">
-              <h4 className="mb-3 border-b border-zinc-200 pb-2 text-[1.28rem] font-semibold leading-tight tracking-tight text-zinc-900 dark:border-zinc-800 dark:text-zinc-50">
+              <h3 className="mb-3 border-b border-zinc-200 pb-2 text-[1.28rem] font-semibold leading-tight tracking-tight text-zinc-900 dark:border-zinc-800 dark:text-zinc-50">
                 {language === 'hi' ? '\u0938\u0902\u092a\u0930\u094d\u0915 \u0915\u0930\u0947\u0902' : 'Contact Us'}
-              </h4>
+              </h3>
 
               <ul className="space-y-2.5 text-zinc-600 dark:text-zinc-400">
                 <li className="flex items-start gap-3">

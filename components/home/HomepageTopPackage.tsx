@@ -47,7 +47,7 @@ function NewsRail({ articles, language, popular = false }: Pick<Props, 'articles
       {articles.map(article => {
         const href = buildArticlePublicPath(article);
         return <li key={article.id} data-story-id={article.id} className="grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-2 rounded-editorial-sm py-2.5 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-800/30 sm:grid-cols-[96px_minmax(0,1fr)] xl:grid-cols-[100px_minmax(0,1fr)] 2xl:grid-cols-[104px_minmax(0,1fr)]">
-          <Link href={href} className="editorial-focus-ring relative block aspect-[10/7] overflow-hidden rounded-editorial-sm bg-zinc-100 dark:bg-zinc-950" aria-label={article.title}>
+          <Link href={href} tabIndex={-1} aria-hidden="true" className="editorial-focus-ring relative block aspect-[10/7] overflow-hidden rounded-editorial-sm bg-zinc-100 dark:bg-zinc-950">
             <ReaderImage src={buildArticleImageVariantUrl(article.image, 'thumb')} alt={article.title} fill sizes="(min-width: 1536px) 104px, (min-width: 1280px) 100px, (min-width: 640px) 96px, 88px" className="object-cover" />
           </Link>
           <div className="flex min-w-0 flex-col justify-between gap-1.5">
@@ -108,9 +108,9 @@ export default function HomepageTopPackage({ articles, language, loading }: Omit
   const { lead, latest, popular } = selectHomepageSections(articles);
   return <div data-testid="homepage-top-package" className="grid min-w-0 grid-cols-1 items-stretch gap-4 text-zinc-900 dark:text-zinc-100 xl:grid-cols-[minmax(0,29fr)_minmax(0,44fr)] xl:col-start-1 xl:row-start-1">
     <section className={`${panel} xl:col-start-2 xl:row-start-1`} data-testid="lead-story" data-story-id={lead?.id}>
-      <SectionHeader title={language === 'hi' ? 'मुख्य खबर' : 'Lead Story'} className="!mb-2" />
+      <SectionHeader title={language === 'hi' ? 'मुख्य खबर' : 'Lead Story'} level={lead ? 'div' : 'h1'} className="!mb-2" />
       {lead ? <article>
-        <Link href={buildArticlePublicPath(lead)} className="editorial-focus-ring relative mb-3 block aspect-video overflow-hidden rounded-editorial-sm">
+        <Link href={buildArticlePublicPath(lead)} tabIndex={-1} aria-hidden="true" className="editorial-focus-ring relative mb-3 block aspect-video overflow-hidden rounded-editorial-sm">
           <ReaderImage src={buildArticleImageVariantUrl(lead.image, 'hero')} alt={lead.title} fill priority sizes="(min-width: 1440px) 532px, (min-width: 1280px) 40vw, 100vw" className="object-cover" />
         </Link>
         <h1 className="hindi-headline line-clamp-3 break-words text-[clamp(1.3125rem,5.5vw,1.5rem)] font-bold leading-[1.23] tracking-[-0.01em] md:text-[clamp(1.5rem,2.4vw,1.75rem)]">

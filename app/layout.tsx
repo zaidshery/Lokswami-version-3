@@ -10,6 +10,7 @@ import AuthSessionProvider from '@/components/providers/SessionProvider';
 import InstallAppPrompt from '@/components/ui/InstallAppPrompt';
 import FullscreenFix from '@/components/providers/FullscreenFix';
 import ToastProvider from '@/components/ui/toast/ToastProvider';
+import AccessibilityMotionProvider from '@/components/providers/AccessibilityMotionProvider';
 
 const siteUrl = getSiteUrl();
 
@@ -408,7 +409,9 @@ window.gtag('config','${googleAnalyticsMeasurementId}',{
               <AuthSync />
               <FullscreenFix />
               <SitePageTracker />
-              {children}
+              <AccessibilityMotionProvider>
+                {children}
+              </AccessibilityMotionProvider>
               <InstallAppPrompt />
             </ToastProvider>
           </ThemeProvider>

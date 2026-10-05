@@ -506,8 +506,8 @@ describe('HomePageClient v1 home-feed integration', () => {
     expect(rows.every((row) => !row.className.includes('border'))).toBe(true);
     for (const row of rows) {
       const item = within(row);
-      expect(item.getByRole('img')).toHaveAttribute('alt', expect.stringMatching(/^Update /));
-      expect(item.getAllByRole('link', { name: /^Update \d$/ })).toHaveLength(2);
+      expect(item.getByRole('img', { hidden: true })).toHaveAttribute('alt', expect.stringMatching(/^Update /));
+      expect(item.getAllByRole('link', { name: /^Update \d$/ })).toHaveLength(1);
       expect(item.getAllByRole('link', { name: /^Update \d$/ })[0]).toHaveAttribute('href', expect.stringMatching(/^\/main\/article\/update-/));
       expect(item.getByText('National')).toBeInTheDocument();
       expect(row.querySelector('time')).toHaveAttribute('datetime', expect.stringMatching(/^2026-05-/));

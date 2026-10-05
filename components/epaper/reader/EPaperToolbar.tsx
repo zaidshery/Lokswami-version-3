@@ -101,13 +101,16 @@ function EPaperToolbarComponent({
   const pageLabel = isSpreadMode && companionPage ? `${currentPage}–${companionPage}` : `${currentPage}`;
   return (
     <header className={`${styles.toolbar} ${styles.controls} relative z-40 w-full shrink-0 border-b border-zinc-200/90 bg-white/95 px-2.5 py-2 shadow-xs backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 sm:rounded-t-2xl sm:px-3 lg:px-4`}>
+      <h1 className="sr-only">
+        {title ? `${title}${issueDateLabel ? ` - ${issueDateLabel}` : ''}` : `${editionLabel}${issueDateLabel ? ` - ${issueDateLabel}` : ''}`}
+      </h1>
       {/* Mobile Top Header */}
       <div className="flex items-center justify-between gap-2 sm:hidden">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close reader"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100/90 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="reader-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100/90 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -125,7 +128,7 @@ function EPaperToolbarComponent({
               onClick={onToggleFullscreen}
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className="reader-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
@@ -136,7 +139,7 @@ function EPaperToolbarComponent({
               onClick={onToggleTheme}
               aria-label={theme === 'dark' ? 'Switch reader to light mode' : 'Switch reader to dark mode'}
               title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className="reader-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -166,7 +169,7 @@ function EPaperToolbarComponent({
             onClick={onClose}
             aria-label="Back to editions"
             title="Back to editions"
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 dark:hover:text-white"
+            className="reader-focus-ring inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 dark:hover:text-white"
           >
             <ChevronLeft className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">Back</span>
@@ -195,7 +198,7 @@ function EPaperToolbarComponent({
             disabled={!canGoPrevious}
             aria-label="Previous page"
             title="Previous page"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -213,7 +216,7 @@ function EPaperToolbarComponent({
             disabled={!canGoNext}
             aria-label="Next page"
             title="Next page"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -230,7 +233,7 @@ function EPaperToolbarComponent({
               disabled={zoom <= minZoom}
               aria-label="Zoom out"
               title="Zoom out"
-              className="inline-flex h-8 w-7 items-center justify-center rounded-l-lg text-zinc-800 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className="reader-focus-ring inline-flex h-8 w-7 items-center justify-center rounded-l-lg text-zinc-800 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               <Minus className="h-3.5 w-3.5" />
             </button>
@@ -243,7 +246,7 @@ function EPaperToolbarComponent({
               disabled={zoom >= maxZoom}
               aria-label="Zoom in"
               title="Zoom in"
-              className={`inline-flex h-8 w-7 items-center justify-center text-zinc-800 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-100 dark:hover:bg-zinc-700 ${
+              className={`reader-focus-ring inline-flex h-8 w-7 items-center justify-center text-zinc-800 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-100 dark:hover:bg-zinc-700 ${
                 onResetZoom ? '' : 'rounded-r-lg'
               }`}
             >
@@ -255,7 +258,7 @@ function EPaperToolbarComponent({
                 onClick={onResetZoom}
                 aria-label="Reset zoom"
                 title="Reset zoom"
-                className="inline-flex h-8 w-7 items-center justify-center rounded-r-lg border-l border-zinc-300/80 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                className="reader-focus-ring inline-flex h-8 w-7 items-center justify-center rounded-r-lg border-l border-zinc-300/80 text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700"
               >
                 <RotateCcw className="h-3 w-3" />
               </button>
@@ -268,7 +271,7 @@ function EPaperToolbarComponent({
               onClick={onToggleSpreadMode}
               title={isSpreadMode ? 'Switch to single page view' : 'Switch to spread view'}
               aria-label={isSpreadMode ? 'Switch to single page view' : 'Switch to spread view'}
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className="reader-focus-ring inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               <span className="hidden lg:inline">{isSpreadMode ? 'Single page' : 'Spread view'}</span>
               <span className="lg:hidden">{isSpreadMode ? '1P' : '2P'}</span>
@@ -281,7 +284,7 @@ function EPaperToolbarComponent({
               onClick={onToggleFullscreen}
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
@@ -293,7 +296,7 @@ function EPaperToolbarComponent({
               onClick={onToggleSave}
               aria-label={isSaved ? 'Saved' : 'Save for later'}
               title={isSaved ? 'Saved' : 'Save for later'}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border shadow-2xs transition ${
+              className={`reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border shadow-2xs transition ${
                 isSaved
                   ? 'border-orange-500 bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400'
                   : 'border-zinc-300/90 bg-zinc-50 text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700'
@@ -309,7 +312,7 @@ function EPaperToolbarComponent({
               onClick={onOpenDownload}
               aria-label="Download edition"
               title="Download edition"
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 md:px-2.5 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className="reader-focus-ring inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-zinc-300/90 bg-zinc-50 px-2 md:px-2.5 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               <Download className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xl:inline">Download</span>
@@ -336,7 +339,7 @@ function EPaperToolbarComponent({
               onClick={onToggleTheme}
               aria-label={theme === 'dark' ? 'Switch reader to light mode' : 'Switch reader to dark mode'}
               title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -347,7 +350,7 @@ function EPaperToolbarComponent({
             onClick={onClose}
             aria-label="Close"
             title="Close reader"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-red-900/60 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+            className="reader-focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300/90 bg-zinc-50 text-zinc-800 shadow-2xs transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-red-900/60 dark:hover:bg-red-950/40 dark:hover:text-red-300"
           >
             <X className="h-4 w-4" />
           </button>
@@ -355,15 +358,15 @@ function EPaperToolbarComponent({
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 border-t border-zinc-100 pt-2 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
         <div className="flex min-w-0 items-center gap-1.5">
-          <button type="button" onClick={onPreviousPage} disabled={!canGoPrevious} aria-label="Previous page on mobile" className="flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 disabled:opacity-30 dark:bg-zinc-800 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <select value={currentPage} onChange={(e) => onPageSelect(Number(e.target.value))} aria-label="Jump to page" className="h-11 max-w-28 rounded-lg border border-zinc-200 bg-white px-2 font-semibold text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 sm:h-8">
+          <button type="button" onClick={onPreviousPage} disabled={!canGoPrevious} aria-label="Previous page on mobile" className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 disabled:opacity-30 dark:bg-zinc-800 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+          <select value={currentPage} onChange={(e) => onPageSelect(Number(e.target.value))} aria-label="Jump to page" className="reader-focus-ring h-11 max-w-28 rounded-lg border border-zinc-200 bg-white px-2 font-semibold text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 sm:h-8">
             {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => <option key={page} value={page}>Page {page}</option>)}
           </select>
-          <button type="button" onClick={onNextPage} disabled={!canGoNext} aria-label="Next page on mobile" className="flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 disabled:opacity-30 dark:bg-zinc-800 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+          <button type="button" onClick={onNextPage} disabled={!canGoNext} aria-label="Next page on mobile" className="reader-focus-ring flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 disabled:opacity-30 dark:bg-zinc-800 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         </div>
         <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">Page {pageLabel} of {pageCount}</span>
         <span aria-hidden="true" className="hidden sm:inline">{Math.round(((companionPage && isSpreadMode ? companionPage : currentPage) / Math.max(1, pageCount)) * 100)}% through this issue</span>
-        {onToggleThumbnails ? <button type="button" aria-expanded={thumbnailsOpen} aria-controls="publication-page-thumbnails" onClick={onToggleThumbnails} className="min-h-11 shrink-0 rounded-lg px-2 font-semibold text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-zinc-800 sm:min-h-8">{thumbnailsOpen ? 'Hide pages' : 'Show pages'}</button> : null}
+        {onToggleThumbnails ? <button type="button" aria-expanded={thumbnailsOpen} aria-controls="publication-page-thumbnails" onClick={onToggleThumbnails} className="reader-focus-ring min-h-11 shrink-0 rounded-lg px-2 font-semibold text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-zinc-800 sm:min-h-8">{thumbnailsOpen ? 'Hide pages' : 'Show pages'}</button> : null}
       </div>
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-zinc-200 dark:bg-zinc-800"><div className="h-full bg-red-600" style={{ width: `${Math.min(100, ((isSpreadMode && companionPage ? companionPage : currentPage) / Math.max(1, pageCount)) * 100)}%` }} /></div>
     </header>
