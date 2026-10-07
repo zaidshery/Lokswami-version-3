@@ -6,6 +6,21 @@ import type { SwipeFeedItem } from '@/components/swipe/types';
 
 vi.mock('@/lib/analytics/trackClient', () => ({ trackClientEvent: vi.fn() }));
 
+const mockAppState = {
+  language: 'en',
+  isMobile: false,
+  isTablet: false,
+  isImmersiveVideoMode: false,
+  setImmersiveVideoMode: vi.fn(),
+};
+
+vi.mock('@/lib/store/appStore', () => ({
+  useAppStore: (selector?: (state: typeof mockAppState) => unknown) =>
+    typeof selector === 'function'
+      ? selector(mockAppState)
+      : mockAppState,
+}));
+
 const HINDI_FIXTURE_TITLE = 'सोना कम तौलने का आरोप, ज्वेलर्स पर केस!';
 const HINDI_FIXTURE_SLUG = 'सोना-कम-तौलने-का-आरोप-ज्वेलर्स-पर-केस';
 

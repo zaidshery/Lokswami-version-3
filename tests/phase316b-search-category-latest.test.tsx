@@ -7,7 +7,10 @@ let currentLanguage: 'hi' | 'en' = 'hi';
 let currentQuery = '';
 
 vi.mock('@/lib/store/appStore', () => ({
-  useAppStore: () => ({ language: currentLanguage }),
+  useAppStore: (selector?: (state: { language: 'hi' | 'en' }) => unknown) => {
+    const state = { language: currentLanguage };
+    return typeof selector === 'function' ? selector(state) : state;
+  },
 }));
 
 vi.mock('next/navigation', () => ({
@@ -324,8 +327,8 @@ describe('Phase 3.16B — Search, Latest & Category Feeds Polish', () => {
     expect(select.className).toContain('dark:text-zinc-100');
 
     // View mode switcher
-    const gridBtn = screen.getByLabelText('Grid view');
-    const listBtn = screen.getByLabelText('List view');
+    const gridBtn = screen.getByLabelText('ग्रिड दृश्य');
+    const listBtn = screen.getByLabelText('सूची दृश्य');
     expect(gridBtn).toBeInTheDocument();
     expect(listBtn).toBeInTheDocument();
 

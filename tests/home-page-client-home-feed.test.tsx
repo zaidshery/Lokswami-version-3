@@ -177,7 +177,8 @@ describe('HomePageClient v1 home-feed integration', () => {
     });
     await waitFor(() => expect(mocks.fetchPublicArticlesPage).toHaveBeenCalledWith({ limit: 100 }));
     expect(screen.queryByTestId('hero-carousel')).not.toBeInTheDocument();
-    expect(within(screen.getByTestId('lead-story')).queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('lead-story')).queryByRole('article')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('lead-story')).queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
     expect(within(screen.getByTestId('live-updates-rail')).queryByRole('link')).not.toBeInTheDocument();
     expect(mocks.fetchMergedLiveArticles).not.toHaveBeenCalled();
   });
@@ -299,9 +300,15 @@ describe('HomePageClient v1 home-feed integration', () => {
       })
     );
 
-    expect(screen.getByTestId('lead-story')).toHaveTextContent(
-      'Lead Story From Feed'
-    );
+    const leadSection = screen.getByTestId('lead-story');
+    expect(leadSection).toHaveTextContent('Lead Story From Feed');
+    expect(
+      within(leadSection).getByRole('heading', {
+        level: 1,
+        name: 'Lead Story From Feed',
+      })
+    ).toBeInTheDocument();
+    expect(within(leadSection).queryByRole('heading', { level: 2 })).toBeNull();
     for (const link of screen.getAllByRole('link', { name: /Latest Story From Feed/ })) {
       expect(link).toHaveAttribute('href', '/main/article/article-6');
     }

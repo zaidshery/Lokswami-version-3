@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getAdminSessionMock = vi.fn();
 const getLeadershipReportSettingsMock = vi.fn();
@@ -42,6 +42,21 @@ function request(url: string, body?: Record<string, unknown>) {
 }
 
 describe('platform control-plane API RBAC', () => {
+  let settingsRoute: typeof import('@/app/api/admin/settings/leadership-reports/route');
+  let electionRoute: typeof import('@/app/api/admin/elections/results/route');
+  let operationsRoute: typeof import('@/app/api/admin/analytics/briefing-schedules/[id]/run/route');
+  let runDueRoute: typeof import('@/app/api/admin/analytics/briefing-schedules/run-due/route');
+
+  beforeAll(async () => {
+    // Load invariant route modules after mocks, outside the first RBAC case's timeout.
+    [settingsRoute, electionRoute, operationsRoute, runDueRoute] = await Promise.all([
+      import('@/app/api/admin/settings/leadership-reports/route'),
+      import('@/app/api/admin/elections/results/route'),
+      import('@/app/api/admin/analytics/briefing-schedules/[id]/run/route'),
+      import('@/app/api/admin/analytics/briefing-schedules/run-due/route'),
+    ]);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     getLeadershipReportSettingsMock.mockResolvedValue({ enabled: false });
@@ -71,12 +86,6 @@ describe('platform control-plane API RBAC', () => {
         role,
       });
 
-      const settingsRoute = await import('@/app/api/admin/settings/leadership-reports/route');
-      const electionRoute = await import('@/app/api/admin/elections/results/route');
-      const operationsRoute = await import(
-        '@/app/api/admin/analytics/briefing-schedules/[id]/run/route'
-      );
-
       const settingsResponse = await settingsRoute.GET();
       const electionResponse = await electionRoute.POST(
         request('http://localhost/api/admin/elections/results', { states: [] })
@@ -103,12 +112,6 @@ describe('platform control-plane API RBAC', () => {
       role: 'super_admin',
     });
 
-    const settingsRoute = await import('@/app/api/admin/settings/leadership-reports/route');
-    const electionRoute = await import('@/app/api/admin/elections/results/route');
-    const operationsRoute = await import(
-      '@/app/api/admin/analytics/briefing-schedules/[id]/run/route'
-    );
-
     const settingsResponse = await settingsRoute.GET();
     const electionResponse = await electionRoute.POST(
       request('http://localhost/api/admin/elections/results', { states: [] })
@@ -124,9 +127,7 @@ describe('platform control-plane API RBAC', () => {
   });
 
   it('returns 401 to guests and 403 to non-owner staff on operations run-due', async () => {
-    const { POST } = await import(
-      '@/app/api/admin/analytics/briefing-schedules/run-due/route'
-    );
+    const { POST } = runDueRoute;
     const runDueRequest = () =>
       request('http://localhost/api/admin/analytics/briefing-schedules/run-due', {});
 

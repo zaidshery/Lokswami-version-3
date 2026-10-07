@@ -337,10 +337,10 @@ describe('Video Hub 2.0 (Phase 3.14A)', () => {
   describe('Search and Filter Behavior', () => {
     it.each(['no-shorts', 'search', 'category'])('shows the Shorts empty state for %s', (scenario) => {
       render(<VideosPageClient initialItems={scenario === 'no-shorts' ? mockVideos.slice(0, 2) : mockVideos} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
-      fireEvent.click(screen.getByRole('button', { name: /Shorts|शॉर्ट्स/i }));
-      if (scenario === 'search') fireEvent.change(screen.getByPlaceholderText(/Search videos|वीडियो खोजें/i), { target: { value: 'NoMatchTermXYZ' } });
-      if (scenario === 'category') fireEvent.click(screen.getByRole('button', { name: /State|राज्य/i }));
-      expect(screen.getByText(/No videos found|कोई वीडियो नहीं मिला/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Shorts' }));
+      if (scenario === 'search') fireEvent.change(screen.getByPlaceholderText('Search videos...'), { target: { value: 'NoMatchTermXYZ' } });
+      if (scenario === 'category') fireEvent.click(screen.getByRole('button', { name: 'State' }));
+      expect(screen.getByText('No videos found')).toBeInTheDocument();
     });
 
     it.each(['search', 'category'])('applies %s to the mobile Shorts carousel', (filter) => {
@@ -350,8 +350,8 @@ describe('Video Hub 2.0 (Phase 3.14A)', () => {
         { ...mockVideos[2], _id: 'national-short', title: 'Headlines Short', category: 'National' },
       ];
       render(<VideosPageClient initialItems={items} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
-      if (filter === 'search') fireEvent.change(screen.getByPlaceholderText(/Search videos|वीडियो खोजें/i), { target: { value: 'Headlines' } });
-      else fireEvent.click(screen.getByRole('button', { name: /National|राष्ट्रीय/i }));
+      if (filter === 'search') fireEvent.change(screen.getByPlaceholderText('Search videos...'), { target: { value: 'Headlines' } });
+      else fireEvent.click(screen.getByRole('button', { name: 'National' }));
       expect(screen.getAllByRole('button', { name: /Headlines Short/i }).length).toBeGreaterThan(0);
       expect(screen.queryByRole('button', { name: /Gamma Quick Short/i })).not.toBeInTheDocument();
     });
@@ -359,13 +359,13 @@ describe('Video Hub 2.0 (Phase 3.14A)', () => {
     it('collapses descriptions when selection changes through the queue or history', () => {
       const items = mockVideos.map((video) => ({ ...video, description: 'Detailed news description. '.repeat(20) }));
       render(<VideosPageClient initialItems={items} initialLimit={20} initialHasMore={false} initialNextCursor={null} />);
-      fireEvent.click(screen.getByRole('button', { name: /Show more|और देखें/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
       fireEvent.click(screen.getAllByRole('button', { name: /Beta Regional Updates/i })[0]);
-      expect(screen.getByRole('button', { name: /Show more|और देखें/i })).toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: /Show more|और देखें/i }));
+      expect(screen.getByRole('button', { name: 'Show more' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
       window.history.replaceState({}, '', '/main/videos?video=vid-alpha');
       fireEvent(window, new PopStateEvent('popstate', { state: { videoId: 'vid-alpha' } }));
-      expect(screen.getByRole('button', { name: /Show more|और देखें/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument();
     });
 
     it('filters videos by search term in the queue', () => {
@@ -378,7 +378,7 @@ describe('Video Hub 2.0 (Phase 3.14A)', () => {
         />
       );
 
-      const searchInput = screen.getByPlaceholderText(/Search videos|वीडियो खोजें/i);
+      const searchInput = screen.getByPlaceholderText('Search videos...');
       fireEvent.change(searchInput, { target: { value: 'Regional' } });
 
       expect(
@@ -399,11 +399,11 @@ describe('Video Hub 2.0 (Phase 3.14A)', () => {
         />
       );
 
-      const searchInput = screen.getByPlaceholderText(/Search videos|वीडियो खोजें/i);
+      const searchInput = screen.getByPlaceholderText('Search videos...');
       fireEvent.change(searchInput, { target: { value: 'NoMatchTermXYZ' } });
 
       expect(
-        screen.getAllByText(/No videos found|कोई वीडियो नहीं मिला/i).length
+        screen.getAllByText('No videos found').length
       ).toBeGreaterThan(0);
     });
 
