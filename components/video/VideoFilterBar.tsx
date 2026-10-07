@@ -102,7 +102,7 @@ export default function VideoFilterBar({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={language === 'hi' ? 'वीडियो खोजें...' : 'Search videos...'}
-            className="w-full rounded-full border border-zinc-200 bg-zinc-100 py-2 pl-9 pr-8 text-xs text-zinc-900 outline-none transition-all placeholder:text-zinc-500 hover:bg-zinc-200 focus:border-zinc-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-400 dark:hover:bg-white/10 dark:focus:border-white/20 dark:focus:bg-zinc-900 sm:text-sm"
+            className="w-full rounded-full border border-zinc-200 bg-zinc-100 py-2 pl-9 pr-8 text-xs text-zinc-900 outline-none transition-all placeholder:text-zinc-600 hover:bg-zinc-200 focus:border-zinc-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-400 dark:hover:bg-white/10 dark:focus:border-white/20 dark:focus:bg-zinc-900 sm:text-sm"
             aria-label={activeCopy.searchPlaceholder}
           />
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-white/40" />

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, waitFor, fireEvent } from '@testing-library/react';
 import fs from 'fs';
 import path from 'path';
+import resolveConfig from 'tailwindcss/resolveConfig';
 
 import AccessibilityMotionProvider from '@/components/providers/AccessibilityMotionProvider';
 import SearchClient from '@/app/(reader)/main/search/SearchClient';
@@ -571,6 +572,27 @@ describe('Phase 3.17B — Forms, Live Regions, Language Metadata, State Semantic
   });
 
   describe('9. Contrast Measurements (ISSUE-A11Y-09)', () => {
+    it('keeps the rendered Video Hub light placeholder above 4.5:1 in default, hover, and focus states', () => {
+      render(<VideoFilterBar searchQuery="" onSearchChange={vi.fn()} activeCategory="all" onCategoryChange={vi.fn()} sortMode="latest" onSortModeChange={vi.fn()} viewMode="feed" onViewModeChange={vi.fn()} categoryOptions={['all']} language="en" />);
+      const input = screen.getByRole('textbox', { name: 'Search videos...' });
+      const classes = input.className.split(/\s+/);
+      const colors = resolveConfig(require(path.join(process.cwd(), 'tailwind.config.js'))).theme.colors as Record<string, string | Record<string, string>>;
+      const resolveColor = (token: string) => {
+        const [family, shade] = token.split('-');
+        const palette = colors[family];
+        const color = typeof palette === 'string' ? palette : palette[shade];
+        return color.replace(/^#([a-f\d])([a-f\d])([a-f\d])$/i, '#$1$1$2$2$3$3');
+      };
+      const foregroundClass = classes.find((value) => value.startsWith('placeholder:text-'))!;
+      const foreground = resolveColor(foregroundClass.replace('placeholder:text-', ''));
+      for (const prefix of ['bg-', 'hover:bg-', 'focus:bg-']) {
+        const backgroundClass = classes.find((value) => value.startsWith(prefix))!;
+        const background = resolveColor(backgroundClass.slice(prefix.length));
+        expect(calculateContrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+      }
+      expect(input).toHaveClass('dark:placeholder:text-zinc-400');
+    });
+
     it('satisfies WCAG AA contrast threshold (>= 4.5:1) for brand-600 on brand-50', () => {
       const brand50 = '#fff1f2';
       const brand500 = '#e72129';
