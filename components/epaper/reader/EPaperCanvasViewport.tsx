@@ -525,7 +525,7 @@ function EPaperCanvasViewportComponent({
                     setFailedSource('');
                     setLoadedSource('');
                   }}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-2xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                  className="reader-focus-ring mt-3 inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-2xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   Retry page
@@ -558,7 +558,7 @@ function EPaperCanvasViewportComponent({
                 <div role="alert" aria-label={`Page ${spreadSecondPageNumber} unavailable`} className="flex w-64 max-w-full flex-col items-center justify-center p-5 text-center text-zinc-700">
                   <Newspaper className="mb-2 h-10 w-10 text-zinc-400" />
                   <p className="text-sm">Page image unavailable</p>
-                  <button type="button" onClick={() => { setSecondFailedSource(''); setSecondLoadedSource(''); }} className="mt-3 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold">Retry page {spreadSecondPageNumber}</button>
+                  <button type="button" onClick={() => { setSecondFailedSource(''); setSecondLoadedSource(''); }} className="reader-focus-ring mt-3 min-h-11 min-w-11 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold">Retry page {spreadSecondPageNumber}</button>
                 </div>
               ) : <img
                 src={spreadSecondImagePath}

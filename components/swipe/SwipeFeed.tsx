@@ -319,6 +319,8 @@ export default function SwipeFeed({
         event.preventDefault();
         moveTo(activeIndex - 1);
       } else if (event.key === ' ') {
+        // Preserve native Space activation on the shared story navigation buttons.
+        if (event.target instanceof Element && event.target.closest('[data-swipe-navigation]')) return;
         event.preventDefault();
         setPaused((current) => {
           const next = !current;
@@ -508,14 +510,20 @@ export default function SwipeFeed({
         />
       </section>
 
-      {/* Desktop floating navigation controls */}
-      <div className="hidden md:flex flex-col gap-3 ml-4 z-50">
+      {/* One navigation path for mobile taps and desktop controls. */}
+      <div
+        data-swipe-navigation
+        data-swipe-ignore="true"
+        onTouchStart={(event) => event.stopPropagation()}
+        onTouchEnd={(event) => event.stopPropagation()}
+        className="absolute right-[max(env(safe-area-inset-right),0.75rem)] top-[max(env(safe-area-inset-top),0.75rem)] z-50 flex flex-col gap-2 md:static md:ml-4 md:gap-3"
+      >
         <button
           type="button"
           onClick={() => moveTo(activeIndex - 1)}
           disabled={activeIndex === 0}
           aria-label={language === 'hi' ? 'पिछली स्टोरी' : 'Previous story'}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95"
+          className="reader-focus-ring flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95 md:bg-white/10"
         >
           <ChevronUp className="h-6 w-6" />
         </button>
@@ -524,7 +532,7 @@ export default function SwipeFeed({
           onClick={() => moveTo(activeIndex + 1)}
           disabled={activeIndex === items.length - 1 && (!hasMore || loadingMore)}
           aria-label={language === 'hi' ? 'अगली स्टोरी' : 'Next story'}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95"
+          className="reader-focus-ring flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur hover:bg-white/20 transition disabled:opacity-30 disabled:pointer-events-none active:scale-95 md:bg-white/10"
         >
           <ChevronDown className="h-6 w-6" />
         </button>
