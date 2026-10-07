@@ -126,7 +126,7 @@ export default function VideoFilterBar({
             aria-pressed={viewMode === 'feed'}
             className={`reader-focus-ring flex min-h-11 min-w-11 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
               viewMode === 'feed'
-                ? 'bg-[#ff6257] text-white shadow-sm'
+                ? 'bg-red-600 text-white shadow-sm'
                 : 'text-zinc-600 hover:text-zinc-950 dark:text-white/70 dark:hover:text-white'
             }`}
           >
@@ -139,7 +139,7 @@ export default function VideoFilterBar({
             aria-pressed={viewMode === 'shorts'}
             className={`reader-focus-ring flex min-h-11 min-w-11 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
               viewMode === 'shorts'
-                ? 'bg-[#ff6257] text-white shadow-sm'
+                ? 'bg-red-600 text-white shadow-sm'
                 : 'text-zinc-600 hover:text-zinc-950 dark:text-white/70 dark:hover:text-white'
             }`}
           >

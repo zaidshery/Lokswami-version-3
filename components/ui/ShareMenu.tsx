@@ -299,13 +299,14 @@ const FOCUSABLE_SELECTOR = [
 ].join(', ');
 
 function isTabbableVisible(el: HTMLElement): boolean {
-  if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') {
-    return false;
-  }
-  if (typeof window !== 'undefined') {
-    const style = window.getComputedStyle(el);
-    if (style.display === 'none' || style.visibility === 'hidden') {
+  // Responsive toolbars may hide an ancestor while the button itself stays display:flex.
+  for (let current: HTMLElement | null = el; current; current = current.parentElement) {
+    if (current.hasAttribute('hidden') || current.hasAttribute('inert') || current.getAttribute('aria-hidden') === 'true') {
       return false;
+    }
+    if (typeof window !== 'undefined') {
+      const style = window.getComputedStyle(current);
+      if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false;
     }
   }
   return true;

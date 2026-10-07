@@ -52,6 +52,21 @@ describe('ShareMenu', () => {
     );
   }
 
+  it.each([['Tab', false, 'After visible'], ['Shift+Tab', true, 'Before visible']] as const)('skips responsive hidden ancestors on %s when leaving the non-modal menu', async (_key, shiftKey, targetName) => {
+    render(<div>
+      <button type="button">Before visible</button>
+      <div style={{ display: 'none' }}><button type="button">Hidden previous</button></div>
+      <ShareMenu title="Reader story" url="/main/article/story" contentType="article" ariaLabel="Share fixture" />
+      <div style={{ display: 'none' }}><button type="button">Hidden next</button></div>
+      <button type="button">After visible</button>
+    </div>);
+    fireEvent.click(screen.getByRole('button', { name: 'Share fixture' }));
+    const menu = await screen.findByRole('menu');
+    fireEvent.keyDown(menu, { key: 'Tab', shiftKey });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: targetName })).toHaveFocus();
+  });
+
   it('retains the canonical WhatsApp link when custom text contains a longer destination', () => {
     const url = 'https://lokswami.com/main/article/city-services';
     render(<ShareMenu title="City" url={url} whatsappText={`${url}-other`} contentType="article" directWhatsApp ariaLabel="Share exact" />);

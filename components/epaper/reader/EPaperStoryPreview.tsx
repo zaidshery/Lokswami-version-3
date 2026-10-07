@@ -1,5 +1,7 @@
 'use client';
 
+import focusStyles from './EPaperStoryPreview.module.css';
+
 import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Share2 } from 'lucide-react';
@@ -112,7 +114,7 @@ export default function EPaperStoryPreview({ story, articlePath, pageImagePath, 
         <p id="publication-story-preview-context" title={`${issueTitle} · Page ${story.pageNumber}`} className="truncate text-xs text-zinc-500 dark:text-zinc-400">{issueContext || issueTitle} · {language === 'hi' ? 'पृष्ठ' : 'Page'} {story.pageNumber}</p>
         <h2 id="publication-story-preview-title" title={story.title} className="line-clamp-2 text-sm font-semibold">{story.title || (language === 'hi' ? 'खबर' : 'Story')}</h2>
       </div>
-      <div className="flex max-w-full shrink-0 items-center gap-1 overflow-x-auto text-xs" aria-label={language === 'hi' ? 'खबर पढ़ने के विकल्प' : 'Story reading options'}>
+      <div className={`${focusStyles.readingOptions} flex max-w-full shrink-0 items-center gap-1 overflow-x-auto p-1 text-xs`} aria-label={language === 'hi' ? 'खबर पढ़ने के विकल्प' : 'Story reading options'}>
         {hasReleasedText ? <button type="button" aria-pressed={view === 'visual'} onClick={() => setView('visual')} className="reader-focus-ring min-h-11 shrink-0 rounded-lg px-3 aria-pressed:bg-red-50 aria-pressed:text-red-700 dark:aria-pressed:bg-red-950">{language === 'hi' ? 'विजुअल' : 'Visual'}</button> : null}
         {hasReleasedText ? <button type="button" aria-pressed={view === 'text'} onClick={() => setView('text')} className="reader-focus-ring min-h-11 shrink-0 rounded-lg px-3 aria-pressed:bg-red-50 aria-pressed:text-red-700 dark:aria-pressed:bg-red-950">{language === 'hi' ? 'टेक्स्ट' : 'Text'}</button> : null}
         {view === 'visual' && pageImagePath ? <button type="button" aria-pressed={fullPage} onClick={() => setFullPage(value => !value)} className="reader-focus-ring min-h-11 shrink-0 rounded-lg px-3">{fullPage ? (language === 'hi' ? 'खबर क्लिपिंग' : 'Story Crop') : (language === 'hi' ? 'पूरा पृष्ठ' : 'Full Page')}</button> : null}

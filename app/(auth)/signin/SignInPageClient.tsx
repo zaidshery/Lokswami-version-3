@@ -317,7 +317,7 @@ function AuthFormContent({
             className={`reader-focus-ring flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
               authPortalTab === 'reader'
                 ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
-                : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
             }`}
           >
             <Users className="h-3.5 w-3.5" />
@@ -330,7 +330,7 @@ function AuthFormContent({
             className={`reader-focus-ring flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
               authPortalTab === 'staff'
                 ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
-                : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
             }`}
           >
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -561,13 +561,13 @@ function AuthFormContent({
       <motion.div variants={formItemVariants} className="mt-4">
         <Link
           href="/main"
-          className="inline-flex h-11 w-full items-center justify-center rounded-xl border-2 border-red-600 bg-transparent px-4 text-sm font-semibold text-red-600 transition hover:bg-red-600 hover:text-white"
+          className="inline-flex h-11 w-full items-center justify-center rounded-xl border-2 border-red-600 bg-transparent px-4 text-sm font-semibold text-red-600 transition hover:bg-red-600 hover:text-white dark:text-red-400 dark:hover:text-white"
         >
           Continue as guest
         </Link>
       </motion.div>
 
-      <motion.p variants={formItemVariants} className="mt-6 text-center text-xs text-zinc-400">
+      <motion.p variants={formItemVariants} className="mt-6 text-center text-xs text-zinc-600 dark:text-zinc-400">
         By signing in you agree to the{' '}
         <Link href="/main/privacy" className="text-zinc-600 underline dark:text-zinc-300">
           Privacy Policy
