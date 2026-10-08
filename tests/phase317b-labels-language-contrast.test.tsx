@@ -4,6 +4,7 @@ import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import fs from 'fs';
 import path from 'path';
 import resolveConfig from 'tailwindcss/resolveConfig';
+import tailwindConfig from '../tailwind.config.js';
 
 import AccessibilityMotionProvider from '@/components/providers/AccessibilityMotionProvider';
 import SearchClient from '@/app/(reader)/main/search/SearchClient';
@@ -576,11 +577,11 @@ describe('Phase 3.17B — Forms, Live Regions, Language Metadata, State Semantic
       render(<VideoFilterBar searchQuery="" onSearchChange={vi.fn()} activeCategory="all" onCategoryChange={vi.fn()} sortMode="latest" onSortModeChange={vi.fn()} viewMode="feed" onViewModeChange={vi.fn()} categoryOptions={['all']} language="en" />);
       const input = screen.getByRole('textbox', { name: 'Search videos...' });
       const classes = input.className.split(/\s+/);
-      const colors = resolveConfig(require(path.join(process.cwd(), 'tailwind.config.js'))).theme.colors as Record<string, string | Record<string, string>>;
+      const colors = resolveConfig(tailwindConfig).theme.colors;
       const resolveColor = (token: string) => {
         const [family, shade] = token.split('-');
-        const palette = colors[family];
-        const color = typeof palette === 'string' ? palette : palette[shade];
+        const palette = colors[family as keyof typeof colors];
+        const color = typeof palette === 'string' ? palette : palette[shade as keyof typeof palette];
         return color.replace(/^#([a-f\d])([a-f\d])([a-f\d])$/i, '#$1$1$2$2$3$3');
       };
       const foregroundClass = classes.find((value) => value.startsWith('placeholder:text-'))!;
