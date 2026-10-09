@@ -1014,7 +1014,7 @@ export default function EPaperPageClient({
   const [listLimit] = useState(
     Number.isFinite(initialLimit) && initialLimit > 0 ? initialLimit : 20
   );
-  const [hasInitializedListEffect, setHasInitializedListEffect] = useState(false);
+  const hasInitializedListEffect = useRef(false);
   const [error, setError] = useState('');
   const [readerSidebarView, setReaderSidebarView] = useState<ReaderSidebarView>('pages');
   const [readerDisplayMode, setReaderDisplayMode] = useState<'single' | 'spread'>('single');
@@ -1252,8 +1252,8 @@ export default function EPaperPageClient({
   }, [setEpaperReaderOpen]);
 
   useEffect(() => {
-    if (!hasInitializedListEffect) {
-      setHasInitializedListEffect(true);
+    if (!hasInitializedListEffect.current) {
+      hasInitializedListEffect.current = true;
       return;
     }
 
@@ -1300,7 +1300,6 @@ export default function EPaperPageClient({
       cancelled = true;
     };
   }, [
-    hasInitializedListEffect,
     buildListQueryParams,
     publicationLabels.plural,
   ]);
