@@ -405,15 +405,15 @@ window.gtag('config','${googleAnalyticsMeasurementId}',{
         ) : null}
         <AuthSessionProvider>
           <ThemeProvider>
-            <ToastProvider>
-              <AuthSync />
-              <FullscreenFix />
-              <SitePageTracker />
-              <AccessibilityMotionProvider>
+            <AccessibilityMotionProvider>
+              <ToastProvider>
+                <AuthSync />
+                <FullscreenFix />
+                <SitePageTracker />
                 {children}
-              </AccessibilityMotionProvider>
-              <InstallAppPrompt />
-            </ToastProvider>
+                <InstallAppPrompt />
+              </ToastProvider>
+            </AccessibilityMotionProvider>
           </ThemeProvider>
         </AuthSessionProvider>
       </body>

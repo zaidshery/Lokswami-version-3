@@ -11,7 +11,7 @@ const routes = [
   ['epaper', '/main/epaper'], ['emagazine', '/main/e-magazine'], ['auth', '/signin'],
 ] as const;
 
-test.use({ channel: 'msedge', viewport: { width: 1440, height: 900 } });
+test.use({ viewport: { width: 1440, height: 900 } });
 
 for (const language of ['en', 'hi'] as const) for (const theme of ['light', 'dark'] as const) {
   for (const [name, requestedRoute] of routes) {

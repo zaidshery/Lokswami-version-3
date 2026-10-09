@@ -231,6 +231,23 @@ describe('Phase 3.17B — Forms, Live Regions, Language Metadata, State Semantic
         expect(enStatusRegion.textContent).toContain('No results found');
       });
     });
+
+    it('keeps the completed query in the live announcement until the next search completes', async () => {
+      currentSearchParam = 'q=दिल्ली';
+      useAppStore.setState({ language: 'hi' });
+      render(<SearchClient />);
+
+      const statusRegion = await screen.findByRole('status');
+      await waitFor(() => expect(statusRegion).toHaveTextContent('"दिल्ली" के लिए 1 परिणाम मिले'));
+
+      const input = screen.getByRole('textbox', { name: 'समाचार खोजें' });
+      fireEvent.change(input, { target: { value: 'भोपाल' } });
+      expect(statusRegion).toHaveTextContent('"दिल्ली" के लिए 1 परिणाम मिले');
+      expect(statusRegion).not.toHaveTextContent('भोपाल');
+
+      fireEvent.submit(input.closest('form')!);
+      await waitFor(() => expect(statusRegion).toHaveTextContent('"भोपाल" के लिए कोई परिणाम नहीं मिला'));
+    });
   });
 
   describe('3. Category & Latest Feed Form Controls & View Mode Semantics (ISSUE-A11Y-06 & ISSUE-A11Y-08)', () => {

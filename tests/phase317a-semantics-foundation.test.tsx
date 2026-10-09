@@ -1,10 +1,12 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import fs from 'fs';
 import path from 'path';
+import { MotionConfigContext } from 'framer-motion';
 
 import AccessibilityMotionProvider from '@/components/providers/AccessibilityMotionProvider';
+import ToastProvider, { useToast } from '@/components/ui/toast/ToastProvider';
 import HomepageTopPackage from '@/components/home/HomepageTopPackage';
 import VideoDetailHero from '@/components/video/VideoDetailHero';
 import VideoFilterBar from '@/components/video/VideoFilterBar';
@@ -451,6 +453,31 @@ describe('Phase 3.17A — Global Semantics, Heading Structure, Visible Focus & M
       // Must import and use AccessibilityMotionProvider
       expect(rootLayoutSource).toContain('AccessibilityMotionProvider');
       expect(rootLayoutSource).toContain('<AccessibilityMotionProvider>');
+    });
+
+    it('places animated toasts under the reduced-motion config in the root layout', () => {
+      const rootLayoutSource = fs.readFileSync(path.join(process.cwd(), 'app/layout.tsx'), 'utf8');
+      const toastSource = fs.readFileSync(path.join(process.cwd(), 'components/ui/toast/ToastProvider.tsx'), 'utf8');
+
+      expect(rootLayoutSource).toMatch(/<AccessibilityMotionProvider>\s*<ToastProvider>[\s\S]*<\/ToastProvider>\s*<\/AccessibilityMotionProvider>/);
+      expect(toastSource).toContain('<motion.div');
+
+      function ToastProbe() {
+        const config = React.useContext(MotionConfigContext);
+        const toast = useToast();
+        return <button onClick={() => toast.info('Reduced-motion toast')}>{config.reducedMotion}</button>;
+      }
+
+      render(
+        <AccessibilityMotionProvider>
+          <ToastProvider>
+            <ToastProbe />
+          </ToastProvider>
+        </AccessibilityMotionProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'user' }));
+      expect(screen.getByText('Reduced-motion toast')).toBeInTheDocument();
     });
   });
 });

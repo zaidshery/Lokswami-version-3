@@ -2,7 +2,6 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-test.use({ channel: 'msedge' });
 const fixturePath = process.env.PHASE317E_FIXTURE_PATH;
 const evidenceRoot = process.env.PHASE317E_EVIDENCE_DIR;
 function save(name: string, value: unknown) {
@@ -84,7 +83,7 @@ for (const [width, height] of [[320, 800], [390, 844], [844, 390], [768, 1024], 
     }
     save(`overlay-${width}-${theme}`, { storyPreview: true, quickArticle: true, swipeSettings: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: join(evidenceRoot!, `mechanics-${width}-${theme}.png`), fullPage: true });
+    if (evidenceRoot) await page.screenshot({ path: join(evidenceRoot, `mechanics-${width}-${theme}.png`), fullPage: true });
   });
 }
 

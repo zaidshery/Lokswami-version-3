@@ -20,6 +20,7 @@ export default function SearchClient() {
   const initialQuery = searchParams.get('q') || '';
 
   const [query, setQuery] = useState(initialQuery);
+  const [completedQuery, setCompletedQuery] = useState('');
   const [sourceArticles, setSourceArticles] = useState<Article[]>(mockArticles);
   const [searchResults, setSearchResults] = useState<Article[]>(mockArticles);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -104,10 +105,12 @@ export default function SearchClient() {
 
     if (!cleanQuery) {
       setSearchResults(dataSet);
+      setCompletedQuery('');
       return;
     }
 
     performLocalSearch(cleanQuery, dataSet, categoryValue, sortValue);
+    setCompletedQuery(cleanQuery);
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -201,15 +204,17 @@ export default function SearchClient() {
 
       {query ? (
         <div>
-          <div className="mb-4 space-y-3" role="status" aria-live="polite" aria-atomic="true">
-            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              {searchResults.length === 0
-                ? (language === 'hi' ? `"${query}" के लिए कोई परिणाम नहीं मिला` : `No results found for "${query}"`)
-                : (language === 'hi'
-                    ? `"${query}" के लिए ${searchResults.length} परिणाम मिले`
-                    : `${searchResults.length} results found for "${query}"`)}
-            </p>
-          </div>
+          {completedQuery ? (
+            <div className="mb-4 space-y-3" role="status" aria-live="polite" aria-atomic="true">
+              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                {searchResults.length === 0
+                  ? (language === 'hi' ? `"${completedQuery}" के लिए कोई परिणाम नहीं मिला` : `No results found for "${completedQuery}"`)
+                  : (language === 'hi'
+                      ? `"${completedQuery}" के लिए ${searchResults.length} परिणाम मिले`
+                      : `${searchResults.length} results found for "${completedQuery}"`)}
+              </p>
+            </div>
+          ) : null}
 
           {searchResults.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -3,7 +3,7 @@ import type { Result } from 'axe-core';
 import { expect, test } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-test.use({ channel: 'msedge', viewport: { width: 1440, height: 900 } });
+test.use({ viewport: { width: 1440, height: 900 } });
 for (const language of ['en', 'hi'] as const) for (const theme of ['light', 'dark'] as const) test(`Populated card and auth states ${language} ${theme}`, async ({ page, context }, testInfo) => {
   test.setTimeout(150_000);
   const fixture = process.env.PHASE317E_FIXTURE_PATH;

@@ -2,7 +2,6 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-test.use({ channel: 'msedge' });
 const evidenceRoot = process.env.PHASE317E_EVIDENCE_DIR;
 async function focus(page: Page, target: Locator) {
   await expect(target).toBeVisible();
@@ -46,15 +45,20 @@ for (const width of [390, 1440]) for (const theme of ['light', 'dark'] as const)
     const button = page.getByRole('button', { name, exact: true }).filter({ visible: true }).first();
     evidence.push(await focus(page, button));
   }
-  const feed = await (await context.request.get('/api/v1/public/shorts?limit=1')).json();
+  const feed = await (await context.request.get('/api/v1/public/shorts?limit=2')).json();
   test.skip(!feed.items?.[0]?.slug, 'DATA-DEPENDENT: no public Shorts story');
   const storyResponse = await page.goto(`/main/shorts/${encodeURIComponent(feed.items[0].slug)}`, { waitUntil: 'networkidle' });
   expect(storyResponse?.status()).toBe(200);
-  for (const name of ['Next story', 'Previous story']) {
-    const button = page.getByRole('button', { name, exact: true });
-    await expect(button).toBeEnabled();
-    evidence.push(await focus(page, button));
-    await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+  if (feed.items.length === 1) {
+    await expect(page.getByRole('button', { name: 'Next story', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Previous story', exact: true })).toBeDisabled();
+  } else {
+    for (const name of ['Next story', 'Previous story']) {
+      const button = page.getByRole('button', { name, exact: true });
+      await expect(button).toBeEnabled();
+      evidence.push(await focus(page, button));
+      await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+    }
   }
   await page.goto('/signin', { waitUntil: 'networkidle' });
   for (const name of ['Newsroom Team', 'Reader & Subscriber', 'Create Account', 'Sign In']) {
