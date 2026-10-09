@@ -37,6 +37,7 @@ async function measure(browser, route, viewport) {
   await page.route('**/api/v1/public/analytics/vitals', (route) => route.fulfill({ status: 204 }));
   const client = await context.newCDPSession(page);
   const resourceTypes = new Map();
+  const publicationRequestIds = new Set();
   const transfer = {
     bytes: 0, requests: 0, images: 0, jsBytes: 0, jsFiles: [],
     requestUrls: {}, publicationFeedRequests: 0, fonts: 0, fontBytes: 0,
@@ -44,6 +45,14 @@ async function measure(browser, route, viewport) {
   await client.send('Network.enable');
   await client.send('Network.setCacheDisabled', { cacheDisabled: true });
   client.on('Network.requestWillBeSent', ({ requestId, request }) => {
+    if (
+      request.method === 'GET' &&
+      new URL(request.url).pathname === '/api/v1/public/epapers/latest' &&
+      !publicationRequestIds.has(requestId)
+    ) {
+      publicationRequestIds.add(requestId);
+      transfer.publicationFeedRequests += 1;
+    }
     resourceTypes.set(requestId, { method: request.method, url: request.url });
   });
   client.on('Network.responseReceived', ({ requestId, type, response }) => {
@@ -56,9 +65,6 @@ async function measure(browser, route, viewport) {
     transfer.bytes += encodedDataLength;
     if (resource.method === 'GET') {
       transfer.requestUrls[resource.url] = (transfer.requestUrls[resource.url] || 0) + 1;
-      if (resource.url.includes('/api/v1/public/epapers/latest')) {
-        transfer.publicationFeedRequests += 1;
-      }
     }
     if (resource.type === 'Image') transfer.images += 1;
     if (resource.type === 'Font') {

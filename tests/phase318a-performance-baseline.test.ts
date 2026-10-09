@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createServer, type Server } from 'node:http';
+import { createServer, type Server, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -7,6 +7,10 @@ const script = path.join(process.cwd(), 'scripts/phase3/phase318a-performance-ba
 let server: Server;
 let baseUrl: string;
 let publicationRefetch = false;
+let unrelatedPublicationPathRequest = false;
+type PublicationResponseMode = 'complete' | 'failed' | 'pending' | 'redirect';
+let publicationResponseMode: PublicationResponseMode = 'complete';
+let pendingPublicationResponse: ServerResponse | null = null;
 
 function runBaseline(routes?: string, extraEnv: Record<string, string> = {}, assertPublication = false) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
@@ -30,6 +34,28 @@ function runBaseline(routes?: string, extraEnv: Record<string, string> = {}, ass
   });
 }
 
+async function runPublicationBaseline(mode: PublicationResponseMode = 'complete') {
+  publicationRefetch = true;
+  publicationResponseMode = mode;
+  try {
+    return await runBaseline('/main/epaper', { PERF_SETTLE_MS: '500' }, true);
+  } finally {
+    publicationRefetch = false;
+    publicationResponseMode = 'complete';
+    pendingPublicationResponse?.destroy();
+    pendingPublicationResponse = null;
+  }
+}
+
+function measurements(stdout: string): Array<{
+  status: number;
+  bytes: number;
+  requests: number;
+  publicationFeedRequests: number;
+}> {
+  return stdout.trim().split(/\r?\n/).map((line) => JSON.parse(line));
+}
+
 beforeAll(async () => {
   server = createServer((request, response) => {
     const route = request.url?.split('?')[0] || '/';
@@ -38,12 +64,27 @@ beforeAll(async () => {
       return;
     }
     if (route === '/api/v1/public/epapers/latest') {
+      if (publicationResponseMode === 'failed') {
+        response.destroy();
+        return;
+      }
+      if (publicationResponseMode === 'pending') {
+        pendingPublicationResponse = response;
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.flushHeaders();
+        return;
+      }
+      if (publicationResponseMode === 'redirect' && !request.url?.includes('redirected=1')) {
+        response.writeHead(302, { Location: '/api/v1/public/epapers/latest?redirected=1' }).end();
+        return;
+      }
       response.writeHead(200, { 'Content-Type': 'application/json' }).end('{"items":[]}');
       return;
     }
     const refetch = route === '/main/epaper' && publicationRefetch;
+    const unrelated = route === '/main/epaper' && unrelatedPublicationPathRequest;
     response.writeHead(200, { 'Content-Type': 'text/html' }).end(
-      `<html><body>OK${refetch ? '<script>fetch("/api/v1/public/epapers/latest")</script>' : ''}</body></html>`
+      `<html><body>OK${refetch ? '<script>fetch("/api/v1/public/epapers/latest")</script>' : ''}${unrelated ? '<script>fetch("/unrelated?next=/api/v1/public/epapers/latest")</script>' : ''}</body></html>`
     );
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -75,16 +116,57 @@ describe('Phase 3.18A baseline process status', () => {
     expect(result.stdout.match(/"status":404/g)).toHaveLength(2);
   }, 30_000);
 
-  it('keeps the publication assertion failure exit status', async () => {
-    publicationRefetch = true;
+  it('counts one completed publication request without counting it again at loadingFinished', async () => {
+    const result = await runPublicationBaseline();
+    expect(result.code).toBe(1);
+    expect(measurements(result.stdout).map(({ publicationFeedRequests }) => publicationFeedRequests)).toEqual([1, 1]);
+    expect(result.stderr).toContain('Initial publication feed was refetched');
+  }, 30_000);
+
+  it('fails the publication assertion for a request that fails before loadingFinished', async () => {
+    const result = await runPublicationBaseline('failed');
+    expect(result.code).toBe(1);
+    expect(measurements(result.stdout).map(({ publicationFeedRequests }) => publicationFeedRequests)).toEqual([1, 1]);
+    expect(result.stderr).toContain('Initial publication feed was refetched');
+  }, 30_000);
+
+  it('fails the publication assertion for a request still pending beyond the settle window', async () => {
+    const result = await runPublicationBaseline('pending');
+    expect(result.code).toBe(1);
+    expect(measurements(result.stdout).map(({ publicationFeedRequests }) => publicationFeedRequests)).toEqual([1, 1]);
+    expect(result.stderr).toContain('Initial publication feed was refetched');
+  }, 30_000);
+
+  it('allows a publication page with no matching archive request', async () => {
+    unrelatedPublicationPathRequest = true;
     try {
-      const result = await runBaseline('/main/epaper', { PERF_SETTLE_MS: '750' }, true);
-      expect(result.code).toBe(1);
-      expect(result.stdout).toMatch(/"publicationFeedRequests":1/);
-      expect(result.stderr).toContain('Initial publication feed was refetched');
+      const result = await runBaseline('/main/epaper', { PERF_SETTLE_MS: '500' }, true);
+      expect(result.code).toBe(0);
+      expect(measurements(result.stdout).map(({ publicationFeedRequests }) => publicationFeedRequests)).toEqual([0, 0]);
     } finally {
-      publicationRefetch = false;
+      unrelatedPublicationPathRequest = false;
     }
+  }, 30_000);
+
+  it('keeps completed-transfer bytes separate from failed and pending requests', async () => {
+    const completed = measurements((await runPublicationBaseline('complete')).stdout);
+    const failed = measurements((await runPublicationBaseline('failed')).stdout);
+    const pending = measurements((await runPublicationBaseline('pending')).stdout);
+    for (const index of [0, 1]) {
+      expect(completed[index].publicationFeedRequests).toBe(1);
+      expect(failed[index].publicationFeedRequests).toBe(1);
+      expect(pending[index].publicationFeedRequests).toBe(1);
+      expect(completed[index].requests).toBeGreaterThan(failed[index].requests);
+      expect(completed[index].requests).toBeGreaterThan(pending[index].requests);
+      expect(completed[index].bytes).toBeGreaterThan(failed[index].bytes);
+      expect(completed[index].bytes).toBeGreaterThan(pending[index].bytes);
+    }
+  }, 60_000);
+
+  it('deduplicates redirect events for one publication request ID', async () => {
+    const result = await runPublicationBaseline('redirect');
+    expect(result.code).toBe(1);
+    expect(measurements(result.stdout).map(({ publicationFeedRequests }) => publicationFeedRequests)).toEqual([1, 1]);
   }, 30_000);
 
   it('allows an unrequested data-dependent detail route to be unavailable', async () => {
