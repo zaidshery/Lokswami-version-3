@@ -1,0 +1,5 @@
+.readingOptions :global(.reader-focus-ring):focus-visible {
+  outline-offset: -2px;
+  --tw-ring-inset: inset;
+  --tw-ring-offset-width: 0px;
+}

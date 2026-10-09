@@ -20,6 +20,7 @@ export default function SearchClient() {
   const initialQuery = searchParams.get('q') || '';
 
   const [query, setQuery] = useState(initialQuery);
+  const [completedQuery, setCompletedQuery] = useState('');
   const [sourceArticles, setSourceArticles] = useState<Article[]>(mockArticles);
   const [searchResults, setSearchResults] = useState<Article[]>(mockArticles);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -104,10 +105,12 @@ export default function SearchClient() {
 
     if (!cleanQuery) {
       setSearchResults(dataSet);
+      setCompletedQuery('');
       return;
     }
 
     performLocalSearch(cleanQuery, dataSet, categoryValue, sortValue);
+    setCompletedQuery(cleanQuery);
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -136,7 +139,8 @@ export default function SearchClient() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={language === 'hi' ? 'समाचार खोजें...' : 'Search news...'}
-            className="min-h-12 flex-1 bg-transparent px-4 py-3.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            aria-label={language === 'hi' ? 'समाचार खोजें' : 'Search news'}
+            className="min-h-12 flex-1 bg-transparent px-4 py-3.5 text-zinc-900 placeholder:text-zinc-500 focus:outline-none dark:text-zinc-100 dark:placeholder:text-zinc-400"
           />
           {query ? (
             <button
@@ -163,6 +167,7 @@ export default function SearchClient() {
             <Filter className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
             <select
               value={selectedCategory}
+              aria-label={language === 'hi' ? 'श्रेणी चुनें' : 'Choose category'}
               onChange={(e) => {
                 const next = e.target.value;
                 setSelectedCategory(next);
@@ -181,6 +186,7 @@ export default function SearchClient() {
           <div className="flex items-center gap-2">
             <select
               value={sortBy}
+              aria-label={language === 'hi' ? 'क्रमबद्ध करें' : 'Sort articles'}
               onChange={(e) => {
                 const next = (e.target.value as 'relevance' | 'latest' | 'popular') || 'relevance';
                 setSortBy(next);
@@ -198,13 +204,17 @@ export default function SearchClient() {
 
       {query ? (
         <div>
-          <div className="mb-4 space-y-3">
-            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              {language === 'hi'
-                ? `"${query}" के लिए ${searchResults.length} परिणाम`
-                : `${searchResults.length} results for "${query}"`}
-            </p>
-          </div>
+          {completedQuery ? (
+            <div className="mb-4 space-y-3" role="status" aria-live="polite" aria-atomic="true">
+              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                {searchResults.length === 0
+                  ? (language === 'hi' ? `"${completedQuery}" के लिए कोई परिणाम नहीं मिला` : `No results found for "${completedQuery}"`)
+                  : (language === 'hi'
+                      ? `"${completedQuery}" के लिए ${searchResults.length} परिणाम मिले`
+                      : `${searchResults.length} results found for "${completedQuery}"`)}
+              </p>
+            </div>
+          ) : null}
 
           {searchResults.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

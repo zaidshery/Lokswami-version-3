@@ -7,6 +7,21 @@ import { trackClientEvent } from '@/lib/analytics/trackClient';
 
 vi.mock('@/lib/analytics/trackClient', () => ({ trackClientEvent: vi.fn() }));
 
+const mockAppState = {
+  language: 'en',
+  isMobile: false,
+  isTablet: false,
+  isImmersiveVideoMode: false,
+  setImmersiveVideoMode: vi.fn(),
+};
+
+vi.mock('@/lib/store/appStore', () => ({
+  useAppStore: (selector?: (state: typeof mockAppState) => unknown) =>
+    typeof selector === 'function'
+      ? selector(mockAppState)
+      : mockAppState,
+}));
+
 function item(index: number): SwipeFeedItem {
   return {
     _id: `video-${index}`,

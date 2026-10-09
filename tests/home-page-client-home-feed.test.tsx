@@ -177,7 +177,8 @@ describe('HomePageClient v1 home-feed integration', () => {
     });
     await waitFor(() => expect(mocks.fetchPublicArticlesPage).toHaveBeenCalledWith({ limit: 100 }));
     expect(screen.queryByTestId('hero-carousel')).not.toBeInTheDocument();
-    expect(within(screen.getByTestId('lead-story')).queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('lead-story')).queryByRole('article')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('lead-story')).queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
     expect(within(screen.getByTestId('live-updates-rail')).queryByRole('link')).not.toBeInTheDocument();
     expect(mocks.fetchMergedLiveArticles).not.toHaveBeenCalled();
   });
@@ -299,9 +300,15 @@ describe('HomePageClient v1 home-feed integration', () => {
       })
     );
 
-    expect(screen.getByTestId('lead-story')).toHaveTextContent(
-      'Lead Story From Feed'
-    );
+    const leadSection = screen.getByTestId('lead-story');
+    expect(leadSection).toHaveTextContent('Lead Story From Feed');
+    expect(
+      within(leadSection).getByRole('heading', {
+        level: 1,
+        name: 'Lead Story From Feed',
+      })
+    ).toBeInTheDocument();
+    expect(within(leadSection).queryByRole('heading', { level: 2 })).toBeNull();
     for (const link of screen.getAllByRole('link', { name: /Latest Story From Feed/ })) {
       expect(link).toHaveAttribute('href', '/main/article/article-6');
     }
@@ -506,8 +513,8 @@ describe('HomePageClient v1 home-feed integration', () => {
     expect(rows.every((row) => !row.className.includes('border'))).toBe(true);
     for (const row of rows) {
       const item = within(row);
-      expect(item.getByRole('img')).toHaveAttribute('alt', expect.stringMatching(/^Update /));
-      expect(item.getAllByRole('link', { name: /^Update \d$/ })).toHaveLength(2);
+      expect(item.getByRole('img', { hidden: true })).toHaveAttribute('alt', expect.stringMatching(/^Update /));
+      expect(item.getAllByRole('link', { name: /^Update \d$/ })).toHaveLength(1);
       expect(item.getAllByRole('link', { name: /^Update \d$/ })[0]).toHaveAttribute('href', expect.stringMatching(/^\/main\/article\/update-/));
       expect(item.getByText('National')).toBeInTheDocument();
       expect(row.querySelector('time')).toHaveAttribute('datetime', expect.stringMatching(/^2026-05-/));

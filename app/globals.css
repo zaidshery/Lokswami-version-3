@@ -157,6 +157,18 @@
     display: inline-flex;
     align-items: center;
   }
+
+  /* ISSUE-A11Y-09 Accessible Placeholder Contrast */
+  input::placeholder,
+  textarea::placeholder {
+    color: #71717a; /* zinc-500: 4.83:1 on white (#ffffff) >= 4.5:1 */
+    opacity: 1;
+  }
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #a1a1aa; /* zinc-400: 7.76:1 on zinc-950 (#09090b) >= 4.5:1 */
+    opacity: 1;
+  }
   
   /* Hide scrollbar but keep functionality */
   .scrollbar-hide {

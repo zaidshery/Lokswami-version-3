@@ -190,9 +190,9 @@ export default function ArticleDetailClient({
   const contentHtml = useMemo(() => {
     if (!article) return '';
     const raw = article.content && article.content.trim() ? article.content : article.summary;
-    const parsed = renderArticleRichContent(raw);
-    return parsed || renderArticleRichContent(article.summary);
-  }, [article]);
+    const parsed = renderArticleRichContent(raw, { language: articleContentLanguage });
+    return parsed || renderArticleRichContent(article.summary, { language: articleContentLanguage });
+  }, [article, articleContentLanguage]);
 
   const articleMeta = useMemo(() => {
     if (!article) {

@@ -79,6 +79,7 @@ describe('Phase 3.15A — E-Paper Reader 2.0 Acceptance', () => {
       onClose: vi.fn(),
       shareUrl: 'https://lokswami.in/main/epaper?paper=test&page=1',
       shareText: 'Lokswami E-Paper',
+      language: 'en' as const,
     };
 
     it('renders edition metadata, page counter, and boundary states', () => {
@@ -89,8 +90,8 @@ describe('Phase 3.15A — E-Paper Reader 2.0 Acceptance', () => {
       expect(screen.getByText('1')).toBeInTheDocument();
       expect(screen.getByText('6')).toBeInTheDocument();
 
-      const prevBtn = screen.getByLabelText('Previous page');
-      const nextBtn = screen.getByLabelText('Next page');
+      const prevBtn = screen.getAllByLabelText('Previous page')[0];
+      const nextBtn = screen.getAllByLabelText('Next page')[0];
 
       expect(prevBtn).toBeDisabled();
       expect(nextBtn).toBeEnabled();

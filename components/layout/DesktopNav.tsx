@@ -113,7 +113,7 @@ export default function DesktopNav({ className = '' }: { className?: string }) {
           <div className="rounded-editorial-md border border-zinc-200 bg-white p-1.5 shadow-editorial-lg dark:border-zinc-800 dark:bg-[#16161c]">
             {current.children!.map(link => (
               <Link key={link.href} href={link.href} aria-current={isReaderNavigationActive(pathname, link.href) ? 'page' : undefined}
-                onClick={() => setOpen(null)} className={`editorial-focus-ring flex min-h-[44px] items-center rounded-editorial-sm px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-brand-50 hover:text-brand-500 dark:hover:bg-brand-950/40 ${isReaderNavigationActive(pathname, link.href) ? 'bg-brand-50 text-brand-500 dark:bg-brand-950/40' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                onClick={() => setOpen(null)} className={`editorial-focus-ring flex min-h-[44px] items-center rounded-editorial-sm px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950/40 ${isReaderNavigationActive(pathname, link.href) ? 'bg-brand-50 text-brand-600 dark:bg-brand-950/40' : 'text-zinc-700 dark:text-zinc-300'}`}>
                 {language === 'hi' ? link.name : link.nameEn}
               </Link>
             ))}

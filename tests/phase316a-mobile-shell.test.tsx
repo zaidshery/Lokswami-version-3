@@ -32,7 +32,7 @@ describe('Phase 3.16A — Mobile Shell, Safe Area & Navigation Foundation', () =
     vi.clearAllMocks();
     vi.mocked(useSession).mockReturnValue({ data: null, status: 'unauthenticated', update: vi.fn() });
     useAppStore.setState({
-      language: 'hi',
+      language: 'en',
       theme: 'light',
       themePreference: 'auto',
       isMobileMenuOpen: false,
@@ -96,7 +96,7 @@ describe('Phase 3.16A — Mobile Shell, Safe Area & Navigation Foundation', () =
   describe('3. Breaking News Audio Hit Target (ISSUE-MOB-07)', () => {
     it('provides >=44x44px interactive hit target via touch expansion pseudo-element', () => {
       render(<BreakingNews />);
-      const audioBtn = screen.getByRole('button', { name: /breaking news voice/i });
+      const audioBtn = screen.getByRole('button', { name: 'Enable breaking news voice' });
       expect(audioBtn).toBeInTheDocument();
       // Compact visual size remains 32px (h-8 w-8)
       expect(audioBtn.className).toContain('h-8');
@@ -111,7 +111,7 @@ describe('Phase 3.16A — Mobile Shell, Safe Area & Navigation Foundation', () =
 
     it('preserves accessible title and aria states on audio button', () => {
       render(<BreakingNews />);
-      const audioBtn = screen.getByRole('button', { name: /breaking news voice/i });
+      const audioBtn = screen.getByRole('button', { name: 'Enable breaking news voice' });
       expect(audioBtn).toHaveAttribute('aria-pressed');
       expect(audioBtn).toHaveAttribute('aria-busy');
     });

@@ -22,7 +22,7 @@ describe('flipbook reader interactions', () => {
   it('keeps direct page jump and thumbnail toggle available, announcing the spread', () => {
     const jump = vi.fn();
     const toggle = vi.fn();
-    render(<EPaperToolbar title="Lokswami" editionLabel="Indore" issueDateLabel="October" currentPage={2} pageCount={6} zoom={1} isSpreadMode companionPage={3} onPreviousPage={vi.fn()} onNextPage={vi.fn()} onPageSelect={jump} onZoomIn={vi.fn()} onZoomOut={vi.fn()} onClose={vi.fn()} shareUrl="/main/epaper" shareText="Lokswami" thumbnailsOpen={false} onToggleThumbnails={toggle} />);
+    render(<EPaperToolbar language="en" title="Lokswami" editionLabel="Indore" issueDateLabel="October" currentPage={2} pageCount={6} zoom={1} isSpreadMode companionPage={3} onPreviousPage={vi.fn()} onNextPage={vi.fn()} onPageSelect={jump} onZoomIn={vi.fn()} onZoomOut={vi.fn()} onClose={vi.fn()} shareUrl="/main/epaper" shareText="Lokswami" thumbnailsOpen={false} onToggleThumbnails={toggle} />);
     fireEvent.change(screen.getByLabelText('Jump to page'), { target: { value: '5' } });
     expect(jump).toHaveBeenCalledWith(5);
     expect(screen.getByRole('status')).toHaveTextContent('Page 2–3 of 6');

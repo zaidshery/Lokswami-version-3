@@ -73,7 +73,7 @@ describe('homepage top package', () => {
     expect(screen.queryByTestId('indore-epaper')).not.toBeInTheDocument();
     const latest = within(screen.getByTestId('latest-news-rail'));
     expect(latest.getAllByRole('listitem')).toHaveLength(4);
-    expect(latest.getAllByRole('img')).toHaveLength(4);
+    expect(latest.getAllByRole('img', { hidden: true })).toHaveLength(4);
     expect(latest.getAllByRole('link',{name:'Share on WhatsApp'})).toHaveLength(4);
     expect(latest.getAllByRole('link',{name:'Share on WhatsApp'}).every(link =>
       link.getAttribute('title') === 'Share on WhatsApp' &&

@@ -158,7 +158,7 @@ function LiveUpdateStory({
 
   return (
     <li data-story-id={article.id} className="grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-2 rounded-editorial-sm py-2.5 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-800/30 sm:grid-cols-[96px_minmax(0,1fr)]">
-      <Link href={href} aria-label={article.title} className="editorial-focus-ring relative block aspect-[10/7] overflow-hidden rounded-editorial-sm bg-zinc-100 dark:bg-zinc-950">
+      <Link href={href} tabIndex={-1} aria-hidden="true" className="editorial-focus-ring relative block aspect-[10/7] overflow-hidden rounded-editorial-sm bg-zinc-100 dark:bg-zinc-950">
         <ReaderImage
           src={buildArticleImageVariantUrl(article.image, 'thumb')}
           alt={article.title}

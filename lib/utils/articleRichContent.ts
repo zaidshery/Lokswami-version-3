@@ -125,26 +125,70 @@ function buildSocialEmbedMarkup(platform: string, input: string) {
 </aside>`.trim();
 }
 
-function wrapTables(html: string) {
+export type ArticleRichContentOptions = {
+  language?: 'hi' | 'en' | string;
+};
+
+const DEVANAGARI_PATTERN = /[\u0900-\u097F]/;
+
+function resolveDefaultTableLabel(rawContent: string, explicitLanguage?: string): string {
+  if (explicitLanguage) {
+    return explicitLanguage.toLowerCase().startsWith('hi') ? 'सारणी' : 'Table';
+  }
+  return DEVANAGARI_PATTERN.test(rawContent) ? 'सारणी' : 'Table';
+}
+
+function extractTableAccessibleName(rawTable: string, defaultLabel: string): string {
+  const captionMatch = rawTable.match(/<caption\b[^>]*>([\s\S]*?)<\/caption>/i);
+  if (!captionMatch) {
+    return defaultLabel;
+  }
+
+  const rawCaption = captionMatch[1];
+  const stripped = rawCaption.replace(/<[^>]+>/g, ' ');
+  const decoded = stripped
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&nbsp;/gi, ' ');
+  const normalized = decoded.replace(/\s+/g, ' ').trim();
+
+  if (!normalized) {
+    return defaultLabel;
+  }
+
+  return normalized;
+}
+
+function wrapTables(html: string, options?: ArticleRichContentOptions) {
   if (!/<table\b/i.test(html)) return html;
+
+  const defaultLabel = resolveDefaultTableLabel(html, options?.language);
 
   return html.replace(
     /(<div\b[^>]*\bclass=(?:'[^']*article-table-wrap[^']*'|"[^"]*article-table-wrap[^"]*")[^>]*>[\s\S]*?<\/div>)|(<table\b[\s\S]*?<\/table>)/gi,
     (match, alreadyWrapped, rawTable) => {
       if (alreadyWrapped) return alreadyWrapped;
       const content = rawTable || match;
-      return `<div class="article-table-wrap" data-swipe-ignore="true" tabindex="0" role="region" aria-label="Table">${content}</div>`;
+      const accessibleName = extractTableAccessibleName(content, defaultLabel);
+      const safeLabel = escapeHtml(accessibleName);
+      return `<div class="article-table-wrap" data-swipe-ignore="true" tabindex="0" role="region" aria-label="${safeLabel}">${content}</div>`;
     }
   );
 }
 
-export function renderArticleRichContent(rawContent: string) {
+export function renderArticleRichContent(
+  rawContent: string,
+  options?: ArticleRichContentOptions
+) {
   const source = rawContent.trim();
   if (!source) return '';
 
   let html = HTML_TAG_PATTERN.test(source) ? source : toParagraphHtml(source);
   html = sanitizeInputHtml(html);
-  html = wrapTables(html);
+  html = wrapTables(html, options);
 
   html = html.replace(
     YOUTUBE_LINK_PATTERN,

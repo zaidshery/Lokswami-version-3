@@ -28,20 +28,25 @@ const mockSetLanguage = vi.fn();
 const mockToggleMobileMenu = vi.fn();
 const mockSetMobileMenuOpen = vi.fn();
 
+const mockAppState = {
+  language: 'hi',
+  setLanguage: mockSetLanguage,
+  isMobileMenuOpen: false,
+  toggleMobileMenu: mockToggleMobileMenu,
+  setMobileMenuOpen: mockSetMobileMenuOpen,
+  isImmersiveVideoMode: false,
+  isEpaperReaderOpen: false,
+  isMobile: false,
+  isTablet: false,
+  setIsMobile: vi.fn(),
+  setIsTablet: vi.fn(),
+};
+
 vi.mock('@/lib/store/appStore', () => ({
-  useAppStore: () => ({
-    language: 'hi',
-    setLanguage: mockSetLanguage,
-    isMobileMenuOpen: false,
-    toggleMobileMenu: mockToggleMobileMenu,
-    setMobileMenuOpen: mockSetMobileMenuOpen,
-    isImmersiveVideoMode: false,
-    isEpaperReaderOpen: false,
-    isMobile: false,
-    isTablet: false,
-    setIsMobile: vi.fn(),
-    setIsTablet: vi.fn(),
-  }),
+  useAppStore: (selector?: (state: typeof mockAppState) => unknown) =>
+    typeof selector === 'function'
+      ? selector(mockAppState)
+      : mockAppState,
 }));
 
 describe('Phase 3.3: Reader Shell & Navigation Contracts', () => {
@@ -219,7 +224,7 @@ describe('Phase 3.3: Reader Shell & Navigation Contracts', () => {
 
     it('provides >=44x44 voice toggle target', () => {
       render(<BreakingNews />);
-      const voiceButton = screen.getByRole('button', { name: /breaking news voice|वॉइस/i });
+      const voiceButton = screen.getByRole('button', { name: 'ताज़ा समाचार आवाज़ चालू करें' });
       expect(voiceButton).toBeInTheDocument();
       expect(voiceButton.className).toContain('after:h-11');
       expect(voiceButton.className).toContain('after:w-11');

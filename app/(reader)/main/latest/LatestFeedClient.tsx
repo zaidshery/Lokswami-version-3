@@ -180,6 +180,7 @@ export default function LatestFeedClient({
         <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end sm:gap-3">
           <select
             value={sortBy}
+            aria-label={language === 'hi' ? 'क्रमबद्ध करें' : 'Sort articles'}
             onChange={(e) => setSortBy(e.target.value as 'latest' | 'popular')}
             className="reader-focus-ring min-h-11 min-w-[124px] rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 sm:min-w-[140px]"
             data-swipe-ignore="true"
@@ -191,15 +192,17 @@ export default function LatestFeedClient({
           <div className="flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900" data-swipe-ignore="true">
             <button
               onClick={() => setViewMode('grid')}
+              aria-pressed={viewMode === 'grid'}
               className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-l-lg transition-colors ${viewMode === 'grid' ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'}`}
-              aria-label="Grid view"
+              aria-label={language === 'hi' ? 'ग्रिड दृश्य' : 'Grid view'}
             >
               <Grid3X3 className="h-5 w-5" />
             </button>
             <button
               onClick={() => setViewMode('list')}
+              aria-pressed={viewMode === 'list'}
               className={`reader-touch-button reader-focus-ring inline-flex h-11 w-11 items-center justify-center rounded-r-lg transition-colors ${viewMode === 'list' ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'}`}
-              aria-label="List view"
+              aria-label={language === 'hi' ? 'सूची दृश्य' : 'List view'}
             >
               <List className="h-5 w-5" />
             </button>
