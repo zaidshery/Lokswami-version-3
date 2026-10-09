@@ -13,6 +13,7 @@ const defaultRoutes = [
   ...(process.env.PERF_SHORTS_PATH ? [process.env.PERF_SHORTS_PATH] : []),
 ];
 const selectedRoutes = process.argv[2] || process.env.PERF_ROUTES;
+const explicitlyRequestedRoutes = Boolean(selectedRoutes);
 const routes = selectedRoutes
   ? selectedRoutes.split(',').map((value) => value.trim()).filter(Boolean)
   : defaultRoutes;
@@ -20,6 +21,13 @@ const viewports = [
   { name: 'mobile', width: 390, height: 844 },
   { name: 'desktop', width: 1440, height: 900 },
 ];
+const settleMs = process.env.PERF_SETTLE_MS === undefined
+  ? 3000
+  : Math.max(0, Number(process.env.PERF_SETTLE_MS) || 0);
+const optionalDefaultRoutes = new Set([
+  process.env.PERF_ARTICLE_PATH,
+  process.env.PERF_SHORTS_PATH,
+].filter(Boolean));
 
 async function measure(browser, route, viewport) {
   const context = await browser.newContext({ viewport });
@@ -95,7 +103,7 @@ async function measure(browser, route, viewport) {
   page.on('pageerror', (error) => errors.push(error.message));
   try {
     const response = await page.goto(baseUrl + route, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(settleMs);
     const pageData = await page.evaluate(() => {
       const nav = performance.getEntriesByType('navigation')[0];
       const paint = performance.getEntriesByName('first-contentful-paint')[0];
@@ -144,22 +152,31 @@ async function measure(browser, route, viewport) {
 
 async function main() {
   const browser = await chromium.launch({ headless: true });
+  const failures = [];
   try {
     for (const viewport of viewports) {
       for (const route of routes) {
         const result = await measure(browser, route, viewport);
         console.log(JSON.stringify(result));
+        const isOptionalDefaultRoute = !explicitlyRequestedRoutes && optionalDefaultRoutes.has(route);
+        if (!isOptionalDefaultRoute && (result.error || result.status !== 200)) {
+          failures.push(`${route} (${viewport.name}): ${result.error || `HTTP ${result.status}`}`);
+        }
         if (
           process.argv.includes('--assert-publication-initial') &&
           ['/main/epaper', '/main/e-magazine'].includes(route) &&
           (result.status !== 200 || result.publicationFeedRequests !== 0)
         ) {
-          throw new Error(`Initial publication feed was refetched on ${route} (${viewport.name})`);
+          failures.push(`Initial publication feed was refetched on ${route} (${viewport.name})`);
         }
       }
     }
   } finally {
     await browser.close();
+  }
+  if (failures.length > 0) {
+    console.error(`Baseline failed: ${failures.join('; ')}`);
+    process.exitCode = 1;
   }
 }
 
