@@ -165,8 +165,12 @@ async function main() {
         const result = await measure(browser, route, viewport);
         console.log(JSON.stringify(result));
         const isOptionalDefaultRoute = !explicitlyRequestedRoutes && optionalDefaultRoutes.has(route);
-        if (!isOptionalDefaultRoute && (result.error || result.status !== 200)) {
-          failures.push(`${route} (${viewport.name}): ${result.error || `HTTP ${result.status}`}`);
+        const hasRuntimePageErrors = result.status === 200 && result.errors?.length > 0;
+        if ((!isOptionalDefaultRoute && (result.error || result.status !== 200)) || hasRuntimePageErrors) {
+          const reason = result.error || (hasRuntimePageErrors
+            ? `runtime page error(s): ${result.errors.length}`
+            : `HTTP ${result.status}`);
+          failures.push(`${route} (${viewport.name}): ${reason}`);
         }
         if (
           process.argv.includes('--assert-publication-initial') &&

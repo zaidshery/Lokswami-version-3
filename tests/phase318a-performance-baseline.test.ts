@@ -7,6 +7,7 @@ const script = path.join(process.cwd(), 'scripts/phase3/phase318a-performance-ba
 let server: Server;
 let baseUrl: string;
 let publicationRefetch = false;
+let publicationPageError = false;
 let unrelatedPublicationPathRequest = false;
 type PublicationResponseMode = 'complete' | 'failed' | 'pending' | 'redirect';
 let publicationResponseMode: PublicationResponseMode = 'complete';
@@ -49,6 +50,7 @@ async function runPublicationBaseline(mode: PublicationResponseMode = 'complete'
 
 function measurements(stdout: string): Array<{
   status: number;
+  errors: string[];
   bytes: number;
   requests: number;
   publicationFeedRequests: number;
@@ -61,6 +63,12 @@ beforeAll(async () => {
     const route = request.url?.split('?')[0] || '/';
     if (route === '/missing') {
       response.writeHead(404, { 'Content-Type': 'text/html' }).end('Missing');
+      return;
+    }
+    if (route === '/pageerror') {
+      response.writeHead(200, { 'Content-Type': 'text/html' }).end(
+        '<html><body><script>throw new Error("phase318a-test-pageerror")</script></body></html>'
+      );
       return;
     }
     if (route === '/api/v1/public/epapers/latest') {
@@ -82,9 +90,10 @@ beforeAll(async () => {
       return;
     }
     const refetch = route === '/main/epaper' && publicationRefetch;
+    const pageError = route === '/main/epaper' && publicationPageError;
     const unrelated = route === '/main/epaper' && unrelatedPublicationPathRequest;
     response.writeHead(200, { 'Content-Type': 'text/html' }).end(
-      `<html><body>OK${refetch ? '<script>fetch("/api/v1/public/epapers/latest")</script>' : ''}${unrelated ? '<script>fetch("/unrelated?next=/api/v1/public/epapers/latest")</script>' : ''}</body></html>`
+      `<html><body>OK${refetch ? '<script>fetch("/api/v1/public/epapers/latest")</script>' : ''}${pageError ? '<script>throw new Error("phase318a-test-pageerror")</script>' : ''}${unrelated ? '<script>fetch("/unrelated?next=/api/v1/public/epapers/latest")</script>' : ''}</body></html>`
     );
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -102,6 +111,32 @@ describe('Phase 3.18A baseline process status', () => {
     const result = await runBaseline('/main');
     expect(result.code).toBe(0);
     expect(result.stdout.match(/"status":200/g)).toHaveLength(2);
+    expect(measurements(result.stdout).map(({ errors }) => errors)).toEqual([[], []]);
+  }, 30_000);
+
+  it('fails an HTTP 200 route with an unhandled runtime page error', async () => {
+    const result = await runBaseline('/pageerror');
+    const samples = measurements(result.stdout);
+    expect(samples.map(({ status }) => status)).toEqual([200, 200]);
+    expect(samples.every(({ errors }) => errors.some((error) => error.includes('phase318a-test-pageerror')))).toBe(true);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('/pageerror (mobile): runtime page error');
+    expect(result.stderr).toContain('/pageerror (desktop): runtime page error');
+  }, 30_000);
+
+  it('fails the publication assertion when an HTTP 200 page throws before a feed request', async () => {
+    publicationPageError = true;
+    try {
+      const result = await runBaseline('/main/epaper', {}, true);
+      const samples = measurements(result.stdout);
+      expect(samples.map(({ status }) => status)).toEqual([200, 200]);
+      expect(samples.map(({ publicationFeedRequests }) => publicationFeedRequests)).toEqual([0, 0]);
+      expect(samples.every(({ errors }) => errors.some((error) => error.includes('phase318a-test-pageerror')))).toBe(true);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('/main/epaper (mobile): runtime page error');
+    } finally {
+      publicationPageError = false;
+    }
   }, 30_000);
 
   it('exits non-zero after navigation to an unreachable server', async () => {
@@ -173,5 +208,13 @@ describe('Phase 3.18A baseline process status', () => {
     const result = await runBaseline(undefined, { PERF_ARTICLE_PATH: '/missing' });
     expect(result.code).toBe(0);
     expect(result.stdout.match(/"status":404/g)).toHaveLength(2);
+  }, 60_000);
+
+  it('fails an available default detail route that throws a runtime page error', async () => {
+    const result = await runBaseline(undefined, { PERF_ARTICLE_PATH: '/pageerror' });
+    const pageErrorSamples = measurements(result.stdout).filter(({ errors }) => errors.length > 0);
+    expect(pageErrorSamples.map(({ status }) => status)).toEqual([200, 200]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('/pageerror (mobile): runtime page error');
   }, 60_000);
 });
