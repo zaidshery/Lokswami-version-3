@@ -44,8 +44,8 @@ function sendVitalBeacon(metric: Metric, path: string) {
 }
 
 export default function WebVitalsBeacon() {
-  // Web Vitals are document-level measurements. SPA transitions do not create
-  // another navigation entry, so keep the initial document path for every report.
+  // Original document metrics retain the initial path across SPA transitions.
+  // A bfcache restoration starts a new metric lifecycle at the current path.
   const documentPath = useRef<string | null>(null);
   if (documentPath.current === null && typeof window !== 'undefined') {
     documentPath.current = window.location.pathname;
@@ -59,7 +59,10 @@ export default function WebVitalsBeacon() {
     const key = `${metric.name}:${metric.id}:${metric.value}`;
     if (reported.current.has(key)) return;
     reported.current.add(key);
-    sendVitalBeacon(metric, documentPath.current);
+    const path = metric.navigationType === 'back-forward-cache'
+      ? window.location.pathname
+      : documentPath.current;
+    sendVitalBeacon(metric, path);
   }, []);
 
   // Next owns the observers and session-window CLS/INP calculations. This hook

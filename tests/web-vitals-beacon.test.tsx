@@ -87,15 +87,52 @@ describe('WebVitalsBeacon', () => {
     mocks.report?.(metric('LCP', 1900, 'lcp-1'));
     expect(mocks.setup).toHaveBeenCalledTimes(1);
     expect(beacon).toHaveBeenCalledTimes(2);
-    const payload = JSON.parse(await (beacon.mock.calls[0][1] as Blob).text());
-    expect(payload.path).toBe('/main');
+    const payloads = await Promise.all(
+      beacon.mock.calls.map(async ([, blob]) => JSON.parse(await (blob as Blob).text()))
+    );
+    expect(payloads).toEqual([
+      expect.objectContaining({ name: 'LCP', value: 1800, path: '/main' }),
+      expect.objectContaining({ name: 'LCP', value: 1900, path: '/main' }),
+    ]);
   });
 
-  it('preserves FCP and TTFB and ignores unsupported FID', () => {
+  it('attributes a back-forward-cache metric to the current videos path', async () => {
+    const view = render(createElement(WebVitalsBeacon));
+    history.pushState(null, '', '/main/videos');
+    view.rerender(createElement(WebVitalsBeacon));
+    mocks.report?.({ ...metric('LCP', 1600, 'lcp-bfcache-videos'), navigationType: 'back-forward-cache' });
+    expect(mocks.setup).toHaveBeenCalledTimes(1);
+    expect(beacon).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(await (beacon.mock.calls[0][1] as Blob).text());
+    expect(payload).toEqual(expect.objectContaining({
+      name: 'LCP', navigationType: 'back-forward-cache', path: '/main/videos',
+    }));
+  });
+
+  it('attributes a later back-forward-cache metric to the current epaper path', async () => {
+    render(createElement(WebVitalsBeacon));
+    history.pushState(null, '', '/main/videos');
+    history.pushState(null, '', '/main/epaper');
+    mocks.report?.({ ...metric('CLS', 0.03, 'cls-bfcache-epaper'), navigationType: 'back-forward-cache' });
+    expect(beacon).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(await (beacon.mock.calls[0][1] as Blob).text());
+    expect(payload).toEqual(expect.objectContaining({
+      name: 'CLS', navigationType: 'back-forward-cache', path: '/main/epaper',
+    }));
+  });
+
+  it('preserves FCP and TTFB and ignores unsupported FID', async () => {
     render(createElement(WebVitalsBeacon));
     mocks.report?.(metric('FCP', 900));
     mocks.report?.(metric('TTFB', 250));
     mocks.report?.(metric('FID', 20));
     expect(beacon).toHaveBeenCalledTimes(2);
+    const payloads = await Promise.all(
+      beacon.mock.calls.map(async ([, blob]) => JSON.parse(await (blob as Blob).text()))
+    );
+    expect(payloads).toEqual([
+      expect.objectContaining({ name: 'FCP', value: 900, path: '/main' }),
+      expect.objectContaining({ name: 'TTFB', value: 250, path: '/main' }),
+    ]);
   });
 });
