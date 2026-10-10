@@ -1,6 +1,8 @@
 'use client';
 
 const ANALYTICS_SESSION_KEY = 'lokswami_analytics_session_id';
+const ANALYTICS_TAB_KEY = 'lokswami_analytics_tab_id';
+const ANALYTICS_OWNED_NAME = /^lok_tab_[a-z0-9]{10}$/;
 
 declare global {
   interface Window {
@@ -14,19 +16,138 @@ function createSessionId() {
   return `sess_${Date.now().toString(36)}${random}`;
 }
 
-function getSessionId() {
+let inMemorySessionId = '';
+let inMemoryTabId = '';
+
+export function _resetSessionIdForTesting(): void {
+  inMemorySessionId = '';
+  inMemoryTabId = '';
+  if (typeof window !== 'undefined' && ANALYTICS_OWNED_NAME.test(window.name)) {
+    try {
+      window.name = '';
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function getTabInstanceId(): string {
+  if (inMemoryTabId) return inMemoryTabId;
+
+  if (
+    typeof window !== 'undefined' &&
+    ANALYTICS_OWNED_NAME.test(window.name)
+  ) {
+    inMemoryTabId = window.name;
+    return inMemoryTabId;
+  }
+
+  const random = Math.random().toString(36).slice(2).padEnd(10, '0').slice(0, 10);
+  inMemoryTabId = `lok_tab_${random}`;
+
+  if (typeof window !== 'undefined') {
+    try {
+      if (window.name === '') {
+        window.name = inMemoryTabId;
+      }
+    } catch {
+      // window.name write blocked
+    }
+  }
+
+  return inMemoryTabId;
+}
+
+function isValidSessionId(value: unknown): value is string {
+  return typeof value === 'string' && /^sess_[a-z0-9_\-]{8,120}$/i.test(value.trim());
+}
+
+export function getSessionId(): string {
   if (typeof window === 'undefined') return '';
 
-  try {
-    const current = window.localStorage.getItem(ANALYTICS_SESSION_KEY);
-    if (current) return current;
-
-    const generated = createSessionId();
-    window.localStorage.setItem(ANALYTICS_SESSION_KEY, generated);
-    return generated;
-  } catch {
-    return createSessionId();
+  // 1. If already established in this runtime, return it immediately for stability
+  if (inMemorySessionId) {
+    return inMemorySessionId;
   }
+
+  const currentTabId = getTabInstanceId();
+
+  let sessionValue: string | null = null;
+  let storedTabId: string | null = null;
+  let hasSessionStorage = false;
+  try {
+    sessionValue = window.sessionStorage.getItem(ANALYTICS_SESSION_KEY);
+    storedTabId = window.sessionStorage.getItem(ANALYTICS_TAB_KEY);
+    hasSessionStorage = true;
+  } catch {
+    // sessionStorage restricted or unavailable
+  }
+
+  // Detect and cleanup legacy localStorage key
+  let legacyLocalValue: string | null = null;
+  try {
+    legacyLocalValue = window.localStorage.getItem(ANALYTICS_SESSION_KEY);
+    if (legacyLocalValue !== null) {
+      window.localStorage.removeItem(ANALYTICS_SESSION_KEY);
+    }
+  } catch {
+    // localStorage restricted or unavailable
+  }
+
+  // 2. Check existing sessionStorage
+  if (isValidSessionId(sessionValue)) {
+    // Unbound existing session (e.g. created prior to tab binding or in legacy test) -> adopt and bind
+    if (!storedTabId) {
+      if (hasSessionStorage) {
+        try {
+          window.sessionStorage.setItem(ANALYTICS_TAB_KEY, currentTabId);
+        } catch {
+          // storage blocked
+        }
+      }
+      inMemorySessionId = sessionValue;
+      return sessionValue;
+    }
+
+    // Legitimately owned by current tab
+    if (storedTabId === currentTabId) {
+      inMemorySessionId = sessionValue;
+      return sessionValue;
+    }
+
+    // Otherwise storedTabId !== currentTabId:
+    // This sessionStorage was cloned from another tab (e.g. duplicate tab, window.open with opener).
+    // Rotate to a fresh session ID for this newly created tab context.
+  }
+
+  // 3. If legacy localStorage had a valid ID, migrate it to sessionStorage for this active tab
+  if (isValidSessionId(legacyLocalValue)) {
+    inMemorySessionId = legacyLocalValue;
+    if (hasSessionStorage) {
+      try {
+        window.sessionStorage.setItem(ANALYTICS_SESSION_KEY, legacyLocalValue);
+        window.sessionStorage.setItem(ANALYTICS_TAB_KEY, currentTabId);
+      } catch {
+        // storage blocked
+      }
+    }
+    return legacyLocalValue;
+  }
+
+  // 4. Generate a new session-scoped ID (or rotate cloned session)
+  const newId = createSessionId();
+  inMemorySessionId = newId;
+
+  if (hasSessionStorage) {
+    try {
+      window.sessionStorage.setItem(ANALYTICS_SESSION_KEY, newId);
+      window.sessionStorage.setItem(ANALYTICS_TAB_KEY, currentTabId);
+    } catch {
+      // storage blocked
+    }
+  }
+
+  return newId;
 }
 
 function trackGoogleTagManagerEvent(payload: {
@@ -206,6 +327,25 @@ function getCampaignMetadata() {
   }
 }
 
+function sanitizeClientPage(rawPage?: string): string {
+  if (typeof window === 'undefined') return '/';
+  const target = String(rawPage || window.location.pathname).trim();
+  if (!target) return '/';
+
+  try {
+    const origin = window.location.origin || 'https://lokswami.com';
+    const url = new URL(target.startsWith('/') ? target : `/${target}`, origin);
+    const cleanPath = url.pathname.replace(/\/+$/, '') || '/';
+    try {
+      return decodeURI(cleanPath).slice(0, 200);
+    } catch {
+      return cleanPath.slice(0, 200);
+    }
+  } catch {
+    return (window.location.pathname || '/').slice(0, 200);
+  }
+}
+
 export function trackClientEvent(input: TrackClientEventInput) {
   if (typeof window === 'undefined') return;
 
@@ -222,7 +362,7 @@ export function trackClientEvent(input: TrackClientEventInput) {
     : getCampaignMetadata();
   const payload = {
     event,
-    page: String(input.page || window.location.pathname).slice(0, 200),
+    page: sanitizeClientPage(input.page),
     source,
     sessionId: isAnonymousSwipeEvent ? '' : getSessionId(),
     metadata: isAnonymousSwipeEvent
