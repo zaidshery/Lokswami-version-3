@@ -45,6 +45,7 @@ export const ANONYMOUS_PUBLIC_SOURCES = new Set([
   'reader_page',
   'marketing_page',
   'share_menu',
+  'homepage_top',
   'contact_form',
   'engagement_popup',
   'lokswami_video_hub',
@@ -52,18 +53,19 @@ export const ANONYMOUS_PUBLIC_SOURCES = new Set([
 ]);
 ```
 
-- Any event originating from one of these sources is classified as anonymous public telemetry.
-- Unknown or new sources do **not** automatically inherit anonymous-public rules; non-anonymous and internal logging paths retain required operational context.
+- Any event ingested through the unauthenticated public endpoint (`/api/analytics/track` via `analyticsService.trackPublicEvent`) is treated as anonymous public telemetry.
+- The privacy boundary is strictly server-controlled: caller-supplied `source` values cannot bypass IP/UA blanking, page sanitization, or typed metadata normalization.
+- Unknown public sources receive blank IP/UA, sanitized page pathnames, and zero arbitrary/unrestricted metadata.
 
 ---
 
 ## 4. IP and User-Agent Handling
 
-For all events classified under `ANONYMOUS_PUBLIC_SOURCES`:
+For all events arriving via the public ingestion path:
 - `ipAddress: ''` (strictly empty string)
 - `userAgent: ''` (strictly empty string)
-- Request headers (such as `x-forwarded-for`, `x-real-ip`, and `user-agent`) are never written to the event payload.
-- Non-anonymous, internal, or admin logging sources (e.g. `internal_admin_console`) continue to receive server-supplied IP and UA for audit trails.
+- Request headers (such as `x-forwarded-for`, `x-real-ip`, and `user-agent`) are never persisted.
+- Internal/administrative telemetry requiring trusted context must use separate authenticated server paths, rather than caller-controlled strings on the public route.
 
 ---
 
@@ -76,9 +78,10 @@ For all events classified under `ANONYMOUS_PUBLIC_SOURCES`:
 
 ### Migration Semantics
 When initializing client telemetry:
-- If a valid session ID matching `^sess_[a-f0-9]{24}$` exists in legacy `localStorage`:
-  1. The ID is copied into `sessionStorage` for the active tab.
-  2. The legacy `lokswami_analytics_session_id` key is deleted from `localStorage`.
+- If a valid session ID matching `^sess_[a-z0-9_\-]{8,120}$` exists in legacy `localStorage`:
+  1. The ID is copied into the `inMemorySessionId` fallback.
+  2. The ID is copied into `sessionStorage` for the active tab (if storage writes succeed). Even if `sessionStorage.setItem` throws (e.g. quota limits or strict sandbox restrictions), the in-memory fallback maintains the same migrated ID across subsequent calls so the active session is never split.
+  3. The legacy `lokswami_analytics_session_id` key is deleted from `localStorage`.
 - If `sessionStorage` already contains a valid session ID, any legacy `localStorage` key is deleted immediately.
 - If the legacy value is malformed or invalid, it is immediately removed and a fresh session ID is generated.
 - After initialization, no analytics identity remains stored in `localStorage`.

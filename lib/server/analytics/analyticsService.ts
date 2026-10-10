@@ -27,6 +27,7 @@ export const ANONYMOUS_PUBLIC_SOURCES = new Set([
   'reader_page',
   'marketing_page',
   'share_menu',
+  'homepage_top',
   'contact_form',
   'engagement_popup',
   'lokswami_video_hub',
@@ -298,47 +299,6 @@ function normalizeAnonymousPublicMetadata(
   return safe;
 }
 
-function cleanGenericMetadata(input: unknown): Record<string, unknown> {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    return {};
-  }
-
-  const safe: Record<string, unknown> = {};
-  const entries = Object.entries(input).slice(0, 20);
-
-  for (const [key, value] of entries) {
-    const normalizedKey = clean(key, 64);
-    if (!normalizedKey) continue;
-
-    if (value == null) {
-      safe[normalizedKey] = null;
-      continue;
-    }
-
-    if (typeof value === 'string') {
-      safe[normalizedKey] = clean(value, 300);
-      continue;
-    }
-
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      safe[normalizedKey] = value;
-      continue;
-    }
-
-    if (Array.isArray(value)) {
-      safe[normalizedKey] = value
-        .slice(0, 10)
-        .map((item) => (typeof item === 'string' ? clean(item, 120) : item))
-        .filter((item) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean');
-      continue;
-    }
-
-    safe[normalizedKey] = clean(JSON.stringify(value), 300);
-  }
-
-  return safe;
-}
-
 export class AnalyticsValidationError extends Error {
   readonly status: number;
   constructor(message: string, status = 400) {
@@ -369,10 +329,11 @@ export class AnalyticsService {
     }
 
     const source = SOURCE_REGEX.test(sourceInput) ? sourceInput : 'web';
-    const isAnonymous = isAnonymousPublicSource(source);
     const isAnonymousSwipeEvent = source === 'lokswami_swipe';
 
-    const page = isAnonymous ? sanitizeAnalyticsPage(rawPageInput) : rawPageInput;
+    // Unconditional public privacy boundary: all events arriving via the public endpoint
+    // are treated as anonymous public telemetry.
+    const page = sanitizeAnalyticsPage(rawPageInput);
 
     const sessionId = isAnonymousSwipeEvent
       ? generateSessionId()
@@ -380,12 +341,14 @@ export class AnalyticsService {
         ? sessionInput
         : generateSessionId();
 
-    const cleanedMetadata = isAnonymous
-      ? normalizeAnonymousPublicMetadata(eventInput, source, input.metadata)
-      : cleanGenericMetadata(input.metadata);
+    const cleanedMetadata = normalizeAnonymousPublicMetadata(
+      eventInput,
+      source,
+      input.metadata
+    );
 
     // Populate coarse geo / language for page views if available from context headers and not already in payload
-    if (isAnonymous && eventInput === 'page_view') {
+    if (eventInput === 'page_view') {
       if (!cleanedMetadata.browserLanguage && context.acceptLanguage) {
         cleanedMetadata.browserLanguage = clean(context.acceptLanguage.split(',')[0], 32);
       }
@@ -395,13 +358,6 @@ export class AnalyticsService {
           cleanedMetadata.countryCode = normalizedCountry;
         }
       }
-    } else if (!isAnonymous) {
-      if (!cleanedMetadata.browserLanguage && context.acceptLanguage) {
-        cleanedMetadata.browserLanguage = clean(context.acceptLanguage.split(',')[0], 32);
-      }
-      if (!cleanedMetadata.countryCode && context.countryCode) {
-        cleanedMetadata.countryCode = clean(context.countryCode, 8).toUpperCase();
-      }
     }
 
     const savePayload = {
@@ -409,8 +365,8 @@ export class AnalyticsService {
       page,
       source,
       sessionId,
-      ipAddress: isAnonymous ? '' : clean(context.clientIp, 120),
-      userAgent: isAnonymous ? '' : clean(context.userAgent, 500),
+      ipAddress: '',
+      userAgent: '',
       metadata: cleanedMetadata,
     };
 

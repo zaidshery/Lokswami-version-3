@@ -16,6 +16,10 @@ function createSessionId() {
 
 let inMemorySessionId = '';
 
+export function _resetSessionIdForTesting(): void {
+  inMemorySessionId = '';
+}
+
 function isValidSessionId(value: unknown): value is string {
   return typeof value === 'string' && /^sess_[a-z0-9_\-]{8,120}$/i.test(value.trim());
 }
@@ -45,11 +49,13 @@ export function getSessionId(): string {
 
   // 1. If sessionStorage already has a valid ID, use it
   if (isValidSessionId(sessionValue)) {
+    inMemorySessionId = sessionValue;
     return sessionValue;
   }
 
   // 2. If legacy localStorage had a valid ID, migrate it to sessionStorage for this active tab
   if (isValidSessionId(legacyLocalValue)) {
+    inMemorySessionId = legacyLocalValue;
     if (hasSessionStorage) {
       try {
         window.sessionStorage.setItem(ANALYTICS_SESSION_KEY, legacyLocalValue);

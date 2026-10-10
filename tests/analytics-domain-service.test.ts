@@ -251,6 +251,7 @@ describe('AnalyticsService domain boundaries', () => {
         'reader_page',
         'marketing_page',
         'share_menu',
+        'homepage_top',
         'contact_form',
         'engagement_popup',
         'lokswami_video_hub',
@@ -311,13 +312,77 @@ describe('AnalyticsService domain boundaries', () => {
       });
     });
 
-    it('preserves IP and UA for non-anonymous internal sources', async () => {
+    it('applies anonymous privacy rules to homepage_top events with bounded share metadata (CASE P1-C)', async () => {
+      await service.trackPublicEvent(
+        {
+          event: 'share_click',
+          page: '/main',
+          source: 'homepage_top',
+          metadata: {
+            platform: 'whatsapp',
+            contentType: 'article',
+            contentId: 'story-lead-01',
+            placement: 'lead_story',
+            unauthorizedKey: 'drop_this',
+          },
+        },
+        {
+          clientIp: '198.51.100.77',
+          userAgent: 'Mozilla/5.0 HomepageTopTest',
+        }
+      );
+
+      expect(mockSavedEvents).toHaveLength(1);
+      const saved = mockSavedEvents[0];
+      expect(saved.source).toBe('homepage_top');
+      expect(saved.ipAddress).toBe('');
+      expect(saved.userAgent).toBe('');
+      expect(saved.metadata).toEqual({
+        platform: 'whatsapp',
+        contentType: 'article',
+        contentId: 'story-lead-01',
+        placement: 'lead_story',
+      });
+      expect(saved.metadata).not.toHaveProperty('unauthorizedKey');
+    });
+
+    it('strictly applies anonymous privacy protections to UNLISTED caller-controlled sources (CASE P1-B)', async () => {
+      await service.trackPublicEvent(
+        {
+          event: 'custom_ping',
+          page: '/main/search?q=private+keyword#secret',
+          source: 'attacker_controlled_source',
+          metadata: {
+            email: 'victim@example.com',
+            token: 'secret-token-value',
+            arbitrary: { key: 'nested' },
+          },
+        },
+        {
+          clientIp: '203.0.113.55',
+          userAgent: 'Mozilla/5.0 ExploitBot',
+        }
+      );
+
+      expect(mockSavedEvents).toHaveLength(1);
+      const saved = mockSavedEvents[0];
+      expect(saved.source).toBe('attacker_controlled_source');
+      expect(saved.ipAddress).toBe('');
+      expect(saved.userAgent).toBe('');
+      expect(saved.page).toBe('/main/search'); // Query string and hash stripped
+      expect(saved.metadata).not.toHaveProperty('email');
+      expect(saved.metadata).not.toHaveProperty('token');
+      expect(saved.metadata).not.toHaveProperty('arbitrary');
+      expect(saved.metadata).toEqual({});
+    });
+
+    it('guarantees caller cannot regain raw request context or unrestricted metadata merely by changing source string (CASE P1-D)', async () => {
       await service.trackPublicEvent(
         {
           event: 'internal_audit_log',
-          page: '/admin/system',
+          page: '/admin/system?secret=admin_bypass#panel',
           source: 'internal_admin_console',
-          metadata: { customField: 'allowed_for_internal' },
+          metadata: { customField: 'attempt_bypass', secretToken: 'forbidden' },
         },
         {
           clientIp: '10.0.0.1',
@@ -328,9 +393,12 @@ describe('AnalyticsService domain boundaries', () => {
       expect(mockSavedEvents).toHaveLength(1);
       const saved = mockSavedEvents[0];
       expect(saved.source).toBe('internal_admin_console');
-      expect(saved.ipAddress).toBe('10.0.0.1');
-      expect(saved.userAgent).toBe('InternalAgent/1.0');
-      expect(saved.metadata).toMatchObject({ customField: 'allowed_for_internal' });
+      // Public ingestion endpoint unconditionally zeroes IP/UA and sanitizes page
+      expect(saved.ipAddress).toBe('');
+      expect(saved.userAgent).toBe('');
+      expect(saved.page).toBe('/admin/system');
+      expect(saved.metadata).not.toHaveProperty('customField');
+      expect(saved.metadata).not.toHaveProperty('secretToken');
     });
 
     it('strictly redacts IP, User-Agent, and unallowed metadata for anonymous swipe events', async () => {

@@ -103,4 +103,39 @@ describe('POST /api/analytics/track privacy & validation', () => {
     expect(body.success).toBe(false);
     expect(body.error).toContain('Invalid analytics event');
   });
+
+  it('enforces blank IP and User-Agent, sanitized page, and drops unsafe metadata for unlisted caller-supplied sources', async () => {
+    const { POST } = await import('@/app/api/analytics/track/route');
+    const request = new Request('http://localhost/api/analytics/track', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'user-agent': 'AttackerBrowser/1.0',
+        'x-forwarded-for': '198.51.100.200',
+      },
+      body: JSON.stringify({
+        event: 'custom_event',
+        page: '/main/search?q=secret_data#results',
+        source: 'attacker_custom_source',
+        metadata: {
+          victimEmail: 'user@example.com',
+          apiKey: 'key-12345',
+          arbitrary: { test: 1 },
+        },
+      }),
+    }) as unknown as NextRequest;
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    expect(createStoredAnalyticsEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'custom_event',
+        page: '/main/search',
+        source: 'attacker_custom_source',
+        ipAddress: '',
+        userAgent: '',
+        metadata: {},
+      })
+    );
+  });
 });

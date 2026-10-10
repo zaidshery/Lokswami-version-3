@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getSessionId, trackClientEvent } from '@/lib/analytics/trackClient';
+import {
+  _resetSessionIdForTesting,
+  getSessionId,
+  trackClientEvent,
+} from '@/lib/analytics/trackClient';
 
 describe('trackClient privacy and session migration', () => {
   const originalSessionStorage = window.sessionStorage;
@@ -11,6 +15,7 @@ describe('trackClient privacy and session migration', () => {
   beforeEach(() => {
     sessionStore = {};
     localStore = {};
+    _resetSessionIdForTesting();
 
     Object.defineProperty(window, 'sessionStorage', {
       configurable: true,
@@ -46,6 +51,7 @@ describe('trackClient privacy and session migration', () => {
   });
 
   afterEach(() => {
+    _resetSessionIdForTesting();
     Object.defineProperty(window, 'sessionStorage', {
       configurable: true,
       value: originalSessionStorage,
@@ -82,6 +88,46 @@ describe('trackClient privacy and session migration', () => {
     expect(window.localStorage.removeItem).toHaveBeenCalledWith(
       'lokswami_analytics_session_id'
     );
+    expect(localStore['lokswami_analytics_session_id']).toBeUndefined();
+  });
+
+  it('preserves the migrated legacy ID in memory when sessionStorage.setItem throws and reuses it consistently', () => {
+    const legacyId = 'sess_fallback_legacy_id_999999';
+    localStore['lokswami_analytics_session_id'] = legacyId;
+
+    // Simulate sessionStorage write failure (e.g. quota exceeded or strict sandbox)
+    Object.defineProperty(window, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: vi.fn((key: string) => sessionStore[key] ?? null),
+        setItem: vi.fn(() => {
+          throw new Error('QuotaExceededError: storage write failed');
+        }),
+        removeItem: vi.fn((key: string) => {
+          delete sessionStore[key];
+        }),
+        clear: vi.fn(() => {
+          sessionStore = {};
+        }),
+      },
+    });
+
+    // First call: reads legacy ID from localStorage, deletes it, catches sessionStorage throw
+    const firstCallId = getSessionId();
+    expect(firstCallId).toBe(legacyId);
+    expect(window.localStorage.removeItem).toHaveBeenCalledWith('lokswami_analytics_session_id');
+    expect(localStore['lokswami_analytics_session_id']).toBeUndefined();
+
+    // Second call: localStorage is now empty, sessionStorage cannot store it, but in-memory fallback preserves it
+    const secondCallId = getSessionId();
+    expect(secondCallId).toBe(legacyId);
+
+    // Third call: remains identical for module lifetime, never splitting the session
+    const thirdCallId = getSessionId();
+    expect(thirdCallId).toBe(legacyId);
+
+    // Assert no persistent localStorage tracking was reintroduced
+    expect(window.localStorage.setItem).not.toHaveBeenCalled();
     expect(localStore['lokswami_analytics_session_id']).toBeUndefined();
   });
 
@@ -132,7 +178,7 @@ describe('trackClient privacy and session migration', () => {
     expect(id2).toBe(id1);
   });
 
-  it('strips query strings and hashes from input.page when emitting client events', () => {
+  it('strips query strings and hashes from input.page and transmits clean pathname in beacon body', async () => {
     const sendBeacon = vi.fn();
     Object.defineProperty(navigator, 'sendBeacon', {
       configurable: true,
@@ -148,7 +194,17 @@ describe('trackClient privacy and session migration', () => {
     const [url, blob] = sendBeacon.mock.calls[0];
     expect(url).toBe('/api/analytics/track');
 
-    // Read the blob text or deserialize
+    // Deserialize actual Blob transmitted via sendBeacon
     expect(blob).toBeInstanceOf(Blob);
+    const rawText = await blob.text();
+    const parsed = JSON.parse(rawText);
+
+    // Assert exact sanitized page field
+    expect(parsed.page).toBe('/main/search');
+
+    // Assert sensitive query parameters and hash fragments are absent from transmitted body
+    expect(rawText).not.toContain('?q=');
+    expect(rawText).not.toContain('secret+query');
+    expect(rawText).not.toContain('#target');
   });
 });
