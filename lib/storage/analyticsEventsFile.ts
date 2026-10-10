@@ -28,10 +28,26 @@ export interface CreateAnalyticsEventInput {
 
 const dataDir = path.resolve(process.cwd(), 'data');
 const dataPath = path.join(dataDir, 'analytics-events.json');
+const mutationQueues = new Map<string, Promise<void>>();
 
-async function readAllEvents(): Promise<StoredAnalyticsEvent[]> {
+async function withMutationLock<T>(targetPath: string, operation: () => Promise<T>): Promise<T> {
+  const key = path.resolve(targetPath);
+  const previous = mutationQueues.get(key) || Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  mutationQueues.set(key, current);
+  await previous;
   try {
-    const raw = await fs.readFile(dataPath, 'utf-8');
+    return await operation();
+  } finally {
+    release();
+    if (mutationQueues.get(key) === current) mutationQueues.delete(key);
+  }
+}
+
+async function readAllEvents(targetPath = dataPath): Promise<StoredAnalyticsEvent[]> {
+  try {
+    const raw = await fs.readFile(targetPath, 'utf-8');
     const parsed = JSON.parse(raw || '[]');
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -39,23 +55,19 @@ async function readAllEvents(): Promise<StoredAnalyticsEvent[]> {
   }
 }
 
-export async function listStoredAnalyticsEvents() {
-  return readAllEvents();
+export async function listStoredAnalyticsEvents(targetPath = dataPath) {
+  return readAllEvents(targetPath);
 }
 
-async function writeAllEvents(events: StoredAnalyticsEvent[]) {
-  await writeJsonFileAtomically(dataPath, events);
+async function writeAllEvents(events: StoredAnalyticsEvent[], targetPath = dataPath) {
+  await writeJsonFileAtomically(targetPath, events);
 }
 
-export async function createStoredAnalyticsEvent(input: CreateAnalyticsEventInput) {
-  const now = new Date().toISOString();
-  const all = await readAllEvents();
-
-  const item: StoredAnalyticsEvent = {
-    _id:
-      typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+function makeStoredEvent(input: CreateAnalyticsEventInput, now: string): StoredAnalyticsEvent {
+  return {
+    _id: typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     event: input.event,
     page: input.page,
     source: input.source,
@@ -66,12 +78,52 @@ export async function createStoredAnalyticsEvent(input: CreateAnalyticsEventInpu
     createdAt: now,
     updatedAt: now,
   };
+}
 
-  all.unshift(item);
+export async function createStoredAnalyticsEvent(input: CreateAnalyticsEventInput, targetPath = dataPath) {
+  return withMutationLock(targetPath, async () => {
+    const now = new Date().toISOString();
+    const all = await readAllEvents(targetPath);
+    const item = makeStoredEvent(input, now);
 
-  // Keep file size bounded for local fallback mode.
-  const bounded = all.slice(0, 2000);
-  await writeAllEvents(bounded);
+    all.unshift(item);
 
-  return item;
+    // Keep file size bounded for local fallback mode.
+    const bounded = all.slice(0, 2000);
+    await writeAllEvents(bounded, targetPath);
+
+    return item;
+  });
+}
+
+export async function upsertStoredWebVital(input: CreateAnalyticsEventInput, targetPath = dataPath) {
+  if (input.source !== 'web_vitals_beacon' || !input.event.startsWith('web_vital_')) {
+    throw new Error('Web Vital upsert requires a Web Vital event');
+  }
+
+  return withMutationLock(targetPath, async () => {
+    const all = await readAllEvents(targetPath);
+    const existing = all.find((item) =>
+      item.source === input.source &&
+      item.event === input.event &&
+      item.sessionId === input.sessionId
+    );
+    if (existing) {
+      // Missing sequence belongs to a legacy sample and is older than any
+      // validated client report. Arrival order never determines the winner.
+      const storedSequence = typeof existing.metadata.reportSequence === 'number'
+        ? existing.metadata.reportSequence : 0;
+      const incomingSequence = input.metadata?.reportSequence as number;
+      if (incomingSequence <= storedSequence) return existing;
+      existing.metadata = input.metadata || {};
+      existing.updatedAt = new Date().toISOString();
+      await writeAllEvents(all, targetPath);
+      return existing;
+    }
+
+    const item = makeStoredEvent(input, new Date().toISOString());
+    all.unshift(item);
+    await writeAllEvents(all.slice(0, 2000), targetPath);
+    return item;
+  });
 }

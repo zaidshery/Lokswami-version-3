@@ -171,6 +171,7 @@ export class AnalyticsService {
       metadata: {
         metric: metric.name,
         value: metric.value,
+        reportSequence: metric.reportSequence,
         rating: metric.rating,
         deviceType: metric.deviceType,
         navigationType: metric.navigationType,
@@ -178,7 +179,7 @@ export class AnalyticsService {
       },
     };
 
-    await this.repository.saveEvent(eventPayload);
+    await this.repository.upsertWebVital(eventPayload);
 
     return {
       success: true,

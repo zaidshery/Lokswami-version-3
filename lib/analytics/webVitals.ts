@@ -6,6 +6,7 @@ export type WebVitalMetric = {
   id: string;
   name: WebVitalMetricName;
   value: number;
+  reportSequence: number;
   rating: WebVitalRating;
   path: string;
   deviceType?: 'mobile' | 'desktop' | 'tablet' | 'unknown';
@@ -23,6 +24,8 @@ export const WEB_VITALS_THRESHOLDS: Record<
   FCP: { good: 1800, needsImprovement: 3000 },
   TTFB: { good: 800, needsImprovement: 1800 },
 };
+
+const MAX_REPORT_SEQUENCE = 1_000_000;
 
 export function getMetricRating(name: WebVitalMetricName, value: number): WebVitalRating {
   const thresholds = WEB_VITALS_THRESHOLDS[name];
@@ -62,6 +65,18 @@ export function normalizeVitalMetric(input: unknown): WebVitalMetric | null {
   }
   const name = rawName as WebVitalMetricName;
 
+  // Older open pages send no sequence; give their first report the lowest
+  // valid order without accepting malformed explicitly supplied values.
+  const reportSequence = Object.prototype.hasOwnProperty.call(source, 'reportSequence')
+    ? source.reportSequence
+    : 1;
+  if (
+    typeof reportSequence !== 'number' ||
+    !Number.isSafeInteger(reportSequence) ||
+    reportSequence < 1 ||
+    reportSequence > MAX_REPORT_SEQUENCE
+  ) return null;
+
   const numValue = Number(source.value);
   if (Number.isNaN(numValue) || numValue < 0) {
     return null;
@@ -86,6 +101,7 @@ export function normalizeVitalMetric(input: unknown): WebVitalMetric | null {
     id,
     name,
     value,
+    reportSequence,
     rating,
     path,
     deviceType,

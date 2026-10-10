@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { useCallback, useEffect, useRef } from 'react';
+import { useReportWebVitals } from 'next/web-vitals';
+
+type Metric = {
+  name: string;
+  value: number;
+  id: string;
+  navigationType?: string;
+};
+
+const SUPPORTED_METRICS = new Set(['LCP', 'INP', 'CLS', 'FCP', 'TTFB']);
 
 function getDeviceCategory(): 'mobile' | 'desktop' | 'tablet' {
-  if (typeof window === 'undefined') return 'desktop';
   const ua = navigator.userAgent.toLowerCase();
   const width = window.innerWidth || 0;
   if (/ipad|tablet/.test(ua) || (width >= 768 && width < 1024)) return 'tablet';
@@ -12,26 +20,20 @@ function getDeviceCategory(): 'mobile' | 'desktop' | 'tablet' {
   return 'desktop';
 }
 
-function sendVitalBeacon(metric: {
-  name: string;
-  value: number;
-  id?: string;
-  navigationType?: string;
-  path: string;
-}) {
-  if (typeof window === 'undefined') return;
-
-  const payload = {
-    ...metric,
+function sendVitalBeacon(metric: Metric, path: string, reportSequence: number) {
+  const body = JSON.stringify({
+    name: metric.name,
+    value: metric.value,
+    id: metric.id,
+    reportSequence,
+    navigationType: metric.navigationType,
+    path,
     deviceType: getDeviceCategory(),
-  };
-
-  const body = JSON.stringify(payload);
+  });
   const endpoint = '/api/v1/public/analytics/vitals';
 
   if (typeof navigator.sendBeacon === 'function') {
-    const blob = new Blob([body], { type: 'application/json' });
-    navigator.sendBeacon(endpoint, blob);
+    navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
   } else {
     void fetch(endpoint, {
       method: 'POST',
@@ -43,122 +45,41 @@ function sendVitalBeacon(metric: {
 }
 
 export default function WebVitalsBeacon() {
-  const pathname = usePathname();
+  // Original document metrics retain the initial path across SPA transitions.
+  // A bfcache restoration starts a new metric lifecycle at the current path.
+  const documentPath = useRef<string | null>(null);
+  if (documentPath.current === null && typeof window !== 'undefined') {
+    documentPath.current = window.location.pathname;
+  }
+  const restoredLifecyclePath = useRef<string | null>(null);
+  const reported = useRef(new Map<string, { value: number; path: string; reportSequence: number }>());
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') {
-      return;
-    }
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) restoredLifecyclePath.current = window.location.pathname;
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
 
-    const reportedMetrics = new Set<string>();
+  const reportMetric = useCallback((metric: Metric) => {
+    if (!SUPPORTED_METRICS.has(metric.name) || !documentPath.current) return;
+    // The Web Vitals library can report a metric again as its value changes.
+    // Reuse each metric instance's lifecycle path, even after later navigation.
+    const key = `${metric.name}:${metric.id}`;
+    const previous = reported.current.get(key);
+    if (previous?.value === metric.value) return;
+    const path = previous?.path || (metric.navigationType === 'back-forward-cache'
+      ? restoredLifecyclePath.current || documentPath.current
+      : documentPath.current);
+    const reportSequence = (previous?.reportSequence ?? 0) + 1;
+    reported.current.set(key, { value: metric.value, path, reportSequence });
+    sendVitalBeacon(metric, path, reportSequence);
+  }, []);
 
-    // Measure FCP and TTFB from navigation entries
-    try {
-      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-      if (navEntries && navEntries.length > 0) {
-        const nav = navEntries[0];
-        if (nav.responseStart > 0 && !reportedMetrics.has('TTFB')) {
-          reportedMetrics.add('TTFB');
-          sendVitalBeacon({
-            name: 'TTFB',
-            value: nav.responseStart,
-            id: `ttfb_${Date.now()}`,
-            path: pathname || window.location.pathname,
-            navigationType: nav.type,
-          });
-        }
-      }
-    } catch {
-      // Ignore navigation timing errors
-    }
-
-    // Measure Paint entries (FCP)
-    try {
-      const paintObserver = new PerformanceObserver((entryList) => {
-        for (const entry of entryList.getEntries()) {
-          if (entry.name === 'first-contentful-paint' && !reportedMetrics.has('FCP')) {
-            reportedMetrics.add('FCP');
-            sendVitalBeacon({
-              name: 'FCP',
-              value: entry.startTime,
-              id: `fcp_${Date.now()}`,
-              path: pathname || window.location.pathname,
-            });
-          }
-        }
-      });
-      paintObserver.observe({ type: 'paint', buffered: true });
-    } catch {
-      // Paint observer unsupported
-    }
-
-    // Measure LCP
-    try {
-      let largestLcp = 0;
-      const lcpObserver = new PerformanceObserver((entryList) => {
-        const entries = entryList.getEntries();
-        const lastEntry = entries[entries.length - 1];
-        if (lastEntry && lastEntry.startTime > largestLcp) {
-          largestLcp = lastEntry.startTime;
-        }
-      });
-      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
-
-      const flushLcp = () => {
-        if (largestLcp > 0 && !reportedMetrics.has('LCP')) {
-          reportedMetrics.add('LCP');
-          sendVitalBeacon({
-            name: 'LCP',
-            value: largestLcp,
-            id: `lcp_${Date.now()}`,
-            path: pathname || window.location.pathname,
-          });
-        }
-      };
-
-      window.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') flushLcp();
-      });
-      window.addEventListener('pagehide', flushLcp);
-    } catch {
-      // LCP observer unsupported
-    }
-
-    // Measure CLS
-    try {
-      let clsValue = 0;
-      const clsObserver = new PerformanceObserver((entryList) => {
-        for (const entry of entryList.getEntries()) {
-          // Layout shift entries that had no recent user input
-          const shiftEntry = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
-          if (!shiftEntry.hadRecentInput && typeof shiftEntry.value === 'number') {
-            clsValue += shiftEntry.value;
-          }
-        }
-      });
-      clsObserver.observe({ type: 'layout-shift', buffered: true });
-
-      const flushCls = () => {
-        if (clsValue >= 0 && !reportedMetrics.has('CLS')) {
-          reportedMetrics.add('CLS');
-          sendVitalBeacon({
-            name: 'CLS',
-            value: clsValue,
-            id: `cls_${Date.now()}`,
-            path: pathname || window.location.pathname,
-          });
-        }
-      };
-
-      window.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') flushCls();
-      });
-      window.addEventListener('pagehide', flushCls);
-    } catch {
-      // CLS observer unsupported
-    }
-  }, [pathname]);
-
+  // Next owns the observers and session-window CLS/INP calculations. This hook
+  // is registered once for the root-layout lifetime, not per pathname change.
+  useReportWebVitals(reportMetric);
   return null;
 }
 
