@@ -2,6 +2,7 @@
 
 const ANALYTICS_SESSION_KEY = 'lokswami_analytics_session_id';
 const ANALYTICS_TAB_KEY = 'lokswami_analytics_tab_id';
+const ANALYTICS_OWNED_NAME = /^lok_tab_[a-z0-9]{10}$/;
 
 declare global {
   interface Window {
@@ -21,7 +22,7 @@ let inMemoryTabId = '';
 export function _resetSessionIdForTesting(): void {
   inMemorySessionId = '';
   inMemoryTabId = '';
-  if (typeof window !== 'undefined' && typeof window.name === 'string' && window.name.startsWith('lok_tab_')) {
+  if (typeof window !== 'undefined' && ANALYTICS_OWNED_NAME.test(window.name)) {
     try {
       window.name = '';
     } catch {
@@ -35,19 +36,18 @@ function getTabInstanceId(): string {
 
   if (
     typeof window !== 'undefined' &&
-    typeof window.name === 'string' &&
-    /^lok_tab_[a-z0-9]+$/i.test(window.name.trim())
+    ANALYTICS_OWNED_NAME.test(window.name)
   ) {
-    inMemoryTabId = window.name.trim();
+    inMemoryTabId = window.name;
     return inMemoryTabId;
   }
 
-  const random = Math.random().toString(36).slice(2, 12);
+  const random = Math.random().toString(36).slice(2).padEnd(10, '0').slice(0, 10);
   inMemoryTabId = `lok_tab_${random}`;
 
   if (typeof window !== 'undefined') {
     try {
-      if (!window.name || !/^lok_tab_[a-z0-9]+$/i.test(window.name)) {
+      if (window.name === '') {
         window.name = inMemoryTabId;
       }
     } catch {

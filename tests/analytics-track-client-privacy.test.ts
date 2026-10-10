@@ -52,6 +52,7 @@ describe('trackClient privacy and session migration', () => {
 
   afterEach(() => {
     _resetSessionIdForTesting();
+    window.name = '';
     Object.defineProperty(window, 'sessionStorage', {
       configurable: true,
       value: originalSessionStorage,
@@ -209,6 +210,120 @@ describe('trackClient privacy and session migration', () => {
   });
 
   describe('Per-tab session isolation and cloned sessionStorage rotation (P2-B)', () => {
+    it('preserves an existing named browsing context before and after an event', () => {
+      window.name = 'news';
+
+      const first = getSessionId();
+      expect(window.name).toBe('news');
+      expect(getSessionId()).toBe(first);
+      expect(window.name).toBe('news');
+
+      Object.defineProperty(navigator, 'sendBeacon', {
+        configurable: true,
+        value: vi.fn(),
+      });
+      trackClientEvent({ event: 'page_view', page: '/main' });
+      expect(window.name).toBe('news');
+    });
+
+    it.each(['news', 'reader', 'article-preview', 'payment_return'])(
+      'preserves the external browsing-context name %s exactly',
+      (name) => {
+        window.name = name;
+
+        const session = getSessionId();
+        expect(window.name).toBe(name);
+        expect(getSessionId()).toBe(session);
+        expect(window.name).toBe(name);
+        expect(sessionStore['lokswami_analytics_tab_id']).toMatch(/^lok_tab_[a-z0-9]{10}$/);
+      }
+    );
+
+    it('writes and reuses an owned marker for an unnamed context, including after reload', () => {
+      window.name = '';
+      const session = getSessionId();
+      const ownedName = window.name;
+
+      expect(ownedName).toMatch(/^lok_tab_[a-z0-9]{10}$/);
+      expect(sessionStore['lokswami_analytics_tab_id']).toBe(ownedName);
+      expect(getSessionId()).toBe(session);
+      expect(window.name).toBe(ownedName);
+
+      _resetSessionIdForTesting();
+      window.name = ownedName;
+      expect(getSessionId()).toBe(session);
+      expect(window.name).toBe(ownedName);
+    });
+
+    it('recognizes an exact existing owned marker without changing it', () => {
+      const ownedName = 'lok_tab_abc123def4';
+      const session = 'sess_existing_owned_tab_123';
+      window.name = ownedName;
+      sessionStore['lokswami_analytics_session_id'] = session;
+      sessionStore['lokswami_analytics_tab_id'] = ownedName;
+
+      expect(getSessionId()).toBe(session);
+      expect(getSessionId()).toBe(session);
+      expect(window.name).toBe(ownedName);
+    });
+
+    it.each([
+      'lok_tab_short',
+      'lok_tab_abc123def4_extra',
+      'lok_tab_ABC123DEF4',
+      ' lok_tab_abc123def4 ',
+    ])('treats malformed owned-name lookalike %s as external', (name) => {
+      window.name = name;
+      getSessionId();
+      expect(window.name).toBe(name);
+      _resetSessionIdForTesting();
+      expect(window.name).toBe(name);
+    });
+
+    it('rotates a pre-named context on full reload while preserving its name', () => {
+      window.name = 'news';
+      const first = getSessionId();
+      const firstTab = sessionStore['lokswami_analytics_tab_id'];
+
+      _resetSessionIdForTesting();
+      expect(window.name).toBe('news');
+      const reloaded = getSessionId();
+
+      expect(reloaded).not.toBe(first);
+      expect(sessionStore['lokswami_analytics_tab_id']).not.toBe(firstTab);
+      expect(getSessionId()).toBe(reloaded);
+      expect(window.name).toBe('news');
+    });
+
+    it('rotates copied sessionStorage before the first event in a second pre-named runtime', async () => {
+      window.name = 'news';
+      const tabAStore: Record<string, string> = {};
+      sessionStore = tabAStore;
+      const tabASession = getSessionId();
+      expect(getSessionId()).toBe(tabASession);
+      expect(window.name).toBe('news');
+
+      const tabBStore = { ...tabAStore };
+      _resetSessionIdForTesting();
+      sessionStore = tabBStore;
+      expect(window.name).toBe('news');
+
+      const sendBeacon = vi.fn();
+      Object.defineProperty(navigator, 'sendBeacon', {
+        configurable: true,
+        value: sendBeacon,
+      });
+      trackClientEvent({ event: 'page_view', page: '/main' });
+      const [, blob] = sendBeacon.mock.calls[0];
+      const firstEvent = JSON.parse(await (blob as Blob).text());
+
+      expect(firstEvent.sessionId).not.toBe(tabASession);
+      expect(firstEvent.sessionId).toBe(tabBStore['lokswami_analytics_session_id']);
+      expect(tabBStore['lokswami_analytics_tab_id']).not.toBe(tabAStore['lokswami_analytics_tab_id']);
+      expect(getSessionId()).toBe(firstEvent.sessionId);
+      expect(window.name).toBe('news');
+    });
+
     it('CASE T1: guarantees same runtime stability across repeated calls in the active context', () => {
       const id1 = getSessionId();
       const id2 = getSessionId();
@@ -221,7 +336,7 @@ describe('trackClient privacy and session migration', () => {
 
     it('CASE T2: preserves existing valid session in the legitimate current tab across navigations', () => {
       const legitSession = 'sess_legit_current_tab_12345';
-      const legitTab = 'lok_tab_legit1';
+      const legitTab = 'lok_tab_legit12345';
       sessionStore['lokswami_analytics_session_id'] = legitSession;
       sessionStore['lokswami_analytics_tab_id'] = legitTab;
       window.name = legitTab;

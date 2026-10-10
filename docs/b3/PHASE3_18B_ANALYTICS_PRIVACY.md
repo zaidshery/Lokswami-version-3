@@ -80,7 +80,8 @@ For all events arriving via the public ingestion path:
 - When top-level browsing contexts are duplicated or spawned via same-origin openers (`window.open`), the browser copies existing `sessionStorage` into the new tab.
 - To prevent cross-tab session merging, client telemetry tracks a tab instance token (`lokswami_analytics_tab_id`).
 - When initializing in a newly created browsing context whose copied `sessionStorage` was bound to a different tab token, the client immediately rotates to a fresh session ID and binds the new tab instance.
-- Legitimate navigations and reloads in the active tab retain their session stably.
+- In an unnamed context, analytics writes an exact `lok_tab_` token to `window.name` and reuses it across reloads. Only an exact, lowercase `lok_tab_` value followed by ten alphanumeric characters is recognized as analytics-owned.
+- A nonempty external browsing-context name (for example, `news`) is preserved exactly. Analytics uses a fresh in-memory tab token in that context, so cloned `sessionStorage` is rotated before the first event. Repeated events in the active runtime remain stable, but a full document reload of a pre-named context rotates its analytics identity.
 
 ### Migration Semantics
 When initializing client telemetry:
