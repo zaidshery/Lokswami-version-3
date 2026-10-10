@@ -20,11 +20,12 @@ function getDeviceCategory(): 'mobile' | 'desktop' | 'tablet' {
   return 'desktop';
 }
 
-function sendVitalBeacon(metric: Metric, path: string) {
+function sendVitalBeacon(metric: Metric, path: string, reportSequence: number) {
   const body = JSON.stringify({
     name: metric.name,
     value: metric.value,
     id: metric.id,
+    reportSequence,
     navigationType: metric.navigationType,
     path,
     deviceType: getDeviceCategory(),
@@ -51,7 +52,7 @@ export default function WebVitalsBeacon() {
     documentPath.current = window.location.pathname;
   }
   const restoredLifecyclePath = useRef<string | null>(null);
-  const reported = useRef(new Map<string, { value: number; path: string }>());
+  const reported = useRef(new Map<string, { value: number; path: string; reportSequence: number }>());
 
   useEffect(() => {
     const onPageShow = (event: PageTransitionEvent) => {
@@ -71,8 +72,9 @@ export default function WebVitalsBeacon() {
     const path = previous?.path || (metric.navigationType === 'back-forward-cache'
       ? restoredLifecyclePath.current || documentPath.current
       : documentPath.current);
-    reported.current.set(key, { value: metric.value, path });
-    sendVitalBeacon(metric, path);
+    const reportSequence = (previous?.reportSequence ?? 0) + 1;
+    reported.current.set(key, { value: metric.value, path, reportSequence });
+    sendVitalBeacon(metric, path, reportSequence);
   }, []);
 
   // Next owns the observers and session-window CLS/INP calculations. This hook

@@ -109,10 +109,12 @@ export async function upsertStoredWebVital(input: CreateAnalyticsEventInput, tar
       item.sessionId === input.sessionId
     );
     if (existing) {
-      if (
-        existing.metadata.value === input.metadata?.value &&
-        existing.metadata.rating === input.metadata?.rating
-      ) return existing;
+      // Missing sequence belongs to a legacy sample and is older than any
+      // validated client report. Arrival order never determines the winner.
+      const storedSequence = typeof existing.metadata.reportSequence === 'number'
+        ? existing.metadata.reportSequence : 0;
+      const incomingSequence = input.metadata?.reportSequence as number;
+      if (incomingSequence <= storedSequence) return existing;
       existing.metadata = input.metadata || {};
       existing.updatedAt = new Date().toISOString();
       await writeAllEvents(all, targetPath);

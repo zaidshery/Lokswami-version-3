@@ -171,6 +171,7 @@ export class AnalyticsService {
       metadata: {
         metric: metric.name,
         value: metric.value,
+        reportSequence: metric.reportSequence,
         rating: metric.rating,
         deviceType: metric.deviceType,
         navigationType: metric.navigationType,

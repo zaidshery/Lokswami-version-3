@@ -65,6 +65,7 @@ describe('SEO Phase 4 - Core Web Vitals Classification & Rating', () => {
     const valid = normalizeVitalMetric({
       name: 'lcp',
       value: 2100,
+      reportSequence: 2,
       path: '/main/article/indore-news',
       deviceType: 'mobile',
       navigationType: 'navigate',
@@ -73,6 +74,7 @@ describe('SEO Phase 4 - Core Web Vitals Classification & Rating', () => {
     expect(valid).not.toBeNull();
     expect(valid?.name).toBe('LCP');
     expect(valid?.value).toBe(2100);
+    expect(valid?.reportSequence).toBe(2);
     expect(valid?.rating).toBe('good');
     expect(valid?.deviceType).toBe('mobile');
     expect(valid?.path).toBe('/main/article/indore-news');
@@ -83,6 +85,9 @@ describe('SEO Phase 4 - Core Web Vitals Classification & Rating', () => {
     expect(normalizeVitalMetric({ name: 'UNKNOWN', value: 100 })).toBeNull();
     expect(normalizeVitalMetric({ name: 'LCP', value: -50 })).toBeNull();
     expect(normalizeVitalMetric({ name: 'LCP', value: 'not-a-number' })).toBeNull();
+    for (const reportSequence of [undefined, 0, -1, 1.5, Infinity, NaN, '2', {}, 1_000_001]) {
+      expect(normalizeVitalMetric({ name: 'CLS', value: 0.04, reportSequence })).toBeNull();
+    }
   });
 });
 
@@ -94,6 +99,8 @@ describe('SEO Phase 4 - Vitals Ingestion Endpoint', () => {
       body: JSON.stringify({
         name: 'LCP',
         value: 1800,
+        id: 'lcp-endpoint-1',
+        reportSequence: 1,
         path: '/main/article/sample-slug',
         deviceType: 'mobile',
       }),
@@ -105,12 +112,14 @@ describe('SEO Phase 4 - Vitals Ingestion Endpoint', () => {
     expect(data.success).toBe(true);
     expect(data.metric.name).toBe('LCP');
     expect(data.metric.rating).toBe('good');
+    expect(data.metric.reportSequence).toBe(1);
     expect(upsertWebVitalMock).toHaveBeenCalledOnce();
     expect(upsertWebVitalMock).toHaveBeenCalledWith(
       expect.objectContaining({
         event: 'web_vital_lcp',
         page: '/main/article/sample-slug',
         source: 'web_vitals_beacon',
+        metadata: expect.objectContaining({ reportSequence: 1 }),
       })
     );
   });

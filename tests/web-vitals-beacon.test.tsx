@@ -99,16 +99,19 @@ describe('WebVitalsBeacon', () => {
     mocks.report?.(metric('LCP', 1800, 'lcp-1'));
     mocks.report?.(metric('LCP', 1800, 'lcp-1'));
     mocks.report?.(metric('LCP', 1900, 'lcp-1'));
+    mocks.report?.(metric('LCP', 1900, 'lcp-1'));
+    mocks.report?.(metric('LCP', 1700, 'lcp-1'));
     mocks.report?.(metric('CLS', 0.04, 'cls-original'));
     expect(mocks.setup).toHaveBeenCalledTimes(1);
-    expect(beacon).toHaveBeenCalledTimes(3);
+    expect(beacon).toHaveBeenCalledTimes(4);
     const payloads = await Promise.all(
       beacon.mock.calls.map(async ([, blob]) => JSON.parse(await (blob as Blob).text()))
     );
     expect(payloads).toEqual([
-      expect.objectContaining({ name: 'LCP', value: 1800, path: '/main' }),
-      expect.objectContaining({ name: 'LCP', value: 1900, path: '/main' }),
-      expect.objectContaining({ name: 'CLS', value: 0.04, path: '/main' }),
+      expect.objectContaining({ name: 'LCP', value: 1800, path: '/main', reportSequence: 1 }),
+      expect.objectContaining({ name: 'LCP', value: 1900, path: '/main', reportSequence: 2 }),
+      expect.objectContaining({ name: 'LCP', value: 1700, path: '/main', reportSequence: 3 }),
+      expect.objectContaining({ name: 'CLS', value: 0.04, path: '/main', reportSequence: 1 }),
     ]);
   });
 

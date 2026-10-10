@@ -30,19 +30,24 @@ export class AnalyticsRepository {
     if (process.env.MONGODB_URI) {
       try {
         await connectDB();
+        const reportSequence = payload.metadata.reportSequence as number;
         const identity = {
           source: payload.source,
           event: payload.event,
           sessionId: payload.sessionId,
         };
+        // The predicate is evaluated by Mongo as part of the write, so a
+        // delayed older request cannot overwrite a newer completed write.
+        const newerThanStored = {
+          $or: [
+            { 'metadata.reportSequence': { $lt: reportSequence } },
+            { 'metadata.reportSequence': { $exists: false } },
+          ],
+        };
         const existing = await AnalyticsEvent.findOne(identity);
         if (existing) {
-          if (
-            existing.metadata?.value === payload.metadata.value &&
-            existing.metadata?.rating === payload.metadata.rating
-          ) return;
           await AnalyticsEvent.updateOne(
-            { _id: existing._id },
+            { _id: existing._id, ...identity, ...newerThanStored },
             { $set: { metadata: payload.metadata } }
           );
           return;
@@ -53,20 +58,30 @@ export class AnalyticsRepository {
         const stableId = crypto.createHash('sha256')
           .update(JSON.stringify([payload.source, payload.event, payload.sessionId]))
           .digest('hex').slice(0, 24);
-        await AnalyticsEvent.updateOne(
-          { _id: stableId, ...identity },
-          {
-            $set: { metadata: payload.metadata },
-            $setOnInsert: {
+        try {
+          await AnalyticsEvent.updateOne(
+            { _id: stableId, ...identity },
+            { $setOnInsert: {
               event: payload.event,
               page: payload.page,
               source: payload.source,
               sessionId: payload.sessionId,
               ipAddress: '',
               userAgent: '',
-            },
-          },
-          { upsert: true, runValidators: true }
+              metadata: payload.metadata,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } },
+            { upsert: true, runValidators: true, timestamps: false }
+          );
+        } catch (error) {
+          // Two first reports may race to insert the deterministic _id.
+          // Its built-in uniqueness arbitrates without a new index.
+          if (!(error && typeof error === 'object' && 'code' in error && error.code === 11000)) throw error;
+        }
+        await AnalyticsEvent.updateOne(
+          { _id: stableId, ...identity, ...newerThanStored },
+          { $set: { metadata: payload.metadata } }
         );
         return;
       } catch (mongoError) {

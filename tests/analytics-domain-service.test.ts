@@ -139,6 +139,7 @@ describe('AnalyticsService domain boundaries', () => {
         rating: 'good',
         delta: 100,
         id: 'vitals-lcp-123',
+        reportSequence: 1,
         navigationType: 'navigate',
         path: '/main/news/breaking-headline',
       });
@@ -158,6 +159,7 @@ describe('AnalyticsService domain boundaries', () => {
         metric: 'LCP',
         value: 2401,
         rating: 'good',
+        reportSequence: 1,
         navigationType: 'navigate',
       });
     });
