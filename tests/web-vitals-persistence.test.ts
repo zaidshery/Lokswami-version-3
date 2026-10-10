@@ -175,6 +175,30 @@ describe('Web Vital persistence', () => {
     expect(row.metadata).toMatchObject({ value: 0.08, reportSequence: 3 });
   });
 
+  it('accepts legacy Mongo reports as sequence one without regressing a newer sample', async () => {
+    process.env.MONGODB_URI = 'mongodb://mock-only';
+    const service = new AnalyticsService(new AnalyticsRepository());
+    const send = (id: string, value: number, reportSequence?: number) => service.trackWebVital({
+      name: 'CLS', id, value, path: '/main',
+      ...(reportSequence === undefined ? {} : { reportSequence }),
+    });
+
+    await send('legacy-first-mongo', 0.04);
+    expect(mongo.rows.size).toBe(1);
+    const first = [...mongo.rows.values()][0];
+    expect(first.metadata).toMatchObject({ value: 0.04, reportSequence: 1 });
+    await send('legacy-first-mongo', 0.12, 2);
+    await send('legacy-first-mongo', 0.04);
+    expect(mongo.rows.size).toBe(1);
+    expect(first.metadata).toMatchObject({ value: 0.12, reportSequence: 2 });
+
+    await send('newer-first-mongo', 0.12, 2);
+    await send('newer-first-mongo', 0.04);
+    expect(mongo.rows.size).toBe(2);
+    expect([...mongo.rows.values()].find((row) => row.sessionId === 'newer-first-mongo')?.metadata)
+      .toMatchObject({ value: 0.12, reportSequence: 2 });
+  });
+
   it('rejects an older Mongo write even when its conditional update finishes last', async () => {
     process.env.MONGODB_URI = 'mongodb://mock-only';
     const service = new AnalyticsService(new AnalyticsRepository());
@@ -320,6 +344,37 @@ describe('Web Vital persistence', () => {
       rows = await listStoredAnalyticsEvents(tempFile);
       expect(rows).toHaveLength(1);
       expect(rows[0].metadata).toMatchObject({ value: 0.08, reportSequence: 3 });
+    } finally {
+      await fs.unlink(tempFile).catch(() => undefined);
+      await fs.rmdir(tempDir);
+    }
+  });
+
+  it('accepts legacy file reports as sequence one without regressing a newer sample', async () => {
+    delete process.env.MONGODB_URI;
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lokswami-vitals-legacy-order-'));
+    const tempFile = path.join(tempDir, 'analytics-events.json');
+    try {
+      const service = new AnalyticsService(new AnalyticsRepository(tempFile));
+      const send = (id: string, value: number, reportSequence?: number) => service.trackWebVital({
+        name: 'CLS', id, value, path: '/main',
+        ...(reportSequence === undefined ? {} : { reportSequence }),
+      });
+      await send('legacy-first-file', 0.04);
+      expect((await listStoredAnalyticsEvents(tempFile))[0].metadata)
+        .toMatchObject({ value: 0.04, reportSequence: 1 });
+      await send('legacy-first-file', 0.12, 2);
+      await send('legacy-first-file', 0.04);
+      let rows = await listStoredAnalyticsEvents(tempFile);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].metadata).toMatchObject({ value: 0.12, reportSequence: 2 });
+
+      await send('newer-first-file', 0.12, 2);
+      await send('newer-first-file', 0.04);
+      rows = await listStoredAnalyticsEvents(tempFile);
+      expect(rows).toHaveLength(2);
+      expect(rows.find((row) => row.sessionId === 'newer-first-file')?.metadata)
+        .toMatchObject({ value: 0.12, reportSequence: 2 });
     } finally {
       await fs.unlink(tempFile).catch(() => undefined);
       await fs.rmdir(tempDir);

@@ -65,7 +65,11 @@ export function normalizeVitalMetric(input: unknown): WebVitalMetric | null {
   }
   const name = rawName as WebVitalMetricName;
 
-  const reportSequence = source.reportSequence;
+  // Older open pages send no sequence; give their first report the lowest
+  // valid order without accepting malformed explicitly supplied values.
+  const reportSequence = Object.prototype.hasOwnProperty.call(source, 'reportSequence')
+    ? source.reportSequence
+    : 1;
   if (
     typeof reportSequence !== 'number' ||
     !Number.isSafeInteger(reportSequence) ||

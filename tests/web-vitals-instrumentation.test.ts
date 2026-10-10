@@ -80,18 +80,40 @@ describe('SEO Phase 4 - Core Web Vitals Classification & Rating', () => {
     expect(valid?.path).toBe('/main/article/indore-news');
   });
 
+  it('accepts an omitted legacy sequence as the first report', () => {
+    expect(normalizeVitalMetric({ name: 'CLS', id: 'legacy-cls', value: 0.04, path: '/main' }))
+      .toMatchObject({ id: 'legacy-cls', value: 0.04, reportSequence: 1 });
+    expect(normalizeVitalMetric({ name: 'CLS', id: 'current-cls', value: 0.04, reportSequence: 1 }))
+      .toMatchObject({ id: 'current-cls', reportSequence: 1 });
+  });
+
   it('rejects invalid telemetry input', () => {
     expect(normalizeVitalMetric(null)).toBeNull();
     expect(normalizeVitalMetric({ name: 'UNKNOWN', value: 100 })).toBeNull();
     expect(normalizeVitalMetric({ name: 'LCP', value: -50 })).toBeNull();
     expect(normalizeVitalMetric({ name: 'LCP', value: 'not-a-number' })).toBeNull();
-    for (const reportSequence of [undefined, 0, -1, 1.5, Infinity, NaN, '2', {}, 1_000_001]) {
+    for (const reportSequence of [undefined, null, 0, -1, 1.5, Infinity, NaN, '1', {}, 1_000_001]) {
       expect(normalizeVitalMetric({ name: 'CLS', value: 0.04, reportSequence })).toBeNull();
     }
   });
 });
 
 describe('SEO Phase 4 - Vitals Ingestion Endpoint', () => {
+  it('accepts the prior beacon payload without a sequence and persists sequence one', async () => {
+    const req = new Request('https://lokswami.com/api/v1/public/analytics/vitals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'CLS', id: 'legacy-endpoint-cls', value: 0.04, path: '/main' }),
+    });
+    const res = await handleVitalPost(req);
+    expect(res.status).toBe(200);
+    expect((await res.json()).metric.reportSequence).toBe(1);
+    expect(upsertWebVitalMock).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: 'legacy-endpoint-cls',
+      metadata: expect.objectContaining({ reportSequence: 1 }),
+    }));
+  });
+
   it('accepts valid web vital beacon and returns 200 with sanitized metric', async () => {
     const req = new Request('https://lokswami.com/api/v1/public/analytics/vitals', {
       method: 'POST',
