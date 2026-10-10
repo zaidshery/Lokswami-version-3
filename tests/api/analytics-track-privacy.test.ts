@@ -170,4 +170,41 @@ describe('POST /api/analytics/track privacy & validation', () => {
       })
     );
   });
+
+  it('drops malformed non-string values in string metadata fields without coercing numbers, booleans, or objects', async () => {
+    const { POST } = await import('@/app/api/analytics/track/route');
+    const request = new Request('http://localhost/api/analytics/track', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        event: 'share_click',
+        page: '/main/search?secret=1#hash',
+        source: 'share_menu',
+        metadata: {
+          platform: 1,
+          contentType: true,
+          contentId: [123],
+          placement: 'bottom_bar',
+          arbitraryField: 'blocked',
+        },
+      }),
+    }) as unknown as NextRequest;
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    expect(createStoredAnalyticsEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'share_click',
+        page: '/main/search',
+        source: 'share_menu',
+        ipAddress: '',
+        userAgent: '',
+        metadata: {
+          placement: 'bottom_bar',
+        },
+      })
+    );
+  });
 });

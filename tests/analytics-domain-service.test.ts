@@ -669,5 +669,161 @@ describe('AnalyticsService domain boundaries', () => {
         expect(mockSavedEvents[0].metadata).not.toHaveProperty('status');
       }
     });
+
+    it('strictly requires typeof === "string" and trims/bounds valid string metadata', async () => {
+      // Valid real strings retained
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'share_click',
+        page: '/main/article/1',
+        source: 'share_menu',
+        metadata: {
+          platform: '  whatsapp  ',
+          contentType: 'article',
+          contentId: 'content_42',
+          placement: 'bottom_bar',
+        },
+      });
+
+      expect(mockSavedEvents).toHaveLength(1);
+      expect(mockSavedEvents[0].metadata).toEqual({
+        platform: 'whatsapp',
+        contentType: 'article',
+        contentId: 'content_42',
+        placement: 'bottom_bar',
+      });
+
+      // Ticket ID and reason retained
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'contact_submit_success',
+        page: '/contact',
+        source: 'contact_form',
+        metadata: {
+          ticketId: 'ticket_123',
+        },
+      });
+      expect(mockSavedEvents[0].metadata).toMatchObject({ ticketId: 'ticket_123' });
+
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'contact_submit_fail',
+        page: '/contact',
+        source: 'contact_form',
+        metadata: {
+          reason: 'network_error',
+        },
+      });
+      expect(mockSavedEvents[0].metadata).toMatchObject({ reason: 'network_error' });
+
+      // ReferrerHost and pageType retained
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'page_view',
+        page: '/main',
+        source: 'reader_page',
+        metadata: {
+          pageType: 'home',
+          section: 'news',
+          referrerHost: 'example.com',
+          utmSource: 'google',
+        },
+      });
+      expect(mockSavedEvents[0].metadata).toMatchObject({
+        pageType: 'home',
+        section: 'news',
+        referrerHost: 'example.com',
+        utmSource: 'google',
+      });
+
+      // Overlong strings bounded to max length
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'share_click',
+        page: '/main',
+        source: 'share_menu',
+        metadata: {
+          platform: 'a'.repeat(50),
+        },
+      });
+      expect(mockSavedEvents[0].metadata).toEqual({
+        platform: 'a'.repeat(32),
+      });
+
+      // Empty string and whitespace-only dropped
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'share_click',
+        page: '/main',
+        source: 'share_menu',
+        metadata: {
+          platform: '',
+          contentType: '   ',
+        },
+      });
+      expect(mockSavedEvents[0].metadata).toEqual({});
+    });
+
+    it('drops numeric values, booleans, arrays, and objects from string metadata fields without converting them to strings', async () => {
+      // platform: 1, true, [], {}, null
+      for (const invalidVal of [1, 0, true, false, [], [1], {}, { key: 'val' }, null, undefined]) {
+        mockSavedEvents.length = 0;
+        await service.trackPublicEvent({
+          event: 'share_click',
+          page: '/main',
+          source: 'share_menu',
+          metadata: {
+            platform: invalidVal,
+            contentType: invalidVal,
+          },
+        });
+        expect(mockSavedEvents).toHaveLength(1);
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('platform');
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('contentType');
+      }
+
+      // ticketId: 123, false, [123], {}
+      for (const invalidTicket of [123, false, [123], {}, null]) {
+        mockSavedEvents.length = 0;
+        await service.trackPublicEvent({
+          event: 'contact_submit_success',
+          page: '/contact',
+          source: 'contact_form',
+          metadata: { ticketId: invalidTicket },
+        });
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('ticketId');
+      }
+
+      // referrerHost: 456, true, [], {}
+      for (const invalidHost of [456, true, [], {}, null]) {
+        mockSavedEvents.length = 0;
+        await service.trackPublicEvent({
+          event: 'page_view',
+          page: '/main',
+          source: 'reader_page',
+          metadata: { referrerHost: invalidHost },
+        });
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('referrerHost');
+      }
+
+      // videoId: 999, reason: 500
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'video_play',
+        page: '/main/videos/1',
+        source: 'lokswami_video_hub',
+        metadata: { videoId: 999 },
+      });
+      expect(mockSavedEvents[0].metadata).not.toHaveProperty('videoId');
+
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'contact_submit_fail',
+        page: '/contact',
+        source: 'contact_form',
+        metadata: { reason: 500 },
+      });
+      expect(mockSavedEvents[0].metadata).not.toHaveProperty('reason');
+    });
   });
 });

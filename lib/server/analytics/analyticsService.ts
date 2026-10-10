@@ -45,9 +45,8 @@ function clean(value: unknown, max: number): string {
 }
 
 function cleanBoundedString(value: unknown, max: number): string | undefined {
-  if (value == null) return undefined;
-  if (typeof value !== 'string' && typeof value !== 'number') return undefined;
-  const str = String(value).trim();
+  if (typeof value !== 'string') return undefined;
+  const str = value.trim();
   if (!str) return undefined;
   return str.slice(0, max);
 }

@@ -109,6 +109,7 @@ Incoming page paths in telemetry payloads are normalized server-side using `sani
 
 Arbitrary metadata dictionaries are rejected. Every retained field is type-checked, bounded, and mapped per event/source schema:
 - **Strict Runtime Types for Numbers**: Numeric metadata (`duration`, `watchedSeconds`, `pathnameDepth`, `status`) strictly requires `typeof value === 'number' && Number.isFinite(value)`. Coercion of strings, booleans, arrays, or objects is rejected; malformed values are omitted without failing event ingestion.
+- **Strict Runtime Types for Strings**: String metadata fields (`platform`, `ticketId`, `referrerHost`, `videoId`, `contentType`, `reason`, etc.) strictly require `typeof value === 'string'`. Conversion of numeric values, booleans, arrays, or objects into strings is prohibited; malformed values are dropped, and valid strings are trimmed and bounded to their configured max lengths.
 
 | Family | Allowed Fields | Types & Bounds | Downstream Consumer / Justification |
 | :--- | :--- | :--- | :--- |
