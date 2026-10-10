@@ -220,13 +220,6 @@ export default function ContactPage() {
     []
   );
 
-  useEffect(() => {
-    trackClientEvent({
-      event: 'contact_page_view',
-      page: '/main/contact',
-      source: 'contact_form',
-    });
-  }, []);
 
   const structuredData = useMemo(
     () => ({

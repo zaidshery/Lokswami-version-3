@@ -14,19 +14,65 @@ function createSessionId() {
   return `sess_${Date.now().toString(36)}${random}`;
 }
 
-function getSessionId() {
+let inMemorySessionId = '';
+
+function isValidSessionId(value: unknown): value is string {
+  return typeof value === 'string' && /^sess_[a-z0-9_\-]{8,120}$/i.test(value.trim());
+}
+
+export function getSessionId(): string {
   if (typeof window === 'undefined') return '';
 
+  let sessionValue: string | null = null;
+  let hasSessionStorage = false;
   try {
-    const current = window.localStorage.getItem(ANALYTICS_SESSION_KEY);
-    if (current) return current;
-
-    const generated = createSessionId();
-    window.localStorage.setItem(ANALYTICS_SESSION_KEY, generated);
-    return generated;
+    sessionValue = window.sessionStorage.getItem(ANALYTICS_SESSION_KEY);
+    hasSessionStorage = true;
   } catch {
-    return createSessionId();
+    // sessionStorage restricted or unavailable
   }
+
+  // Detect and cleanup legacy localStorage key
+  let legacyLocalValue: string | null = null;
+  try {
+    legacyLocalValue = window.localStorage.getItem(ANALYTICS_SESSION_KEY);
+    if (legacyLocalValue !== null) {
+      window.localStorage.removeItem(ANALYTICS_SESSION_KEY);
+    }
+  } catch {
+    // localStorage restricted or unavailable
+  }
+
+  // 1. If sessionStorage already has a valid ID, use it
+  if (isValidSessionId(sessionValue)) {
+    return sessionValue;
+  }
+
+  // 2. If legacy localStorage had a valid ID, migrate it to sessionStorage for this active tab
+  if (isValidSessionId(legacyLocalValue)) {
+    if (hasSessionStorage) {
+      try {
+        window.sessionStorage.setItem(ANALYTICS_SESSION_KEY, legacyLocalValue);
+      } catch {
+        // storage blocked
+      }
+    }
+    return legacyLocalValue;
+  }
+
+  // 3. Generate a new session-scoped ID (or reuse module in-memory ID if storage blocked)
+  const newId = inMemorySessionId || createSessionId();
+  inMemorySessionId = newId;
+
+  if (hasSessionStorage) {
+    try {
+      window.sessionStorage.setItem(ANALYTICS_SESSION_KEY, newId);
+    } catch {
+      // storage blocked
+    }
+  }
+
+  return newId;
 }
 
 function trackGoogleTagManagerEvent(payload: {
@@ -206,6 +252,25 @@ function getCampaignMetadata() {
   }
 }
 
+function sanitizeClientPage(rawPage?: string): string {
+  if (typeof window === 'undefined') return '/';
+  const target = String(rawPage || window.location.pathname).trim();
+  if (!target) return '/';
+
+  try {
+    const origin = window.location.origin || 'https://lokswami.com';
+    const url = new URL(target.startsWith('/') ? target : `/${target}`, origin);
+    const cleanPath = url.pathname.replace(/\/+$/, '') || '/';
+    try {
+      return decodeURI(cleanPath).slice(0, 200);
+    } catch {
+      return cleanPath.slice(0, 200);
+    }
+  } catch {
+    return (window.location.pathname || '/').slice(0, 200);
+  }
+}
+
 export function trackClientEvent(input: TrackClientEventInput) {
   if (typeof window === 'undefined') return;
 
@@ -222,7 +287,7 @@ export function trackClientEvent(input: TrackClientEventInput) {
     : getCampaignMetadata();
   const payload = {
     event,
-    page: String(input.page || window.location.pathname).slice(0, 200),
+    page: sanitizeClientPage(input.page),
     source,
     sessionId: isAnonymousSwipeEvent ? '' : getSessionId(),
     metadata: isAnonymousSwipeEvent
