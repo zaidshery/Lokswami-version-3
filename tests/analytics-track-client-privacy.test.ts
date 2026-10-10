@@ -207,4 +207,141 @@ describe('trackClient privacy and session migration', () => {
     expect(rawText).not.toContain('secret+query');
     expect(rawText).not.toContain('#target');
   });
+
+  describe('Per-tab session isolation and cloned sessionStorage rotation (P2-B)', () => {
+    it('CASE T1: guarantees same runtime stability across repeated calls in the active context', () => {
+      const id1 = getSessionId();
+      const id2 = getSessionId();
+      const id3 = getSessionId();
+
+      expect(id1).toMatch(/^sess_[a-z0-9_\-]{8,120}$/i);
+      expect(id2).toBe(id1);
+      expect(id3).toBe(id1);
+    });
+
+    it('CASE T2: preserves existing valid session in the legitimate current tab across navigations', () => {
+      const legitSession = 'sess_legit_current_tab_12345';
+      const legitTab = 'lok_tab_legit1';
+      sessionStore['lokswami_analytics_session_id'] = legitSession;
+      sessionStore['lokswami_analytics_tab_id'] = legitTab;
+      window.name = legitTab;
+
+      const id1 = getSessionId();
+      const id2 = getSessionId();
+
+      expect(id1).toBe(legitSession);
+      expect(id2).toBe(legitSession);
+      expect(sessionStore['lokswami_analytics_session_id']).toBe(legitSession);
+    });
+
+    it('CASE T3: rotates session ID in a simulated cloned tab runtime with copied sessionStorage', () => {
+      // 1. Original Tab (Tab 1) initializes its session
+      const tab1Session = getSessionId();
+      const tab1Token = sessionStore['lokswami_analytics_tab_id'];
+      expect(tab1Session).toMatch(/^sess_[a-z0-9_\-]{8,120}$/i);
+      expect(tab1Token).toBeTruthy();
+
+      // 2. Tab 2 is created: browser copies sessionStorage from Tab 1, but Tab 2 is a new browsing context
+      // Simulate fresh tab runtime with empty window.name and fresh module memory
+      _resetSessionIdForTesting();
+      window.name = '';
+
+      // Tab 2 has copied sessionStorage containing Tab 1's values
+      expect(sessionStore['lokswami_analytics_session_id']).toBe(tab1Session);
+      expect(sessionStore['lokswami_analytics_tab_id']).toBe(tab1Token);
+
+      // Tab 2 requests its session ID: detects copied storage from Tab 1 and rotates
+      const tab2Session = getSessionId();
+      expect(tab2Session).toMatch(/^sess_[a-z0-9_\-]{8,120}$/i);
+      expect(tab2Session).not.toBe(tab1Session);
+
+      // Both remain independently stable after initialization
+      const tab2Repeated = getSessionId();
+      expect(tab2Repeated).toBe(tab2Session);
+      expect(sessionStore['lokswami_analytics_session_id']).toBe(tab2Session);
+      expect(sessionStore['lokswami_analytics_tab_id']).not.toBe(tab1Token);
+    });
+
+    it('CASE T4: prevents session merging in opener-created same-origin browsing contexts', () => {
+      const openerSession = 'sess_opener_origin_111111';
+      const openerTab = 'lok_tab_opener_99';
+      sessionStore['lokswami_analytics_session_id'] = openerSession;
+      sessionStore['lokswami_analytics_tab_id'] = openerTab;
+
+      // Child tab created via window.open starts with window.name = '' and fresh runtime
+      window.name = '';
+      _resetSessionIdForTesting();
+
+      const childTabSession = getSessionId();
+      expect(childTabSession).not.toBe(openerSession);
+      expect(childTabSession).toMatch(/^sess_[a-z0-9_\-]{8,120}$/i);
+
+      // Subsequent child calls remain stable with child session
+      expect(getSessionId()).toBe(childTabSession);
+    });
+
+    it('CASE T5: migrates valid legacy localStorage ID once and cleans up persistent storage', () => {
+      const legacyId = 'sess_valid_legacy_mig_555';
+      localStore['lokswami_analytics_session_id'] = legacyId;
+
+      const migratedId = getSessionId();
+      expect(migratedId).toBe(legacyId);
+      expect(localStore['lokswami_analytics_session_id']).toBeUndefined();
+      expect(sessionStore['lokswami_analytics_session_id']).toBe(legacyId);
+      expect(sessionStore['lokswami_analytics_tab_id']).toBeTruthy();
+    });
+
+    it('CASE T6: preserves session in-memory fallback on sessionStorage write failure without random churn', () => {
+      const legacyId = 'sess_write_fail_legacy_777';
+      localStore['lokswami_analytics_session_id'] = legacyId;
+
+      Object.defineProperty(window, 'sessionStorage', {
+        configurable: true,
+        value: {
+          getItem: vi.fn((key: string) => sessionStore[key] ?? null),
+          setItem: vi.fn(() => {
+            throw new Error('QuotaExceededError');
+          }),
+          removeItem: vi.fn(),
+          clear: vi.fn(),
+        },
+      });
+
+      const first = getSessionId();
+      const second = getSessionId();
+      const third = getSessionId();
+
+      expect(first).toBe(legacyId);
+      expect(second).toBe(first);
+      expect(third).toBe(first);
+    });
+
+    it('CASE T7: handles completely restricted storage gracefully with stable in-memory identity', () => {
+      Object.defineProperty(window, 'sessionStorage', {
+        configurable: true,
+        value: {
+          getItem: vi.fn(() => {
+            throw new Error('Access denied');
+          }),
+          setItem: vi.fn(() => {
+            throw new Error('Access denied');
+          }),
+        },
+      });
+
+      const r1 = getSessionId();
+      const r2 = getSessionId();
+
+      expect(r1).toMatch(/^sess_[a-z0-9_\-]{8,120}$/i);
+      expect(r2).toBe(r1);
+    });
+
+    it('CASE T8: never reintroduces persistent identity in localStorage, cookies, or IndexedDB', () => {
+      getSessionId();
+
+      expect(window.localStorage.setItem).not.toHaveBeenCalled();
+      expect(localStore['lokswami_analytics_session_id']).toBeUndefined();
+      expect(document.cookie).not.toContain('lokswami_analytics');
+    });
+  });
 });

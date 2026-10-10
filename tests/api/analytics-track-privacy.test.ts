@@ -138,4 +138,36 @@ describe('POST /api/analytics/track privacy & validation', () => {
       })
     );
   });
+
+  it('drops malformed non-number metadata types without coercing booleans, arrays, or strings (P2-A)', async () => {
+    const { POST } = await import('@/app/api/analytics/track/route');
+    const request = new Request('http://localhost/api/analytics/track', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        event: 'video_play',
+        page: '/main/videos/test',
+        source: 'lokswami_video_hub',
+        metadata: {
+          duration: true, // boolean should be dropped
+          watchedSeconds: '12', // string should be dropped
+          mediaProvider: 'spaces',
+        },
+      }),
+    }) as unknown as NextRequest;
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    expect(createStoredAnalyticsEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'video_play',
+        source: 'lokswami_video_hub',
+        metadata: {
+          mediaProvider: 'spaces',
+        },
+      })
+    );
+  });
 });

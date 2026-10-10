@@ -512,4 +512,162 @@ describe('AnalyticsService domain boundaries', () => {
       });
     });
   });
+
+  describe('Strict runtime numeric metadata validation (P2-A)', () => {
+    it('retains valid finite numbers within bounds and applies rounding per contract', async () => {
+      // 1. duration: 12 on video hub
+      await service.trackPublicEvent({
+        event: 'video_play',
+        page: '/main/videos/1',
+        source: 'lokswami_video_hub',
+        metadata: { duration: 12, watchedSeconds: 4.5 },
+      });
+
+      expect(mockSavedEvents).toHaveLength(1);
+      expect(mockSavedEvents[0].metadata).toMatchObject({
+        duration: 12,
+        watchedSeconds: 5, // rounded
+      });
+
+      // 2. pathnameDepth: 3 on page_view
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'page_view',
+        page: '/main/news/topic/subtopic',
+        source: 'reader_page',
+        metadata: { pathnameDepth: 3 },
+      });
+
+      expect(mockSavedEvents).toHaveLength(1);
+      expect(mockSavedEvents[0].metadata).toMatchObject({
+        pathnameDepth: 3,
+      });
+
+      // 3. status: 200 on contact_submit_fail
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'contact_submit_fail',
+        page: '/contact',
+        source: 'contact_form',
+        metadata: { status: 200, reason: 'Temporary outage' },
+      });
+
+      expect(mockSavedEvents).toHaveLength(1);
+      expect(mockSavedEvents[0].metadata).toMatchObject({
+        status: 200,
+        reason: 'Temporary outage',
+      });
+    });
+
+    it('strictly drops non-number types without coercion (booleans, strings, arrays, objects)', async () => {
+      // Test duration and watchedSeconds with booleans, strings, arrays, objects
+      const invalidTypes = [
+        true,
+        false,
+        '12',
+        [],
+        [12],
+        {},
+        { value: 12 },
+        null,
+        undefined,
+      ];
+
+      for (const invalidVal of invalidTypes) {
+        mockSavedEvents.length = 0;
+        await service.trackPublicEvent({
+          event: 'video_play',
+          page: '/main/videos/1',
+          source: 'lokswami_video_hub',
+          metadata: {
+            duration: invalidVal,
+            watchedSeconds: invalidVal,
+          },
+        });
+
+        expect(mockSavedEvents).toHaveLength(1);
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('duration');
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('watchedSeconds');
+      }
+
+      // Test pathnameDepth with [] and "3"
+      for (const invalidDepth of [[], '3', [3], true]) {
+        mockSavedEvents.length = 0;
+        await service.trackPublicEvent({
+          event: 'page_view',
+          page: '/main',
+          source: 'reader_page',
+          metadata: { pathnameDepth: invalidDepth },
+        });
+
+        expect(mockSavedEvents).toHaveLength(1);
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('pathnameDepth');
+      }
+
+      // Test status with [200] and "200"
+      for (const invalidStatus of [[200], '200', true, {}]) {
+        mockSavedEvents.length = 0;
+        await service.trackPublicEvent({
+          event: 'contact_submit_fail',
+          page: '/contact',
+          source: 'contact_form',
+          metadata: { status: invalidStatus, reason: 'error' },
+        });
+
+        expect(mockSavedEvents).toHaveLength(1);
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('status');
+        expect(mockSavedEvents[0].metadata).toMatchObject({ reason: 'error' });
+      }
+    });
+
+    it('drops non-finite numbers (NaN, Infinity, -Infinity) and out-of-range numbers', async () => {
+      const nonFiniteValues = [NaN, Infinity, -Infinity];
+
+      for (const nonFinite of nonFiniteValues) {
+        mockSavedEvents.length = 0;
+        await service.trackPublicEvent({
+          event: 'video_play',
+          page: '/main/videos/1',
+          source: 'lokswami_video_hub',
+          metadata: { duration: nonFinite, watchedSeconds: nonFinite },
+        });
+
+        expect(mockSavedEvents).toHaveLength(1);
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('duration');
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('watchedSeconds');
+      }
+
+      // Out of range: negative duration (< 0)
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'video_play',
+        page: '/main/videos/1',
+        source: 'lokswami_video_hub',
+        metadata: { duration: -10 },
+      });
+      expect(mockSavedEvents[0].metadata).not.toHaveProperty('duration');
+
+      // Out of range: excessive duration (> 86400)
+      mockSavedEvents.length = 0;
+      await service.trackPublicEvent({
+        event: 'video_play',
+        page: '/main/videos/1',
+        source: 'lokswami_video_hub',
+        metadata: { duration: 100000 },
+      });
+      expect(mockSavedEvents[0].metadata).not.toHaveProperty('duration');
+
+      // Out of range: status < 100 or status > 599
+      for (const outOfRangeStatus of [99, 600, -500]) {
+        mockSavedEvents.length = 0;
+        await service.trackPublicEvent({
+          event: 'contact_submit_fail',
+          page: '/contact',
+          source: 'contact_form',
+          metadata: { status: outOfRangeStatus },
+        });
+        expect(mockSavedEvents[0].metadata).not.toHaveProperty('status');
+      }
+    });
+  });
 });

@@ -72,9 +72,15 @@ For all events arriving via the public ingestion path:
 ## 5. Session Migration & Storage Policy
 
 ### Storage Hierarchy
-1. **Primary**: `window.sessionStorage` scoped strictly to the current browser tab.
+1. **Primary**: `window.sessionStorage` scoped strictly to the current browser tab, bound to a unique tab instance token (`lokswami_analytics_tab_id`).
 2. **Fallback**: In-memory module variable if `sessionStorage` is inaccessible (e.g., private browsing mode with strict partitioning or disabled web storage).
 3. **No Persistent Identity**: Zero persistent cookies, zero device fingerprinting, and zero storage in `localStorage`.
+
+### Tab Isolation & Cloned Session Rotation
+- When top-level browsing contexts are duplicated or spawned via same-origin openers (`window.open`), the browser copies existing `sessionStorage` into the new tab.
+- To prevent cross-tab session merging, client telemetry tracks a tab instance token (`lokswami_analytics_tab_id`).
+- When initializing in a newly created browsing context whose copied `sessionStorage` was bound to a different tab token, the client immediately rotates to a fresh session ID and binds the new tab instance.
+- Legitimate navigations and reloads in the active tab retain their session stably.
 
 ### Migration Semantics
 When initializing client telemetry:
@@ -102,6 +108,7 @@ Incoming page paths in telemetry payloads are normalized server-side using `sani
 ## 7. Typed Event-Specific Metadata Normalization
 
 Arbitrary metadata dictionaries are rejected. Every retained field is type-checked, bounded, and mapped per event/source schema:
+- **Strict Runtime Types for Numbers**: Numeric metadata (`duration`, `watchedSeconds`, `pathnameDepth`, `status`) strictly requires `typeof value === 'number' && Number.isFinite(value)`. Coercion of strings, booleans, arrays, or objects is rejected; malformed values are omitted without failing event ingestion.
 
 | Family | Allowed Fields | Types & Bounds | Downstream Consumer / Justification |
 | :--- | :--- | :--- | :--- |

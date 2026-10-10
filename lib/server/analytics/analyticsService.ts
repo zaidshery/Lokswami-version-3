@@ -58,10 +58,9 @@ function cleanBoundedNumber(
   max: number,
   round = false
 ): number | undefined {
-  if (value == null) return undefined;
-  const num = Number(value);
-  if (!Number.isFinite(num) || num < min || num > max) return undefined;
-  return round ? Math.round(num) : num;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  if (value < min || value > max) return undefined;
+  return round ? Math.round(value) : value;
 }
 
 function cleanEnum<T extends string>(value: unknown, allowed: Set<T>): T | undefined {

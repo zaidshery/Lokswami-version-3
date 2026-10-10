@@ -1,6 +1,7 @@
 'use client';
 
 const ANALYTICS_SESSION_KEY = 'lokswami_analytics_session_id';
+const ANALYTICS_TAB_KEY = 'lokswami_analytics_tab_id';
 
 declare global {
   interface Window {
@@ -15,9 +16,46 @@ function createSessionId() {
 }
 
 let inMemorySessionId = '';
+let inMemoryTabId = '';
 
 export function _resetSessionIdForTesting(): void {
   inMemorySessionId = '';
+  inMemoryTabId = '';
+  if (typeof window !== 'undefined' && typeof window.name === 'string' && window.name.startsWith('lok_tab_')) {
+    try {
+      window.name = '';
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function getTabInstanceId(): string {
+  if (inMemoryTabId) return inMemoryTabId;
+
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.name === 'string' &&
+    /^lok_tab_[a-z0-9]+$/i.test(window.name.trim())
+  ) {
+    inMemoryTabId = window.name.trim();
+    return inMemoryTabId;
+  }
+
+  const random = Math.random().toString(36).slice(2, 12);
+  inMemoryTabId = `lok_tab_${random}`;
+
+  if (typeof window !== 'undefined') {
+    try {
+      if (!window.name || !/^lok_tab_[a-z0-9]+$/i.test(window.name)) {
+        window.name = inMemoryTabId;
+      }
+    } catch {
+      // window.name write blocked
+    }
+  }
+
+  return inMemoryTabId;
 }
 
 function isValidSessionId(value: unknown): value is string {
@@ -27,10 +65,19 @@ function isValidSessionId(value: unknown): value is string {
 export function getSessionId(): string {
   if (typeof window === 'undefined') return '';
 
+  // 1. If already established in this runtime, return it immediately for stability
+  if (inMemorySessionId) {
+    return inMemorySessionId;
+  }
+
+  const currentTabId = getTabInstanceId();
+
   let sessionValue: string | null = null;
+  let storedTabId: string | null = null;
   let hasSessionStorage = false;
   try {
     sessionValue = window.sessionStorage.getItem(ANALYTICS_SESSION_KEY);
+    storedTabId = window.sessionStorage.getItem(ANALYTICS_TAB_KEY);
     hasSessionStorage = true;
   } catch {
     // sessionStorage restricted or unavailable
@@ -47,18 +94,39 @@ export function getSessionId(): string {
     // localStorage restricted or unavailable
   }
 
-  // 1. If sessionStorage already has a valid ID, use it
+  // 2. Check existing sessionStorage
   if (isValidSessionId(sessionValue)) {
-    inMemorySessionId = sessionValue;
-    return sessionValue;
+    // Unbound existing session (e.g. created prior to tab binding or in legacy test) -> adopt and bind
+    if (!storedTabId) {
+      if (hasSessionStorage) {
+        try {
+          window.sessionStorage.setItem(ANALYTICS_TAB_KEY, currentTabId);
+        } catch {
+          // storage blocked
+        }
+      }
+      inMemorySessionId = sessionValue;
+      return sessionValue;
+    }
+
+    // Legitimately owned by current tab
+    if (storedTabId === currentTabId) {
+      inMemorySessionId = sessionValue;
+      return sessionValue;
+    }
+
+    // Otherwise storedTabId !== currentTabId:
+    // This sessionStorage was cloned from another tab (e.g. duplicate tab, window.open with opener).
+    // Rotate to a fresh session ID for this newly created tab context.
   }
 
-  // 2. If legacy localStorage had a valid ID, migrate it to sessionStorage for this active tab
+  // 3. If legacy localStorage had a valid ID, migrate it to sessionStorage for this active tab
   if (isValidSessionId(legacyLocalValue)) {
     inMemorySessionId = legacyLocalValue;
     if (hasSessionStorage) {
       try {
         window.sessionStorage.setItem(ANALYTICS_SESSION_KEY, legacyLocalValue);
+        window.sessionStorage.setItem(ANALYTICS_TAB_KEY, currentTabId);
       } catch {
         // storage blocked
       }
@@ -66,13 +134,14 @@ export function getSessionId(): string {
     return legacyLocalValue;
   }
 
-  // 3. Generate a new session-scoped ID (or reuse module in-memory ID if storage blocked)
-  const newId = inMemorySessionId || createSessionId();
+  // 4. Generate a new session-scoped ID (or rotate cloned session)
+  const newId = createSessionId();
   inMemorySessionId = newId;
 
   if (hasSessionStorage) {
     try {
       window.sessionStorage.setItem(ANALYTICS_SESSION_KEY, newId);
+      window.sessionStorage.setItem(ANALYTICS_TAB_KEY, currentTabId);
     } catch {
       // storage blocked
     }
