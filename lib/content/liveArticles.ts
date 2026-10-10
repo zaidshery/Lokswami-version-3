@@ -1,4 +1,4 @@
-import { articles as mockArticles, type Article } from '@/lib/mock/data';
+import type { Article } from '@/lib/mock/data';
 
 type ApiArticle = {
   _id?: string;
@@ -74,7 +74,7 @@ function normalizeArticle(raw: ApiArticle, index: number): Article | null {
   };
 }
 
-function mergeUnique(primary: Article[], secondary: Article[]) {
+function dedupeArticles(articles: Article[]) {
   const seen = new Set<string>();
   const output: Article[] = [];
 
@@ -85,8 +85,7 @@ function mergeUnique(primary: Article[], secondary: Article[]) {
     output.push(article);
   };
 
-  primary.forEach(pushUnique);
-  secondary.forEach(pushUnique);
+  articles.forEach(pushUnique);
   return output;
 }
 
@@ -94,7 +93,7 @@ export async function fetchMergedLiveArticles(limit = 100): Promise<Article[]> {
   try {
     const res = await fetch(`/api/articles/latest?limit=${limit}`);
     if (!res.ok) {
-      return mockArticles;
+      return [];
     }
 
     const data = await res.json();
@@ -107,12 +106,9 @@ export async function fetchMergedLiveArticles(limit = 100): Promise<Article[]> {
       .map((row, idx) => normalizeArticle(row, idx))
       .filter((item): item is Article => Boolean(item));
 
-    if (!live.length) return mockArticles;
-
-    if (!live.length) return mockArticles;
-    return mergeUnique(live, mockArticles);
+    return dedupeArticles(live);
   } catch {
-    return mockArticles;
+    return [];
   }
 }
 

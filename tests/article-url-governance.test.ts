@@ -367,6 +367,17 @@ describe('central public article resolver', () => {
     await expect(resolvePublicArticleToken('current-story')).resolves.toEqual({ kind: 'missing' });
   });
 
+  it('does not resolve an absent repository mock numeric token as authoritative content', async () => {
+    const { articles } = await import('@/lib/mock/data');
+    const mock = articles.find((article) => /^\d+$/.test(article.id))!;
+    expect(mock).toBeDefined();
+    mocks.listResolutionRecords.mockResolvedValue([published]);
+    const { resolvePublicArticleToken } = await import('@/lib/server/publicArticles');
+    await expect(resolvePublicArticleToken(mock.id)).resolves.toEqual({ kind: 'missing' });
+    expect(mocks.getStoredByIdStrict).not.toHaveBeenCalled();
+    expect(mocks.articleFind).not.toHaveBeenCalled();
+  });
+
   it('decodes a Hindi token once and resolves it deterministically', async () => {
     const hindi = { ...published, slug: 'हिंदी-ख़बर', previousSlugs: [] };
     mocks.listResolutionRecords.mockResolvedValue([hindi]);

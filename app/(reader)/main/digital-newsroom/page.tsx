@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Clock3, Flame, Radio } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
-import { articles as mockArticles, type Article } from '@/lib/mock/data';
+import type { Article } from '@/lib/mock/data';
 import { fetchMergedLiveArticles } from '@/lib/content/liveArticles';
 import HeroCard from '@/components/ui/HeroCard';
 import NewsCard from '@/components/ui/NewsCard';
@@ -68,7 +68,7 @@ function normalizeCategory(value: string) {
 export default function DigitalNewsroomPage() {
   const { language } = useAppStore();
   const t = COPY[language];
-  const [articlesData, setArticlesData] = useState<Article[]>(mockArticles);
+  const [articlesData, setArticlesData] = useState<Article[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>('latest');
   const [activeCategory, setActiveCategory] = useState('all');
 
