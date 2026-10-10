@@ -178,7 +178,7 @@ export class AnalyticsService {
       },
     };
 
-    await this.repository.saveEvent(eventPayload);
+    await this.repository.upsertWebVital(eventPayload);
 
     return {
       success: true,

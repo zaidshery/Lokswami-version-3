@@ -6,17 +6,17 @@ import {
 } from '@/lib/analytics/webVitals';
 import { POST as handleVitalPost } from '@/app/api/v1/public/analytics/vitals/route';
 
-const saveAnalyticsEventMock = vi.hoisted(() => vi.fn());
+const upsertWebVitalMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/server/analytics/analyticsRepository', () => ({
   analyticsRepository: {
-    saveEvent: saveAnalyticsEventMock,
+    upsertWebVital: upsertWebVitalMock,
   },
 }));
 
 beforeEach(() => {
-  saveAnalyticsEventMock.mockReset();
-  saveAnalyticsEventMock.mockResolvedValue(undefined);
+  upsertWebVitalMock.mockReset();
+  upsertWebVitalMock.mockResolvedValue(undefined);
 });
 
 describe('SEO Phase 4 - Core Web Vitals Classification & Rating', () => {
@@ -105,8 +105,8 @@ describe('SEO Phase 4 - Vitals Ingestion Endpoint', () => {
     expect(data.success).toBe(true);
     expect(data.metric.name).toBe('LCP');
     expect(data.metric.rating).toBe('good');
-    expect(saveAnalyticsEventMock).toHaveBeenCalledOnce();
-    expect(saveAnalyticsEventMock).toHaveBeenCalledWith(
+    expect(upsertWebVitalMock).toHaveBeenCalledOnce();
+    expect(upsertWebVitalMock).toHaveBeenCalledWith(
       expect.objectContaining({
         event: 'web_vital_lcp',
         page: '/main/article/sample-slug',
@@ -129,6 +129,6 @@ describe('SEO Phase 4 - Vitals Ingestion Endpoint', () => {
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.success).toBe(false);
-    expect(saveAnalyticsEventMock).not.toHaveBeenCalled();
+    expect(upsertWebVitalMock).not.toHaveBeenCalled();
   });
 });

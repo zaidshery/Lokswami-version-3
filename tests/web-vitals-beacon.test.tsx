@@ -35,6 +35,17 @@ function metric(name: Metric['name'], value: number, id = 'v1'): Metric {
   return { name, value, id, delta: value, entries: [], rating: 'good', navigationType: 'navigate' };
 }
 
+function restorePageAt(path: string) {
+  history.pushState(null, '', path);
+  const event = new Event('pageshow');
+  Object.defineProperty(event, 'persisted', { value: true });
+  window.dispatchEvent(event);
+}
+
+async function sentPayloads(beacon: ReturnType<typeof vi.fn>) {
+  return Promise.all(beacon.mock.calls.map(async ([, blob]) => JSON.parse(await (blob as Blob).text())));
+}
+
 describe('WebVitalsBeacon', () => {
   let beacon: ReturnType<typeof vi.fn>;
 
@@ -51,17 +62,20 @@ describe('WebVitalsBeacon', () => {
     history.replaceState(null, '', '/');
   });
 
-  it('keeps one document-level registration across renders without adding route listeners', () => {
-    const pagehide = vi.spyOn(window, 'addEventListener');
+  it('keeps one document-level registration across renders and cleans up the restoration listener', () => {
+    const addListener = vi.spyOn(window, 'addEventListener');
+    const removeListener = vi.spyOn(window, 'removeEventListener');
     const view = render(createElement(WebVitalsBeacon));
     expect(mocks.setup).toHaveBeenCalledTimes(1);
     view.rerender(createElement(WebVitalsBeacon));
     expect(mocks.setup).toHaveBeenCalledTimes(1);
     expect(mocks.cleanup).not.toHaveBeenCalled();
-    expect(pagehide.mock.calls.filter(([name]) => name === 'pagehide')).toHaveLength(0);
+    expect(addListener.mock.calls.filter(([name]) => name === 'pageshow')).toHaveLength(1);
     view.unmount();
     expect(mocks.cleanup).toHaveBeenCalledTimes(1);
-    pagehide.mockRestore();
+    expect(removeListener.mock.calls.filter(([name]) => name === 'pageshow')).toHaveLength(1);
+    addListener.mockRestore();
+    removeListener.mockRestore();
   });
 
   it('reports INP and preserves the library CLS session-window value', async () => {
@@ -85,40 +99,58 @@ describe('WebVitalsBeacon', () => {
     mocks.report?.(metric('LCP', 1800, 'lcp-1'));
     mocks.report?.(metric('LCP', 1800, 'lcp-1'));
     mocks.report?.(metric('LCP', 1900, 'lcp-1'));
+    mocks.report?.(metric('CLS', 0.04, 'cls-original'));
     expect(mocks.setup).toHaveBeenCalledTimes(1);
-    expect(beacon).toHaveBeenCalledTimes(2);
+    expect(beacon).toHaveBeenCalledTimes(3);
     const payloads = await Promise.all(
       beacon.mock.calls.map(async ([, blob]) => JSON.parse(await (blob as Blob).text()))
     );
     expect(payloads).toEqual([
       expect.objectContaining({ name: 'LCP', value: 1800, path: '/main' }),
       expect.objectContaining({ name: 'LCP', value: 1900, path: '/main' }),
+      expect.objectContaining({ name: 'CLS', value: 0.04, path: '/main' }),
     ]);
   });
 
-  it('attributes a back-forward-cache metric to the current videos path', async () => {
-    const view = render(createElement(WebVitalsBeacon));
-    history.pushState(null, '', '/main/videos');
-    view.rerender(createElement(WebVitalsBeacon));
-    mocks.report?.({ ...metric('LCP', 1600, 'lcp-bfcache-videos'), navigationType: 'back-forward-cache' });
-    expect(mocks.setup).toHaveBeenCalledTimes(1);
-    expect(beacon).toHaveBeenCalledTimes(1);
-    const payload = JSON.parse(await (beacon.mock.calls[0][1] as Blob).text());
-    expect(payload).toEqual(expect.objectContaining({
-      name: 'LCP', navigationType: 'back-forward-cache', path: '/main/videos',
-    }));
+  it('uses the restoration snapshot when the first bfcache callback follows SPA navigation', async () => {
+    render(createElement(WebVitalsBeacon));
+    restorePageAt('/main/videos');
+    history.pushState(null, '', '/main/epaper');
+    mocks.report?.({ ...metric('LCP', 1600, 'lcp-bf-videos'), navigationType: 'back-forward-cache' });
+    expect(await sentPayloads(beacon)).toEqual([
+      expect.objectContaining({ id: 'lcp-bf-videos', path: '/main/videos' }),
+    ]);
   });
 
-  it('attributes a later back-forward-cache metric to the current epaper path', async () => {
-    render(createElement(WebVitalsBeacon));
-    history.pushState(null, '', '/main/videos');
+  it('keeps a restored lifecycle on its pageshow path after SPA navigation and value updates', async () => {
+    const view = render(createElement(WebVitalsBeacon));
+    restorePageAt('/main/videos');
+    view.rerender(createElement(WebVitalsBeacon));
+    mocks.report?.({ ...metric('CLS', 0.04, 'cls-bf-1'), navigationType: 'back-forward-cache' });
     history.pushState(null, '', '/main/epaper');
-    mocks.report?.({ ...metric('CLS', 0.03, 'cls-bfcache-epaper'), navigationType: 'back-forward-cache' });
-    expect(beacon).toHaveBeenCalledTimes(1);
-    const payload = JSON.parse(await (beacon.mock.calls[0][1] as Blob).text());
-    expect(payload).toEqual(expect.objectContaining({
-      name: 'CLS', navigationType: 'back-forward-cache', path: '/main/epaper',
-    }));
+    mocks.report?.({ ...metric('CLS', 0.12, 'cls-bf-1'), navigationType: 'back-forward-cache' });
+    mocks.report?.({ ...metric('INP', 180, 'inp-bf-1'), navigationType: 'back-forward-cache' });
+    expect(mocks.setup).toHaveBeenCalledTimes(1);
+    expect(beacon).toHaveBeenCalledTimes(3);
+    expect(await sentPayloads(beacon)).toEqual([
+      expect.objectContaining({ name: 'CLS', id: 'cls-bf-1', value: 0.04, path: '/main/videos' }),
+      expect.objectContaining({ name: 'CLS', id: 'cls-bf-1', value: 0.12, path: '/main/videos' }),
+      expect.objectContaining({ name: 'INP', id: 'inp-bf-1', path: '/main/videos' }),
+    ]);
+  });
+
+  it('snapshots a second restoration for a new metric without moving the prior metric', async () => {
+    render(createElement(WebVitalsBeacon));
+    restorePageAt('/main/videos');
+    mocks.report?.({ ...metric('CLS', 0.04, 'cls-bf-1'), navigationType: 'back-forward-cache' });
+    restorePageAt('/main/epaper');
+    mocks.report?.({ ...metric('CLS', 0.03, 'cls-bf-2'), navigationType: 'back-forward-cache' });
+    mocks.report?.({ ...metric('CLS', 0.12, 'cls-bf-1'), navigationType: 'back-forward-cache' });
+    expect(await sentPayloads(beacon)).toEqual([
+      expect.objectContaining({ id: 'cls-bf-1', path: '/main/videos' }),
+      expect.objectContaining({ id: 'cls-bf-2', path: '/main/epaper' }),
+      expect.objectContaining({ id: 'cls-bf-1', path: '/main/videos' }),
+    ]);
   });
 
   it('preserves FCP and TTFB and ignores unsupported FID', async () => {

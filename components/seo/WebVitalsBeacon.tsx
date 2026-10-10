@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useReportWebVitals } from 'next/web-vitals';
 
 type Metric = {
@@ -50,18 +50,28 @@ export default function WebVitalsBeacon() {
   if (documentPath.current === null && typeof window !== 'undefined') {
     documentPath.current = window.location.pathname;
   }
-  const reported = useRef(new Set<string>());
+  const restoredLifecyclePath = useRef<string | null>(null);
+  const reported = useRef(new Map<string, { value: number; path: string }>());
+
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) restoredLifecyclePath.current = window.location.pathname;
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
 
   const reportMetric = useCallback((metric: Metric) => {
     if (!SUPPORTED_METRICS.has(metric.name) || !documentPath.current) return;
     // The Web Vitals library can report a metric again as its value changes.
-    // Suppress repeated delivery of the same measurement, retaining updates.
-    const key = `${metric.name}:${metric.id}:${metric.value}`;
-    if (reported.current.has(key)) return;
-    reported.current.add(key);
-    const path = metric.navigationType === 'back-forward-cache'
-      ? window.location.pathname
-      : documentPath.current;
+    // Reuse each metric instance's lifecycle path, even after later navigation.
+    const key = `${metric.name}:${metric.id}`;
+    const previous = reported.current.get(key);
+    if (previous?.value === metric.value) return;
+    const path = previous?.path || (metric.navigationType === 'back-forward-cache'
+      ? restoredLifecyclePath.current || documentPath.current
+      : documentPath.current);
+    reported.current.set(key, { value: metric.value, path });
     sendVitalBeacon(metric, path);
   }, []);
 

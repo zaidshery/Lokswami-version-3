@@ -17,6 +17,9 @@ describe('AnalyticsService domain boundaries', () => {
       saveEvent: vi.fn(async (payload: AnalyticsEventPayload) => {
         mockSavedEvents.push(payload);
       }),
+      upsertWebVital: vi.fn(async (payload: AnalyticsEventPayload) => {
+        mockSavedEvents.push(payload);
+      }),
     } as unknown as AnalyticsRepository;
     service = new AnalyticsService(mockRepository);
   });
