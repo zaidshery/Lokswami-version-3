@@ -8,7 +8,8 @@ test.describe('Lokswami critical UI surfaces', () => {
 
   test('admin sign-in page loads for protected routes', async ({ page }) => {
     await page.goto('/admin');
-    await expect(page).toHaveURL(/signin|login|admin/);
+    await expect(page).toHaveURL(/\/signin(?:\?|$)/);
+    expect(new URL(page.url()).searchParams.get('redirect')).toBe('/admin');
   });
 });
 
