@@ -224,10 +224,9 @@ export function isOwnContent(
   content: PermissionContentRecord
 ): boolean {
   if (!user) return false;
-  return (
-    matchesActor(user, resolveCreatedById(content)) ||
-    matchesArticleAuthorScope(resolveLegacyAuthorName(content), user)
-  );
+  const createdById = resolveCreatedById(content);
+  if (createdById) return matchesActor(user, createdById);
+  return matchesArticleAuthorScope(resolveLegacyAuthorName(content), user);
 }
 
 export function isAssignedContent(
