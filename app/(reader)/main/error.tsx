@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useAppStore } from '@/lib/store/appStore';
 
 export default function ReaderError({ reset }: {
@@ -28,9 +27,9 @@ export default function ReaderError({ reset }: {
         <button type="button" onClick={reset} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-500 px-5 py-2 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
           {copy.retry}
         </button>
-        <Link href="/main" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-zinc-300 px-5 py-2 text-sm font-bold text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-zinc-700 dark:text-white">
+        <a href="/main" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-zinc-300 px-5 py-2 text-sm font-bold text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-zinc-700 dark:text-white">
           {copy.home}
-        </Link>
+        </a>
       </div>
     </div>
   );

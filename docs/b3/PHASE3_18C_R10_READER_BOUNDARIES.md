@@ -8,7 +8,7 @@ Admin route boundaries exist, but the reader `/main` segment had no Next.js `loa
 
 - Suspended reader child routes announce loading in Hindi and English with a polite status region.
 - Unexpected reader child route failures show a localized generic alert with retry and a home link.
-- Retry invokes Next.js `reset`; internal exception text and digest are not rendered.
+- Retry invokes Next.js `reset`; the home link uses document navigation so it also recovers when `/main` itself fails. Internal exception text and digest are not rendered.
 - Boundaries fit inside the existing reader main landmark, respect reduced motion, and retain usable mobile button sizes.
 
 The boundary covers descendants of `/main`. Next.js segment error boundaries do not catch errors in their own layout; root/layout failures and legacy routes outside `/main` remain outside this correction. Existing page-specific empty states and API behavior are unchanged.
