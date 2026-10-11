@@ -7,7 +7,7 @@ The original R05 finding and acceptance criteria are unavailable. The owner auth
 - `lib/auth/roles.ts` defines exactly Super Admin, Admin, Copy Editor and Reporter as CMS roles, with Reader separate. Legacy Author and Editor normalize to Reporter and Copy Editor; Viewer normalizes to Reader. Unknown roles normalize to null.
 - `lib/auth/permissions.ts` keeps system-control pages and actions restricted to Super Admin. Reporter ownership, Copy Editor assignment, and Admin publishing permissions are covered by the established acceptance suites.
 - Existing tests check the canonical core-page matrix, server guards on system-control pages, sensitive API role checks, editorial transitions, and shell role-boundary behavior.
-- Middleware exception handling is the separate reconstructed R04 correction. This verification does not broaden that patch or change role mappings.
+- Middleware exception handling is tracked separately in [R04 PR #35](https://github.com/zaidshery/Lokswami-version-3/pull/35), which is pending validation and merge at the time of this report. That proposed correction is not in this report's commit ancestry. This verification does not establish its completion or change role mappings.
 
 ## Recorded validation
 
