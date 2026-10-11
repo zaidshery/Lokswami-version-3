@@ -6,13 +6,8 @@ import { useAppStore } from '@/lib/store/appStore';
 import type { Article } from '@/lib/mock/data';
 import { NEWS_CATEGORY_DEFINITIONS } from '@/lib/constants/newsCategories';
 import NewsCard from '@/components/ui/NewsCard';
-import { Search, X, TrendingUp, Clock, Filter } from 'lucide-react';
+import { Search, X, Filter } from 'lucide-react';
 import { categoryMatches, fetchMergedLiveArticles } from '@/lib/content/liveArticles';
-
-const TRENDING_SEARCHES: Record<'hi' | 'en', string[]> = {
-  hi: ['आईपीएल 2026', 'लोकसभा', 'मौसम अपडेट', 'सोने का भाव'],
-  en: ['IPL 2026', 'Lok Sabha', 'Weather Update', 'Gold Price'],
-};
 
 export default function SearchClient() {
   const { language } = useAppStore();
@@ -237,50 +232,17 @@ export default function SearchClient() {
           )}
         </div>
       ) : (
-        <div className="space-y-8">
-          <section>
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-              <TrendingUp className="h-5 w-5 text-brand-500" />
-              {language === 'hi' ? 'ट्रेंडिंग खोजें' : 'Trending Searches'}
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {TRENDING_SEARCHES[language].map((term) => (
-                <button
-                  key={term}
-                  onClick={() => {
-                    setQuery(term);
-                    void performSearch(term, sourceArticles, selectedCategory, sortBy);
-                  }}
-                  className="reader-touch-button reader-focus-ring min-h-11 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-brand-500 hover:bg-brand-50 hover:text-brand-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-brand-500/50 dark:hover:bg-brand-950/40 dark:hover:text-brand-400"
-                >
-                  {term}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-              <Clock className="h-5 w-5 text-brand-500" />
-              {language === 'hi' ? 'हाल की खोजें' : 'Recent Searches'}
-            </h2>
-            <div className="space-y-2">
-              {TRENDING_SEARCHES[language].slice(0, 3).map((term) => (
-                <button
-                  key={term}
-                  onClick={() => {
-                    setQuery(term);
-                    void performSearch(term, sourceArticles, selectedCategory, sortBy);
-                  }}
-                  className="reader-touch-button reader-focus-ring flex min-h-12 w-full items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/80"
-                >
-                  <span className="text-zinc-800 dark:text-zinc-200">{term}</span>
-                  <Clock className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
+        <section className="rounded-xl border border-zinc-200 bg-zinc-50 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900/60">
+          <Search className="mx-auto mb-4 h-16 w-16 text-zinc-400 dark:text-zinc-600" />
+          <h2 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+            {language === 'hi' ? 'प्रकाशित समाचार खोजें' : 'Search published news'}
+          </h2>
+          <p className="mx-auto max-w-xl px-4 text-zinc-600 dark:text-zinc-400">
+            {language === 'hi'
+              ? 'लोकस्वामी में प्रकाशित समाचार खोजने के लिए ऊपर कीवर्ड दर्ज करें।'
+              : 'Enter a keyword above to search news published by Lokswami.'}
+          </p>
+        </section>
       )}
     </div>
   );

@@ -89,4 +89,15 @@ describe('R01 Search content authority', () => {
     }
     expectNoMocks();
   });
+
+  it('R02 does not present hardcoded terms as trending or recent search data', async () => {
+    mocks.query = '';
+    render(<SearchClient />);
+    expect(screen.getByRole('heading', { name: 'Search published news' })).toBeInTheDocument();
+    expect(screen.queryByText('Trending Searches')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recent Searches')).not.toBeInTheDocument();
+    expect(screen.queryByText('IPL 2026')).not.toBeInTheDocument();
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalledWith(120));
+    expectNoMocks();
+  });
 });
