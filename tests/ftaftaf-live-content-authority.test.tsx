@@ -80,7 +80,7 @@ describe('R01 Ftaftaf content authority', () => {
     expect(screen.getAllByRole('link', { name: 'Read article' })[0])
       .toHaveAttribute('href', '/main/article/real-story-0');
     expect(screen.getByRole('button', { name: 'Next story' })).toBeInTheDocument();
-    expect(mocks.observed).toHaveBeenCalledTimes(Math.min(count, 10));
+    await waitFor(() => expect(mocks.observed).toHaveBeenCalledTimes(Math.min(count, 10)));
     expectNoMocks();
   });
 });
