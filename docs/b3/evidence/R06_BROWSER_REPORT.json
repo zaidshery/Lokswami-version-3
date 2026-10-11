@@ -1,0 +1,227 @@
+{
+  "startedAt": "2026-10-11T17:28:21.348Z",
+  "roles": [
+    {
+      "role": "super_admin",
+      "credentialsSignIn": "passed",
+      "sessionRole": "super_admin",
+      "publicationsApiStatus": 200,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "admin",
+      "credentialsSignIn": "passed",
+      "sessionRole": "admin",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "copy_editor",
+      "credentialsSignIn": "passed",
+      "sessionRole": "copy_editor",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "reporter",
+      "credentialsSignIn": "passed",
+      "sessionRole": "reporter",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    }
+  ],
+  "productionWrites": [],
+  "failures": [],
+  "freshCheckout": {
+    "sourceCommit": "5237e5760ac8fe3e7c91254c692149f14b129e75",
+    "path": "/tmp/lokswami-r06-checkout-o2lOOA",
+    "createdByRunner": true
+  },
+  "codeHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
+  "codeTree": "fdb5e2151398f385a52ae4a6b53d256a67db811c",
+  "buildInputChecks": [
+    {
+      "stage": "before setup",
+      "unexpectedInputs": []
+    },
+    {
+      "stage": "before build",
+      "unexpectedInputs": []
+    },
+    {
+      "stage": "after build",
+      "unexpectedInputs": []
+    }
+  ],
+  "buildInputExclusions": [
+    "node_modules",
+    ".next",
+    ".next-dev",
+    "public/demo/lokswami",
+    "public/uploads/breaking-audio/lokswami-qa-silent.wav",
+    "docs/b3/PHASE3_18C_R06_ISOLATED_QA_VERIFICATION.md",
+    "docs/b3/evidence/R06_BROWSER_REPORT.json",
+    "docs/b3/evidence/R06_EDITORIAL_REPORT.json",
+    "docs/b3/evidence/R06_CAPTURE_RUNNER.txt",
+    "docs/b3/evidence/R06_EDITORIAL_CHECKS.txt"
+  ],
+  "trackedSourceClean": true,
+  "captureRunnerSha256": "833731ff16fef22e846775b44580190f3f1196014c135b938c70bf64743fcc57",
+  "dependencyInstallation": {
+    "command": "npm ci --offline --no-audit --no-fund",
+    "freshDirectory": true,
+    "status": "passed",
+    "completedAt": "2026-10-11T17:28:33.160Z",
+    "nodeVersion": "v20.20.2",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2",
+    "nextVersion": "15.5.22",
+    "playwrightVersion": "1.62.1"
+  },
+  "mongoPing": true,
+  "initialCollections": [],
+  "nodeEgressProbe": "blocked-before-socket",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 27038,
+    "name": "lokswami_phase318c_qa_28177b89c7"
+  },
+  "mediaRoot": "/tmp/lokswami-r06-checkout-o2lOOA/public/demo/lokswami",
+  "externalProviderCredentials": "unset; allowlisted environment",
+  "fixtureLimitations": [
+    "Video/short fixtures omitted: full snapshot import previously rejected unavailable required video thumbnails."
+  ],
+  "collections": {
+    "epaperprocessingjobs": 0,
+    "epapers": 3,
+    "ttsauditevents": 0,
+    "users": 4,
+    "epaperarticles": 0,
+    "ttsassets": 0,
+    "articles": 8,
+    "epapermutationreceipts": 0,
+    "ttsconfigs": 0,
+    "videos": 0,
+    "epaperocrsuggestions": 0,
+    "contentactivities": 0
+  },
+  "productionBuild": "passed",
+  "buildProvenance": {
+    "freshBuild": true,
+    "builtAt": "2026-10-11T17:31:48.589Z",
+    "gitHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
+    "gitTree": "fdb5e2151398f385a52ae4a6b53d256a67db811c",
+    "buildId": "JRsC-wxasffrhFCcmLJI4",
+    "buildIdSha256": "528f95e785e25b13c0bf445f561895979b7a278fbaafe07753acd2366a0d3695",
+    "buildManifestSha256": "79bfe1a2549afbc410e251962817e822254ee4a9d4746d7abb4bebf7e3ca4d65",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "serverReady": true,
+  "browserVersion": "151.0.7922.34",
+  "lastLoginWrites": 4,
+  "editorialHelperSha256": "e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993",
+  "editorialSpotChecks": {
+    "startedAt": "2026-10-11T17:32:00.655Z",
+    "helperSourceSha256": "e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993",
+    "checks": [
+      {
+        "name": "Three public GETs preserve article views and updatedAt",
+        "status": "passed"
+      },
+      {
+        "name": "Reporter cannot publish directly",
+        "status": "passed",
+        "httpStatus": 403
+      },
+      {
+        "name": "Reporter creates owned draft",
+        "status": "passed",
+        "httpStatus": 201
+      },
+      {
+        "name": "Draft excluded from public reader",
+        "status": "passed",
+        "httpStatus": 404
+      },
+      {
+        "name": "reporter submit",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "admin assign",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Reporter approval denied",
+        "status": "passed",
+        "httpStatus": 403
+      },
+      {
+        "name": "copy_editor start_review",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "copy_editor move_to_copy_edit",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "copy_editor mark_ready_for_approval",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Copy Editor approval denied",
+        "status": "passed",
+        "httpStatus": 403
+      },
+      {
+        "name": "admin approve",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "admin schedule",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Future scheduled article excluded from reader",
+        "status": "passed",
+        "httpStatus": 404
+      },
+      {
+        "name": "admin publish",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Published article appears in reader",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "super_admin archive",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Archived article excluded from reader",
+        "status": "passed",
+        "httpStatus": 404
+      }
+    ],
+    "scope": "One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT",
+    "qaArticleId": "6acbc8104b4a189dc38a2234",
+    "completedAt": "2026-10-11T17:32:01.053Z",
+    "ok": true
+  },
+  "completedAt": "2026-10-11T17:32:01.054Z",
+  "ok": true
+}

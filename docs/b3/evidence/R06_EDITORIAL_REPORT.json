@@ -1,0 +1,99 @@
+{
+  "startedAt": "2026-10-11T17:32:00.655Z",
+  "helperSourceSha256": "e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993",
+  "checks": [
+    {
+      "name": "Three public GETs preserve article views and updatedAt",
+      "status": "passed"
+    },
+    {
+      "name": "Reporter cannot publish directly",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "Reporter creates owned draft",
+      "status": "passed",
+      "httpStatus": 201
+    },
+    {
+      "name": "Draft excluded from public reader",
+      "status": "passed",
+      "httpStatus": 404
+    },
+    {
+      "name": "reporter submit",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "admin assign",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Reporter approval denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor start_review",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "copy_editor move_to_copy_edit",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "copy_editor mark_ready_for_approval",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Copy Editor approval denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin approve",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "admin schedule",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Future scheduled article excluded from reader",
+      "status": "passed",
+      "httpStatus": 404
+    },
+    {
+      "name": "admin publish",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Published article appears in reader",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "super_admin archive",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Archived article excluded from reader",
+      "status": "passed",
+      "httpStatus": 404
+    }
+  ],
+  "scope": "One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT",
+  "qaArticleId": "6acbc8104b4a189dc38a2234",
+  "completedAt": "2026-10-11T17:32:01.053Z",
+  "ok": true
+}
