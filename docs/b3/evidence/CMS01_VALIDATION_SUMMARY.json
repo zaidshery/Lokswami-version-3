@@ -1,0 +1,21 @@
+{
+  "editorial_checks": 122,
+  "direct_route_assertions": 40,
+  "focused": "124 tests / 8 files",
+  "negative_control": "6 failed / 7 passed / 13 cases on foundation",
+  "full_test_summary": [
+    "Test Files  407 passed (407)",
+    "Tests  3401 passed (3401)",
+    "Auth guard regression checks passed (7 cases).",
+    "SKIP: current environment admin credentials are not configured; running synthetic regression cases only.",
+    "Admin credentials regression checks passed."
+  ],
+  "diagnostic_navigation_cases": 80,
+  "diagnostic_page_errors": 28,
+  "diagnostic_completed": "2026-10-11T22:38:59.622Z",
+  "source_commit": "ee8faf6dfcaea259437a794fb9f37856c32600d2",
+  "source_tree": "056118420d876a45d24c0e0732b81bf05f493ce5",
+  "ci_run": 38180786569,
+  "ci_job": 114592699513,
+  "ci_conclusion": "success"
+}

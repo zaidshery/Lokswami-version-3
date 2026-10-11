@@ -1,0 +1,185 @@
+{
+  "startedAt": "2026-10-11T22:31:19.956Z",
+  "roles": [
+    {
+      "role": "super_admin",
+      "credentialsSignIn": "passed",
+      "sessionRole": "super_admin",
+      "publicationsApiStatus": 200,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "admin",
+      "credentialsSignIn": "passed",
+      "sessionRole": "admin",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "copy_editor",
+      "credentialsSignIn": "passed",
+      "sessionRole": "copy_editor",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [
+        "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ],
+      "blockedBrowserRequests": 4
+    },
+    {
+      "role": "reporter",
+      "credentialsSignIn": "passed",
+      "sessionRole": "reporter",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    }
+  ],
+  "productionWrites": [],
+  "failures": [
+    "admin page errors"
+  ],
+  "freshCheckout": {
+    "sourceCommit": "ee8faf6dfcaea259437a794fb9f37856c32600d2",
+    "path": "/tmp/lokswami-cms-checkout-eC1jIr",
+    "createdByRunner": true
+  },
+  "codeHead": "ee8faf6dfcaea259437a794fb9f37856c32600d2",
+  "codeTree": "056118420d876a45d24c0e0732b81bf05f493ce5",
+  "buildInputChecks": [
+    {
+      "stage": "before setup",
+      "unexpectedInputs": []
+    },
+    {
+      "stage": "before build",
+      "unexpectedInputs": []
+    },
+    {
+      "stage": "after build",
+      "unexpectedInputs": []
+    }
+  ],
+  "buildInputExclusions": [
+    "node_modules",
+    ".next",
+    ".next-dev",
+    "public/demo/lokswami",
+    "public/uploads/breaking-audio/lokswami-qa-silent.wav",
+    "docs/b3/PHASE3_18C_CMS_ISOLATED_QA_VERIFICATION.md",
+    "docs/b3/evidence/CMS_BROWSER_REPORT.json",
+    "docs/b3/evidence/CMS_EDITORIAL_REPORT.json",
+    "docs/b3/evidence/CMS_CAPTURE_RUNNER.txt",
+    "docs/b3/evidence/CMS_EDITORIAL_CHECKS.txt"
+  ],
+  "trackedSourceClean": true,
+  "captureRunnerSha256": "a037682d1380cf2dd3f99dd475a24fb398f5ab2bf83e1cca3defb2fca40edc8c",
+  "dependencyInstallation": {
+    "command": "npm ci --offline --no-audit --no-fund",
+    "freshDirectory": true,
+    "status": "passed",
+    "completedAt": "2026-10-11T22:31:30.257Z",
+    "nodeVersion": "v20.20.2",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2",
+    "nextVersion": "15.5.22",
+    "playwrightVersion": "1.62.1"
+  },
+  "mongoPing": true,
+  "initialCollections": [],
+  "nodeEgressProbe": "blocked-before-socket",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 27038,
+    "name": "lokswami_phase318c_qa_3a84e65918"
+  },
+  "fixtureLimitations": [
+    "Clearly labelled synthetic CMS QA records; representative live-media and publication acceptance are separate checks."
+  ],
+  "externalProviderCredentials": "unset; allowlisted environment",
+  "productionBuild": "passed",
+  "buildProvenance": {
+    "freshBuild": true,
+    "builtAt": "2026-10-11T22:35:03.853Z",
+    "gitHead": "ee8faf6dfcaea259437a794fb9f37856c32600d2",
+    "gitTree": "056118420d876a45d24c0e0732b81bf05f493ce5",
+    "buildId": "CxW8HAbS_yzvc6XRhgUph",
+    "buildIdSha256": "287f2dd56f25a3d7df6440399a4fb032ee420deb98bcbe3eca7cf2d57d671d56",
+    "buildManifestSha256": "015875338b105a8ee2bd6c363eaa050b7d77c76bd6c0a4bf3d3ab5d7d303f1a0",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "serverReady": true,
+  "browserVersion": "151.0.7922.34",
+  "currentBrowserDiagnostics": {
+    "role": "reporter",
+    "fatal": [],
+    "requestFailures": [
+      {
+        "path": "/css2",
+        "host": "fonts.googleapis.com",
+        "error": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      },
+      {
+        "path": "/main",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/main/contact",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/css2",
+        "host": "fonts.googleapis.com",
+        "error": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      },
+      {
+        "path": "/admin/media",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/work",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/articles/new",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/stories",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/main",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/stories/new",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      }
+    ],
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+      "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    ],
+    "reactProps": [
+      "__reactFiber$r6jiae6oug",
+      "__reactProps$r6jiae6oug"
+    ]
+  },
+  "lastLoginWrites": 4,
+  "editorialHelperSha256": "a00d84f55abbc899c1d5bb483fb3c182479397098dbe6f3f9d3b42ea2d924b24",
+  "ok": false
+}

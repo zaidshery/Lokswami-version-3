@@ -1,0 +1,68 @@
+const fs=require('fs'),path=require('path'),assert=require('assert'),crypto=require('crypto');
+module.exports=async function({contexts,db,origin,root,helperSourceSha256}){
+ const evidence={startedAt:new Date().toISOString(),helperSourceSha256,checks:[],findings:[],scope:'CMS acceptance increment: article ownership, revision requests, CAS, lifecycle, story draft behavior and direct page boundaries. Synthetic QA fixtures, not representative live-media acceptance.'};
+ const record=(name,details={})=>{evidence.checks.push({name,status:'passed',...details});fs.writeFileSync(path.join(root,'qa-runtime/cms-editorial-report.json'),JSON.stringify(evidence,null,2));console.log('CMS QA: '+name+' passed')};
+ async function call(role,method,url,data,expected,label){const response=await contexts[role].request.fetch(origin+url,{method,data,headers:{Origin:origin},timeout:30000});let payload;try{payload=await response.json()}catch{payload={error:(await response.text()).slice(0,500)}}assert.equal(response.status(),expected,label+': '+JSON.stringify(payload));record(label,{httpStatus:response.status()});return payload}
+ const slug='qa-cms-acceptance-'+crypto.randomBytes(4).toString('hex');
+ const payload={title:'Disposable CMS acceptance article',summary:'This explicitly synthetic QA article exercises real newsroom role boundaries and editorial handoffs in an isolated database.',content:'<h2>Disposable QA fixture</h2><p>'+('This is a synthetic isolated QA article for testing authenticated newsroom ownership, assignment, changes requested, approval and publication visibility. ').repeat(10)+'</p>',image:'/logo-app-192.png',category:'general',author:'QA Reporter',slug,sourceType:'direct',isBreaking:false,isTrending:false,editorial:{storyType:'standard',factCheckStatus:'verified',headlineSupportConfirmed:true,duplicateCheckComplete:true},reporterMeta:{locationTag:'Indore QA isolation',sourceInfo:'Synthetic acceptance fixture; never production news.'},seo:{metaTitle:'Disposable CMS acceptance article',metaDescription:'Synthetic QA fixture for actual role and lifecycle acceptance.',focusKeyword:'QA'},intent:'draft'};
+ await call('reporter','POST','/api/admin/articles',{...payload,intent:'publish'},403,'Reporter direct publication denied');
+ let article=(await call('reporter','POST','/api/admin/articles',payload,201,'Reporter creates owned draft')).data;const id=String(article._id||article.id);assert.equal(article.workflow.status,'draft');evidence.qaArticleId=id;
+ const adminDraft=(await call('admin','POST','/api/admin/articles',{...payload,title:'Other owner QA article',slug:slug+'-other'},201,'Admin creates another owner draft')).data;
+ const otherId=String(adminDraft._id||adminDraft.id);
+ await call('reporter','GET','/api/admin/articles/'+otherId,undefined,403,'Reporter cannot read another owner draft');
+ await call('reporter','PATCH','/api/admin/articles/'+otherId,{title:'Unauthorized change',expectedVersion:adminDraft.version},403,'Reporter cannot edit another owner draft');
+ const reporterIdentity=await db.collection('users').findOne({loginId:'qa-reporter'});
+ const aliasDraft=(await call('admin','POST','/api/admin/articles',{...payload,title:'Email byline collision QA article',author:reporterIdentity.email,slug:slug+'-email'},201,'Admin creates email-byline collision draft')).data;
+ const aliasId=String(aliasDraft._id||aliasDraft.id);
+ await call('reporter','GET','/api/admin/articles/'+aliasId,undefined,403,'Reporter cannot read foreign draft through exact email byline');
+ await call('reporter','PATCH','/api/admin/articles/'+aliasId,{title:'Email alias overwrite',expectedVersion:aliasDraft.version},403,'Reporter cannot edit foreign draft through exact email byline');
+ const legacy={...await db.collection('articles').findOne({slug:slug+'-other'}),slug:slug+'-legacy',title:'Explicitly legacy QA draft',author:reporterIdentity.email,workflow:{status:'draft',priority:'normal',createdBy:null,assignedTo:null,comments:[]},version:1};delete legacy._id;
+ const legacyId=String((await db.collection('articles').insertOne(legacy)).insertedId);
+ const legacyRead=await call('reporter','GET','/api/admin/articles/'+legacyId,undefined,200,'Creator-less legacy article remains readable');
+ await call('reporter','PATCH','/api/admin/articles/'+legacyId,{title:'Legacy compatibility QA revision',expectedVersion:legacyRead.data.version},200,'Creator-less legacy article remains editable');
+ await call('copy_editor','PATCH','/api/admin/articles/'+id,{title:'Unassigned change',expectedVersion:article.version},403,'Unassigned Copy Editor cannot edit Reporter draft');
+ article=(await call('reporter','PATCH','/api/admin/articles/'+id,{title:'Revised disposable CMS acceptance article',expectedVersion:article.version},200,'Reporter edits owned draft')).data;
+ const staleVersion=article.version;
+ article=(await call('reporter','PATCH','/api/admin/articles/'+id,{summary:payload.summary+' Revised.',expectedVersion:article.version},200,'Owned draft advances version')).data;
+ await call('reporter','PATCH','/api/admin/articles/'+id,{title:'Stale overwrite',expectedVersion:staleVersion},409,'Stale article write rejected');
+ const stored=await db.collection('articles').findOne({slug});assert.equal(stored.title,article.title);record('Stale write preserves saved title');
+ async function visible(expected,label){const r=await contexts.reporter.request.get(origin+'/api/v1/public/articles/'+slug);assert.equal(r.status(),expected);record(label,{httpStatus:r.status()})}
+ async function action(role,name,status,extra={}){article=(await call(role,'PATCH','/api/admin/articles/'+id,{action:name,expectedVersion:article.version,...extra},200,role+' '+name)).data;assert.equal(article.workflow.status,status)}
+ await visible(404,'Draft excluded from reader');await action('reporter','submit','submitted');
+ await call('reporter','PATCH','/api/admin/articles/'+id,{title:'Edit after submission',expectedVersion:article.version},403,'Reporter cannot edit submitted article');
+ const copy=await db.collection('users').findOne({loginId:'qa-copy-editor'});await action('admin','assign','assigned',{assignedToId:String(copy._id)});
+ await call('reporter','PATCH','/api/admin/articles/'+id,{action:'approve',expectedVersion:article.version},403,'Reporter approval denied');
+ await action('copy_editor','start_review','in_review');await action('copy_editor','request_changes','changes_requested',{comment:'QA revision request: clarify the summary.',rejectionReason:'Clarify the summary.'});
+ assert(article.workflow.comments.some(c=>c.body==='QA revision request: clarify the summary.'));record('Revision request comment retained');
+ article=(await call('reporter','PATCH','/api/admin/articles/'+id,{summary:payload.summary+' Clarification supplied.',expectedVersion:article.version},200,'Reporter edits changes-requested article')).data;
+ await action('reporter','submit','submitted');await action('admin','assign','assigned',{assignedToId:String(copy._id)});await action('copy_editor','start_review','in_review');await action('copy_editor','move_to_copy_edit','copy_edit');await action('copy_editor','mark_ready_for_approval','ready_for_approval');
+ await call('copy_editor','PATCH','/api/admin/articles/'+id,{action:'approve',expectedVersion:article.version},403,'Copy Editor approval denied');
+ await action('admin','approve','approved');await action('admin','schedule','scheduled',{scheduledFor:new Date(Date.now()+3600000).toISOString()});await visible(404,'Future scheduled article excluded');await action('admin','publish','published');await visible(200,'Published article visible');
+ const before=await db.collection('articles').findOne({slug});for(let i=0;i<3;i++){const r=await contexts.reporter.request.get(origin+'/api/v1/public/articles/'+slug);assert.equal(r.status(),200)}const after=await db.collection('articles').findOne({slug});assert.equal(after.views,before.views);assert.deepEqual(after.updatedAt,before.updatedAt);record('Three actual public GETs preserve views and updatedAt');
+ await call('reporter','PATCH','/api/admin/articles/'+id,{title:'Unauthorized published edit',expectedVersion:article.version},403,'Reporter cannot edit published article');
+ await action('super_admin','archive','archived');await visible(404,'Archived article excluded');
+ const storyPayload={title:'Disposable QA story draft',caption:'Synthetic isolated story fixture.',thumbnail:'/logo-app-192.png',mediaType:'image',category:'General',reporterMeta:{locationTag:'Indore QA',sourceInfo:'Synthetic acceptance fixture'},intent:'draft'};
+ await call('copy_editor','POST','/api/admin/stories',storyPayload,403,'Copy Editor cannot create story package');
+ const story=(await call('reporter','POST','/api/admin/stories',storyPayload,201,'Reporter creates owned story draft')).data;const storyId=String(story._id||story.id);evidence.qaStoryId=storyId;
+ await call('reporter','GET','/api/admin/stories/'+storyId,undefined,200,'Reporter reads owned story');
+ const submittedStory=(await call('reporter','PATCH','/api/admin/stories/'+storyId,{action:'submit',expectedVersion:story.version},200,'Observed image-only story API submission')).data;assert.equal(submittedStory.workflow.status,'submitted');
+ evidence.findings.push({id:'CMS-PACKAGE-OBSERVATION',status:'needs_review',observation:'Authenticated story API accepts an image-only draft and submission. SOP/current Story form requires at least one image and one MP4. This observed behavior is not certification of full package acceptance; reconcile legacy API compatibility and submission criteria separately.'});
+ await call('reporter','PATCH','/api/admin/stories/'+storyId,{action:'publish',expectedVersion:submittedStory.version},403,'Reporter cannot publish submitted story');
+ for(const role of Object.keys(contexts)){
+  await call(role,'GET','/api/admin/media',undefined,200,role+' accesses media');
+  await call(role,'GET','/api/admin/categories',undefined,200,role+' reads article category options');
+  if(role!=='super_admin') {
+   await call(role,'POST','/api/admin/epapers',{},403,role+' publication creation denied');
+   const absentId='0123456789abcdef01234567';
+   for(const [method,suffix] of [['GET',''],['PUT',''],['PATCH',''],['DELETE',''],['PUT','/pages'],['GET','/ocr'],['POST','/ocr'],['POST','/generate-page-images']])await call(role,method,'/api/admin/epapers/'+absentId+suffix,method==='GET'?undefined:{},403,role+' publication boundary '+method+' '+(suffix||'/issue'));
+  }
+  if(role==='reporter'||role==='copy_editor')await call(role,'POST','/api/admin/categories',{name:'Unauthorized category'},403,role+' category mutation denied');
+ }
+ const endpoints=[['/admin/categories',['super_admin','admin']],['/admin/epapers',['super_admin']],['/admin/emagazines',['super_admin']],['/admin/epapers/new',['super_admin']],['/admin/emagazines/new',['super_admin']],['/admin/ai',['super_admin']],['/admin/settings/elections',['super_admin']],['/admin/settings',['super_admin']],['/admin/audit-log',['super_admin']],['/admin/team',['super_admin']],['/admin/articles',['super_admin','admin','copy_editor']],['/admin/articles/new',['super_admin','admin','copy_editor','reporter']],['/admin/stories',['super_admin','admin','copy_editor','reporter']],['/admin/stories/new',['super_admin','admin','reporter']],['/admin/videos',['super_admin','admin','copy_editor']],['/admin/videos/new',['super_admin','admin']],['/admin/contact-messages',['super_admin','admin']],['/admin/my-work',['admin','copy_editor','reporter']],['/admin/review-queue',['super_admin','admin']],['/admin/copy-desk',['super_admin','admin','copy_editor']]];
+ for(const role of Object.keys(contexts)){
+  const page=await contexts[role].newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  for(const [url,roles] of endpoints){await page.goto(origin+url,{waitUntil:'domcontentloaded',timeout:45000});if(!roles.includes(role)){await page.waitForURL(u=>u.pathname==='/admin/work'&&u.searchParams.get('access')==='denied',{timeout:15000});record(role+' direct route denied '+url,{finalPath:'/admin/work?access=denied'})}else {assert.equal(new URL(page.url()).pathname,url,role+' allowed '+url);record(role+' direct route allowed '+url)}}
+  assert.deepEqual(errors,[],role+' page errors');record(role+' route checks have no fatal JavaScript errors');await page.close();
+ }
+ evidence.completedAt=new Date().toISOString();evidence.ok=true;fs.writeFileSync(path.join(root,'qa-runtime/cms-editorial-report.json'),JSON.stringify(evidence,null,2));return evidence;
+};

@@ -1,0 +1,592 @@
+{
+  "startedAt": "2026-10-11T22:35:15.187Z",
+  "helperSourceSha256": "a00d84f55abbc899c1d5bb483fb3c182479397098dbe6f3f9d3b42ea2d924b24",
+  "checks": [
+    {
+      "name": "Reporter direct publication denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "Reporter creates owned draft",
+      "status": "passed",
+      "httpStatus": 201
+    },
+    {
+      "name": "Admin creates another owner draft",
+      "status": "passed",
+      "httpStatus": 201
+    },
+    {
+      "name": "Reporter cannot read another owner draft",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "Reporter cannot edit another owner draft",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "Admin creates email-byline collision draft",
+      "status": "passed",
+      "httpStatus": 201
+    },
+    {
+      "name": "Reporter cannot read foreign draft through exact email byline",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "Reporter cannot edit foreign draft through exact email byline",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "Creator-less legacy article remains readable",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Creator-less legacy article remains editable",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Unassigned Copy Editor cannot edit Reporter draft",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "Reporter edits owned draft",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Owned draft advances version",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Stale article write rejected",
+      "status": "passed",
+      "httpStatus": 409
+    },
+    {
+      "name": "Stale write preserves saved title",
+      "status": "passed"
+    },
+    {
+      "name": "Draft excluded from reader",
+      "status": "passed",
+      "httpStatus": 404
+    },
+    {
+      "name": "reporter submit",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Reporter cannot edit submitted article",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin assign",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Reporter approval denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor start_review",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "copy_editor request_changes",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Revision request comment retained",
+      "status": "passed"
+    },
+    {
+      "name": "Reporter edits changes-requested article",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "reporter submit",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "admin assign",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "copy_editor start_review",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "copy_editor move_to_copy_edit",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "copy_editor mark_ready_for_approval",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Copy Editor approval denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin approve",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "admin schedule",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Future scheduled article excluded",
+      "status": "passed",
+      "httpStatus": 404
+    },
+    {
+      "name": "admin publish",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Published article visible",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Three actual public GETs preserve views and updatedAt",
+      "status": "passed"
+    },
+    {
+      "name": "Reporter cannot edit published article",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "super_admin archive",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Archived article excluded",
+      "status": "passed",
+      "httpStatus": 404
+    },
+    {
+      "name": "Copy Editor cannot create story package",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "Reporter creates owned story draft",
+      "status": "passed",
+      "httpStatus": 201
+    },
+    {
+      "name": "Reporter reads owned story",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Observed image-only story API submission",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "Reporter cannot publish submitted story",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "super_admin accesses media",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "super_admin reads article category options",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "admin accesses media",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "admin reads article category options",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "admin publication creation denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin publication boundary GET /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin publication boundary PUT /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin publication boundary PATCH /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin publication boundary DELETE /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin publication boundary PUT /pages",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin publication boundary GET /ocr",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin publication boundary POST /ocr",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "admin publication boundary POST /generate-page-images",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor accesses media",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "copy_editor reads article category options",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "copy_editor publication creation denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor publication boundary GET /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor publication boundary PUT /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor publication boundary PATCH /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor publication boundary DELETE /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor publication boundary PUT /pages",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor publication boundary GET /ocr",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor publication boundary POST /ocr",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor publication boundary POST /generate-page-images",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "copy_editor category mutation denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter accesses media",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "reporter reads article category options",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "reporter publication creation denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter publication boundary GET /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter publication boundary PUT /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter publication boundary PATCH /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter publication boundary DELETE /issue",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter publication boundary PUT /pages",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter publication boundary GET /ocr",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter publication boundary POST /ocr",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter publication boundary POST /generate-page-images",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "reporter category mutation denied",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "name": "super_admin direct route allowed /admin/categories",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/epapers",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/emagazines",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/epapers/new",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/emagazines/new",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/ai",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/settings/elections",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/settings",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/audit-log",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/team",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/articles",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/articles/new",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/stories",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/stories/new",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/videos",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/videos/new",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/contact-messages",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route denied /admin/my-work",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/review-queue",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin direct route allowed /admin/copy-desk",
+      "status": "passed"
+    },
+    {
+      "name": "super_admin route checks have no fatal JavaScript errors",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/categories",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route denied /admin/epapers",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route denied /admin/emagazines",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route denied /admin/epapers/new",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route denied /admin/emagazines/new",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route denied /admin/ai",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route denied /admin/settings/elections",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route denied /admin/settings",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route denied /admin/audit-log",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route denied /admin/team",
+      "status": "passed",
+      "finalPath": "/admin/work?access=denied"
+    },
+    {
+      "name": "admin direct route allowed /admin/articles",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/articles/new",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/stories",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/stories/new",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/videos",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/videos/new",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/contact-messages",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/my-work",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/review-queue",
+      "status": "passed"
+    },
+    {
+      "name": "admin direct route allowed /admin/copy-desk",
+      "status": "passed"
+    }
+  ],
+  "findings": [
+    {
+      "id": "CMS-PACKAGE-OBSERVATION",
+      "status": "needs_review",
+      "observation": "Authenticated story API accepts an image-only draft and submission. SOP/current Story form requires at least one image and one MP4. This observed behavior is not certification of full package acceptance; reconcile legacy API compatibility and submission criteria separately."
+    }
+  ],
+  "scope": "CMS acceptance increment: article ownership, revision requests, CAS, lifecycle, story draft behavior and direct page boundaries. Synthetic QA fixtures, not representative live-media acceptance.",
+  "qaArticleId": "6acc0f231e8dccb7c83689d2",
+  "qaStoryId": "6acc0f231e8dccb7c8368a70"
+}

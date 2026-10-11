@@ -1,0 +1,670 @@
+{
+  "startedAt": "2026-10-11T22:38:17.285Z",
+  "sourceHead": "ee8faf6dfcaea259437a794fb9f37856c32600d2",
+  "sourceTree": "056118420d876a45d24c0e0732b81bf05f493ce5",
+  "reusedBuildForDiagnosis": true,
+  "buildProvenance": {
+    "freshBuild": true,
+    "builtAt": "2026-10-11T22:35:03.853Z",
+    "gitHead": "ee8faf6dfcaea259437a794fb9f37856c32600d2",
+    "gitTree": "056118420d876a45d24c0e0732b81bf05f493ce5",
+    "buildId": "CxW8HAbS_yzvc6XRhgUph",
+    "buildIdSha256": "287f2dd56f25a3d7df6440399a4fb032ee420deb98bcbe3eca7cf2d57d671d56",
+    "buildManifestSha256": "015875338b105a8ee2bd6c363eaa050b7d77c76bd6c0a4bf3d3ab5d7d303f1a0",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "checks": [
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/categories",
+      "finalPath": "/admin/categories",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/epapers",
+      "finalPath": "/admin/epapers",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/emagazines",
+      "finalPath": "/admin/emagazines",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/epapers/new",
+      "finalPath": "/admin/epapers/new",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/emagazines/new",
+      "finalPath": "/admin/emagazines/new",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/ai",
+      "finalPath": "/admin/ai",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/settings/elections",
+      "finalPath": "/admin/settings/elections",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/settings",
+      "finalPath": "/admin/settings",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/audit-log",
+      "finalPath": "/admin/audit-log",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/team",
+      "finalPath": "/admin/team",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/articles",
+      "finalPath": "/admin/articles",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/articles/new",
+      "finalPath": "/admin/articles/new",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/stories",
+      "finalPath": "/admin/stories",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/stories/new",
+      "finalPath": "/admin/stories/new",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/videos/new",
+      "finalPath": "/admin/videos/new",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/contact-messages",
+      "finalPath": "/admin/contact-messages",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/my-work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 2
+    },
+    {
+      "role": "super_admin",
+      "requestedRoute": "/admin/copy-desk",
+      "finalPath": "/admin/copy-desk",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/categories",
+      "finalPath": "/admin/categories",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/epapers",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/emagazines",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/epapers/new",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/emagazines/new",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/ai",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/settings/elections",
+      "finalPath": "/admin/work",
+      "newErrors": 2
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/settings",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/audit-log",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/team",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/articles",
+      "finalPath": "/admin/articles",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/articles/new",
+      "finalPath": "/admin/articles/new",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/stories",
+      "finalPath": "/admin/stories",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/stories/new",
+      "finalPath": "/admin/stories/new",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/videos/new",
+      "finalPath": "/admin/videos/new",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/contact-messages",
+      "finalPath": "/admin/contact-messages",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/my-work",
+      "finalPath": "/admin/my-work",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/copy-desk",
+      "finalPath": "/admin/copy-desk",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/categories",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/epapers",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/emagazines",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/epapers/new",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/emagazines/new",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/ai",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/settings/elections",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/settings",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/audit-log",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/team",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/articles",
+      "finalPath": "/admin/articles",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/articles/new",
+      "finalPath": "/admin/articles/new",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/stories",
+      "finalPath": "/admin/stories",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/stories/new",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/videos/new",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/contact-messages",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/my-work",
+      "finalPath": "/admin/my-work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "requestedRoute": "/admin/copy-desk",
+      "finalPath": "/admin/copy-desk",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/categories",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/epapers",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/emagazines",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/epapers/new",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/emagazines/new",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/ai",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/settings/elections",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/settings",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/audit-log",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/team",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/articles",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/articles/new",
+      "finalPath": "/admin/articles/new",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/stories",
+      "finalPath": "/admin/stories",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/stories/new",
+      "finalPath": "/admin/stories/new",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos/new",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/contact-messages",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/my-work",
+      "finalPath": "/admin/my-work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/copy-desk",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    }
+  ],
+  "pageErrors": [
+    {
+      "role": "super_admin",
+      "path": "/admin/review-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "super_admin",
+      "path": "/admin/review-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/videos",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at oq (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:84566)\n    at iw (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114961)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110322\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/my-work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/review-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/my-work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at oq (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:84566)\n    at iw (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114961)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110322\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:119651\n    at ix (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:122955)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114743)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at oq (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:84566)\n    at ik (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114682)\n    at http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110730\n    at iu (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3318/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3318/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    }
+  ],
+  "completedAt": "2026-10-11T22:38:59.622Z",
+  "ok": false
+}
