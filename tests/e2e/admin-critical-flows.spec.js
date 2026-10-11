@@ -20,7 +20,8 @@ test.describe('Lokswami critical UI surfaces', () => {
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/signin(?:\?|$)/);
     expect(new URL(page.url()).searchParams.get('redirect')).toBe('/admin');
-    await expect(page.locator('form')).toBeVisible();
+    await expect(page.getByLabel('Staff Login ID or Email')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in to Newsroom', exact: true })).toBeVisible();
   });
 });
 
