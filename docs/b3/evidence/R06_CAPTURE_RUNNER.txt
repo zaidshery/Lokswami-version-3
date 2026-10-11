@@ -1,9 +1,8 @@
 'use strict';
 const fs=require('fs'),path=require('path'),os=require('os'),crypto=require('crypto'),assert=require('assert');
 const {spawn,execFile}=require('child_process'),{promisify}=require('util');
-const root='/workspace/scratch/4915a7429527',repo=path.join(root,'isolated-qa-worktree');
-const req=require('module').createRequire(path.join(repo,'package.json'));
-const {MongoClient}=req('mongodb'),{chromium}=req('@playwright/test');
+const root='/workspace/scratch/4915a7429527';let repo,req;
+let MongoClient,chromium;
 const run=promisify(execFile),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let browser,client,lastPage;const children=[],contexts={};
 const report={startedAt:new Date().toISOString(),roles:[],productionWrites:[],failures:[]};
@@ -19,10 +18,21 @@ async function cleanup(){if(browser)await browser.close().catch(()=>{});if(clien
 process.on('SIGINT',()=>cleanup().then(()=>process.exit(130)));process.on('SIGTERM',()=>cleanup().then(()=>process.exit(143)));
 (async()=>{
  if(process.env.R06_SKIP_BUILD)throw new Error('Reused builds are refused: this verification requires a fresh build');
+ const sourceRepo=path.join(root,'Lokswami-version-3'),sourceHead=(await run('git',['rev-parse','HEAD'],{cwd:sourceRepo})).stdout.trim();
+ repo=fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-r06-checkout-'));await run('git',['worktree','add','--detach',repo,sourceHead],{cwd:sourceRepo});
+ req=require('module').createRequire(path.join(repo,'package.json'));report.freshCheckout={sourceCommit:sourceHead,path:repo,createdByRunner:true};progress('Fresh owned temporary checkout created from actual committed source');
  report.codeHead=(await run('git',['rev-parse','HEAD'],{cwd:repo})).stdout.trim();
+ assert.equal(report.codeHead,sourceHead);
  report.codeTree=(await run('git',['rev-parse','HEAD^{tree}'],{cwd:repo})).stdout.trim();
  await assertBuildInputs('before setup');
  report.trackedSourceClean=true;report.captureRunnerSha256=crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
+ const installEnv={PATH:path.join(root,'qa-runtime/node_modules/node/bin')+':'+process.env.PATH,TZ:'UTC',NEXT_TELEMETRY_DISABLED:'1',NODE_OPTIONS:'--require='+path.join(repo,'scripts/phase3/offline-network-guard.cjs')};
+ const previousModules=path.join(repo,'node_modules');if(fs.existsSync(previousModules))fs.renameSync(previousModules,path.join(fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-r06-deps-')),'previous-node_modules'));
+ progress('Installing fresh dependencies from the lockfile using verified offline cache');
+ const install=await run('npm',['ci','--offline','--no-audit','--no-fund'],{cwd:repo,env:installEnv,timeout:300000,maxBuffer:4e6});fs.writeFileSync(path.join(root,'qa-runtime/r06-dependency-install.log'),install.stdout+install.stderr);
+ report.dependencyInstallation={command:'npm ci --offline --no-audit --no-fund',freshDirectory:true,status:'passed',completedAt:new Date().toISOString(),nodeVersion:process.version,packageLockSha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(repo,'package-lock.json'))).digest('hex')};
+ ({MongoClient}=req('mongodb'));({chromium}=req('@playwright/test'));report.dependencyInstallation.nextVersion=req('next/package.json').version;report.dependencyInstallation.playwrightVersion=req('@playwright/test/package.json').version;
+ progress('Fresh lockfile installation verified before loading app/browser dependencies');
  const dbpath=fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-r06-'));
  const mongo=spawn(path.join(root,'qa-runtime/mongodb-linux-x86_64-ubuntu2204-7.0.16/bin/mongod'),['--bind_ip','127.0.0.1','--port','27038','--nounixsocket','--dbpath',dbpath,'--wiredTigerCacheSizeGB','0.25','--setParameter','diagnosticDataCollectionEnabled=false','--logpath',path.join(root,'qa-runtime/r06-mongo.log')],{stdio:'ignore'});children.push(mongo);
  for(let i=0;i<30;i++){try{client=new MongoClient('mongodb://127.0.0.1:27038',{serverSelectionTimeoutMS:500});await client.connect();await client.db('admin').command({ping:1});break}catch{if(client)await client.close();client=null;await sleep(300)}}assert(client,'Mongo health failed');report.mongoPing=true;
