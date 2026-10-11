@@ -36,6 +36,7 @@ export interface PdfWorkerRenderOptions {
   _simulateNeverSettle?: boolean;
   _simulateTerminationFailure?: boolean;
   _simulateProcessExitCode?: number;
+  _simulateNativeCrashSignal?: 'SIGABRT' | 'SIGSEGV';
   _rendererEngine?: PdfRendererEngine;
 }
 
@@ -343,6 +344,7 @@ export async function renderPdfPageWithWorkerIsolation(
         simulateNeverSettle: options._simulateNeverSettle,
         simulateRenderError: options._simulateRenderError?.message,
         simulateProcessExitCode: options._simulateProcessExitCode,
+        simulateNativeCrashSignal: options._simulateNativeCrashSignal,
       },
       options._onCanvasDisposed
     );

@@ -56,6 +56,7 @@ export interface IsolatedRenderTask {
   simulateNeverSettle?: boolean;
   simulateRenderError?: string;
   simulateProcessExitCode?: number;
+  simulateNativeCrashSignal?: 'SIGABRT' | 'SIGSEGV';
 }
 
 export interface IsolatedRenderResult {
@@ -283,6 +284,7 @@ async function executePdfiumRender(msg) {
 }
 
 async function executeRender(msg) {
+  if (msg.simulateNativeCrashSignal) process.kill(process.pid, msg.simulateNativeCrashSignal);
   if (msg.rendererEngine === 'pdfium') {
     return executePdfiumRender(msg);
   }
@@ -421,6 +423,15 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
           this.terminated = true;
           this.worker = null;
           const exitDetail = code !== null ? `code ${code}` : `signal ${signal || 'unknown'}`;
+          if (task.rendererEngine === 'pdfjs' && (signal === 'SIGABRT' || signal === 'SIGSEGV')) {
+            // The exit event confirms that the old native process is dead. Keep
+            // the caller's mutex/deadline while retrying once in a fresh process.
+            console.warn('PDF.js renderer crashed; retrying the page with PDFium.');
+            this.initWorker();
+            this.render({ ...task, rendererEngine: 'pdfium', simulateNativeCrashSignal: undefined }, onCanvasDisposed)
+              .then(resolve, reject);
+            return;
+          }
           reject(new Error(`PDF renderer process exited unexpectedly with ${exitDetail}`));
         }
       };
@@ -447,6 +458,7 @@ export class IsolatedPdfWorker implements PdfWorkerExecutionBoundary {
         simulateNeverSettle: task.simulateNeverSettle,
         simulateRenderError: task.simulateRenderError,
         simulateProcessExitCode: task.simulateProcessExitCode,
+        simulateNativeCrashSignal: task.simulateNativeCrashSignal,
       });
     });
   }

@@ -52,6 +52,29 @@ function createPdf(pageCount = 1, pageContent = ''): Buffer {
 }
 
 describe('PDF worker isolation & memory guard', () => {
+  it.each(['SIGABRT', 'SIGSEGV'] as const)('recovers a confirmed PDF.js %s with one fresh PDFium render', async (signal) => {
+    const result = await renderPdfPageWithWorkerIsolation({
+      pdfBuffer: createPdf(1, '1 0 0 rg 0 0 100 100 re f'),
+      pageNumber: 1,
+      targetWidth: 300,
+      _rendererEngine: 'pdfjs',
+      _simulateNativeCrashSignal: signal,
+    });
+    const { data, info } = await sharp(result.buffer).raw().toBuffer({ resolveWithObject: true });
+    expect(info.width).toBe(300);
+    expect(info.height).toBe(300);
+    expect(data[0]).toBeGreaterThan(230);
+    expect(data[1]).toBeLessThan(30);
+    expect(data[2]).toBeLessThan(30);
+  });
+
+  it.each(['SIGABRT', 'SIGSEGV'] as const)('does not retry %s in the fallback engine', async (signal) => {
+    await expect(renderPdfPageWithWorkerIsolation({
+      pdfBuffer: createPdf(), pageNumber: 1, targetWidth: 300,
+      _rendererEngine: 'pdfium', _simulateNativeCrashSignal: signal,
+    })).rejects.toThrow(`signal ${signal}`);
+  });
+
   it('selects PDFium on Windows and PDF.js on non-Windows platforms', () => {
     expect(selectPdfRendererEngine('win32')).toBe('pdfium');
     expect(selectPdfRendererEngine('linux')).toBe('pdfjs');
