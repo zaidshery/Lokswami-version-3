@@ -140,15 +140,14 @@ describe('Phase 3.16B — Search, Latest & Category Feeds Polish', () => {
     // Submit button
     expect(screen.getByRole('button', { name: 'खोजें' })).toBeInTheDocument();
 
-    // Trending & recent sections
-    expect(screen.getByRole('heading', { level: 2, name: /ट्रेंडिंग खोजें/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /हाल की खोजें/ })).toBeInTheDocument();
-
-    // Devanagari trending pills
-    expect(screen.getAllByRole('button', { name: /आईपीएल 2026/ }).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByRole('button', { name: /लोकसभा/ }).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByRole('button', { name: /मौसम अपडेट/ }).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByRole('button', { name: /सोने का भाव/ }).length).toBeGreaterThanOrEqual(1);
+    // R02 uses a neutral prompt instead of fabricated trending or recent data.
+    expect(screen.getByRole('heading', { level: 2, name: 'प्रकाशित समाचार खोजें' })).toBeInTheDocument();
+    expect(screen.getByText('लोकस्वामी में प्रकाशित समाचार खोजने के लिए ऊपर कीवर्ड दर्ज करें।')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'ट्रेंडिंग खोजें' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'हाल की खोजें' })).not.toBeInTheDocument();
+    for (const term of ['आईपीएल 2026', 'लोकसभा', 'मौसम अपडेट', 'सोने का भाव']) {
+      expect(screen.queryByRole('button', { name: term })).not.toBeInTheDocument();
+    }
   });
 
   it('4. SearchClient renders clean English copy in English mode', async () => {
@@ -166,13 +165,14 @@ describe('Phase 3.16B — Search, Latest & Category Feeds Polish', () => {
     // Submit button
     expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
 
-    // Trending & recent sections
-    expect(screen.getByRole('heading', { level: 2, name: /Trending Searches/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /Recent Searches/ })).toBeInTheDocument();
-
-    // English trending pills
-    expect(screen.getAllByRole('button', { name: /IPL 2026/ }).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByRole('button', { name: /Weather Update/ }).length).toBeGreaterThanOrEqual(1);
+    // R02 uses a neutral prompt instead of fabricated trending or recent data.
+    expect(screen.getByRole('heading', { level: 2, name: 'Search published news' })).toBeInTheDocument();
+    expect(screen.getByText('Enter a keyword above to search news published by Lokswami.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Trending Searches' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recent Searches' })).not.toBeInTheDocument();
+    for (const term of ['IPL 2026', 'Lok Sabha', 'Weather Update', 'Gold Price']) {
+      expect(screen.queryByRole('button', { name: term })).not.toBeInTheDocument();
+    }
   });
 
   it('5. No Romanized legacy Hinglish strings remain in Hindi mode', async () => {
@@ -395,6 +395,7 @@ describe('Phase 3.16B — Search, Latest & Category Feeds Polish', () => {
 
   it('13, 14 & 15. Touch targets and responsive bounds comply with mobile contracts without altering content authority', async () => {
     currentLanguage = 'hi';
+    currentQuery = 'लोकसभा';
     const SearchClient = (await import('@/app/(reader)/main/search/SearchClient')).default;
     const { container } = render(createElement(SearchClient));
 
@@ -421,7 +422,8 @@ describe('Phase 3.16B — Search, Latest & Category Feeds Polish', () => {
     expect(input.className).toContain('min-h-12');
 
     // Verify flex rows wrap on small screens
-    const trendingRow = container.querySelector('.flex.flex-wrap.gap-2');
-    expect(trendingRow).toBeInTheDocument();
+    const filterRow = screen.getByRole('combobox', { name: 'श्रेणी चुनें' }).closest('[data-swipe-ignore]');
+    expect(filterRow).toHaveClass('flex', 'flex-wrap');
+    expect(filterRow).toContainElement(screen.getByRole('combobox', { name: 'क्रमबद्ध करें' }));
   });
 });
