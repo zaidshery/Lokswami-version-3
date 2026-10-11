@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-10-11T17:10:35.914Z",
+  "startedAt": "2026-10-11T17:17:44.239Z",
   "helperSourceSha256": "e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993",
   "checks": [
     {
@@ -93,7 +93,7 @@
     }
   ],
   "scope": "One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT",
-  "qaArticleId": "6acbc30cbf61b2e376950ede",
-  "completedAt": "2026-10-11T17:10:36.322Z",
+  "qaArticleId": "6acbc4b8f90c93c75e0be9c4",
+  "completedAt": "2026-10-11T17:17:44.648Z",
   "ok": true
 }

@@ -10,18 +10,19 @@ The owner authorized reversible isolated QA writes. No production target, provid
 
 ## Candidate and build provenance
 
-Run: **2026-10-11T17:09:03.314Z–2026-10-11T17:10:36.323Z**.
+Run: **2026-10-11T17:16:18.414Z–2026-10-11T17:17:44.649Z**.
 
 - Actual Git HEAD queried by the runner: **5237e5760ac8fe3e7c91254c692149f14b129e75**.
 - Actual tracked tree: **fdb5e2151398f385a52ae4a6b53d256a67db811c**.
 - Tracked source is compared against **HEAD**, including staged and unstaged changes, before and after **a fresh build:ci**. Reused builds are refused.
-- Negative controls confirmed a clean fixture passes and staged/unstaged tracked changes are rejected.
+- Untracked files, including ignored configuration/source files, are checked before setup, before build and after build. Only the explicit installed-dependency/output paths, seeded media/audio and five evidence files are excluded; the exact exclusions are recorded in the report.
+- Negative controls confirmed clean/approved-media fixtures pass while staged/unstaged tracked changes, an untracked page and ignored .env.local configuration are rejected.
 - Production build passed with 175 generated pages.
-- Build ID: **28rBUb_F0CHO4OLcbZowS**.
-- BUILD_ID SHA-256: **5198b285f43dbb0c0a6ea40df1e27c9bdbff89f9852f09f82f9bfdfb28bf25d6**.
-- Build manifest SHA-256: **2bfccaa766e0eea471fa1f16ee7a72fcf02a64223f52840ba8fda16c7fcb7a81**.
+- Build ID: **8-sZWAzFMuG8jldmhKJfu**.
+- BUILD_ID SHA-256: **8972e300929c0a4372be3a1749928b3742235ae87aa563becdc2b56c19026be9**.
+- Build manifest SHA-256: **b4f4dbd9bf300e0a65908e665a4899ec183d7e1cbc75a0a57354414c2313f900**.
 - Lockfile SHA-256: **8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2**.
-- Executed capture runner SHA-256: **8deacaabffa2a6952acdaad85237162347a403c018c49b6f9d9cf86ac0c5a4ad**.
+- Executed capture runner SHA-256: **93dd8eecb713d09854300480a6c91e3556341bd7818c6ccf58d4935ad32f7021**.
 - Executed editorial helper SHA-256: **e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993**.
 
 The candidate is the integrated foundation after #43. This PR adds documentation/evidence only. Git identity is queried rather than supplied as a hard-coded success label. The helper's captured bytes are hashed and compiled directly; those exact bytes execute the assertions, and their hash is recorded in both JSON reports.
@@ -30,7 +31,7 @@ The candidate is the integrated foundation after #43. This PR adds documentation
 
 - Node 20.20.2; dependencies installed from the repository lockfile; Chromium 151.0.7922.34.
 - QA-only MongoDB 7.0.16, bound to **127.0.0.1:27038**, with no Unix socket and fresh disposable storage. This is a test runtime, not a production upgrade recommendation.
-- Unique database **lokswami_phase318c_qa_9ffa6f93ae**; actual initial collection inventory empty.
+- Unique database **lokswami_phase318c_qa_f337fc5e85**; actual initial collection inventory empty.
 - Canonical reserved identities provisioned by **npm run cms:qa:provision** with explicit opt-in, exact database-name confirmation and fresh random passwords. No bootstrap-owner credentials or fabricated sessions.
 - Media copied only into the isolated checkout's **public/demo/lokswami**. The existing guarded harness imported **8 actual source articles, 2 daily E-Papers and 1 monthly E-Magazine** from the verified read-only R08 snapshot.
 - One explicitly disposable QA article was created and archived separately by the editorial API checks.

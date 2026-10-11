@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-10-11T17:09:03.314Z",
+  "startedAt": "2026-10-11T17:16:18.414Z",
   "roles": [
     {
       "role": "super_admin",
@@ -38,15 +38,41 @@
   "failures": [],
   "codeHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
   "codeTree": "fdb5e2151398f385a52ae4a6b53d256a67db811c",
+  "buildInputChecks": [
+    {
+      "stage": "before setup",
+      "unexpectedInputs": []
+    },
+    {
+      "stage": "before build",
+      "unexpectedInputs": []
+    },
+    {
+      "stage": "after build",
+      "unexpectedInputs": []
+    }
+  ],
+  "buildInputExclusions": [
+    "node_modules",
+    ".next",
+    ".next-dev",
+    "public/demo/lokswami",
+    "public/uploads/breaking-audio/lokswami-qa-silent.wav",
+    "docs/b3/PHASE3_18C_R06_ISOLATED_QA_VERIFICATION.md",
+    "docs/b3/evidence/R06_BROWSER_REPORT.json",
+    "docs/b3/evidence/R06_EDITORIAL_REPORT.json",
+    "docs/b3/evidence/R06_CAPTURE_RUNNER.txt",
+    "docs/b3/evidence/R06_EDITORIAL_CHECKS.txt"
+  ],
   "trackedSourceClean": true,
-  "captureRunnerSha256": "8deacaabffa2a6952acdaad85237162347a403c018c49b6f9d9cf86ac0c5a4ad",
+  "captureRunnerSha256": "93dd8eecb713d09854300480a6c91e3556341bd7818c6ccf58d4935ad32f7021",
   "mongoPing": true,
   "initialCollections": [],
   "nodeEgressProbe": "blocked-before-socket",
   "database": {
     "host": "127.0.0.1",
     "port": 27038,
-    "name": "lokswami_phase318c_qa_9ffa6f93ae"
+    "name": "lokswami_phase318c_qa_f337fc5e85"
   },
   "mediaRoot": "/workspace/scratch/4915a7429527/isolated-qa-worktree/public/demo/lokswami",
   "externalProviderCredentials": "unset; allowlisted environment",
@@ -54,28 +80,28 @@
     "Video/short fixtures omitted: full snapshot import previously rejected unavailable required video thumbnails."
   ],
   "collections": {
-    "epaperarticles": 0,
-    "epapermutationreceipts": 0,
     "ttsconfigs": 0,
-    "articles": 8,
-    "videos": 0,
-    "epapers": 3,
-    "epaperocrsuggestions": 0,
-    "ttsassets": 0,
     "epaperprocessingjobs": 0,
+    "epapers": 3,
+    "epaperarticles": 0,
+    "epaperocrsuggestions": 0,
     "users": 4,
     "ttsauditevents": 0,
-    "contentactivities": 0
+    "contentactivities": 0,
+    "ttsassets": 0,
+    "articles": 8,
+    "epapermutationreceipts": 0,
+    "videos": 0
   },
   "productionBuild": "passed",
   "buildProvenance": {
     "freshBuild": true,
-    "builtAt": "2026-10-11T17:10:23.532Z",
+    "builtAt": "2026-10-11T17:17:31.728Z",
     "gitHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
     "gitTree": "fdb5e2151398f385a52ae4a6b53d256a67db811c",
-    "buildId": "28rBUb_F0CHO4OLcbZowS",
-    "buildIdSha256": "5198b285f43dbb0c0a6ea40df1e27c9bdbff89f9852f09f82f9bfdfb28bf25d6",
-    "buildManifestSha256": "2bfccaa766e0eea471fa1f16ee7a72fcf02a64223f52840ba8fda16c7fcb7a81",
+    "buildId": "8-sZWAzFMuG8jldmhKJfu",
+    "buildIdSha256": "8972e300929c0a4372be3a1749928b3742235ae87aa563becdc2b56c19026be9",
+    "buildManifestSha256": "b4f4dbd9bf300e0a65908e665a4899ec183d7e1cbc75a0a57354414c2313f900",
     "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
   },
   "serverReady": true,
@@ -83,7 +109,7 @@
   "lastLoginWrites": 4,
   "editorialHelperSha256": "e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993",
   "editorialSpotChecks": {
-    "startedAt": "2026-10-11T17:10:35.914Z",
+    "startedAt": "2026-10-11T17:17:44.239Z",
     "helperSourceSha256": "e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993",
     "checks": [
       {
@@ -177,10 +203,10 @@
       }
     ],
     "scope": "One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT",
-    "qaArticleId": "6acbc30cbf61b2e376950ede",
-    "completedAt": "2026-10-11T17:10:36.322Z",
+    "qaArticleId": "6acbc4b8f90c93c75e0be9c4",
+    "completedAt": "2026-10-11T17:17:44.648Z",
     "ok": true
   },
-  "completedAt": "2026-10-11T17:10:36.323Z",
+  "completedAt": "2026-10-11T17:17:44.649Z",
   "ok": true
 }
