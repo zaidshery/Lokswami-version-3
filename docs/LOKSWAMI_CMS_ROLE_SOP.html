@@ -193,6 +193,7 @@
     @media print {
       html, body { background: white; }
       .page { margin: 0; box-shadow: none; }
+      .page:last-child th, .page:last-child td { padding: 1.6mm 2.3mm; }
     }
   </style>
 </head>
@@ -201,9 +202,9 @@
     <img class="brand" src="../public/logo-wordmark-final.png" alt="Lokswami" />
     <div class="eyebrow">Newsroom Operations</div>
     <h1>CMS Role SOP</h1>
-    <p class="lead">A simple daily guide for Reporter, Copy Editor, and Admin—from reporting package to verified public release.</p>
+    <p class="lead">A daily guide for Reporter, Copy Editor, Admin, and Super Admin—from reporting package to verified public release.</p>
     <div class="meta-row">
-      <span class="pill">Version 1.0</span>
+      <span class="pill">Version 1.2 - publication permissions reviewed 11 October 2026</span>
       <span class="pill">Reviewed 14 July 2026</span>
       <span class="pill">Desktop + Mobile</span>
     </div>
@@ -381,7 +382,7 @@
   <section class="page">
     <div class="section-label">Copy Editor SOP</div>
     <h2>Verify, improve, and hand off</h2>
-    <div class="menu-list"><span>Dashboard</span><span>My Work</span><span>Copy Desk</span><span>Articles</span><span>Stories</span><span>Videos</span><span>Social Posts (read-only)</span><span>E-Papers</span><span>E-Magazines</span><span>Media</span></div>
+    <div class="menu-list"><span>Dashboard</span><span>My Work</span><span>Copy Desk</span><span>Articles</span><span>Stories</span><span>Videos</span><span>Social Posts (read-only)</span><span>Media</span></div>
 
     <div class="grid-2">
       <div>
@@ -413,12 +414,11 @@
         <p class="small">Copy Editor can create an Article but cannot publish it directly.</p>
       </div>
       <div class="card">
-        <h3>E-Paper / E-Magazine desk</h3>
+        <h3>Publication production notes</h3>
         <ul class="tight">
-          <li>Review page images, OCR text, hotspots, captions, and linked stories.</li>
-          <li>Correct OCR before accepting it.</li>
-          <li>Add production notes for missing pages or blockers.</li>
-          <li>Move clean work to <strong>Ready To Publish</strong>; Admin releases it.</li>
+          <li>Send page, OCR, hotspot, caption, or linked-story quality notes to Super Admin.</li>
+          <li>Super Admin applies those notes in the publication CMS and owns release.</li>
+          <li>All publication CMS access is Super Admin only. Assignment does not grant Copy Editor access.</li>
           <li>E-Magazine is a monthly issue, not a daily E-Paper edition.</li>
         </ul>
       </div>
@@ -469,11 +469,11 @@
     <div class="grid-2">
       <div class="card soft">
         <h3>Admin owns</h3>
-        <p>Articles, Stories, Videos, Social Posts, E-Papers/E-Magazines, Media, Polls, Categories, Contact Messages, Team, Analytics, AI Ops, Newsroom Settings, Push Alerts, and Operations Center.</p>
+        <p>Articles, Stories, Videos, Social Posts, Media, Polls, Categories, Contact Messages, Team, Analytics, AI Ops, Newsroom Settings, Push Alerts, and Operations Center.</p>
       </div>
       <div class="card soft">
         <h3>Super-Admin boundary</h3>
-        <p>System Settings, Revenue, Business Value, Audit Log, Permission Review, Operations Diagnostics, and leadership-report management. Admin cannot create, edit, or remove a Super Admin.</p>
+        <p>E-Papers/E-Magazines, System Settings, Revenue, Business Value, Audit Log, Permission Review, Operations Diagnostics, and leadership-report management. Admin cannot create, edit, or remove a Super Admin.</p>
       </div>
     </div>
 
@@ -568,7 +568,7 @@
 
     <div class="grid-2">
       <div>
-        <h3>Admin upload and release</h3>
+        <h3>Super Admin upload and release</h3>
         <div class="step"><span class="step-num">1</span><div>Open <strong>E-Papers</strong> or <strong>E-Magazines → New Upload</strong>.</div></div>
         <div class="step"><span class="step-num">2</span><div>Enter edition/issue metadata and upload the PDF.</div></div>
         <div class="step"><span class="step-num">3</span><div>Wait for page conversion. Never publish while pages are processing.</div></div>
@@ -576,7 +576,7 @@
         <div class="step"><span class="step-num">5</span><div>Publish only from <strong>Ready To Publish</strong>.</div></div>
       </div>
       <div>
-        <h3>Copy Editor production QA</h3>
+        <h3>Super Admin production QA</h3>
         <ul class="checklist tight">
           <li>Every expected page is present</li>
           <li>OCR text manually reviewed</li>
@@ -625,11 +625,11 @@
       <tr><td>Request changes</td><td class="center no">No</td><td class="center yes">Yes</td><td class="center yes">Yes</td></tr>
       <tr><td>Mark ready for approval</td><td class="center no">No</td><td class="center yes">Yes</td><td class="center yes">Yes</td></tr>
       <tr><td>Approve / schedule / publish</td><td class="center no">No</td><td class="center no">No</td><td class="center yes">Yes</td></tr>
-      <tr><td>Review E-Paper OCR/hotspots</td><td class="center no">No</td><td class="center yes">Yes</td><td class="center yes">Yes</td></tr>
-      <tr><td>Create/publish E-Paper</td><td class="center no">No</td><td class="center no">No</td><td class="center yes">Yes</td></tr>
+      <tr><td>Review publication OCR/hotspots</td><td class="center no">No</td><td class="center no">No</td><td class="center no">No</td></tr>
+      <tr><td>Create/publish E-Paper/E-Magazine</td><td class="center no">No</td><td class="center no">No</td><td class="center no">No</td></tr>
       <tr><td>Manage users / prepare alert text</td><td class="center no">No</td><td class="center no">No</td><td class="center yes">Yes*</td></tr>
     </table>
-    <p class="small">*Admin manages newsroom roles except Super Admin.</p>
+    <p class="small">*Admin manages newsroom roles except Super Admin. All E-Paper/E-Magazine CMS actions (view, upload, edit, OCR/hotspots, release and archive) are Super Admin only. Published reader pages remain public.</p>
 
     <div class="spacer-4"></div>
     <h3>Common problems</h3>

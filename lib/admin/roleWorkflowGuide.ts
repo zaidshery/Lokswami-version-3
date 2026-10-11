@@ -37,11 +37,11 @@ const GUIDES: Record<AdminRole, RoleWorkflowGuide> = {
   copy_editor: {
     eyebrow: 'Copy desk workflow',
     title: 'Claim, polish, hand off',
-    summary: 'Move assigned work through review, copy edit, production QA, and ready-for-approval with actionable notes.',
-    authority: 'You can prepare content, E-Papers, and monthly E-Magazine issues. Admin owns assignment, approval, publication, archiving, and deletion.',
+    summary: 'Move assigned articles, stories, and videos through review, copy edit, and ready-for-approval with actionable notes.',
+    authority: 'You prepare assigned editorial content for Admin approval. Super Admin owns E-Papers and monthly E-Magazine issues, including production, publication, and archiving.',
     steps: [
-      { label: 'Claim or open assigned work', detail: 'Start with submitted stories and the publication desk queue.' },
-      { label: 'Review with evidence', detail: 'Check facts, language, headlines, pages, OCR, hotspots, and readiness.' },
+      { label: 'Claim or open assigned work', detail: 'Start with submitted stories and your assigned editorial work.' },
+      { label: 'Review with evidence', detail: 'Check facts, language, headlines, media, and editorial readiness.' },
       { label: 'Route clearly', detail: 'Request specific changes or mark the item ready for admin approval.' },
     ],
     primaryAction: { label: 'Open copy desk', href: '/admin/copy-desk', pageKey: 'copy_desk' },
@@ -51,7 +51,7 @@ const GUIDES: Record<AdminRole, RoleWorkflowGuide> = {
     eyebrow: 'Admin desk workflow',
     title: 'Assign, decide, release',
     summary: 'Keep ownership explicit, unblock the desk, approve only ready work, and make final release decisions.',
-    authority: 'You manage assignments and publication. E-Magazine is a monthly issue product; E-Paper remains edition-based.',
+    authority: 'You manage assignments and release articles, stories, and videos. Super Admin owns E-Papers and E-Magazine releases; E-Magazine is a monthly issue product.',
     steps: [
       { label: 'Triage and assign', detail: 'Give every active item an owner, priority, and useful due time.' },
       { label: 'Resolve blockers', detail: 'Use desk feedback, readiness checks, and operations signals before approval.' },
@@ -64,7 +64,7 @@ const GUIDES: Record<AdminRole, RoleWorkflowGuide> = {
     eyebrow: 'Leadership workflow',
     title: 'Govern, monitor, improve',
     summary: 'Keep permissions, platform health, newsroom coverage, and release risk visible without bypassing desk ownership.',
-    authority: 'You control governance and system-level settings while normal editorial work remains role-accountable and auditable.',
+    authority: 'You control governance, system-level settings, and all E-Paper and monthly E-Magazine production, publication, and archiving. Editorial work remains role-accountable and auditable.',
     steps: [
       { label: 'Watch risk', detail: 'Review operational blockers, dependency health, and release readiness.' },
       { label: 'Protect access', detail: 'Audit role coverage, inactive accounts, and leadership-only permissions.' },

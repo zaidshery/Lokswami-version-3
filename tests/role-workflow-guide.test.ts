@@ -22,8 +22,18 @@ describe('role workflow guide', () => {
     }
   });
 
-  it('preserves monthly E-Magazine ownership in the admin and copy-desk guidance', () => {
+  it('preserves monthly E-Magazine cadence in the admin and copy-desk guidance', () => {
     expect(getRoleWorkflowGuide('admin').authority).toContain('monthly issue');
     expect(getRoleWorkflowGuide('copy_editor').authority).toContain('monthly E-Magazine');
+  });
+
+  it('aligns publication ownership guidance with Super Admin-only page access', () => {
+    for (const role of ['admin', 'copy_editor'] as const) {
+      expect(canViewPage(role, 'epapers')).toBe(false);
+      expect(getRoleWorkflowGuide(role).authority).toContain('Super Admin owns E-Papers');
+    }
+    expect(canViewPage('super_admin', 'epapers')).toBe(true);
+    expect(getRoleWorkflowGuide('super_admin').authority).toContain('all E-Paper and monthly E-Magazine production');
+    expect(getRoleWorkflowGuide('copy_editor').steps.map(step => step.detail).join(' ')).not.toMatch(/publication desk|OCR|hotspots/);
   });
 });
