@@ -1,0 +1,171 @@
+{
+  "startedAt": "2026-10-11T16:45:30.391Z",
+  "codeHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
+  "roles": [
+    {
+      "role": "super_admin",
+      "credentialsSignIn": "passed",
+      "sessionRole": "super_admin",
+      "publicationsApiStatus": 200,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "admin",
+      "credentialsSignIn": "passed",
+      "sessionRole": "admin",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "copy_editor",
+      "credentialsSignIn": "passed",
+      "sessionRole": "copy_editor",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "reporter",
+      "credentialsSignIn": "passed",
+      "sessionRole": "reporter",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    }
+  ],
+  "productionWrites": [],
+  "failures": [],
+  "mongoPing": true,
+  "initialCollections": [],
+  "nodeEgressProbe": "blocked-before-socket",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 27038,
+    "name": "lokswami_phase318c_qa_e840907dae"
+  },
+  "mediaRoot": "/workspace/scratch/4915a7429527/isolated-qa-worktree/public/demo/lokswami",
+  "externalProviderCredentials": "unset; allowlisted environment",
+  "fixtureLimitations": [
+    "Video/short fixtures omitted: full snapshot import previously rejected unavailable required video thumbnails."
+  ],
+  "collections": {
+    "epapers": 3,
+    "users": 4,
+    "videos": 0,
+    "articles": 8,
+    "epaperocrsuggestions": 0,
+    "epaperprocessingjobs": 0,
+    "ttsassets": 0,
+    "contentactivities": 0,
+    "epapermutationreceipts": 0,
+    "ttsauditevents": 0,
+    "epaperarticles": 0,
+    "ttsconfigs": 0
+  },
+  "productionBuild": "Previously verified unchanged production artifact",
+  "serverReady": true,
+  "browserVersion": "151.0.7922.34",
+  "lastLoginWrites": 4,
+  "editorialSpotChecks": {
+    "startedAt": "2026-10-11T16:45:48.709Z",
+    "checks": [
+      {
+        "name": "Three public GETs preserve article views and updatedAt",
+        "status": "passed"
+      },
+      {
+        "name": "Reporter cannot publish directly",
+        "status": "passed",
+        "httpStatus": 403
+      },
+      {
+        "name": "Reporter creates owned draft",
+        "status": "passed",
+        "httpStatus": 201
+      },
+      {
+        "name": "Draft excluded from public reader",
+        "status": "passed",
+        "httpStatus": 404
+      },
+      {
+        "name": "reporter submit",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "admin assign",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Reporter approval denied",
+        "status": "passed",
+        "httpStatus": 403
+      },
+      {
+        "name": "copy_editor start_review",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "copy_editor move_to_copy_edit",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "copy_editor mark_ready_for_approval",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Copy Editor approval denied",
+        "status": "passed",
+        "httpStatus": 403
+      },
+      {
+        "name": "admin approve",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "admin schedule",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Future scheduled article excluded from reader",
+        "status": "passed",
+        "httpStatus": 404
+      },
+      {
+        "name": "admin publish",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Published article appears in reader",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "super_admin archive",
+        "status": "passed",
+        "httpStatus": 200
+      },
+      {
+        "name": "Archived article excluded from reader",
+        "status": "passed",
+        "httpStatus": 404
+      }
+    ],
+    "scope": "One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT",
+    "qaArticleId": "6acbbd3c5eb5399921ea7f8e",
+    "completedAt": "2026-10-11T16:45:49.086Z",
+    "ok": true
+  },
+  "completedAt": "2026-10-11T16:45:49.086Z",
+  "ok": true
+}

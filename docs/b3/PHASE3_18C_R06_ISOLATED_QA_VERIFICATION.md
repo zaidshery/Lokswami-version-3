@@ -32,9 +32,23 @@ The browser waited for sign-in hydration, filled the real staff login/password c
 | Copy Editor / qa-copy-editor | Passed | copy_editor | 403 | 0 |
 | Reporter / qa-reporter | Passed | reporter | 403 | 0 |
 
-All four QA user records had actual **lastLoginAt** writes afterward. The successful public report has **ok: true**, no failed assertions and no production writes. External font requests were blocked intentionally; aborted local prefetches during navigation are recorded separately from fatal JavaScript errors.
+All four QA user records had actual **lastLoginAt** writes afterward. The subsequent retained [sanitized browser report](evidence/R06_BROWSER_REPORT.json) repeats all four sign-ins and lastLoginAt assertions at 16:45 UTC and has **ok: true**, no failed assertions and no production writes. It reused the unchanged production artifact built in the earlier run. External font requests were blocked intentionally; aborted local prefetches during navigation are recorded separately from fatal JavaScript errors.
 
 Development-server attempts exposed premature clicks before hydration and a loopback callback-origin mismatch in the test setup. The successful run used the production build and a consistent localhost origin. Those attempts are not counted as successful browser checks and did not prompt unrelated product refactors.
+
+## Retained evidence and exact captured command
+
+- [Sanitized browser/isolation report](evidence/R06_BROWSER_REPORT.json): subsequent run on the same compiled candidate, including four real sign-ins, session roles, API status, four lastLoginAt writes, isolation and completion assertions. Private credentials and internal diagnostic screenshots are excluded.
+- [Editorial API report](evidence/R06_EDITORIAL_REPORT.json): all 18 assertions passed for one explicitly disposable QA article: public GET preserves views/updatedAt; Reporter cannot publish; draft/submit/assignment; Copy Editor review/handoff and approval denial; Admin approval/schedule/publish; Super Admin archive; reader visibility follows state.
+- [Exact captured runner source](evidence/R06_CAPTURE_RUNNER.txt) and [editorial check helper](evidence/R06_EDITORIAL_CHECKS.txt): retained as text evidence, not installed as a product entry point. These sources include historical scratch paths and require the matching verified snapshot, owned QA Mongo binary, Node/browser and local private configuration.
+
+The exact successful follow-up command, from the captured workspace root, was:
+
+```sh
+R06_SKIP_BUILD=1 R06_EXTRA_UAT=1 qa-runtime/node_modules/node/bin/node r06-orchestrate.cjs
+```
+
+The initial successful build/sign-in command omitted those two flags. The `.txt` evidence files preserve the executed `.cjs` sources; provisioning alone is not the browser runner. For a different checkout, use the prerequisites below and adjust only local paths/runtime locations. Never point this captured runner at production or supply production provider credentials. It creates an owned loopback Mongo process, a fresh random QA database and fresh credentials, and stops only its own children. The follow-up artifacts record **2026-10-11T16:45:30Z–16:45:49Z**; consult their exact timestamps rather than treating the first run and follow-up as one run.
 
 ## Reproduction prerequisites
 
@@ -51,7 +65,7 @@ Use the existing guarded tooling in a fresh isolated checkout:
 
 - Full snapshot import previously rejected unavailable video thumbnails under the required-thumbnail schema. Video/short fixtures were excluded rather than given invented thumbnails. Real provider playback remains unverified.
 - Publication API **read access** was verified, not every upload, metadata/page edit, OCR/hotspot, release or archive action, nor all direct page boundaries.
-- Four role sign-ins do not prove story submission, ownership/assignment, editorial review/changes, approval, scheduling, publication or archival. Full CMS lifecycle UAT remains separate.
+- The follow-up proves one article API lifecycle, not all story-package, ownership variants, changes-requested, media, publication or manual UI flows. Full CMS UAT remains separate.
 - This does not establish remote staging/media-bucket isolation, production credentials, real-device/screen-reader acceptance, field performance, backup restoration, migration, rollback or launch readiness.
 
 R06's recovered environment prerequisites are now verified for this disposable local run. Reprovisioning is required for future QA after its temporary processes/storage are removed.
