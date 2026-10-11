@@ -1,6 +1,5 @@
 {
-  "startedAt": "2026-10-11T16:45:30.391Z",
-  "codeHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
+  "startedAt": "2026-10-11T16:53:54.239Z",
   "roles": [
     {
       "role": "super_admin",
@@ -37,13 +36,17 @@
   ],
   "productionWrites": [],
   "failures": [],
+  "codeHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
+  "codeTree": "fdb5e2151398f385a52ae4a6b53d256a67db811c",
+  "trackedSourceClean": true,
+  "captureRunnerSha256": "0de696f747810838bda57fca4d260ca8fcbca50874a1c4c8162d4bb7ebaa78d7",
   "mongoPing": true,
   "initialCollections": [],
   "nodeEgressProbe": "blocked-before-socket",
   "database": {
     "host": "127.0.0.1",
     "port": 27038,
-    "name": "lokswami_phase318c_qa_e840907dae"
+    "name": "lokswami_phase318c_qa_e0ff9f248d"
   },
   "mediaRoot": "/workspace/scratch/4915a7429527/isolated-qa-worktree/public/demo/lokswami",
   "externalProviderCredentials": "unset; allowlisted environment",
@@ -54,22 +57,32 @@
     "epapers": 3,
     "users": 4,
     "videos": 0,
-    "articles": 8,
+    "ttsconfigs": 0,
+    "contentactivities": 0,
+    "ttsauditevents": 0,
+    "ttsassets": 0,
     "epaperocrsuggestions": 0,
     "epaperprocessingjobs": 0,
-    "ttsassets": 0,
-    "contentactivities": 0,
+    "articles": 8,
     "epapermutationreceipts": 0,
-    "ttsauditevents": 0,
-    "epaperarticles": 0,
-    "ttsconfigs": 0
+    "epaperarticles": 0
   },
-  "productionBuild": "Previously verified unchanged production artifact",
+  "productionBuild": "passed",
+  "buildProvenance": {
+    "freshBuild": true,
+    "builtAt": "2026-10-11T16:55:17.196Z",
+    "gitHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
+    "gitTree": "fdb5e2151398f385a52ae4a6b53d256a67db811c",
+    "buildId": "nV9rPjXruVJWxTzz0XGvZ",
+    "buildIdSha256": "7e865c2997961c1c52f8b8d1fed7dac4fcc2785cc03d7854db28093e65b7fee4",
+    "buildManifestSha256": "34114b2029c387ee3be7ccd1ff135a086d876c010b15d306e6a1f3768fbedd5a",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
   "serverReady": true,
   "browserVersion": "151.0.7922.34",
   "lastLoginWrites": 4,
   "editorialSpotChecks": {
-    "startedAt": "2026-10-11T16:45:48.709Z",
+    "startedAt": "2026-10-11T16:55:29.473Z",
     "checks": [
       {
         "name": "Three public GETs preserve article views and updatedAt",
@@ -162,10 +175,10 @@
       }
     ],
     "scope": "One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT",
-    "qaArticleId": "6acbbd3c5eb5399921ea7f8e",
-    "completedAt": "2026-10-11T16:45:49.086Z",
+    "qaArticleId": "6acbbf81f9d8cef012f96ac0",
+    "completedAt": "2026-10-11T16:55:29.917Z",
     "ok": true
   },
-  "completedAt": "2026-10-11T16:45:49.086Z",
+  "completedAt": "2026-10-11T16:55:29.917Z",
   "ok": true
 }

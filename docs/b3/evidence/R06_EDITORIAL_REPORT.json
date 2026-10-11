@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-10-11T16:45:48.709Z",
+  "startedAt": "2026-10-11T16:55:29.473Z",
   "checks": [
     {
       "name": "Three public GETs preserve article views and updatedAt",
@@ -92,7 +92,7 @@
     }
   ],
   "scope": "One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT",
-  "qaArticleId": "6acbbd3c5eb5399921ea7f8e",
-  "completedAt": "2026-10-11T16:45:49.086Z",
+  "qaArticleId": "6acbbf81f9d8cef012f96ac0",
+  "completedAt": "2026-10-11T16:55:29.917Z",
   "ok": true
 }

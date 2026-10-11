@@ -1,71 +1,85 @@
 # Phase 3.18C R06 — isolated QA environment verification
 
-## Recovered finding and scope
+## Finding and result
 
-Earlier audit discussion identifies R06 as **“No verified isolated database, installed dependencies or usable role credentials.”** The complete original audit was not recovered verbatim. This report verifies the environment prerequisites using actual MongoDB, canonical staff password authentication and Chromium; it does not equate those prerequisites with full editorial or publication UAT.
+Earlier audit discussion identifies R06 as **“No verified isolated database, installed dependencies or usable role credentials.”** The complete original audit was not recovered verbatim. This report supersedes the historical “R06 unidentified” note in the R08 capture report.
 
-This supersedes the historical “R06 unidentified” note in the R08 capture report. The owner authorized completing this audit work, including reversible isolated QA writes. No production environment was configured, deployed or mutated.
+R06's recovered environment prerequisites are verified for this disposable local run. All four roles completed real staff password sign-in; publication read-access restrictions and 18 authenticated article API assertions passed. This is not full CMS/publication/manual UAT or production readiness.
 
-## Verified target
+The owner authorized reversible isolated QA writes. No production target, provider credentials, external deployment or production data mutation was used.
 
-Production candidate code: **5237e5760ac8fe3e7c91254c692149f14b129e75** (integrated foundation after #43). Run: **2026-10-11T16:39:36.006Z–16:40:53.115Z**.
+## Candidate and build provenance
+
+Run: **2026-10-11T16:53:54.239Z–2026-10-11T16:55:29.917Z**.
+
+- Actual Git HEAD queried by the runner: **5237e5760ac8fe3e7c91254c692149f14b129e75**.
+- Actual tracked tree: **fdb5e2151398f385a52ae4a6b53d256a67db811c**.
+- Tracked source was verified unchanged before and after **a fresh build:ci**. Reused builds are refused.
+- Production build passed with 175 generated pages.
+- Build ID: **nV9rPjXruVJWxTzz0XGvZ**.
+- BUILD_ID SHA-256: **7e865c2997961c1c52f8b8d1fed7dac4fcc2785cc03d7854db28093e65b7fee4**.
+- Build manifest SHA-256: **34114b2029c387ee3be7ccd1ff135a086d876c010b15d306e6a1f3768fbedd5a**.
+- Lockfile SHA-256: **8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2**.
+- Executed capture runner SHA-256: **0de696f747810838bda57fca4d260ca8fcbca50874a1c4c8162d4bb7ebaa78d7**.
+
+The candidate is the integrated foundation after #43. This PR adds documentation/evidence only. Git identity is queried rather than supplied as a hard-coded success label, and the retained runner/report tie this execution to a fresh artifact.
+
+## Isolation and fixtures
 
 - Node 20.20.2; dependencies installed from the repository lockfile; Chromium 151.0.7922.34.
-- QA-only MongoDB 7.0.16, bound to **127.0.0.1:27038**, with no Unix socket and fresh disposable storage. This version is a test runtime, not a production upgrade recommendation.
-- Unique database **lokswami_phase318c_qa_a834e0fd17**; actual initial collection inventory empty.
-- Canonical reserved identities provisioned by **npm run cms:qa:provision**, with explicit opt-in, exact database-name confirmation and fresh random passwords. Four active canonical roles; no bootstrap-owner credentials or fabricated sessions.
-- Media copied only into the isolated checkout's **public/demo/lokswami** directory. Existing guarded demo harness imported **8 real articles, 2 daily E-Papers and 1 monthly E-Magazine** from the read-only R08 snapshot.
-- Allowlisted application environment; external provider credentials unset, social provider manual, publication automation/remote OCR disabled. The existing test-only offline network guard blocked an external Node fetch before opening its socket. Chromium allowed only the chosen **http://localhost:3318** application origin.
-- **build:ci passed**, generating 175 pages. The application was started as a local production-build server; this was not an external deployment.
-- Passwords, auth secrets and hashes stayed in private temporary configuration and are absent from this report, commits and public evidence.
+- QA-only MongoDB 7.0.16, bound to **127.0.0.1:27038**, with no Unix socket and fresh disposable storage. This is a test runtime, not a production upgrade recommendation.
+- Unique database **lokswami_phase318c_qa_e0ff9f248d**; actual initial collection inventory empty.
+- Canonical reserved identities provisioned by **npm run cms:qa:provision** with explicit opt-in, exact database-name confirmation and fresh random passwords. No bootstrap-owner credentials or fabricated sessions.
+- Media copied only into the isolated checkout's **public/demo/lokswami**. The existing guarded harness imported **8 actual source articles, 2 daily E-Papers and 1 monthly E-Magazine** from the verified read-only R08 snapshot.
+- One explicitly disposable QA article was created and archived separately by the editorial API checks.
+- The application environment is allowlisted; external provider credentials unset, social provider manual, publication automation/remote OCR disabled.
+- The existing offline network guard blocked an external Node fetch before opening its socket. Chromium allowed only **http://localhost:3318**.
+- MongoDB, provisioning, seeding, build, app and browser ran in one process tree/network namespace. Cleanup stopped only owned child processes.
+- Passwords, actual auth secret values, hashes and cookies stayed in private temporary configuration and are excluded from the reports, commits and evidence packet.
 
-MongoDB, seeding, application and browser processes were run in one process tree so they shared the same local network namespace. Every process stopped by the harness was its own child. No broad process killing or production cleanup occurred.
+## Actual role and editorial proof
 
-## Actual credentials and access proof
+The browser waited for React hydration, filled actual staff login/password controls, submitted through the real Auth.js credentials flow and followed the authenticated redirect. Auth/API responses were not mocked and session cookies were not forged.
 
-The browser waited for sign-in hydration, filled the real staff login/password controls, submitted them through the real Auth.js credentials flow, and followed the authenticated redirect. No session cookie was forged and no auth/API response was mocked.
-
-| Role / reserved login | Password sign-in | Actual session role | GET /api/admin/epapers | Fatal page errors |
+| Role / reserved login | Password sign-in | Actual session role | GET /api/admin/epapers | Fatal browser errors |
 | --- | --- | --- | ---: | ---: |
 | Super Admin / qa-super-admin | Passed | super_admin | 200 | 0 |
 | Admin / qa-admin | Passed | admin | 403 | 0 |
 | Copy Editor / qa-copy-editor | Passed | copy_editor | 403 | 0 |
 | Reporter / qa-reporter | Passed | reporter | 403 | 0 |
 
-All four QA user records had actual **lastLoginAt** writes afterward. The subsequent retained [sanitized browser report](evidence/R06_BROWSER_REPORT.json) repeats all four sign-ins and lastLoginAt assertions at 16:45 UTC and has **ok: true**, no failed assertions and no production writes. It reused the unchanged production artifact built in the earlier run. External font requests were blocked intentionally; aborted local prefetches during navigation are recorded separately from fatal JavaScript errors.
+All four QA user records have actual **lastLoginAt** writes. The retained report has **ok: true**, no failed assertions and no production writes. Intentional external font blocking is separate from fatal JavaScript errors.
 
-Development-server attempts exposed premature clicks before hydration and a loopback callback-origin mismatch in the test setup. The successful run used the production build and a consistent localhost origin. Those attempts are not counted as successful browser checks and did not prompt unrelated product refactors.
+The 18 actual API assertions cover: three public GETs preserving views/updatedAt; Reporter direct-publish denial, owned draft creation and submission; draft exclusion; Admin assignment; Reporter approval denial; assigned Copy Editor review/copy-edit/handoff and approval denial; Admin approval/future scheduling; future-scheduled exclusion; explicit publication/reader visibility; Super Admin archival/reader exclusion. These verify one article lifecycle, not every content/workflow variant.
 
-## Retained evidence and exact captured command
+## Retained evidence and exact command
 
-- [Sanitized browser/isolation report](evidence/R06_BROWSER_REPORT.json): subsequent run on the same compiled candidate, including four real sign-ins, session roles, API status, four lastLoginAt writes, isolation and completion assertions. Private credentials and internal diagnostic screenshots are excluded.
-- [Editorial API report](evidence/R06_EDITORIAL_REPORT.json): all 18 assertions passed for one explicitly disposable QA article: public GET preserves views/updatedAt; Reporter cannot publish; draft/submit/assignment; Copy Editor review/handoff and approval denial; Admin approval/schedule/publish; Super Admin archive; reader visibility follows state.
-- [Exact captured runner source](evidence/R06_CAPTURE_RUNNER.txt) and [editorial check helper](evidence/R06_EDITORIAL_CHECKS.txt): retained as text evidence, not installed as a product entry point. These sources include historical scratch paths and require the matching verified snapshot, owned QA Mongo binary, Node/browser and local private configuration.
+- [Sanitized browser/isolation/provenance report](evidence/R06_BROWSER_REPORT.json)
+- [Editorial API assertion report](evidence/R06_EDITORIAL_REPORT.json)
+- [Exact captured runner source](evidence/R06_CAPTURE_RUNNER.txt)
+- [Exact editorial helper source](evidence/R06_EDITORIAL_CHECKS.txt)
 
-The exact successful follow-up command, from the captured workspace root, was:
+The exact successful command, from the captured workspace root:
 
 ```sh
-R06_SKIP_BUILD=1 R06_EXTRA_UAT=1 qa-runtime/node_modules/node/bin/node r06-orchestrate.cjs
+R06_EXTRA_UAT=1 qa-runtime/node_modules/node/bin/node r06-orchestrate.cjs
 ```
 
-The initial successful build/sign-in command omitted those two flags. The `.txt` evidence files preserve the executed `.cjs` sources; provisioning alone is not the browser runner. For a different checkout, use the prerequisites below and adjust only local paths/runtime locations. Never point this captured runner at production or supply production provider credentials. It creates an owned loopback Mongo process, a fresh random QA database and fresh credentials, and stops only its own children. The follow-up artifacts record **2026-10-11T16:45:30Z–16:45:49Z**; consult their exact timestamps rather than treating the first run and follow-up as one run.
+The .txt files preserve the executed .cjs sources as evidence; they are not product entry points. Their historical scratch/runtime paths require adjustment for a different checkout. The source hash in the JSON matches the captured runner text. The runner creates an owned loopback Mongo process, fresh random QA database and credentials; verifies Git/build provenance; executes actual browser/API checks; and stops its own children.
 
 ## Reproduction prerequisites
 
-Use the existing guarded tooling in a fresh isolated checkout:
+1. Use a fresh isolated checkout, locked Node 20 dependencies, matching Playwright browser and an owned QA Mongo binary. Use disposable loopback storage.
+2. Provision canonical identities using the existing guarded **cms:qa:provision** command: **MONGODB_URI**, **LOKSWAMI_CMS_QA=true**, exact **LOKSWAMI_CMS_QA_DB_NAME**, and four private **LOKSWAMI_QA_*_PASSWORD** values. The provisioner refuses production/remote targets, ambiguous names, missing opt-in/passwords and non-QA identity collisions.
+3. Point **LOKSWAMI_SNAPSHOT_DIR** at the verified R08 snapshot and enable **LOKSWAMI_DEMO_DATA=true**. Seed **--source=lokswami --scenario=article --breaking=none**, then **--scenario=epaper**, using **npm run demo:seed --**.
+4. Use a fresh private auth secret and one consistent loopback origin for AUTH_URL/NEXTAUTH_URL/NEXT_PUBLIC_SITE_URL. Unset external credentials; use manual social delivery and test-only **scripts/phase3/offline-network-guard.cjs**. Restrict browser requests to the exact local app origin.
+5. Build freshly and run the production candidate locally; do not bypass build or provenance assertions. Sign in separately as every role and execute the retained checks.
+6. Stop only owned processes. Accounts/storage are disposable; this report does not provide a persistent hosted QA service.
 
-1. Install the locked Node 20 dependencies and matching Playwright browser. Start an owned MongoDB bound only to loopback with fresh disposable storage and a clearly QA-named database.
-2. Set **MONGODB_URI** to that exact loopback database. Set **LOKSWAMI_CMS_QA=true**, **LOKSWAMI_CMS_QA_DB_NAME** to its exact name and all four **LOKSWAMI_QA_*_PASSWORD** values privately. Run **npm run cms:qa:provision**. The provisioner refuses production/remote targets, ambiguous names, missing opt-in/passwords and non-QA identity collisions.
-3. Configure **LOKSWAMI_DEMO_DATA=true** and **LOKSWAMI_SNAPSHOT_DIR** to the verified R08 snapshot. Run **npm run demo:seed -- --source=lokswami --scenario=article --breaking=none**, then the same command with **--scenario=epaper**.
-4. Give the local app a fresh private auth secret and consistent loopback **AUTH_URL/NEXTAUTH_URL/NEXT_PUBLIC_SITE_URL**. Unset provider credentials; use manual social delivery and the existing **scripts/phase3/offline-network-guard.cjs** through test-only NODE_OPTIONS. Limit browser requests to the exact local origin.
-5. Build and start the production candidate locally. Sign in separately as each role; inspect the actual authenticated session and publication API status. Capture assertion results without credentials.
-6. Stop only owned test processes. Treat temporary QA accounts/storage as disposable; this report does not provide a hosted persistent QA service.
+## Remaining acceptance
 
-## Limits and remaining acceptance
+Full snapshot import previously rejected unavailable required video thumbnails; videos/shorts were excluded rather than given invented thumbnails. Provider playback remains unverified.
 
-- Full snapshot import previously rejected unavailable video thumbnails under the required-thumbnail schema. Video/short fixtures were excluded rather than given invented thumbnails. Real provider playback remains unverified.
-- Publication API **read access** was verified, not every upload, metadata/page edit, OCR/hotspot, release or archive action, nor all direct page boundaries.
-- The follow-up proves one article API lifecycle, not all story-package, ownership variants, changes-requested, media, publication or manual UI flows. Full CMS UAT remains separate.
-- This does not establish remote staging/media-bucket isolation, production credentials, real-device/screen-reader acceptance, field performance, backup restoration, migration, rollback or launch readiness.
+Publication API read access was checked, not every upload, metadata/page edit, OCR/hotspot, release/archive action or direct page boundary. Story packages, ownership variants, changes requested, media and full manual UI flows remain UAT work.
 
-R06's recovered environment prerequisites are now verified for this disposable local run. Reprovisioning is required for future QA after its temporary processes/storage are removed.
+This does not establish remote staging/media-bucket isolation, production credentials, real-device/screen-reader acceptance, field performance, backup restoration, migration, rollback or launch readiness. Reprovisioning is required after the disposable environment is removed.
