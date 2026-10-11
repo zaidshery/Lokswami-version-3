@@ -46,3 +46,11 @@ jobs:
 
       - name: Build (CI-safe)
         run: npm run build:ci
+
+      - name: Critical browser smoke (production build)
+        run: npx playwright test tests/e2e/admin-critical-flows.spec.js
+        env:
+          DISABLE_REQUEST_LOG: 'true'
+          AUTH_SECRET: 'ci-browser-smoke-only-not-a-production-secret'
+          AUTH_TRUST_HOST: 'true'
+          NEXTAUTH_URL: 'http://localhost:3000'
