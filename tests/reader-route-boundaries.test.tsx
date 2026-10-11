@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReaderError from '@/app/(reader)/main/error';
 import ReaderLoading from '@/app/(reader)/main/loading';
@@ -6,6 +7,11 @@ import ReaderLoading from '@/app/(reader)/main/loading';
 const state = vi.hoisted(() => ({ language: 'en' as 'en' | 'hi' }));
 vi.mock('@/lib/store/appStore', () => ({
   useAppStore: (selector: (value: typeof state) => unknown) => selector(state),
+}));
+vi.mock('next/link', () => ({
+  default: ({ href, children }: { href: string; children: ReactNode }) => (
+    <a href={href} data-client-navigation="true">{children}</a>
+  ),
 }));
 
 describe('reader route boundaries', () => {
@@ -29,6 +35,7 @@ describe('reader route boundaries', () => {
     render(<ReaderError error={error} reset={reset} />);
     expect(screen.getByRole('alert')).toHaveTextContent(title);
     expect(screen.getByRole('link', { name: home })).toHaveAttribute('href', '/main');
+    expect(screen.getByRole('link', { name: home })).not.toHaveAttribute('data-client-navigation');
     fireEvent.click(screen.getByRole('button', { name: retry }));
     expect(reset).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/private database|private-digest/)).not.toBeInTheDocument();
