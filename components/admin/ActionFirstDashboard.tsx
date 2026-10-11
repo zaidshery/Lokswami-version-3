@@ -74,6 +74,7 @@ function pretty(value: string): string {
 function dueLabel(value: string | null, language: 'en' | 'hi'): string {
   if (!value) return language === 'hi' ? 'कोई समय-सीमा नहीं' : 'No deadline';
   return new Intl.DateTimeFormat(language === 'hi' ? 'hi-IN' : 'en-IN', {
+    timeZone: 'Asia/Kolkata',
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(value));
