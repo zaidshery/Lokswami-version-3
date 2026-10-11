@@ -1,6 +1,7 @@
 const fs=require('fs'),path=require('path'),assert=require('assert'),crypto=require('crypto');
-module.exports=async function({contexts,db,origin,root}){
- const evidence={startedAt:new Date().toISOString(),checks:[],scope:'One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT'};
+module.exports=async function({contexts,db,origin,root,helperSourceSha256}){
+ assert.match(helperSourceSha256,/^[a-f0-9]{64}$/);
+ const evidence={startedAt:new Date().toISOString(),helperSourceSha256,checks:[],scope:'One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT'};
  const record=(name,status,details)=>{evidence.checks.push({name,status,...details});console.log('Editorial QA: '+name+' '+status)};
  async function call(role,method,url,data,expected,label){const response=await contexts[role].request.fetch(origin+url,{method,data,headers:{Origin:origin},timeout:30000});const payload=await response.json();assert.equal(response.status(),expected,label+': '+JSON.stringify(payload));record(label,'passed',{httpStatus:response.status()});return payload}
  const original=await db.collection('articles').findOne();assert(original);const beforeViews=original.views,beforeUpdated=original.updatedAt;

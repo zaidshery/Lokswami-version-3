@@ -10,32 +10,34 @@ The owner authorized reversible isolated QA writes. No production target, provid
 
 ## Candidate and build provenance
 
-Run: **2026-10-11T16:53:54.239Z–2026-10-11T16:55:29.917Z**.
+Run: **2026-10-11T17:09:03.314Z–2026-10-11T17:10:36.323Z**.
 
 - Actual Git HEAD queried by the runner: **5237e5760ac8fe3e7c91254c692149f14b129e75**.
 - Actual tracked tree: **fdb5e2151398f385a52ae4a6b53d256a67db811c**.
-- Tracked source was verified unchanged before and after **a fresh build:ci**. Reused builds are refused.
+- Tracked source is compared against **HEAD**, including staged and unstaged changes, before and after **a fresh build:ci**. Reused builds are refused.
+- Negative controls confirmed a clean fixture passes and staged/unstaged tracked changes are rejected.
 - Production build passed with 175 generated pages.
-- Build ID: **nV9rPjXruVJWxTzz0XGvZ**.
-- BUILD_ID SHA-256: **7e865c2997961c1c52f8b8d1fed7dac4fcc2785cc03d7854db28093e65b7fee4**.
-- Build manifest SHA-256: **34114b2029c387ee3be7ccd1ff135a086d876c010b15d306e6a1f3768fbedd5a**.
+- Build ID: **28rBUb_F0CHO4OLcbZowS**.
+- BUILD_ID SHA-256: **5198b285f43dbb0c0a6ea40df1e27c9bdbff89f9852f09f82f9bfdfb28bf25d6**.
+- Build manifest SHA-256: **2bfccaa766e0eea471fa1f16ee7a72fcf02a64223f52840ba8fda16c7fcb7a81**.
 - Lockfile SHA-256: **8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2**.
-- Executed capture runner SHA-256: **0de696f747810838bda57fca4d260ca8fcbca50874a1c4c8162d4bb7ebaa78d7**.
+- Executed capture runner SHA-256: **8deacaabffa2a6952acdaad85237162347a403c018c49b6f9d9cf86ac0c5a4ad**.
+- Executed editorial helper SHA-256: **e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993**.
 
-The candidate is the integrated foundation after #43. This PR adds documentation/evidence only. Git identity is queried rather than supplied as a hard-coded success label, and the retained runner/report tie this execution to a fresh artifact.
+The candidate is the integrated foundation after #43. This PR adds documentation/evidence only. Git identity is queried rather than supplied as a hard-coded success label. The helper's captured bytes are hashed and compiled directly; those exact bytes execute the assertions, and their hash is recorded in both JSON reports.
 
 ## Isolation and fixtures
 
 - Node 20.20.2; dependencies installed from the repository lockfile; Chromium 151.0.7922.34.
 - QA-only MongoDB 7.0.16, bound to **127.0.0.1:27038**, with no Unix socket and fresh disposable storage. This is a test runtime, not a production upgrade recommendation.
-- Unique database **lokswami_phase318c_qa_e0ff9f248d**; actual initial collection inventory empty.
+- Unique database **lokswami_phase318c_qa_9ffa6f93ae**; actual initial collection inventory empty.
 - Canonical reserved identities provisioned by **npm run cms:qa:provision** with explicit opt-in, exact database-name confirmation and fresh random passwords. No bootstrap-owner credentials or fabricated sessions.
 - Media copied only into the isolated checkout's **public/demo/lokswami**. The existing guarded harness imported **8 actual source articles, 2 daily E-Papers and 1 monthly E-Magazine** from the verified read-only R08 snapshot.
 - One explicitly disposable QA article was created and archived separately by the editorial API checks.
 - The application environment is allowlisted; external provider credentials unset, social provider manual, publication automation/remote OCR disabled.
 - The existing offline network guard blocked an external Node fetch before opening its socket. Chromium allowed only **http://localhost:3318**.
 - MongoDB, provisioning, seeding, build, app and browser ran in one process tree/network namespace. Cleanup stopped only owned child processes.
-- Passwords, actual auth secret values, hashes and cookies stayed in private temporary configuration and are excluded from the reports, commits and evidence packet.
+- Passwords, actual auth secret values, password hashes and cookies stayed in private temporary configuration and are excluded from the reports, commits and evidence packet.
 
 ## Actual role and editorial proof
 
@@ -65,7 +67,7 @@ The exact successful command, from the captured workspace root:
 R06_EXTRA_UAT=1 qa-runtime/node_modules/node/bin/node r06-orchestrate.cjs
 ```
 
-The .txt files preserve the executed .cjs sources as evidence; they are not product entry points. Their historical scratch/runtime paths require adjustment for a different checkout. The source hash in the JSON matches the captured runner text. The runner creates an owned loopback Mongo process, fresh random QA database and credentials; verifies Git/build provenance; executes actual browser/API checks; and stops its own children.
+The .txt files preserve the executed .cjs sources as evidence; they are not product entry points. Their historical scratch/runtime paths require adjustment for a different checkout. The source hashes in the JSON match the captured runner and editorial helper text. The runner creates an owned loopback Mongo process, fresh random QA database and credentials; verifies Git/build provenance; executes actual browser/API checks; and stops its own children.
 
 ## Reproduction prerequisites
 
@@ -83,3 +85,4 @@ Full snapshot import previously rejected unavailable required video thumbnails; 
 Publication API read access was checked, not every upload, metadata/page edit, OCR/hotspot, release/archive action or direct page boundary. Story packages, ownership variants, changes requested, media and full manual UI flows remain UAT work.
 
 This does not establish remote staging/media-bucket isolation, production credentials, real-device/screen-reader acceptance, field performance, backup restoration, migration, rollback or launch readiness. Reprovisioning is required after the disposable environment is removed.
+

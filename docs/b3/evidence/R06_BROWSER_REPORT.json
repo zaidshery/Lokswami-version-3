@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-10-11T16:53:54.239Z",
+  "startedAt": "2026-10-11T17:09:03.314Z",
   "roles": [
     {
       "role": "super_admin",
@@ -39,14 +39,14 @@
   "codeHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
   "codeTree": "fdb5e2151398f385a52ae4a6b53d256a67db811c",
   "trackedSourceClean": true,
-  "captureRunnerSha256": "0de696f747810838bda57fca4d260ca8fcbca50874a1c4c8162d4bb7ebaa78d7",
+  "captureRunnerSha256": "8deacaabffa2a6952acdaad85237162347a403c018c49b6f9d9cf86ac0c5a4ad",
   "mongoPing": true,
   "initialCollections": [],
   "nodeEgressProbe": "blocked-before-socket",
   "database": {
     "host": "127.0.0.1",
     "port": 27038,
-    "name": "lokswami_phase318c_qa_e0ff9f248d"
+    "name": "lokswami_phase318c_qa_9ffa6f93ae"
   },
   "mediaRoot": "/workspace/scratch/4915a7429527/isolated-qa-worktree/public/demo/lokswami",
   "externalProviderCredentials": "unset; allowlisted environment",
@@ -54,35 +54,37 @@
     "Video/short fixtures omitted: full snapshot import previously rejected unavailable required video thumbnails."
   ],
   "collections": {
-    "epapers": 3,
-    "users": 4,
-    "videos": 0,
-    "ttsconfigs": 0,
-    "contentactivities": 0,
-    "ttsauditevents": 0,
-    "ttsassets": 0,
-    "epaperocrsuggestions": 0,
-    "epaperprocessingjobs": 0,
-    "articles": 8,
+    "epaperarticles": 0,
     "epapermutationreceipts": 0,
-    "epaperarticles": 0
+    "ttsconfigs": 0,
+    "articles": 8,
+    "videos": 0,
+    "epapers": 3,
+    "epaperocrsuggestions": 0,
+    "ttsassets": 0,
+    "epaperprocessingjobs": 0,
+    "users": 4,
+    "ttsauditevents": 0,
+    "contentactivities": 0
   },
   "productionBuild": "passed",
   "buildProvenance": {
     "freshBuild": true,
-    "builtAt": "2026-10-11T16:55:17.196Z",
+    "builtAt": "2026-10-11T17:10:23.532Z",
     "gitHead": "5237e5760ac8fe3e7c91254c692149f14b129e75",
     "gitTree": "fdb5e2151398f385a52ae4a6b53d256a67db811c",
-    "buildId": "nV9rPjXruVJWxTzz0XGvZ",
-    "buildIdSha256": "7e865c2997961c1c52f8b8d1fed7dac4fcc2785cc03d7854db28093e65b7fee4",
-    "buildManifestSha256": "34114b2029c387ee3be7ccd1ff135a086d876c010b15d306e6a1f3768fbedd5a",
+    "buildId": "28rBUb_F0CHO4OLcbZowS",
+    "buildIdSha256": "5198b285f43dbb0c0a6ea40df1e27c9bdbff89f9852f09f82f9bfdfb28bf25d6",
+    "buildManifestSha256": "2bfccaa766e0eea471fa1f16ee7a72fcf02a64223f52840ba8fda16c7fcb7a81",
     "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
   },
   "serverReady": true,
   "browserVersion": "151.0.7922.34",
   "lastLoginWrites": 4,
+  "editorialHelperSha256": "e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993",
   "editorialSpotChecks": {
-    "startedAt": "2026-10-11T16:55:29.473Z",
+    "startedAt": "2026-10-11T17:10:35.914Z",
+    "helperSourceSha256": "e0d261d86d77f31a3fea6080ca7fb39fc0c42296047c85a23d63cc29f35ae993",
     "checks": [
       {
         "name": "Three public GETs preserve article views and updatedAt",
@@ -175,10 +177,10 @@
       }
     ],
     "scope": "One isolated article lifecycle through real authenticated APIs; not full CMS/manual/publication UAT",
-    "qaArticleId": "6acbbf81f9d8cef012f96ac0",
-    "completedAt": "2026-10-11T16:55:29.917Z",
+    "qaArticleId": "6acbc30cbf61b2e376950ede",
+    "completedAt": "2026-10-11T17:10:36.322Z",
     "ok": true
   },
-  "completedAt": "2026-10-11T16:55:29.917Z",
+  "completedAt": "2026-10-11T17:10:36.323Z",
   "ok": true
 }
