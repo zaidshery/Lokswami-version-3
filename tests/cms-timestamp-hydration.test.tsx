@@ -22,7 +22,7 @@ const overview: WorkQueueOverview = {
     assignedToId: 'reporter-1', assignedToEmail: 'reporter@example.com', assignedToName: 'Reporter', createdById: 'reporter-1', createdByEmail: 'reporter@example.com', createdByName: 'Reporter', dueAt: '2026-07-17T09:00:00.000Z', scheduledFor: null, commentsCount: 0,
     readiness: buildEditorialReadiness({ contentType: 'story', title: 'Timezone acceptance story', category: 'Regional', mediaUrl: '/qa-story.jpg' }),
     editHref: '/admin/stories/qa-story/edit', deskHref: '/admin/stories', reporterSummary: null, copyEditorSummary: null,
-    isMine: true, isUnassigned: false, isOverdue: false, availableActions: [], nextAction: null, nextActionLabel: 'Open item',
+    isMine: true, isUnassigned: false, isOverdue: false, availableActions: [], nextAction: 'open', nextActionLabel: 'Open item',
   }],
 };
 
