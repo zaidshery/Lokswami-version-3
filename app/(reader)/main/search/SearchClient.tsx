@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store/appStore';
-import { articles as mockArticles, type Article } from '@/lib/mock/data';
+import type { Article } from '@/lib/mock/data';
 import { NEWS_CATEGORY_DEFINITIONS } from '@/lib/constants/newsCategories';
 import NewsCard from '@/components/ui/NewsCard';
 import { Search, X, TrendingUp, Clock, Filter } from 'lucide-react';
@@ -21,8 +21,8 @@ export default function SearchClient() {
 
   const [query, setQuery] = useState(initialQuery);
   const [completedQuery, setCompletedQuery] = useState('');
-  const [sourceArticles, setSourceArticles] = useState<Article[]>(mockArticles);
-  const [searchResults, setSearchResults] = useState<Article[]>(mockArticles);
+  const [sourceArticles, setSourceArticles] = useState<Article[]>([]);
+  const [searchResults, setSearchResults] = useState<Article[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState<'relevance' | 'latest' | 'popular'>('relevance');
 

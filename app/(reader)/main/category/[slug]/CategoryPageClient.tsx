@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Grid3X3, List } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
-import { articles as mockArticles, type Article } from '@/lib/mock/data';
+import type { Article } from '@/lib/mock/data';
 import NewsCard from '@/components/ui/NewsCard';
 import HeroCard from '@/components/ui/HeroCard';
 import { categoryMatches, fetchMergedLiveArticles } from '@/lib/content/liveArticles';
@@ -61,7 +61,7 @@ export default function CategoryPageClient({
   const [sortBy, setSortBy] = useState<'latest' | 'popular'>('latest');
   const initialArticles = useMemo(() => {
     const mapped = mapPublicArticlesToUiArticles(initialItems);
-    return mapped.length ? mapped : mockArticles;
+    return mapped;
   }, [initialItems]);
   const [articlesData, setArticlesData] = useState<Article[]>(initialArticles);
   const [visibleCount, setVisibleCount] = useState(CATEGORY_INITIAL_VISIBLE_COUNT);
@@ -103,8 +103,9 @@ export default function CategoryPageClient({
         category: slug,
       });
 
-      if (active && v1Feed?.items.length) {
-        setArticlesData(mapPublicArticlesToUiArticles(v1Feed.items));
+      const mapped = mapPublicArticlesToUiArticles(v1Feed?.items ?? []);
+      if (mapped.length) {
+        if (active) setArticlesData(mapped);
         return;
       }
 
@@ -112,14 +113,14 @@ export default function CategoryPageClient({
       if (active) setArticlesData(merged);
     };
 
-    if (!initialItems.length) {
+    if (!initialArticles.length) {
       load();
     }
 
     return () => {
       active = false;
     };
-  }, [slug, initialItems.length]);
+  }, [slug, initialArticles.length]);
 
   const categoryArticles = useMemo(() => {
     return articlesData.filter((article) =>
