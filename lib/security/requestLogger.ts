@@ -71,7 +71,8 @@ function getString(value: unknown) {
 
 function isSensitiveQueryKey(key: string) {
   const normalized = key.toLowerCase().replace(/[-\s]/g, '_');
-  return SENSITIVE_QUERY_KEYS.some((sensitive) => normalized.includes(sensitive));
+  return normalized === 'q' || normalized === 'query' ||
+    SENSITIVE_QUERY_KEYS.some((sensitive) => normalized.includes(sensitive));
 }
 
 export function sanitizeRequestLogPath(pathWithSearch: string) {
