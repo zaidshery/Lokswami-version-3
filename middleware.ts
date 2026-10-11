@@ -3,7 +3,7 @@ import type { NextFetchEvent, NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { LOKSWAMI_SESSION_COOKIE } from '@/lib/auth/cookies';
 import { getJwtSecretOrNull } from '@/lib/auth/jwtSecret';
-import { resolveRouteGuardDecision } from '@/lib/auth/routeGuards';
+import { isReaderProtectedPath, resolveRouteGuardDecision } from '@/lib/auth/routeGuards';
 import { checkRateLimit } from '@/lib/security/getRateLimiter';
 import type { RateLimitCheckResult } from '@/lib/security/getRateLimiter';
 import {
@@ -377,6 +377,16 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     return scheduleRequestLog(NextResponse.next());
   } catch (error) {
     console.error('Middleware auth check failed:', error);
+    if (
+      pathname === '/admin' || pathname.startsWith('/admin/') ||
+      pathname === '/api/admin' || pathname.startsWith('/api/admin/') ||
+      isReaderProtectedPath(pathname)
+    ) {
+      return NextResponse.json(
+        { error: 'Authentication temporarily unavailable' },
+        { status: 503, headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
     return NextResponse.next();
   }
 }
