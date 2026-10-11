@@ -24,6 +24,7 @@ describe('role workflow guide', () => {
 
   it('preserves monthly E-Magazine cadence in the admin and copy-desk guidance', () => {
     expect(getRoleWorkflowGuide('admin').authority).toContain('monthly issue');
+    expect(getRoleWorkflowGuide('admin').authority).toContain('E-Paper is daily and city/edition-based');
     expect(getRoleWorkflowGuide('copy_editor').authority).toContain('monthly E-Magazine');
   });
 

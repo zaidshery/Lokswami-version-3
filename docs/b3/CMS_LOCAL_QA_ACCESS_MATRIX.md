@@ -146,7 +146,8 @@ All `/admin/*` pages also inherit the group layout's authenticated, active, cano
 
 - Super Admin: `/admin`, `/admin/settings`, `/admin/audit-log`, `/admin/permission-review`; confirm `/admin/my-work` is denied by the frozen map.
 - Admin: `/admin/review-queue`, `/admin/analytics`, `/admin/operations`; confirm `/admin/settings` and `/admin/audit-log` redirect.
-- Copy Editor: `/admin/copy-desk`, `/admin/articles`, an assigned `/admin/articles/[id]/edit`, and assigned E-Paper edit/page routes; confirm `/admin/videos/new` and `/admin/settings` are denied at the effective server/API boundary.
+- Copy Editor: `/admin/copy-desk`, `/admin/articles`, and an assigned `/admin/articles/[id]/edit`; confirm `/admin/videos/new` and `/admin/settings` are denied at the effective server/API boundary. All E-Paper/E-Magazine desk, edit and page routes remain denied, including when a publication is assigned to this role.
+- Publication CMS: Super Admin verifies viewing, upload/create, metadata/page edits, OCR/hotspots, release/publish and archive for both daily, city/edition-based E-Paper and monthly E-Magazine. Admin, Copy Editor and Reporter verify denied sidebar entries, direct URLs and APIs for all those actions.
 - Reporter: an owned or assigned `/admin/articles/[id]/edit` is reachable only when content-level policy allows editing/recovery; another reporter's Article and all approval, assignment, scheduling, and publishing actions remain denied by the API.
 - Reporter: `/admin/my-work`, `/admin/articles/new`, `/admin/stories`, `/admin/stories/new`, `/admin/media`; confirm `/admin/review-queue`, `/admin/articles`, `/admin/videos/new`, and `/admin/settings` are denied.
 

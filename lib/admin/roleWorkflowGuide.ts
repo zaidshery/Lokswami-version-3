@@ -51,7 +51,7 @@ const GUIDES: Record<AdminRole, RoleWorkflowGuide> = {
     eyebrow: 'Admin desk workflow',
     title: 'Assign, decide, release',
     summary: 'Keep ownership explicit, unblock the desk, approve only ready work, and make final release decisions.',
-    authority: 'You manage assignments and release articles, stories, and videos. Super Admin owns E-Papers and E-Magazine releases; E-Magazine is a monthly issue product.',
+    authority: 'You manage assignments and release articles, stories, and videos. Super Admin owns E-Papers and E-Magazine releases. E-Paper is daily and city/edition-based; E-Magazine is a monthly issue product.',
     steps: [
       { label: 'Triage and assign', detail: 'Give every active item an owner, priority, and useful due time.' },
       { label: 'Resolve blockers', detail: 'Use desk feedback, readiness checks, and operations signals before approval.' },
