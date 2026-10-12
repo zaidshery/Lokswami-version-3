@@ -1,0 +1,8 @@
+2026-10-12T09:24:14.8929558Z ✖ 329 problems (0 errors, 329 warnings)
+2026-10-12T09:29:13.3000050Z  Test Files  410 passed (410)
+2026-10-12T09:29:13.3047769Z       Tests  3419 passed (3419)
+2026-10-12T09:29:15.3471493Z Auth guard regression checks passed (7 cases).
+2026-10-12T09:29:22.8044307Z Admin credentials regression checks passed.
+2026-10-12T09:32:12.0568226Z  ✓ Compiled successfully in 2.8min
+2026-10-12T09:32:23.9538987Z  ✓ Generating static pages (175/175)
+2026-10-12T09:33:04.5237342Z   5 passed (8.3s)
