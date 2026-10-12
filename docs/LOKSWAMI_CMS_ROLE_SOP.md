@@ -1,8 +1,9 @@
 # Lokswami Newsroom CMS - Role SOP
 
-Version: 1.2
+Version: 1.3
 Reviewed against the CMS: 4 August 2026
 Publication permissions reviewed against runtime: 11 October 2026
+Story media requirements verified against UI/API: 12 October 2026
 Audience: Super Admin, Admin, Copy Editor, and Reporter
 
 This is the daily operating guide for the Lokswami newsroom CMS. Menu names and
@@ -88,13 +89,17 @@ Push Alerts, or Settings.
    - Location Tag
    - Reporter Notes and Source Info
    - Mark **Source is confidential** when the source must remain internal
-3. Upload at least one JPG/PNG/WEBP image and one MP4 video for the story package.
-   Current limits are up to 5 images (5 MB each) and 10 videos (1.9 GB each).
-   The first image becomes the cover.
+3. Add a cover image or thumbnail URL. JPG/PNG/WEBP uploads are limited to 5 MB
+   each. MP4 video is optional; upload it through the Story editor when the
+   reporting needs video. Each MP4 can be up to 1.9 GB. The current UI/API have
+   no per-story file-count or combined-video-size cap. The first image becomes
+   the cover. An image-only Story can be saved and submitted.
 4. Preview uploaded media. Replace or remove the wrong file before handoff.
-5. Choose **Save Draft** when the package should remain private. Important: the
-   current Story form still requires one image and one video before Save Draft;
-   it is not a text-only recovery save.
+5. Choose **Save Draft** when the package should remain private. A title and
+   cover/thumbnail are still required; it is not a text-only recovery save.
+   MP4 is not required for Save Draft or Submit For Review. Uploaded videos
+   must complete verification before they can be attached; do not substitute
+   an unverified URL for an upload receipt.
 6. Choose **Submit For Review** only when the package is complete and verified.
 7. Check **My Stories** or **My Work** for the status, assignee, latest desk note,
    and next action. Submitted and later stages are read-only unless the desk
@@ -133,8 +138,8 @@ before sending.
 - [ ] Names, numbers, dates, location, and spellings are verified.
 - [ ] Source and rights/credit information are recorded.
 - [ ] Confidential source information is marked internal.
-- [ ] Image and video are the correct files and finish uploading.
-- [ ] The script/caption matches the media.
+- [ ] The cover is correct; every uploaded image/video finishes verification.
+- [ ] The script/caption matches the included media. Include video when relevant.
 - [ ] Reporter notes explain anything the desk must know.
 - [ ] The story is submitted once; duplicate records are not created.
 
