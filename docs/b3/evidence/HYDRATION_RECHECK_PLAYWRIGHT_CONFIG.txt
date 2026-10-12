@@ -1,0 +1,9 @@
+import original from '../lokswami/playwright.config.mjs';
+export default {
+  ...original,
+  testDir: new URL('../lokswami/tests/e2e/', import.meta.url).pathname,
+  outputDir: new URL('./playwright-results/', import.meta.url).pathname,
+  webServer: undefined,
+  reporter: [['json', {outputFile: new URL('./browser-smoke.json', import.meta.url).pathname}]],
+  use: {...original.use, baseURL: 'http://localhost:3319', launchOptions: {executablePath: '/tmp/lokswami-hydration-runtime/chrome/chrome-headless-shell-linux64/chrome-headless-shell'}},
+};

@@ -1,0 +1,36 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> lokswami-v2@1.0.0 test
+> vitest run tests/admin-shell-redirect-hydration.test.tsx
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.10 /workspace/scratch/0d2202bb9d56/hydration-negative
+
+ ❯ tests/admin-shell-redirect-hydration.test.tsx (5 tests | 1 failed) 406ms
+     × keeps the shell and loading announcement visible while page content suspends 13ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/admin-shell-redirect-hydration.test.tsx > AdminShell feedback after a restricted-page redirect > keeps the shell and loading announcement visible while page content suspends
+Error: A component suspended while responding to synchronous input. This will cause the UI to be replaced with a loading indicator. To fix, updates that suspend should be wrapped with startTransition.
+ ❯ renderToStringImpl ../lokswami/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:7002:11
+ ❯ Proxy.renderToString ../lokswami/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:7080:10
+ ❯ tests/admin-shell-redirect-hydration.test.tsx:40:18
+     38|   it('keeps the shell and loading announcement visible while page cont…
+     39|     const PendingPage = lazy(() => new Promise<{ default: () => ReactN…
+     40|     const html = renderToString(
+       |                  ^
+     41|       <AdminShell initialUser={{ name: 'QA Reporter', email: 'qa@examp…
+     42|         <PendingPage />
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  07:02:47
+   Duration  1.51s (transform 139ms, setup 63ms, import 271ms, tests 406ms, environment 595ms)
+
