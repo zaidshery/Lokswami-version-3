@@ -524,7 +524,7 @@ export default function AdminShell({
     : adminRoleLabel;
   const hasMobileDock = mobileDockItems.length > 0;
   const mobileHeaderLabel = headerLabel;
-  const showAccessDenied = searchParams.get('access') === 'denied';
+  const showAccessDenied = isHydrated && searchParams.get('access') === 'denied';
 
   const dismissAccessDenied = () => {
     const nextSearchParams = new URLSearchParams(searchParams.toString());
