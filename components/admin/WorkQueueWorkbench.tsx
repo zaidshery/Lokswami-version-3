@@ -427,6 +427,7 @@ function formatDate(value: string | null, language: 'en' | 'hi') {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '—';
   return new Intl.DateTimeFormat(language === 'hi' ? 'hi-IN' : 'en-IN', {
+    timeZone: 'Asia/Kolkata',
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
