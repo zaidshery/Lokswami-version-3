@@ -401,6 +401,12 @@ export class MediaService {
           deleted += 1;
           continue;
         }
+        if (!isValidDigitalOceanSpacesObjectKey(record.objectKey)) continue;
+        if (record.ownerType === 'story') {
+          await this.assertUnreferenced(record);
+          if (!record.referenceTrackingComplete) continue;
+        } else if (!(record.ownerType === 'article' && record.mediaKind === 'image') &&
+                   !record.referenceTrackingComplete) continue;
         if (record.ownerType === 'article' && record.mediaKind === 'image' &&
           await this.repository.hasPersistedArticleImageReference(record)) continue;
         for (const key of getCanonicalObjectKeys(record)) {

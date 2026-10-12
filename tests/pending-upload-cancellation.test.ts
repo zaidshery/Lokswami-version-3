@@ -66,6 +66,15 @@ describe('pending Story upload cancellation', () => {
     await service.cancelPendingUpload('receipt', admin);
     expect(record.cleanupError).toBe('');
   });
+  it.each(['revision', 'unknown', 'lookup'])('reconciliation cannot bypass %s protection for ordinary Story cleanup', async kind => {
+    record.status = 'cleanup_pending';
+    record.referenceTrackingComplete = kind !== 'unknown';
+    if (kind === 'revision') vi.mocked(repository.hasPersistedReference).mockResolvedValue(true);
+    if (kind === 'lookup') vi.mocked(repository.hasPersistedReference).mockRejectedValue(new Error('lookup failed'));
+    await service.reconcileCleanup(new Date());
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+    expect(record.status).toBe('cleanup_pending');
+  });
   it.each(['registry', 'persisted', 'lookup', 'expiry', 'completed'])('fails closed for %s uncertainty or references', async kind => {
     if (kind === 'registry') record.references = [{ ownerType: 'story', ownerId: 'foreign', attachedAt: new Date() }];
     if (kind === 'persisted') vi.mocked(repository.hasPersistedReference).mockResolvedValue(true);
