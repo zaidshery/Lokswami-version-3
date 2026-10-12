@@ -1,0 +1,62 @@
+{
+  "startedAt": "2026-10-12T04:46:39.352Z",
+  "reusedVerifiedFreshArtifact": true,
+  "sourceBuildReport": "asset48-initial-build-report.json",
+  "roles": [
+    {
+      "role": "super_admin",
+      "actualPasswordSignIn": "passed",
+      "actualSessionRole": "super_admin"
+    },
+    {
+      "role": "admin",
+      "actualPasswordSignIn": "passed",
+      "actualSessionRole": "admin"
+    },
+    {
+      "role": "copy_editor",
+      "actualPasswordSignIn": "passed",
+      "actualSessionRole": "copy_editor"
+    },
+    {
+      "role": "reporter",
+      "actualPasswordSignIn": "passed",
+      "actualSessionRole": "reporter"
+    }
+  ],
+  "failures": [
+    "Target CMS documents must not contain hydration/runtime errors"
+  ],
+  "productionWrites": [],
+  "codeHead": "021a02ba4bf802568a796d759404807f121c4233",
+  "codeTree": "a29a79fe44a4cf849c61b0dc0d0a8db9ee5433da",
+  "preExistingQaDataChanges": [
+    "data/analytics-events.json"
+  ],
+  "foundationSha": "0396d1565270f011e078dfb87b2698405760063f",
+  "buildProvenance": {
+    "freshOutput": true,
+    "result": "passed",
+    "buildId": "8Q1CZGZZkONcLjRtXYAjO",
+    "buildIdSha256": "6b3a9a7eeff06e8f0ced6950a8bc66d4d7bf419b7a96a98493d36404f66e7cd2",
+    "manifestSha256": "f59e90cd3c64c7691b867962144035a329be168314f9c2a1caed86a904c2912b",
+    "buildManifestSha256": "f59e90cd3c64c7691b867962144035a329be168314f9c2a1caed86a904c2912b",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "originalDependencyInstallation": {
+    "freshNpmCi": true,
+    "node": "v20.20.2",
+    "next": "15.5.22",
+    "playwright": "1.62.1",
+    "lockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "rerunSourceSha256": "5c5a78e6952808bfd14563e0139d7f89dd12919faacdcdef013d1507573a2a1a",
+  "initialCollections": [],
+  "database": {
+    "host": "127.0.0.1",
+    "port": 27038,
+    "name": "lokswami_phase318c_qa_14b1e86647"
+  },
+  "helperSourceSha256": "47eaae7c787e3f70c471bbf27412adb9b9b150e33a3aa58722903b67837d25a9",
+  "ok": false
+}

@@ -1,0 +1,67 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.10 /workspace/scratch/4915a7429527/Lokswami-asset-recovery-negative
+
+ ❯ tests/asset-recovery-runtime-errors.test.ts (5 tests | 2 failed) 19ms
+     × does not reload healthy assets for a bundle runtime error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML 8ms
+     × does not reload healthy assets for a bundle runtime error: TypeError: Cannot read properties of undefined 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/asset-recovery-runtime-errors.test.ts > Shared stale-asset recovery > does not reload healthy assets for a bundle runtime error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "https://qa.example/admin/work?view=mine&__asset_recovery=1791776972510",
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/asset-recovery-runtime-errors.test.ts:39:33
+     37|     const harness = recoveryHarness();
+     38|     await harness.dispatch('error', { message, filename: 'https://qa.e…
+     39|     expect(harness.replace).not.toHaveBeenCalled();
+       |                                 ^
+     40|   });
+     41|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/asset-recovery-runtime-errors.test.ts > Shared stale-asset recovery > does not reload healthy assets for a bundle runtime error: TypeError: Cannot read properties of undefined
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "https://qa.example/admin/work?view=mine&__asset_recovery=1791776972516",
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/asset-recovery-runtime-errors.test.ts:39:33
+     37|     const harness = recoveryHarness();
+     38|     await harness.dispatch('error', { message, filename: 'https://qa.e…
+     39|     expect(harness.replace).not.toHaveBeenCalled();
+       |                                 ^
+     40|   });
+     41|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  03:49:31
+   Duration  795ms (transform 33ms, setup 56ms, import 21ms, tests 19ms, environment 504ms)
+

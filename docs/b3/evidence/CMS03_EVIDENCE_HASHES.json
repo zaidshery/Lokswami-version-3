@@ -1,0 +1,67 @@
+[
+  {
+    "path": "docs/b3/evidence/CMS03_CURRENT_FOUNDATION_FAILURE.json",
+    "bytes": 2048,
+    "sha256": "899726602abe33bb2ccddb2ed5c64fec14d6a88bf46eb4e7892478ad265a7d1f"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_CURRENT_FOUNDATION_96_CASES.json",
+    "bytes": 43460,
+    "sha256": "1610bd286ac18bb15416a8c20f69d6e718ef2951060050ba7a14c270a6ef57ea"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_CURRENT_RUNNER.txt",
+    "bytes": 8715,
+    "sha256": "5c5a78e6952808bfd14563e0139d7f89dd12919faacdcdef013d1507573a2a1a"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_CURRENT_BROWSER_CHECKS.txt",
+    "bytes": 8703,
+    "sha256": "47eaae7c787e3f70c471bbf27412adb9b9b150e33a3aa58722903b67837d25a9"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_FRESH_BUILD.json",
+    "bytes": 2993,
+    "sha256": "4113c65eba7d6355824de6da6e1572a3240d54f61a70c2dec0c00b79bd71128a"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_INITIAL_RUNNER.txt",
+    "bytes": 6875,
+    "sha256": "1aaa75553f8e8c13c1b6cbd84141278789b83fe1c3923fe1ac91105143f9fbbf"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_BROWSER_CONTINUATION.json",
+    "bytes": 2003,
+    "sha256": "28c5247ff115a4e5b05b395c3aab680734ca87ac4ca05113ffe1f9704160bdd5"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_CONTINUATION_RUNNER.txt",
+    "bytes": 8440,
+    "sha256": "e16e998f5547c46796d58393aa0e46f716d70b0d1f193b4dca0c0fabb29247fa"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_PLAYWRIGHT.json",
+    "bytes": 8477,
+    "sha256": "6e4cb0fa2330d336f4e346296cff2df1a2b27b7bbf2418a8529f1fbd8cc3ba38"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_BROWSER_GUARD.txt",
+    "bytes": 795,
+    "sha256": "abdc66d830fb1e6786a638ad83144c31aa4d3b141ce70cc61c2722ecd3480c81"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_BROWSER_GUARD_STATS.txt",
+    "bytes": 88,
+    "sha256": "9297dde75c9098bf7a51422d485984855e10df8d87bf330ca43ddb546193df5f"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_PLAYWRIGHT_CONFIG.txt",
+    "bytes": 472,
+    "sha256": "0de62ae6d0df905f9efdc787589a8ca69481499be798e6324306c00dbfc8f5af"
+  },
+  {
+    "path": "docs/b3/evidence/CMS03_ASSET48_NEGATIVE_CONTROL.txt",
+    "bytes": 2824,
+    "sha256": "0acb5d16b208d93625fad7e77565a4cea0d4f77a01d07acd9d616bdf8bb13228"
+  }
+]

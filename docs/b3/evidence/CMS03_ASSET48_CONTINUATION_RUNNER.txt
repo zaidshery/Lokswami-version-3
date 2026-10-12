@@ -1,0 +1,76 @@
+const fs = require('fs'), path = require('path'), crypto = require('crypto'), assert = require('assert');
+const { spawn, execFile } = require('child_process');
+const run = require('util').promisify(execFile);
+const root = __dirname, repo = path.join(root, 'Lokswami-asset-qa');
+const req = require('module').createRequire(path.join(repo, 'package.json'));
+const origin = 'http://localhost:3371', output = path.join(root, 'qa-runtime');
+const hash = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const report = { startedAt: new Date().toISOString(), productionWrites: [], scope: 'Anonymous shared asset-error handling and existing reader/sign-in smoke; not CMS workflow acceptance.' };
+let server;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function save() {
+  const dest = path.join(output, 'asset48-local-report.json'), fd = fs.openSync(dest + '.tmp', 'w');
+  fs.writeFileSync(fd, JSON.stringify(report, null, 2)); fs.fsyncSync(fd); fs.closeSync(fd); fs.renameSync(dest + '.tmp', dest);
+}
+async function cleanup() {
+  if (server && server.exitCode === null) {
+    server.kill('SIGTERM'); await Promise.race([new Promise((resolve) => server.once('exit', resolve)), wait(3000)]);
+    if (server.exitCode === null) server.kill('SIGKILL');
+  }
+}
+process.on('SIGINT', () => cleanup().then(() => process.exit(130)));
+(async () => {
+  report.head = (await run('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
+  report.tree = (await run('git', ['rev-parse', 'HEAD^{tree}'], { cwd: repo })).stdout.trim();
+  assert.equal(report.head, '021a02ba4bf802568a796d759404807f121c4233');
+  assert.equal((await run('git', ['diff', 'HEAD', '--name-only'], { cwd: repo })).stdout.trim(), '');
+  for (const name of ['.env', '.env.local', '.env.production', '.env.production.local']) assert(!fs.existsSync(path.join(repo, name)), 'Unexpected build environment file');
+  const continuation = process.argv.includes('--browser-continuation');
+  if (!continuation) assert(!fs.existsSync(path.join(repo, '.next')), 'This check requires a fresh empty build output');
+  report.dependencies = { freshNpmCi: true, node: process.version, next: req('next/package.json').version, playwright: req('@playwright/test/package.json').version, lockSha256: hash(path.join(repo, 'package-lock.json')) };
+  report.sourceHashes = Object.fromEntries(['app/layout.tsx', 'tests/asset-recovery-runtime-errors.test.ts', 'tests/e2e/admin-critical-flows.spec.js'].map((name) => [name, hash(path.join(repo, name))]));
+  report.runnerSha256 = hash(__filename);
+  const secret = crypto.randomBytes(48).toString('base64url');
+  const guard = path.join(repo, 'scripts/phase3/offline-network-guard.cjs');
+  const env = { PATH: path.join(root, 'qa-runtime/node_modules/node/bin') + ':' + process.env.PATH, TZ: 'UTC', NODE_ENV: 'production', NEXT_TELEMETRY_DISABLED: '1', DISABLE_REQUEST_LOG: 'true', DISABLE_AUDIT_LOG: 'true', DISABLE_CSP_REPORT_LOG: 'true', NODE_OPTIONS: '--require=' + guard, MONGODB_URI: '', NEXTAUTH_SECRET: secret, AUTH_SECRET: secret, AUTH_TRUST_HOST: 'true', NEXTAUTH_URL: origin, AUTH_URL: origin, NEXT_PUBLIC_SITE_URL: origin, ADMIN_GOOGLE_LOGIN_ENABLED: 'false', SOCIAL_AUTOMATION_PROVIDER: 'manual', EPAPER_AUTOMATION_WORKER_ENABLED: '0', EPAPER_BACKGROUND_PROCESSING_ENABLED: '0', NEXT_PUBLIC_EPAPER_REMOTE_OCR_FALLBACK: 'false' };
+  report.isolation = { freshOwnedCheckout: true, environmentFilesAbsent: true, authSecretGeneratedInMemory: true, databaseConfigured: false, providerCredentials: 'unset', nodeNetworkGuard: true, browserOrigin: origin };
+  if (continuation) {
+    const previous = JSON.parse(fs.readFileSync(path.join(output, 'asset48-initial-build-report.json'), 'utf8'));
+    assert.equal(previous.head, report.head); assert.equal(previous.tree, report.tree);
+    assert.equal(hash(path.join(repo, '.next/BUILD_ID')), previous.build.buildIdSha256);
+    assert.equal(hash(path.join(repo, '.next/build-manifest.json')), previous.build.manifestSha256);
+    assert.equal(report.dependencies.lockSha256, previous.dependencies.lockSha256);
+    report.build = { ...previous.build, reusedVerifiedFreshBuild: true };
+    report.dependencyInstallationRepeated = false;
+    report.originalBuildReport = 'asset48-initial-build-report.json';
+    console.log('Continuing browser verification with the hashed fresh build');
+  } else {
+    console.log('Building exact-head isolated candidate');
+    const built = await run('npm', ['run', 'build:ci'], { cwd: repo, env, timeout: 600000, maxBuffer: 5e6 });
+    fs.writeFileSync(path.join(output, 'asset48-build.log'), built.stdout + built.stderr);
+    assert.equal((await run('git', ['diff', 'HEAD', '--name-only'], { cwd: repo })).stdout.trim(), '');
+    report.build = { freshOutput: true, result: 'passed', buildId: fs.readFileSync(path.join(repo, '.next/BUILD_ID'), 'utf8').trim(), buildIdSha256: hash(path.join(repo, '.next/BUILD_ID')), manifestSha256: hash(path.join(repo, '.next/build-manifest.json')) };
+  }
+  save();
+  const log = fs.openSync(path.join(output, 'asset48-server.log'), 'w');
+  server = spawn(process.execPath, [req.resolve('next/dist/bin/next'), 'start', '-H', '127.0.0.1', '-p', '3371'], { cwd: repo, env, stdio: ['ignore', log, log] }); fs.closeSync(log);
+  let ready = false;
+  for (let i = 0; i < 60; i++) { try { if ((await fetch(origin + '/api/auth/session')).ok) { ready = true; break; } } catch {} await wait(500); }
+  assert(ready, 'Owned QA server did not become ready');
+  const browserModule = req.resolve('playwright-core');
+  const preload = path.join(output, 'asset48-browser-guard.cjs');
+  const guardStats = path.join(output, 'asset48-browser-guard-stats.txt'); fs.writeFileSync(guardStats, '');
+  fs.writeFileSync(preload, `const fs=require('fs'),chromium=require(${JSON.stringify(browserModule)}).chromium;const launch=chromium.launch.bind(chromium);chromium.launch=async function(options){const browser=await launch(options),create=browser.newContext.bind(browser);browser.newContext=async function(settings){const context=await create(settings);fs.appendFileSync(${JSON.stringify(guardStats)},'context\\n');await context.route('**/*',route=>{if(new URL(route.request().url()).origin===${JSON.stringify(origin)})return route.continue();fs.appendFileSync(${JSON.stringify(guardStats)},'blocked\\n');return route.abort('blockedbyclient')});return context};return browser};`);
+  const config = path.join(output, 'asset48-playwright.config.cjs');
+  fs.writeFileSync(config, 'module.exports=' + JSON.stringify({ testDir: path.join(repo, 'tests/e2e'), timeout: 60000, fullyParallel: false, forbidOnly: true, reporter: [['json', { outputFile: path.join(output, 'asset48-playwright-report.json') }]], use: { baseURL: origin, trace: 'off', screenshot: 'off', launchOptions: { executablePath: path.join(root, 'qa-runtime/browser/chrome-headless-shell-linux64/chrome-headless-shell') } } }));
+  console.log('Running the exact committed five-case browser suite');
+  await run(process.execPath, [req.resolve('@playwright/test/cli'), 'test', 'admin-critical-flows.spec.js', '--config', config], { cwd: repo, env: { ...env, CI: 'true', NODE_OPTIONS: env.NODE_OPTIONS + ' --require=' + preload }, timeout: 240000, maxBuffer: 5e6 });
+  const browserReport = JSON.parse(fs.readFileSync(path.join(output, 'asset48-playwright-report.json'), 'utf8'));
+  report.browserStats = browserReport.stats; assert.equal(browserReport.stats.expected, 5); assert.equal(browserReport.stats.unexpected, 0);
+  const guardLines = fs.readFileSync(guardStats, 'utf8').trim().split('\n');
+  report.browserGuard = { contexts: guardLines.filter((line) => line === 'context').length, blockedRequests: guardLines.filter((line) => line === 'blocked').length };
+  assert.equal(report.browserGuard.contexts, 5, 'All five actual browser contexts must use the origin guard');
+  for (const [name, expected] of Object.entries(report.sourceHashes)) assert.equal(hash(path.join(repo, name)), expected);
+  report.postQaTrackedChanges = (await run('git', ['diff', 'HEAD', '--name-only'], { cwd: repo })).stdout.trim().split('\n').filter(Boolean);
+  report.completedAt = new Date().toISOString(); report.ok = true;
+})().catch((error) => { report.ok = false; report.failure = error.message; console.error(error.message); process.exitCode = 1; }).finally(async () => { save(); await cleanup(); console.log('Local evidence saved; owned server stopped'); });

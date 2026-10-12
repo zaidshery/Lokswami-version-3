@@ -1,0 +1,38 @@
+{
+  "startedAt": "2026-10-12T04:02:16.061Z",
+  "productionWrites": [],
+  "scope": "Anonymous shared asset-error handling and existing reader/sign-in smoke; not CMS workflow acceptance.",
+  "head": "021a02ba4bf802568a796d759404807f121c4233",
+  "tree": "a29a79fe44a4cf849c61b0dc0d0a8db9ee5433da",
+  "dependencies": {
+    "freshNpmCi": true,
+    "node": "v20.20.2",
+    "next": "15.5.22",
+    "playwright": "1.62.1",
+    "lockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "sourceHashes": {
+    "app/layout.tsx": "5f5e694bf3a6f53a73bb03e90c0de9babff040ce213d24a22d04218276d9f6b1",
+    "tests/asset-recovery-runtime-errors.test.ts": "49f69fec879e80ff1d7cda2d3e379b2c9d33ab022c65d2ae3de104592db76f57",
+    "tests/e2e/admin-critical-flows.spec.js": "44865b990b4f0dfc2c825c550e09818263032e81c5751bed6bcbd6809d213a13"
+  },
+  "runnerSha256": "1aaa75553f8e8c13c1b6cbd84141278789b83fe1c3923fe1ac91105143f9fbbf",
+  "isolation": {
+    "freshOwnedCheckout": true,
+    "environmentFilesAbsent": true,
+    "authSecretGeneratedInMemory": true,
+    "databaseConfigured": false,
+    "providerCredentials": "unset",
+    "nodeNetworkGuard": true,
+    "browserOrigin": "http://localhost:3371"
+  },
+  "build": {
+    "freshOutput": true,
+    "result": "passed",
+    "buildId": "8Q1CZGZZkONcLjRtXYAjO",
+    "buildIdSha256": "6b3a9a7eeff06e8f0ced6950a8bc66d4d7bf419b7a96a98493d36404f66e7cd2",
+    "manifestSha256": "f59e90cd3c64c7691b867962144035a329be168314f9c2a1caed86a904c2912b"
+  },
+  "ok": false,
+  "failure": "Command failed: /workspace/scratch/4915a7429527/qa-runtime/node_modules/node/bin/node /workspace/scratch/4915a7429527/Lokswami-asset-qa/node_modules/@playwright/test/cli.js test admin-critical-flows.spec.js --config /workspace/scratch/4915a7429527/qa-runtime/asset48-playwright.config.cjs\nnode:internal/modules/cjs/loader:1210\n  throw err;\n  ^\n\nError: Cannot find module '/workspace/scratch/4915a7429527/Lokswami-asset-qa/node_modules/playwright-core/lib/client/browser.js'\nRequire stack:\n- /workspace/scratch/4915a7429527/qa-runtime/asset48-browser-guard.cjs\n- internal/preload\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)\n    at Module._load (node:internal/modules/cjs/loader:1038:27)\n    at Module.require (node:internal/modules/cjs/loader:1289:19)\n    at require (node:internal/modules/helpers:182:18)\n    at Object.<anonymous> (/workspace/scratch/4915a7429527/qa-runtime/asset48-browser-guard.cjs:1:15)\n    at Module._compile (node:internal/modules/cjs/loader:1521:14)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)\n    at Module.load (node:internal/modules/cjs/loader:1266:32)\n    at Module._load (node:internal/modules/cjs/loader:1091:12)\n    at internalRequire (node:internal/modules/cjs/loader:219:19) {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: [\n    '/workspace/scratch/4915a7429527/qa-runtime/asset48-browser-guard.cjs',\n    'internal/preload'\n  ]\n}\n\nNode.js v20.20.2\n"
+}

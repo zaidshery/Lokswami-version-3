@@ -1,0 +1,1327 @@
+{
+  "startedAt": "2026-10-12T04:46:53.491Z",
+  "helperSourceSha256": "47eaae7c787e3f70c471bbf27412adb9b9b150e33a3aa58722903b67837d25a9",
+  "scope": "Four actual roles, Hindi/English, India/US browser timezones; dashboard, Work Queue and redirect feedback. No complete CMS/media/publication acceptance claim.",
+  "seedChecks": [
+    {
+      "role": "super_admin",
+      "url": "/api/admin/articles",
+      "method": "POST",
+      "httpStatus": 201
+    },
+    {
+      "role": "admin",
+      "url": "/api/admin/articles",
+      "method": "POST",
+      "httpStatus": 201
+    },
+    {
+      "role": "copy_editor",
+      "url": "/api/admin/articles",
+      "method": "POST",
+      "httpStatus": 201
+    },
+    {
+      "role": "reporter",
+      "url": "/api/admin/articles",
+      "method": "POST",
+      "httpStatus": 201
+    },
+    {
+      "role": "reporter",
+      "url": "/api/admin/articles/6acc663d86c8d5d24cb1af89",
+      "method": "PATCH",
+      "httpStatus": 200
+    },
+    {
+      "role": "admin",
+      "url": "/api/admin/articles/6acc663d86c8d5d24cb1af89",
+      "method": "PATCH",
+      "httpStatus": 200
+    },
+    {
+      "role": "admin",
+      "url": "/api/admin/articles/6acc663d86c8d5d24cb1af7d",
+      "method": "PATCH",
+      "httpStatus": 200
+    }
+  ],
+  "dashboardCases": [
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "actualPath": "/admin",
+      "pageErrors": [
+        {
+          "url": "http://localhost:3371/admin",
+          "message": "Uncaught Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+          "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:84566)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114961)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110322\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+        }
+      ],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "actualPath": "/admin",
+      "pageErrors": [],
+      "deadlineAssertion": "not displayed for this role"
+    }
+  ],
+  "cases": [
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/my-work",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/review-queue",
+      "access": "allowed",
+      "actualPath": "/admin/review-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/assignments",
+      "access": "allowed",
+      "actualPath": "/admin/assignments",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 3,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/content-queue",
+      "access": "allowed",
+      "actualPath": "/admin/content-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/review-queue",
+      "access": "allowed",
+      "actualPath": "/admin/review-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/assignments",
+      "access": "allowed",
+      "actualPath": "/admin/assignments",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 3,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/content-queue",
+      "access": "allowed",
+      "actualPath": "/admin/content-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/review-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/assignments",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/content-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/review-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/assignments",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/content-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/my-work",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/review-queue",
+      "access": "allowed",
+      "actualPath": "/admin/review-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/assignments",
+      "access": "allowed",
+      "actualPath": "/admin/assignments",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 3,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/content-queue",
+      "access": "allowed",
+      "actualPath": "/admin/content-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/review-queue",
+      "access": "allowed",
+      "actualPath": "/admin/review-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/assignments",
+      "access": "allowed",
+      "actualPath": "/admin/assignments",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 3,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/content-queue",
+      "access": "allowed",
+      "actualPath": "/admin/content-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/review-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/assignments",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/content-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/review-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/assignments",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "requestedRoute": "/admin/content-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/my-work",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/review-queue",
+      "access": "allowed",
+      "actualPath": "/admin/review-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/assignments",
+      "access": "allowed",
+      "actualPath": "/admin/assignments",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 3,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/content-queue",
+      "access": "allowed",
+      "actualPath": "/admin/content-queue",
+      "pageErrors": [
+        {
+          "url": "http://localhost:3371/admin/content-queue",
+          "message": "Uncaught Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+          "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:84566)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114961)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110322\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+        }
+      ],
+      "eventErrorsAtDelivery": [
+        {
+          "role": "super_admin",
+          "language": "hi",
+          "timezoneId": "America/Los_Angeles",
+          "path": "/admin/content-queue",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/review-queue",
+      "access": "allowed",
+      "actualPath": "/admin/review-queue",
+      "pageErrors": [
+        {
+          "url": "http://localhost:3371/admin/review-queue",
+          "message": "Uncaught Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+          "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:84566)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114961)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110322\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+        }
+      ],
+      "eventErrorsAtDelivery": [
+        {
+          "role": "admin",
+          "language": "hi",
+          "timezoneId": "America/Los_Angeles",
+          "path": "/admin/review-queue",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/assignments",
+      "access": "allowed",
+      "actualPath": "/admin/assignments",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 3,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/content-queue",
+      "access": "allowed",
+      "actualPath": "/admin/content-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/review-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/assignments",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/content-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [
+        {
+          "url": "http://localhost:3371/admin/work",
+          "message": "Uncaught Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+          "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:84566)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114961)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110322\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+        }
+      ],
+      "eventErrorsAtDelivery": [
+        {
+          "role": "reporter",
+          "language": "hi",
+          "timezoneId": "America/Los_Angeles",
+          "path": "/admin/work",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/review-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/assignments",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/content-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/my-work",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/review-queue",
+      "access": "allowed",
+      "actualPath": "/admin/review-queue",
+      "pageErrors": [
+        {
+          "url": "http://localhost:3371/admin/review-queue",
+          "message": "Uncaught Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+          "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35062)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:84566)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:114961)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110322\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110831)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:132934)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+        }
+      ],
+      "eventErrorsAtDelivery": [
+        {
+          "role": "super_admin",
+          "language": "en",
+          "timezoneId": "America/Los_Angeles",
+          "path": "/admin/review-queue",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/assignments",
+      "access": "allowed",
+      "actualPath": "/admin/assignments",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 3,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/content-queue",
+      "access": "allowed",
+      "actualPath": "/admin/content-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/review-queue",
+      "access": "allowed",
+      "actualPath": "/admin/review-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/assignments",
+      "access": "allowed",
+      "actualPath": "/admin/assignments",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 3,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/content-queue",
+      "access": "allowed",
+      "actualPath": "/admin/content-queue",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/review-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/assignments",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/content-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 2,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/work",
+      "access": "allowed",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/my-work",
+      "access": "allowed",
+      "actualPath": "/admin/my-work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 0,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/review-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/assignments",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "requestedRoute": "/admin/content-queue",
+      "access": "denied",
+      "actualPath": "/admin/work",
+      "pageErrors": [],
+      "eventErrorsAtDelivery": [],
+      "denialBanners": 1,
+      "timestampRows": 1,
+      "indiaTimestampAssertion": "passed"
+    }
+  ],
+  "pageErrors": [
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "path": "/admin",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "path": "/admin/content-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "path": "/admin/review-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "path": "/admin",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "path": "/admin/review-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    }
+  ]
+}
