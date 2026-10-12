@@ -1,0 +1,700 @@
+{
+  "startedAt": "2026-10-11T23:49:06.296Z",
+  "sourceHead": "5cd4f984e0b9426a1a453bf3a247719b52b112f4",
+  "sourceTree": "c43d4ba4f796265e6772ef45e02bc1fc998ac0eb",
+  "developmentDiagnostic": true,
+  "productionArtifactReferenceOnly": true,
+  "buildProvenance": {
+    "freshBuild": true,
+    "builtAt": "2026-10-11T23:39:45.107Z",
+    "gitHead": "5cd4f984e0b9426a1a453bf3a247719b52b112f4",
+    "gitTree": "c43d4ba4f796265e6772ef45e02bc1fc998ac0eb",
+    "buildId": "B-U5LxXsePkXyzeqbkXlF",
+    "buildIdSha256": "58fad5ff044c182597bafeed73ab6a49fa3bfb93016bec56a27ccf122b9da1e7",
+    "buildManifestSha256": "0c92893418920ae871d7225d40abb2fd789c6dba0cd3f8bd633fb145420da176",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "checks": [
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/videos",
+      "finalPath": "/admin/videos",
+      "newErrors": 0
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/signin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin",
+      "text": "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/content-queue",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/videos",
+      "text": "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    }
+  ],
+  "completedAt": "2026-10-11T23:51:05.632Z",
+  "ok": true
+}

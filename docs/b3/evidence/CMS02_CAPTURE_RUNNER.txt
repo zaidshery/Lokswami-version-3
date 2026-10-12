@@ -1,0 +1,85 @@
+'use strict';
+const fs=require('fs'),path=require('path'),os=require('os'),crypto=require('crypto'),assert=require('assert');
+const {spawn,execFile}=require('child_process'),{promisify}=require('util');
+const root='/workspace/scratch/4915a7429527';let repo,req;
+let MongoClient,chromium;
+const run=promisify(execFile),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let browser,client,lastPage;const children=[],contexts={};
+const report={startedAt:new Date().toISOString(),roles:[],productionWrites:[],failures:[]};
+const buildInputExclusions=['node_modules','.next','.next-dev','public/demo/lokswami','public/uploads/breaking-audio/lokswami-qa-silent.wav','docs/b3/PHASE3_18C_CMS_ISOLATED_QA_VERIFICATION.md','docs/b3/evidence/CMS_BROWSER_REPORT.json','docs/b3/evidence/CMS_EDITORIAL_REPORT.json','docs/b3/evidence/CMS_CAPTURE_RUNNER.txt','docs/b3/evidence/CMS_EDITORIAL_CHECKS.txt'];
+async function assertBuildInputs(stage){
+ assert.equal((await run('git',['diff','HEAD','--name-only'],{cwd:repo})).stdout.trim(),'','Tracked source must match HEAD '+stage);
+ const unexpected=(await run('git',['ls-files','--others','-z','--',...buildInputExclusions.map(p=>':(top,exclude)'+p)],{cwd:repo})).stdout.split('\0').filter(Boolean);
+ assert.deepEqual(unexpected,[],'Untracked or ignored build inputs are forbidden '+stage);
+ (report.buildInputChecks||=[]).push({stage,unexpectedInputs:unexpected});report.buildInputExclusions=buildInputExclusions;
+}
+function progress(s){console.log(new Date().toISOString()+' '+s)}
+async function cleanup(){if(browser)await browser.close().catch(()=>{});if(client)await client.close().catch(()=>{});for(const child of children.reverse()){if(child.exitCode===null){child.kill('SIGTERM');await Promise.race([new Promise(r=>child.once('exit',r)),sleep(5000)]);if(child.exitCode===null)child.kill('SIGKILL')}}}
+process.on('SIGINT',()=>cleanup().then(()=>process.exit(130)));process.on('SIGTERM',()=>cleanup().then(()=>process.exit(143)));
+(async()=>{
+ if(process.env.HQS_SKIP_BUILD)throw new Error('Reused builds are refused: this verification requires a fresh build');
+ const sourceRepo=path.join(root,'Lokswami-cms-hydration'),sourceHead=(await run('git',['rev-parse','HEAD'],{cwd:sourceRepo})).stdout.trim();
+ repo=fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-hqs-checkout-'));await run('git',['worktree','add','--detach',repo,sourceHead],{cwd:sourceRepo});
+ req=require('module').createRequire(path.join(repo,'package.json'));report.freshCheckout={sourceCommit:sourceHead,path:repo,createdByRunner:true};progress('Fresh owned temporary checkout created from actual committed source');
+ report.codeHead=(await run('git',['rev-parse','HEAD'],{cwd:repo})).stdout.trim();
+ assert.equal(report.codeHead,sourceHead);
+ report.codeTree=(await run('git',['rev-parse','HEAD^{tree}'],{cwd:repo})).stdout.trim();
+ await assertBuildInputs('before setup');
+ report.trackedSourceClean=true;report.captureRunnerSha256=crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
+ const installEnv={PATH:path.join(root,'qa-runtime/node_modules/node/bin')+':'+process.env.PATH,TZ:'UTC',NEXT_TELEMETRY_DISABLED:'1',NODE_OPTIONS:'--require='+path.join(repo,'scripts/phase3/offline-network-guard.cjs')};
+ const previousModules=path.join(repo,'node_modules');if(fs.existsSync(previousModules))fs.renameSync(previousModules,path.join(fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-hqs-deps-')),'previous-node_modules'));
+ progress('Installing fresh dependencies from the lockfile using verified offline cache');
+ const install=await run('npm',['ci','--offline','--no-audit','--no-fund'],{cwd:repo,env:installEnv,timeout:300000,maxBuffer:4e6});fs.writeFileSync(path.join(root,'qa-runtime/hqs-dependency-install.log'),install.stdout+install.stderr);
+ report.dependencyInstallation={command:'npm ci --offline --no-audit --no-fund',freshDirectory:true,status:'passed',completedAt:new Date().toISOString(),nodeVersion:process.version,packageLockSha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(repo,'package-lock.json'))).digest('hex')};
+ ({MongoClient}=req('mongodb'));({chromium}=req('@playwright/test'));report.dependencyInstallation.nextVersion=req('next/package.json').version;report.dependencyInstallation.playwrightVersion=req('@playwright/test/package.json').version;
+ progress('Fresh lockfile installation verified before loading app/browser dependencies');
+ const dbpath=fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-hqs-'));
+ const mongo=spawn(path.join(root,'qa-runtime/mongodb-linux-x86_64-ubuntu2204-7.0.16/bin/mongod'),['--bind_ip','127.0.0.1','--port','27038','--nounixsocket','--dbpath',dbpath,'--wiredTigerCacheSizeGB','0.25','--setParameter','diagnosticDataCollectionEnabled=false','--logpath',path.join(root,'qa-runtime/hqs-mongo.log')],{stdio:'ignore'});children.push(mongo);
+ for(let i=0;i<30;i++){try{client=new MongoClient('mongodb://127.0.0.1:27038',{serverSelectionTimeoutMS:500});await client.connect();await client.db('admin').command({ping:1});break}catch{if(client)await client.close();client=null;await sleep(300)}}assert(client,'Mongo health failed');report.mongoPing=true;
+ const dbName='lokswami_phase318c_qa_'+crypto.randomBytes(5).toString('hex'),uri='mongodb://127.0.0.1:27038/'+dbName,origin='http://localhost:3318';
+ const db=client.db(dbName);report.initialCollections=await db.listCollections().toArray();assert.equal(report.initialCollections.length,0);
+ const users=[['super_admin','qa-super-admin','LOKSWAMI_QA_SUPER_ADMIN_PASSWORD'],['admin','qa-admin','LOKSWAMI_QA_ADMIN_PASSWORD'],['copy_editor','qa-copy-editor','LOKSWAMI_QA_COPY_EDITOR_PASSWORD'],['reporter','qa-reporter','LOKSWAMI_QA_REPORTER_PASSWORD']].map(([role,loginId,passwordEnv])=>({role,loginId,passwordEnv,password:crypto.randomBytes(18).toString('base64url')}));
+ const secret=crypto.randomBytes(48).toString('base64url'),guard=path.join(repo,'scripts/phase3/offline-network-guard.cjs');
+ const env={PATH:path.join(root,'qa-runtime/node_modules/node/bin')+':'+process.env.PATH,TZ:'UTC',NODE_ENV:'development',MONGODB_URI:uri,LOKSWAMI_CMS_QA:'true',LOKSWAMI_CMS_QA_DB_NAME:dbName,LOKSWAMI_DEMO_DATA:'true',LOKSWAMI_SNAPSHOT_DIR:path.join(root,'restored-r08/r08-live-snapshot'),NEXT_TELEMETRY_DISABLED:'1',DISABLE_AUDIT_LOG:'true',DISABLE_REQUEST_LOG:'true',DISABLE_CSP_REPORT_LOG:'true',TS_NODE_TRANSPILE_ONLY:'true',NODE_OPTIONS:'--require='+guard};
+ for(const u of users)env[u.passwordEnv]=u.password;
+ const config={repo,dbpath,uri,dbName,origin,users,secret};fs.writeFileSync(path.join(root,'qa-runtime/hqs-private-config.json'),JSON.stringify(config),{mode:0o600});
+ const probe=await run(process.execPath,['-e',"Promise.resolve().then(()=>fetch('https://example.com')).then(()=>process.exit(1)).catch(e=>{if(e.code!=='OFFLINE_QA_EGRESS_BLOCKED')process.exit(2);console.log('blocked-before-socket')})"],{cwd:repo,env,timeout:10000});assert(probe.stdout.includes('blocked-before-socket'));report.nodeEgressProbe='blocked-before-socket';
+ const tsargs=[req.resolve('ts-node/dist/bin.js'),'-r','tsconfig-paths/register','--compiler-options',JSON.stringify({module:'CommonJS',moduleResolution:'node',baseUrl:'.'})];
+ const accounts=await run(process.execPath,[...tsargs,'scripts/cms-qa/provision.ts'],{cwd:repo,env,timeout:60000,maxBuffer:2e6});fs.writeFileSync(path.join(root,'qa-runtime/hqs-provision.log'),accounts.stdout+accounts.stderr);assert.equal(await db.collection('users').countDocuments(),4);progress('Empty loopback database and four canonical QA accounts verified');
+ report.database={host:'127.0.0.1',port:27038,name:dbName};report.fixtureLimitations=['Clearly labelled synthetic CMS QA records; representative live-media and publication acceptance are separate checks.'];report.externalProviderCredentials='unset; allowlisted environment';
+ const serverEnv={...env,NODE_ENV:'production',HOSTNAME:'127.0.0.1',PORT:'3318',NEXTAUTH_URL:origin,AUTH_URL:origin,NEXT_PUBLIC_SITE_URL:origin,AUTH_TRUST_HOST:'true',NEXTAUTH_SECRET:secret,AUTH_SECRET:secret,JWT_SECRET:secret,ADMIN_LOGIN_ID:'',ADMIN_USERNAME:'',ADMIN_EMAIL:'',ADMIN_PASSWORD_HASH:'',ADMIN_EMAILS:'',GOOGLE_CLIENT_ID:'',GOOGLE_CLIENT_SECRET:'',ADMIN_GOOGLE_LOGIN_ENABLED:'false',SOCIAL_AUTOMATION_PROVIDER:'manual',EPAPER_BACKGROUND_PROCESSING_ENABLED:'0',EPAPER_LOCAL_OCR_ENABLED:'0',NEXT_PUBLIC_EPAPER_LOCAL_OCR_ONLY:'true',NEXT_PUBLIC_EPAPER_REMOTE_OCR_FALLBACK:'false',NEXT_PUBLIC_USE_REMOTE_DEMO_MEDIA:'false'};for(const u of users)delete serverEnv[u.passwordEnv];
+ await assertBuildInputs('before build');
+ const previousBuild=path.join(repo,'.next');if(fs.existsSync(previousBuild))fs.renameSync(previousBuild,path.join(fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-hqs-build-')),'previous-build'));
+ progress('Building fresh production QA candidate in an empty output directory');const build=await run('npm',['run','build:ci'],{cwd:repo,env:serverEnv,timeout:600000,maxBuffer:4e6});fs.writeFileSync(path.join(root,'qa-runtime/hqs-build.log'),build.stdout+build.stderr);
+ assert.equal((await run('git',['rev-parse','HEAD'],{cwd:repo})).stdout.trim(),report.codeHead,'Git revision changed during build');await assertBuildInputs('after build');
+ const hashFile=relative=>crypto.createHash('sha256').update(fs.readFileSync(path.join(repo,relative))).digest('hex');
+ report.productionBuild='passed';report.buildProvenance={freshBuild:true,builtAt:new Date().toISOString(),gitHead:report.codeHead,gitTree:report.codeTree,buildId:fs.readFileSync(path.join(repo,'.next/BUILD_ID'),'utf8').trim(),buildIdSha256:hashFile('.next/BUILD_ID'),buildManifestSha256:hashFile('.next/build-manifest.json'),packageLockSha256:hashFile('package-lock.json')};assert(report.buildProvenance.buildId);progress('Fresh build and Git/artifact provenance verified');
+ const logfile=fs.openSync(path.join(root,'qa-runtime/hqs-server.log'),'w');const server=spawn(process.execPath,[req.resolve('next/dist/bin/next'),'start','-H','127.0.0.1','-p','3318'],{cwd:repo,env:serverEnv,stdio:['ignore',logfile,logfile]});children.push(server);fs.closeSync(logfile);
+ for(let i=0;i<120;i++){try{const response=await fetch(origin+'/api/auth/session',{signal:AbortSignal.timeout(10000)});if(response.ok){report.serverReady=true;break}}catch{}await sleep(500)}assert(report.serverReady,'QA server unavailable');progress('QA server ready');
+ browser=await chromium.launch({headless:true,executablePath:path.join(root,'qa-runtime/browser/chrome-headless-shell-linux64/chrome-headless-shell')});report.browserVersion=browser.version();
+ for(const u of users){
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});contexts[u.role]=context;let blocked=0;const fatal=[];
+  await context.route('**/*',route=>{const url=new URL(route.request().url());if(url.origin===origin)return route.continue();blocked++;return route.abort('blockedbyclient')});
+  const page=await context.newPage();lastPage=page;page.setDefaultTimeout(30000);report.currentBrowserDiagnostics={role:u.role,fatal,requestFailures:[],consoleErrors:[]};page.on('pageerror',e=>fatal.push(e.message));page.on('console',m=>{if(m.type()==='error')report.currentBrowserDiagnostics.consoleErrors.push(m.text())});page.on('requestfailed',r=>report.currentBrowserDiagnostics.requestFailures.push({path:new URL(r.url()).pathname,host:new URL(r.url()).hostname,error:r.failure()?.errorText}));
+  await page.goto(origin+'/signin?redirect=/admin',{waitUntil:'domcontentloaded',timeout:90000});progress('Sign-in page loaded '+u.role);
+  report.currentBrowserDiagnostics.reactProps=await page.getByRole('button',{name:'Reader & Subscriber',exact:true}).evaluate(e=>Object.keys(e).filter(k=>k.startsWith('__react')));progress('React browser properties: '+JSON.stringify(report.currentBrowserDiagnostics.reactProps));
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(el=>el.textContent.includes('Reader & Subscriber')&&Object.keys(el).some(k=>k.startsWith('__reactProps'))),{},{timeout:30000});progress('Sign-in hydration verified '+u.role);
+  await page.getByRole('button',{name:'Reader & Subscriber',exact:true}).click();await page.getByRole('heading',{name:'Welcome to Lokswami',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Newsroom Team',exact:true}).click();await page.getByRole('heading',{name:'Newsroom Staff Sign In',exact:true}).waitFor();
+  await page.getByRole('textbox',{name:'Staff Login ID or Email',exact:true}).fill(u.loginId);await page.locator('input[autocomplete="current-password"]:visible').fill(u.password);
+  await page.getByRole('button',{name:'Sign in to Newsroom',exact:true}).click();progress('Credentials submitted '+u.role);
+  await page.waitForURL(url=>url.pathname.startsWith('/admin'),{timeout:90000});
+  const sessionResponse=await context.request.get(origin+'/api/auth/session');assert.equal(sessionResponse.status(),200);const session=await sessionResponse.json();assert.equal(session.user.role,u.role);
+  const publications=await context.request.get(origin+'/api/admin/epapers');assert.equal(publications.status(),u.role==='super_admin'?200:403);assert.deepEqual(fatal,[]);
+  await page.screenshot({path:path.join(root,'qa-runtime/hqs-'+u.role+'.png'),fullPage:true});report.roles.push({role:u.role,credentialsSignIn:'passed',sessionRole:session.user.role,publicationsApiStatus:publications.status(),fatalPageErrors:fatal,blockedBrowserRequests:blocked});progress('Verified '+u.role);
+ }
+ report.lastLoginWrites=await db.collection('users').countDocuments({lastLoginAt:{$type:'date'}});assert.equal(report.lastLoginWrites,4);
+ if(process.env.HQS_EXTRA_UAT==='1'){
+  const helperPath=path.join(root,'hqs-browser-checks.cjs'),helperSource=fs.readFileSync(helperPath);
+  report.editorialHelperSha256=crypto.createHash('sha256').update(helperSource).digest('hex');
+  const {Module}=require('module'),capturedHelper=new Module(helperPath,module);capturedHelper.filename=helperPath;capturedHelper.paths=Module._nodeModulePaths(path.dirname(helperPath));capturedHelper._compile(helperSource.toString('utf8'),helperPath);
+  report.editorialSpotChecks=await capturedHelper.exports({contexts,db,origin,root,helperSourceSha256:report.editorialHelperSha256});
+ }
+ report.completedAt=new Date().toISOString();report.ok=true;
+})().catch(async e=>{report.ok=false;report.failures.push(e.message);console.error('CMS failed: '+e.message);if(lastPage&&!lastPage.isClosed()){await lastPage.screenshot({path:path.join(root,'qa-runtime/hqs-failure.png'),fullPage:true}).catch(()=>{});fs.writeFileSync(path.join(root,'qa-runtime/hqs-failure-page.txt'),await lastPage.locator('body').innerText().catch(()=>''));}process.exitCode=1}).finally(async()=>{fs.writeFileSync(path.join(root,'qa-runtime/hqs-browser-report.json'),JSON.stringify(report,null,2));await cleanup();progress('Public report saved; owned processes stopped')});
+

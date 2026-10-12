@@ -1,0 +1,202 @@
+{
+  "startedAt": "2026-10-11T23:36:35.622Z",
+  "roles": [
+    {
+      "role": "super_admin",
+      "credentialsSignIn": "passed",
+      "sessionRole": "super_admin",
+      "publicationsApiStatus": 200,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "admin",
+      "credentialsSignIn": "passed",
+      "sessionRole": "admin",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    },
+    {
+      "role": "copy_editor",
+      "credentialsSignIn": "passed",
+      "sessionRole": "copy_editor",
+      "publicationsApiStatus": 403,
+      "fatalPageErrors": [],
+      "blockedBrowserRequests": 2
+    }
+  ],
+  "productionWrites": [],
+  "failures": [
+    "Expected values to be loosely deep-equal:\n\n[\n  'Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.'\n]\n\nshould loosely deep-equal\n\n[]"
+  ],
+  "freshCheckout": {
+    "sourceCommit": "5cd4f984e0b9426a1a453bf3a247719b52b112f4",
+    "path": "/tmp/lokswami-hqs-checkout-7o9Ixo",
+    "createdByRunner": true
+  },
+  "codeHead": "5cd4f984e0b9426a1a453bf3a247719b52b112f4",
+  "codeTree": "c43d4ba4f796265e6772ef45e02bc1fc998ac0eb",
+  "buildInputChecks": [
+    {
+      "stage": "before setup",
+      "unexpectedInputs": []
+    },
+    {
+      "stage": "before build",
+      "unexpectedInputs": []
+    },
+    {
+      "stage": "after build",
+      "unexpectedInputs": []
+    }
+  ],
+  "buildInputExclusions": [
+    "node_modules",
+    ".next",
+    ".next-dev",
+    "public/demo/lokswami",
+    "public/uploads/breaking-audio/lokswami-qa-silent.wav",
+    "docs/b3/PHASE3_18C_CMS_ISOLATED_QA_VERIFICATION.md",
+    "docs/b3/evidence/CMS_BROWSER_REPORT.json",
+    "docs/b3/evidence/CMS_EDITORIAL_REPORT.json",
+    "docs/b3/evidence/CMS_CAPTURE_RUNNER.txt",
+    "docs/b3/evidence/CMS_EDITORIAL_CHECKS.txt"
+  ],
+  "trackedSourceClean": true,
+  "captureRunnerSha256": "1e47690546f50e340a203503d9300952c8803df26b937d0376a6ea68771fe50d",
+  "dependencyInstallation": {
+    "command": "npm ci --offline --no-audit --no-fund",
+    "freshDirectory": true,
+    "status": "passed",
+    "completedAt": "2026-10-11T23:36:46.868Z",
+    "nodeVersion": "v20.20.2",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2",
+    "nextVersion": "15.5.22",
+    "playwrightVersion": "1.62.1"
+  },
+  "mongoPing": true,
+  "initialCollections": [],
+  "nodeEgressProbe": "blocked-before-socket",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 27038,
+    "name": "lokswami_phase318c_qa_3423fa2f9b"
+  },
+  "fixtureLimitations": [
+    "Clearly labelled synthetic CMS QA records; representative live-media and publication acceptance are separate checks."
+  ],
+  "externalProviderCredentials": "unset; allowlisted environment",
+  "productionBuild": "passed",
+  "buildProvenance": {
+    "freshBuild": true,
+    "builtAt": "2026-10-11T23:39:45.107Z",
+    "gitHead": "5cd4f984e0b9426a1a453bf3a247719b52b112f4",
+    "gitTree": "c43d4ba4f796265e6772ef45e02bc1fc998ac0eb",
+    "buildId": "B-U5LxXsePkXyzeqbkXlF",
+    "buildIdSha256": "58fad5ff044c182597bafeed73ab6a49fa3bfb93016bec56a27ccf122b9da1e7",
+    "buildManifestSha256": "0c92893418920ae871d7225d40abb2fd789c6dba0cd3f8bd633fb145420da176",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "serverReady": true,
+  "browserVersion": "151.0.7922.34",
+  "currentBrowserDiagnostics": {
+    "role": "reporter",
+    "fatal": [
+      "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    ],
+    "requestFailures": [
+      {
+        "path": "/css2",
+        "host": "fonts.googleapis.com",
+        "error": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      },
+      {
+        "path": "/main/contact",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/main",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/css2",
+        "host": "fonts.googleapis.com",
+        "error": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      },
+      {
+        "path": "/css2",
+        "host": "fonts.googleapis.com",
+        "error": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      },
+      {
+        "path": "/admin/work",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/articles/new",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/stories",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/media",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/stories/new",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/main",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/my-work",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/css2",
+        "host": "fonts.googleapis.com",
+        "error": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+      },
+      {
+        "path": "/main",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/admin/work",
+        "host": "localhost",
+        "error": "net::ERR_ABORTED"
+      }
+    ],
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+      "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+      "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector",
+      "Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector"
+    ],
+    "reactProps": [
+      "__reactFiber$dcqizafbcd",
+      "__reactProps$dcqizafbcd"
+    ]
+  },
+  "ok": false
+}

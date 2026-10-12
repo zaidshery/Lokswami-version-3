@@ -1,0 +1,62 @@
+{
+  "startedAt": "2026-10-11T23:51:30.204Z",
+  "reusedVerifiedFreshArtifact": true,
+  "sourceBuildReport": "hqs-browser-report.json",
+  "roles": [
+    {
+      "role": "super_admin",
+      "actualPasswordSignIn": "passed",
+      "actualSessionRole": "super_admin"
+    },
+    {
+      "role": "admin",
+      "actualPasswordSignIn": "passed",
+      "actualSessionRole": "admin"
+    },
+    {
+      "role": "copy_editor",
+      "actualPasswordSignIn": "passed",
+      "actualSessionRole": "copy_editor"
+    },
+    {
+      "role": "reporter",
+      "actualPasswordSignIn": "passed",
+      "actualSessionRole": "reporter"
+    }
+  ],
+  "failures": [
+    "Target Work Queue documents must not contain hydration/runtime errors"
+  ],
+  "productionWrites": [],
+  "codeHead": "5cd4f984e0b9426a1a453bf3a247719b52b112f4",
+  "codeTree": "c43d4ba4f796265e6772ef45e02bc1fc998ac0eb",
+  "buildProvenance": {
+    "freshBuild": true,
+    "builtAt": "2026-10-11T23:39:45.107Z",
+    "gitHead": "5cd4f984e0b9426a1a453bf3a247719b52b112f4",
+    "gitTree": "c43d4ba4f796265e6772ef45e02bc1fc998ac0eb",
+    "buildId": "B-U5LxXsePkXyzeqbkXlF",
+    "buildIdSha256": "58fad5ff044c182597bafeed73ab6a49fa3bfb93016bec56a27ccf122b9da1e7",
+    "buildManifestSha256": "0c92893418920ae871d7225d40abb2fd789c6dba0cd3f8bd633fb145420da176",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "originalDependencyInstallation": {
+    "command": "npm ci --offline --no-audit --no-fund",
+    "freshDirectory": true,
+    "status": "passed",
+    "completedAt": "2026-10-11T23:36:46.868Z",
+    "nodeVersion": "v20.20.2",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2",
+    "nextVersion": "15.5.22",
+    "playwrightVersion": "1.62.1"
+  },
+  "rerunSourceSha256": "cbbb5877dc336e667fc3f1a29a3ae6d55d4e8b0d831e3c96af6efcc33f61c21a",
+  "initialCollections": [],
+  "database": {
+    "host": "127.0.0.1",
+    "port": 27038,
+    "name": "lokswami_phase318c_qa_cc30f0bd65"
+  },
+  "helperSourceSha256": "844660565c5736600dac25280283bb6f2061ff29614e8f04909555b4cbe2dff0",
+  "ok": false
+}
