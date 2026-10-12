@@ -141,26 +141,19 @@ export class MediaRepository {
     const { filename, url, size = 0, type = 'image/*', uploadedBy = 'admin' } = data;
 
     if (!process.env.MONGODB_URI) {
-      const dataDir = path.resolve(process.cwd(), 'data');
-      await fs.mkdir(dataDir, { recursive: true });
-      const dataPath = this.getJsonFilePath();
-      let medias: MediaRecord[] = [];
-      try {
-        const raw = await fs.readFile(dataPath, 'utf-8');
-        const parsed = JSON.parse(raw || '[]');
-        medias = Array.isArray(parsed) ? (parsed as MediaRecord[]) : [];
-      } catch {}
-
-      const newMedia: MediaRecord = {
-        ...data,
-        _id: crypto.randomUUID(),
-        filename, url, size, type, uploadedBy,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      medias.push(newMedia);
-      await fs.writeFile(dataPath, JSON.stringify(medias, null, 2), 'utf-8');
-      return newMedia;
+      return withMediaFileLock(async () => {
+        const medias = await this.readFileRecords();
+        const newMedia: MediaRecord = {
+          ...data,
+          _id: crypto.randomUUID(),
+          filename, url, size, type, uploadedBy,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        medias.push(newMedia);
+        await this.writeFileRecords(medias);
+        return newMedia;
+      });
     }
 
     await connectDB();
@@ -192,12 +185,14 @@ export class MediaRepository {
   async updateMediaById(id: string, updates: Partial<MediaRecord>): Promise<MediaRecord | null> {
     const normalized = { ...updates, updatedAt: new Date() };
     if (!process.env.MONGODB_URI) {
-      const records = await this.readFileRecords();
-      const index = records.findIndex((record) => String(record._id) === id);
-      if (index < 0) return null;
-      records[index] = { ...records[index], ...normalized };
-      await this.writeFileRecords(records);
-      return records[index];
+      return withMediaFileLock(async () => {
+        const records = await this.readFileRecords();
+        const index = records.findIndex((record) => String(record._id) === id);
+        if (index < 0) return null;
+        records[index] = { ...records[index], ...normalized };
+        await this.writeFileRecords(records);
+        return records[index];
+      });
     }
     await connectDB();
     const record = await Media.findByIdAndUpdate(id, { $set: normalized }, { new: true }).lean();

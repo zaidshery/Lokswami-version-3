@@ -25,6 +25,18 @@ describe('pending receipt compare-and-set', () => {
     expect(await new MediaRepository().transitionStatus('receipt', 'pending', { status: 'cancelled' })).toBeNull();
     expect(mocks.update).toHaveBeenCalledWith({ _id: 'receipt', status: 'pending' }, expect.any(Object), { new: true });
   });
+  it('does not lose cancellation when a different receipt is initialized concurrently', async () => {
+    vi.stubEnv('MONGODB_URI', '');
+    let data = JSON.stringify([{ _id: 'receipt', status: 'pending' }]);
+    mocks.read.mockImplementation(async () => data);
+    mocks.write.mockImplementation(async (_path, value) => { data = value; });
+    await Promise.all([
+      new MediaRepository().transitionStatus('receipt', 'pending', { status: 'cancelled' }),
+      new MediaRepository().createMedia({ filename: 'next.mp4', url: 'https://qa/next.mp4', status: 'pending' }),
+    ]);
+    expect(JSON.parse(data)).toHaveLength(2);
+    expect(JSON.parse(data)[0].status).toBe('cancelled');
+  });
   it('fails closed on malformed or unreadable file registry', async () => {
     vi.stubEnv('MONGODB_URI', '');
     mocks.read.mockResolvedValue('{}');
