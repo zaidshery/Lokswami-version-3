@@ -240,13 +240,7 @@ const ASSET_RECOVERY_SCRIPT = `
       }
 
       var message = String(event.message || '');
-      var filename = String(event.filename || '');
-      if (
-        chunkErrorPattern.test(message) ||
-        filename.indexOf('/_next/static/') !== -1 ||
-        filename.indexOf('/next/static/') !== -1 ||
-        filename.indexOf('/__next_static__/') !== -1
-      ) {
+      if (chunkErrorPattern.test(message)) {
         recoverFromStaleAssets();
       }
     },
