@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import {
@@ -34,6 +34,7 @@ import {
   X,
 } from 'lucide-react';
 import Logo from '@/components/layout/Logo';
+import NewsroomLoading from './loading';
 import {
   formatUserRoleLabel,
   isAdminRole,
@@ -395,7 +396,7 @@ export default function AdminShell({
   const { theme, setTheme, language, toggleLanguage } = useAppStore();
 
   useEffect(() => {
-    setIsHydrated(true);
+    startTransition(() => setIsHydrated(true));
   }, []);
 
   useEffect(() => {
@@ -866,7 +867,7 @@ export default function AdminShell({
               </button>
             </div>
           ) : null}
-          {children}
+          <Suspense fallback={<NewsroomLoading />}>{children}</Suspense>
         </div>
       </main>
 

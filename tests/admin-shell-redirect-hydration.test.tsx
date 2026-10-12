@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from 'react';
+import { createElement, lazy, type ReactNode } from 'react';
 import { act, fireEvent, within } from '@testing-library/react';
 import { hydrateRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
@@ -35,6 +35,21 @@ afterEach(async () => {
 });
 
 describe('AdminShell feedback after a restricted-page redirect', () => {
+  it('keeps the shell and loading announcement visible while page content suspends', () => {
+    const PendingPage = lazy(() => new Promise<{ default: () => ReactNode }>(() => {}));
+    const html = renderToString(
+      <AdminShell initialUser={{ name: 'QA Reporter', email: 'qa@example.com', role: 'reporter' }}>
+        <PendingPage />
+      </AdminShell>
+    );
+    container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.append(container);
+    const ui = within(container);
+    expect(ui.getByRole('status')).toHaveTextContent('Loading newsroom dashboard');
+    expect(ui.getByRole('navigation', { name: 'Newsroom tools' })).toBeInTheDocument();
+    expect(ui.getByRole('main')).toHaveTextContent('QA Reporter');
+  });
   it.each([
     ['en', false, true], ['hi', false, true],
     ['en', true, false], ['hi', true, false],
