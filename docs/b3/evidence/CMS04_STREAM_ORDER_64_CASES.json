@@ -1,0 +1,691 @@
+{
+  "diagnosticOnly": true,
+  "acceptanceEvidence": false,
+  "hypothesis": "Compare normal streaming with JavaScript delivery after document response completion; not a product workaround.",
+  "startedAt": "2026-10-12T08:26:30.945Z",
+  "cases": [
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/content-queue",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/review-queue",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/content-queue",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/review-queue",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/work",
+      "errors": [
+        {
+          "round": 0,
+          "bufferScripts": false,
+          "role": "reporter",
+          "language": "hi",
+          "path": "/admin/work",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/work",
+      "errors": [
+        {
+          "round": 0,
+          "bufferScripts": false,
+          "role": "reporter",
+          "language": "en",
+          "path": "/admin/work",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/content-queue",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/review-queue",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": [
+        {
+          "round": 0,
+          "bufferScripts": true,
+          "role": "admin",
+          "language": "en",
+          "path": "/admin",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/content-queue",
+      "errors": [
+        {
+          "round": 0,
+          "bufferScripts": true,
+          "role": "admin",
+          "language": "en",
+          "path": "/admin/content-queue",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/review-queue",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/content-queue",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/review-queue",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/content-queue",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/review-queue",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/work",
+      "errors": [
+        {
+          "round": 1,
+          "bufferScripts": false,
+          "role": "reporter",
+          "language": "en",
+          "path": "/admin/work",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/content-queue",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "hi",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/review-queue",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/content-queue",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/review-queue",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/work",
+      "errors": [
+        {
+          "round": 1,
+          "bufferScripts": true,
+          "role": "reporter",
+          "language": "hi",
+          "path": "/admin/work",
+          "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin",
+      "actualPath": "/admin",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/work",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/content-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "en",
+      "requestedRoute": "/admin/review-queue",
+      "actualPath": "/admin/work",
+      "errors": []
+    }
+  ],
+  "pageErrors": [
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "hi",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "round": 0,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "path": "/admin",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "round": 0,
+      "bufferScripts": true,
+      "role": "admin",
+      "language": "en",
+      "path": "/admin/content-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "round": 1,
+      "bufferScripts": false,
+      "role": "reporter",
+      "language": "en",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    },
+    {
+      "round": 1,
+      "bufferScripts": true,
+      "role": "reporter",
+      "language": "hi",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+    }
+  ],
+  "delayedScripts": 1196,
+  "completedAt": "2026-10-12T08:27:52.170Z",
+  "ok": false
+}

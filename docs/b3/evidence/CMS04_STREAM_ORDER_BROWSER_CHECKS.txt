@@ -1,0 +1,47 @@
+const fs = require('fs'), path = require('path'), assert = require('assert');
+module.exports = async function ({ origin, root }) {
+  const cfg = JSON.parse(fs.readFileSync(path.join(root, 'qa-runtime/hqs-private-config.json')));
+  const req = require('module').createRequire(path.join(cfg.repo, 'package.json'));
+  const { chromium } = req('@playwright/test');
+  const report = { diagnosticOnly: true, acceptanceEvidence: false, hypothesis: 'Compare normal streaming with JavaScript delivery after document response completion; not a product workaround.', startedAt: new Date().toISOString(), cases: [], pageErrors: [], delayedScripts: 0 };
+  const save = () => fs.writeFileSync(path.join(root, 'qa-runtime/cms04-stream-order-cases.json'), JSON.stringify(report, null, 2));
+  const browser = await chromium.launch({ headless: true, executablePath: path.join(root, 'qa-runtime/browser/chrome-headless-shell-linux64/chrome-headless-shell') });
+  try {
+    for (const round of [0, 1]) for (const bufferScripts of [false, true]) for (const user of cfg.users.filter(u => ['admin', 'reporter'].includes(u.role))) for (const language of ['hi', 'en']) {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: 'America/Los_Angeles' });
+      let documentFinished = Promise.resolve();
+      context.on('response', response => { if (response.request().resourceType() === 'document') documentFinished = response.finished(); });
+      await context.route('**/*', async route => {
+        const url = new URL(route.request().url());
+        if (url.origin !== origin) return route.abort('blockedbyclient');
+        if (bufferScripts && url.pathname.startsWith('/_next/static/') && url.pathname.endsWith('.js')) { await documentFinished; report.delayedScripts++; }
+        return route.continue();
+      });
+      const page = await context.newPage();
+      page.on('pageerror', error => { report.pageErrors.push({ round, bufferScripts, role: user.role, language, path: new URL(page.url()).pathname, message: error.message }); save(); });
+      await page.goto(origin + '/signin?redirect=/admin', { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(e => e.textContent.includes('Reader & Subscriber') && Object.keys(e).some(k => k.startsWith('__reactProps'))));
+      await page.getByRole('button', { name: 'Reader & Subscriber', exact: true }).click();
+      await page.getByRole('button', { name: 'Newsroom Team', exact: true }).click();
+      await page.getByRole('textbox', { name: 'Staff Login ID or Email', exact: true }).fill(user.loginId);
+      await page.locator('input[autocomplete="current-password"]:visible').fill(user.password);
+      await page.getByRole('button', { name: 'Sign in to Newsroom', exact: true }).click();
+      await page.waitForURL(url => url.pathname.startsWith('/admin'), { timeout: 60000 });
+      const session = await (await context.request.get(origin + '/api/auth/session')).json(); assert.equal(session.user.role, user.role);
+      await page.waitForTimeout(300);
+      const toggle = page.getByRole('button', { name: language === 'en' ? 'Switch to English' : 'Switch to Hindi', exact: true }); if (await toggle.count()) await toggle.click();
+      for (const route of ['/admin', '/admin/work', '/admin/content-queue', '/admin/review-queue']) {
+        const before = report.pageErrors.length;
+        await page.goto(origin + route, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        if (user.role === 'reporter' && ['/admin/content-queue', '/admin/review-queue'].includes(route)) await page.waitForURL(url => url.pathname === '/admin/work' && url.searchParams.get('access') === 'denied', { timeout: 15000 });
+        else assert.equal(new URL(page.url()).pathname, route);
+        await page.waitForTimeout(500);
+        report.cases.push({ round, bufferScripts, role: user.role, language, requestedRoute: route, actualPath: new URL(page.url()).pathname, errors: report.pageErrors.slice(before) }); save();
+      }
+      console.log('Stream-order diagnostic: round ' + round + ', buffered ' + bufferScripts + ', ' + user.role + ', ' + language);
+      await context.close();
+    }
+    report.completedAt = new Date().toISOString(); report.ok = report.pageErrors.length === 0;
+    save(); return report;
+  } finally { save(); await browser.close(); }
+};

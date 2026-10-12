@@ -1,0 +1,38 @@
+{
+  "runtime": "19.2.0-canary-0bdb9206-20250818",
+  "node": "v20.20.2",
+  "sourceHead": "0396d1565270f011e078dfb87b2698405760063f",
+  "actualComponent": "AdminShell",
+  "diagnosticOnly": true,
+  "streaming": true,
+  "componentSha256": "0192652ef4fea5843ce334ecacd255201cd8c528fe9b9900229b76ad0dd40174",
+  "runnerSha256": "b8cdcbf7188ec4fa529bfc7fdd107e119889562edb9a67a91d18321f54e234c4",
+  "limitations": "Mocked navigation, icons and UI store subscription; no Next.js RSC transport, real authentication or browser parser.",
+  "cases": [
+    {
+      "externalUpdate": false,
+      "mountUpdate": false,
+      "recoverableErrors": [],
+      "contentVisible": true
+    },
+    {
+      "externalUpdate": false,
+      "mountUpdate": true,
+      "recoverableErrors": [],
+      "contentVisible": true
+    },
+    {
+      "externalUpdate": true,
+      "mountUpdate": false,
+      "recoverableErrors": [],
+      "contentVisible": true
+    },
+    {
+      "externalUpdate": true,
+      "mountUpdate": true,
+      "recoverableErrors": [],
+      "contentVisible": true
+    }
+  ],
+  "completedAt": "2026-10-12T08:27:03.366Z"
+}

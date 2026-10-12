@@ -1,0 +1,53 @@
+{
+  "startedAt": "2026-10-12T08:20:45.619Z",
+  "productionWrites": [],
+  "scope": "Anonymous shared asset-error handling and existing reader/sign-in smoke; not CMS workflow acceptance.",
+  "head": "021a02ba4bf802568a796d759404807f121c4233",
+  "tree": "a29a79fe44a4cf849c61b0dc0d0a8db9ee5433da",
+  "dependencies": {
+    "freshNpmCi": true,
+    "node": "v20.20.2",
+    "next": "15.5.22",
+    "playwright": "1.62.1",
+    "lockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "sourceHashes": {
+    "app/layout.tsx": "5f5e694bf3a6f53a73bb03e90c0de9babff040ce213d24a22d04218276d9f6b1",
+    "tests/asset-recovery-runtime-errors.test.ts": "49f69fec879e80ff1d7cda2d3e379b2c9d33ab022c65d2ae3de104592db76f57",
+    "tests/e2e/admin-critical-flows.spec.js": "44865b990b4f0dfc2c825c550e09818263032e81c5751bed6bcbd6809d213a13"
+  },
+  "runnerSha256": "e16e998f5547c46796d58393aa0e46f716d70b0d1f193b4dca0c0fabb29247fa",
+  "isolation": {
+    "freshOwnedCheckout": true,
+    "environmentFilesAbsent": true,
+    "authSecretGeneratedInMemory": true,
+    "databaseConfigured": false,
+    "providerCredentials": "unset",
+    "nodeNetworkGuard": true,
+    "browserOrigin": "http://localhost:3371"
+  },
+  "build": {
+    "freshOutput": true,
+    "result": "passed",
+    "buildId": "0_o74teiUGWXpm3oozn6-",
+    "buildIdSha256": "1793c2c87293376cc23516d4916722433fd2a9189823feba7c0ca6f43b366ad4",
+    "manifestSha256": "01d29c52fbbf8c6b95f1f8a2b7108692c34778fbd36d4dc5aa0c313807a87281"
+  },
+  "browserStats": {
+    "startTime": "2026-10-12T08:24:01.208Z",
+    "duration": 3884.7039999999997,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "browserGuard": {
+    "contexts": 5,
+    "blockedRequests": 6
+  },
+  "postQaTrackedChanges": [
+    "data/analytics-events.json"
+  ],
+  "completedAt": "2026-10-12T08:24:05.129Z",
+  "ok": true
+}

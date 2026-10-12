@@ -1,0 +1,47 @@
+[
+  {
+    "path": "docs/b3/evidence/CMS04_REACT19_PROBE_RUNNER.txt",
+    "bytes": 6671,
+    "sha256": "b8cdcbf7188ec4fa529bfc7fdd107e119889562edb9a67a91d18321f54e234c4"
+  },
+  {
+    "path": "docs/b3/evidence/CMS04_REACT19_COMPLETED_HTML.json",
+    "bytes": 1113,
+    "sha256": "ed727ac12ddb95b1df5f8657a63486e502c50a4793927eb5a5d7e4615a6c3d62"
+  },
+  {
+    "path": "docs/b3/evidence/CMS04_REACT19_STREAMING.json",
+    "bytes": 1112,
+    "sha256": "3d011fdeac8e8956f7910709fa9f2ff13dbc8968c7b3e3c2ef709cfba7ed37b3"
+  },
+  {
+    "path": "docs/b3/evidence/CMS04_FRESH_BUILD_BROWSER.json",
+    "bytes": 1870,
+    "sha256": "50d1081f13e3cfcb4da6a67a67dd91d1c7d4f27ceeeea9e4813dd88e710a6d8f"
+  },
+  {
+    "path": "docs/b3/evidence/CMS04_FRESH_BUILD_RUNNER.txt",
+    "bytes": 8440,
+    "sha256": "e16e998f5547c46796d58393aa0e46f716d70b0d1f193b4dca0c0fabb29247fa"
+  },
+  {
+    "path": "docs/b3/evidence/CMS04_STREAM_ORDER_MAIN.json",
+    "bytes": 21386,
+    "sha256": "3ead6c7c84dc4a0dd8e4c979d23b0b047f333555e5d721160e201b44bfc46939"
+  },
+  {
+    "path": "docs/b3/evidence/CMS04_STREAM_ORDER_64_CASES.json",
+    "bytes": 17964,
+    "sha256": "9525db0e917501f913c6513b541ecbde26d0826b4cdabb417c3791d7ba64faf0"
+  },
+  {
+    "path": "docs/b3/evidence/CMS04_STREAM_ORDER_RUNNER.txt",
+    "bytes": 8727,
+    "sha256": "630b5dc3f4bb074a24ac41a33c157edd5895b2c4bbb6759537e1316d8cd96891"
+  },
+  {
+    "path": "docs/b3/evidence/CMS04_STREAM_ORDER_BROWSER_CHECKS.txt",
+    "bytes": 4410,
+    "sha256": "207834dc1762d9eace7fd26af1adecc6838a70e864f4c78c35f2ff91164fcd9a"
+  }
+]

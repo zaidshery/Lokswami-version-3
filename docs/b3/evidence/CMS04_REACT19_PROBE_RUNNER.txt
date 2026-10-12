@@ -1,0 +1,89 @@
+const fs = require('fs');
+const path = require('path');
+const { createRequire } = require('module');
+const deps = createRequire(path.join(__dirname, 'Lokswami-version-3/package.json'));
+const React = deps('next/dist/compiled/react');
+const { renderToString, renderToPipeableStream } = deps('next/dist/compiled/react-dom/server.node');
+const { PassThrough } = require('stream');
+const { JSDOM } = deps('jsdom');
+const ts = deps('typescript');
+const assert = require('assert');
+const source = fs.readFileSync(path.join(__dirname, 'Lokswami-hydration-investigation/app/(admin)/admin/AdminShell.tsx'), 'utf8');
+const compiled = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const h = React.createElement;
+const streaming = process.argv.includes('--streaming');
+const report = { runtime: React.version, node: process.version, sourceHead: '0396d1565270f011e078dfb87b2698405760063f', actualComponent: 'AdminShell', diagnosticOnly: true, streaming, componentSha256: require('crypto').createHash('sha256').update(source).digest('hex'), runnerSha256: require('crypto').createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'), limitations: 'Mocked navigation, icons and UI store subscription; no Next.js RSC transport, real authentication or browser parser.', cases: [] };
+let state, initial, listeners;
+const action = () => {};
+const store = () => React.useSyncExternalStore(cb => { listeners.add(cb); return () => listeners.delete(cb); }, () => state, () => initial);
+const jsx = deps('next/dist/compiled/react/jsx-runtime');
+const icon = props => h('svg', props);
+const mocks = {
+  react: React, 'react/jsx-runtime': jsx,
+  'next/navigation': { usePathname: () => '/admin/work', useRouter: () => ({ replace: action, push: action, refresh: action }), useSearchParams: () => new URLSearchParams() },
+  'next-auth/react': { signOut: action },
+  'next/link': { default: ({ children, href, ...p }) => h('a', { href, ...p }, children) },
+  'next/image': { default: ({ src, alt }) => h('img', { src, alt }) },
+  'lucide-react': new Proxy({}, { get: () => icon }),
+  '@/components/layout/Logo': { default: () => h('span', null, 'QA Logo') },
+  '@/components/admin/WorkflowNotificationBell': { default: () => null },
+  '@/lib/store/appStore': { useAppStore: store },
+};
+const mod = { exports: {} };
+const cache = new Map();
+function load(name) {
+  if (name in mocks) return mocks[name];
+  if (name.startsWith('@/')) {
+    if (cache.has(name)) return cache.get(name);
+    const file = path.join(__dirname, 'Lokswami-hydration-investigation', name.slice(2)) + '.ts';
+    const result = { exports: {} }; cache.set(name, result.exports);
+    const js = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+    new Function('require', 'module', 'exports', js)(load, result, result.exports);
+    cache.set(name, result.exports); return result.exports;
+  }
+  return deps(name);
+}
+new Function('require', 'module', 'exports', compiled)(load, mod, mod.exports);
+const AdminShell = mod.exports.default;
+const wait = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  for (const externalUpdate of [false, true]) for (const mountUpdate of [false, true]) {
+    initial = state = { theme: 'dark', language: 'hi', setTheme: action, toggleLanguage: action }; listeners = new Set();
+    let client = false, ready = false, release;
+    const pending = new Promise(r => { release = () => { ready = true; r(); }; });
+    function Content() { if ((streaming || client) && !ready) throw pending; return h('h1', null, 'Streamed QA content'); }
+    function Fixture() {
+      React.useEffect(() => { if (mountUpdate) { state = { ...state, language: 'en' }; for (const cb of listeners) cb(); } }, []);
+      return h(AdminShell, { initialUser: { name: 'QA Reporter', email: 'qa@example.com', role: 'reporter' } }, h(React.Suspense, { fallback: h('p', null, 'Loading QA content') }, h(Content)));
+    }
+    let chunks = [], serverStream, markup, shellChunks = 0;
+    if (streaming) {
+      markup = await new Promise((resolve, reject) => {
+        const out = new PassThrough(); out.on('data', chunk => { chunks.push(chunk.toString()); });
+        serverStream = renderToPipeableStream(h('div', { id: 'root' }, h(Fixture)), { onShellReady() { serverStream.pipe(out); setImmediate(() => { shellChunks = chunks.length; resolve(chunks.join('')); }); }, onError: reject });
+      });
+    } else markup = '<div id="root">' + renderToString(h(Fixture)) + '</div>';
+    const dom = new JSDOM('<!doctype html><html><body>' + markup + '</body></html>', { url: 'http://localhost:3371/admin/work', runScripts: 'outside-only' });
+    if (streaming) Object.defineProperty(dom.window.document, 'readyState', { configurable: true, get: () => 'loading' });
+    global.window = dom.window; global.document = dom.window.document; Object.defineProperty(global, 'navigator', { configurable: true, value: dom.window.navigator });
+    global.HTMLElement = dom.window.HTMLElement; global.requestAnimationFrame = cb => setTimeout(cb, 0); dom.window.requestAnimationFrame = global.requestAnimationFrame;
+    const { hydrateRoot } = deps('next/dist/compiled/react-dom/client');
+    const errors = []; client = true;
+    const root = hydrateRoot(document.getElementById('root'), h(Fixture), { onRecoverableError: e => errors.push(e.message) });
+    await wait(20);
+    if (externalUpdate) { state = { ...state, currentUser: { role: 'reporter' } }; for (const cb of listeners) cb(); }
+    await wait(20); release(); await wait(30);
+    if (streaming) {
+      const tail = chunks.slice(shellChunks).join(''); document.body.insertAdjacentHTML('beforeend', tail);
+      for (const script of Array.from(document.body.querySelectorAll('script'))) dom.window.eval(script.textContent);
+      Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'complete' });
+    }
+    await wait(60);
+    const contentVisible = document.body.textContent.includes('Streamed QA content');
+    report.cases.push({ externalUpdate, mountUpdate, recoverableErrors: errors, contentVisible });
+    assert(contentVisible); root.unmount(); dom.window.close();
+  }
+  report.completedAt = new Date().toISOString();
+})().catch(e => { report.failure = e.message; process.exitCode = 1; }).finally(() => {
+  fs.writeFileSync(path.join(__dirname, streaming ? 'hydration-streaming-probe-report.json' : 'hydration-runtime-probe-report.json'), JSON.stringify(report, null, 2)); console.log(JSON.stringify(report, null, 2));
+});
