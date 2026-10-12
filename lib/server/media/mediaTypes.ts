@@ -7,6 +7,7 @@ export type MediaUploadPurpose =
 
 export type MediaAssetStatus =
   | 'pending'
+  | 'cancelled'
   | 'verified'
   | 'attached'
   | 'cleanup_pending'
@@ -37,6 +38,8 @@ export interface MediaRecord {
   ownerType?: MediaOwnerType;
   ownerId?: string;
   expectedSize?: number;
+  uploadExpiresAt?: string | Date;
+  cancelledAt?: string | Date;
   referenceTrackingComplete?: boolean;
   references?: MediaReference[];
   variants?: MediaOptimizedVariantMap;

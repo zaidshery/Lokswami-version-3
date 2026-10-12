@@ -806,6 +806,9 @@ export class StoryEditorialService {
         throw error;
       }
     }
+    // Capture client intent before deriving canonical fields (including last-video clearing).
+    const clientStorageUpdates = { ...updates };
+    const validatedMediaUpdate = updates.mediaAssets !== undefined;
     const nextMediaAssets = applyDerivedStoryMediaUpdates(updates, current);
     const mediaAssetsError = validateStoryMediaAssets(nextMediaAssets);
     if (mediaAssetsError) {
@@ -813,10 +816,12 @@ export class StoryEditorialService {
     }
 
     const trustedStorageFields = ['mediaKey', 'mediaUrl', 'mediaSizeBytes', 'mediaMimeType', 'storageProvider'] as const;
-    const trustedStorageChanged = trustedStorageFields.some(
-      (field) => updates[field] !== undefined && String(updates[field]) !== String(current[field] ?? '')
-    );
-    if (trustedStorageChanged && !nextMediaAssets.some((asset) => asset.kind === 'video' && asset.assetId)) {
+    const invalidClientStorageChange = trustedStorageFields.some((field) => {
+      if (clientStorageUpdates[field] === undefined) return false;
+      const expected = validatedMediaUpdate ? updates[field] : current[field];
+      return String(clientStorageUpdates[field]) !== String(expected ?? '');
+    });
+    if (invalidClientStorageChange) {
       throw new StoryValidationError(
         'Trusted Story video metadata can only be changed through a verified upload receipt.',
         400

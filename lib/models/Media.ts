@@ -11,7 +11,7 @@ const MediaSchema = new mongoose.Schema({
   objectKey: { type: String, default: '', trim: true },
   status: {
     type: String,
-    enum: ['pending', 'verified', 'attached', 'cleanup_pending', 'deleted', 'failed'],
+    enum: ['pending', 'cancelled', 'verified', 'attached', 'cleanup_pending', 'deleted', 'failed'],
     default: 'verified',
   },
   mediaKind: { type: String, enum: ['image', 'video', 'document'], default: 'image' },
@@ -22,6 +22,8 @@ const MediaSchema = new mongoose.Schema({
   },
   ownerId: { type: String, default: '', trim: true },
   expectedSize: { type: Number, default: 0, min: 0 },
+  uploadExpiresAt: { type: Date, default: null },
+  cancelledAt: { type: Date, default: null },
   referenceTrackingComplete: { type: Boolean, default: false },
   references: {
     type: [{ ownerType: String, ownerId: String, field: String, attachedAt: Date }],

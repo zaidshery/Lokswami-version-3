@@ -33,6 +33,7 @@ export class StoryVideoAssetService {
       ownerType: 'story',
       ownerId: input.storyId || '',
       expectedSize: input.fileSize,
+      uploadExpiresAt: target.expiresAt,
       referenceTrackingComplete: false,
       references: [],
     });
@@ -74,12 +75,12 @@ export class StoryVideoAssetService {
     const prefix = new Uint8Array(await prefixResponse.arrayBuffer());
     const contentError = validateMp4Prefix(prefix);
     if (contentError) {
-      await this.repository.updateMediaById(input.assetId, { status: 'cleanup_pending', cleanupError: contentError });
+      await this.repository.transitionStatus(input.assetId, 'pending', { status: 'cleanup_pending', cleanupError: contentError });
       throw new MediaValidationError(contentError, 400);
     }
 
     try {
-      const updated = await this.repository.updateMediaById(input.assetId, {
+      const updated = await this.repository.transitionStatus(input.assetId, 'pending', {
         url: asset.mediaUrl,
         size: asset.mediaSizeBytes,
         type: asset.mediaMimeType,
@@ -87,10 +88,11 @@ export class StoryVideoAssetService {
         verifiedAt: new Date(),
         cleanupError: '',
       });
-      if (!updated) throw new Error('Upload receipt disappeared during verification.');
-    } catch {
-      await this.spaces.deleteAssetByPublicId(record.objectKey).catch(() => undefined);
-      await this.repository.updateMediaById(input.assetId, {
+      if (!updated) throw new MediaValidationError('Upload receipt changed or was cancelled during verification.', 409);
+    } catch (error) {
+      if (error instanceof MediaValidationError) throw error;
+      // Never overwrite cancellation, or delete an object a concurrent completion attached.
+      await this.repository.transitionStatus(input.assetId, 'pending', {
         status: 'cleanup_pending',
         cleanupError: 'Receipt persistence failed after object upload.',
       }).catch(() => undefined);

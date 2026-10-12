@@ -11,7 +11,14 @@ import Video from '@/lib/models/Video';
 import EPaper from '@/lib/models/EPaper';
 import Author from '@/lib/models/Author';
 import User from '@/lib/models/User';
-import type { MediaRecord, MediaReference } from './mediaTypes';
+import type { MediaAssetStatus, MediaRecord, MediaReference } from './mediaTypes';
+
+let mediaFileQueue: Promise<unknown> = Promise.resolve();
+function withMediaFileLock<T>(work: () => Promise<T>): Promise<T> {
+  const result = mediaFileQueue.then(work, work);
+  mediaFileQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
 
 function filterMediaForUser(records: MediaRecord[], user: AdminSessionIdentity): MediaRecord[] {
   if (!isReporterDeskRole(user.role)) {
@@ -31,6 +38,28 @@ function sortMediaByCreatedAt(records: MediaRecord[]): MediaRecord[] {
 }
 
 export class MediaRepository {
+  /** Includes all persisted current/revision references, irrespective of registry completeness. */
+  async hasPersistedReference(record: MediaRecord): Promise<boolean> {
+    return this.hasPersistedArticleImageReference(record);
+  }
+
+  async transitionStatus(id: string, from: MediaAssetStatus, updates: Partial<MediaRecord>): Promise<MediaRecord | null> {
+    if (!process.env.MONGODB_URI) {
+      // Serialize read/compare/write across repository instances in this process.
+      return withMediaFileLock(async () => {
+        const records = await this.readFileRecords();
+        const record = records.find((item) => String(item._id) === id && item.status === from);
+        if (!record) return null;
+        Object.assign(record, updates, { updatedAt: new Date() });
+        await this.writeFileRecords(records);
+        return record;
+      });
+    }
+    await connectDB();
+    return await Media.findOneAndUpdate({ _id: id, status: from },
+      { $set: { ...updates, updatedAt: new Date() } }, { new: true }).lean() as MediaRecord | null;
+  }
+
   /** Old article uploads have no registry links; validate persisted uses before repairing that state. */
   async hasPersistedArticleImageReference(record: MediaRecord): Promise<boolean> {
     const urls = [record.url, ...Object.values(record.variants || {})]
@@ -72,8 +101,8 @@ export class MediaRepository {
     });
     // Include private content and restorable revisions, not only published discovery records.
     return Boolean(await exists(Article, [...articleFields, ...articleFields.map((field) => `revisions.${field}`)]) ||
-      await exists(Story as unknown as typeof Article, ['thumbnail', 'mediaUrl', 'mediaKey', 'mediaAssets.url', 'mediaAssets.assetId',
-        'revisions.thumbnail', 'revisions.mediaUrl', 'revisions.mediaKey', 'revisions.mediaAssets.url', 'revisions.mediaAssets.assetId']) ||
+      await exists(Story as unknown as typeof Article, ['thumbnail', 'mediaUrl', 'mediaKey', 'mediaAssets.url', 'mediaAssets.key', 'mediaAssets.assetId',
+        'revisions.thumbnail', 'revisions.mediaUrl', 'revisions.mediaKey', 'revisions.mediaAssets.url', 'revisions.mediaAssets.key', 'revisions.mediaAssets.assetId']) ||
       await exists(Video as unknown as typeof Article, ['thumbnail', 'videoUrl', 'posterUrl', 'playbackUrl', 'hlsUrl', 'captionUrl', 'sourceAssetId']) ||
       await exists(EPaper as unknown as typeof Article, ['thumbnail', 'thumbnailPath', 'pdfUrl', 'pdfPath', 'pages.imagePath']) ||
       await exists(Author as unknown as typeof Article, ['avatar']) ||
@@ -206,11 +235,11 @@ export class MediaRepository {
     if (!process.env.MONGODB_URI) {
       return (await this.readFileRecords()).filter((record) => {
         const updated = new Date(record.updatedAt || record.createdAt || 0).getTime();
-        return record.status === 'cleanup_pending' && updated <= before.getTime();
+        return ['cleanup_pending', 'cancelled'].includes(String(record.status)) && updated <= before.getTime();
       });
     }
     await connectDB();
-    const records = await Media.find({ status: 'cleanup_pending', updatedAt: { $lte: before } }).lean();
+    const records = await Media.find({ status: { $in: ['cleanup_pending', 'cancelled'] }, updatedAt: { $lte: before } }).lean();
     return records as unknown as MediaRecord[];
   }
 
@@ -218,9 +247,11 @@ export class MediaRepository {
     try {
       const raw = await fs.readFile(this.getJsonFilePath(), 'utf-8');
       const parsed = JSON.parse(raw || '[]');
-      return Array.isArray(parsed) ? (parsed as MediaRecord[]) : [];
-    } catch {
-      return [];
+      if (!Array.isArray(parsed)) throw new Error('Invalid media registry.');
+      return parsed as MediaRecord[];
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return [];
+      throw error;
     }
   }
 

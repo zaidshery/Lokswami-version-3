@@ -20,6 +20,7 @@ import {
   type SpacesAdapter,
 } from './spacesAdapter';
 import { validateUploadedFileContent } from './mediaFileValidation';
+import { STORY_VIDEO_UPLOAD_EXPIRY_SECONDS } from '@/lib/storage/storyVideoUpload';
 import {
   isValidDigitalOceanSpacesObjectKey,
   parseTrustedDigitalOceanSpacesAssetFromUrl,
@@ -140,6 +141,63 @@ export class MediaService {
     private readonly imageService: MediaImageService = mediaImageService
   ) {}
 
+  /** Admin-only cancellation is distinct from deletion: retain a non-reusable cleanup tombstone. */
+  async cancelPendingUpload(id: string, user: AdminSessionIdentity) {
+    if (!canDeleteContent(user)) throw new MediaValidationError('Only admins can cancel pending media uploads.', 403);
+    let record = await this.repository.getMediaById(id);
+    if (!record) throw new MediaValidationError('Not found', 404);
+    if (!['pending', 'cancelled'].includes(String(record.status)) || record.ownerType !== 'story' ||
+        record.mediaKind !== 'video' || record.provider !== 'do-spaces' || !record.createdById ||
+        !record.objectKey?.startsWith('stories/videos/') || !isValidDigitalOceanSpacesObjectKey(record.objectKey)) {
+      throw new MediaValidationError('Only server-issued pending Story video uploads can be cancelled.', 409);
+    }
+    const expiry = record.uploadExpiresAt || (record.createdAt &&
+      new Date(new Date(record.createdAt).getTime() + STORY_VIDEO_UPLOAD_EXPIRY_SECONDS * 1000));
+    if (!expiry || !Number.isFinite(new Date(expiry).getTime())) {
+      throw new MediaValidationError('Upload expiry is unknown; cancellation was refused.', 409);
+    }
+    await this.assertUnreferenced(record);
+    if (record.status === 'pending') {
+      const claimed = await this.repository.transitionStatus(id, 'pending', {
+        status: 'cancelled', cancelledAt: new Date(), uploadExpiresAt: expiry, cleanupError: '',
+      });
+      if (!claimed) throw new MediaValidationError('Upload changed during cancellation; retry after refreshing.', 409);
+      record = claimed;
+    }
+    // A URL cannot be revoked individually. Do not declare deletion while it can still PUT.
+    if (new Date(expiry).getTime() > Date.now()) {
+      return { assetId: id, status: 'cancelled' as const, cleanupPending: true, cleanupNotBefore: new Date(expiry).toISOString() };
+    }
+    await this.cleanCancelledUpload(record);
+    return { assetId: id, status: 'cancelled' as const, cleanupPending: false, tombstoneRetained: true };
+  }
+
+  private async assertUnreferenced(record: MediaRecord) {
+    if ((record.references || []).length || await this.repository.hasPersistedReference(record)) {
+      throw new MediaValidationError('Asset is still referenced and cannot be deleted.', 409);
+    }
+  }
+
+  private async cleanCancelledUpload(record: MediaRecord) {
+    if (record.status !== 'cancelled' || !record.cancelledAt || record.ownerType !== 'story' ||
+        record.mediaKind !== 'video' || record.provider !== 'do-spaces' ||
+        !record.objectKey?.startsWith('stories/videos/') || !isValidDigitalOceanSpacesObjectKey(record.objectKey) ||
+        !record.uploadExpiresAt || !Number.isFinite(new Date(record.uploadExpiresAt).getTime()) ||
+        new Date(record.uploadExpiresAt).getTime() > Date.now()) {
+      throw new MediaValidationError('Cancellation cleanup identity or expiry is unknown.', 409);
+    }
+    await this.assertUnreferenced(record);
+    try {
+      await this.spaces.deleteAssetByPublicId(String(record.objectKey));
+      await this.repository.updateMediaById(String(record._id), { cleanupError: '', deletedAt: new Date() });
+    } catch {
+      await this.repository.updateMediaById(String(record._id), { cleanupError: 'provider_cleanup_failed' });
+      throw new MediaValidationError('Provider cleanup failed; cancellation is retained for retry.', 503);
+    }
+    // Keep status=cancelled in reconciliation forever: a PUT begun before expiry can finish later.
+    // Such objects retain an authoritative cleanup owner; neither completion nor attachment can revive it.
+  }
+
   async listMedia(user: AdminSessionIdentity): Promise<MediaRecord[]> {
     return this.repository.listMedia(user);
   }
@@ -154,7 +212,7 @@ export class MediaService {
     const existing = data.assetId
       ? await this.repository.getMediaById(data.assetId)
       : await this.repository.findMediaByUrl(data.url);
-    if (!existing || existing.status === 'deleted') {
+    if (!existing || !['verified', 'attached'].includes(String(existing.status))) {
       throw new MediaValidationError('Upload receipt not found. Upload the file again.', 400);
     }
     if (existing.createdById && existing.createdById !== user.id && isReporterDeskRole(user.role)) {
@@ -173,6 +231,9 @@ export class MediaService {
       throw new MediaValidationError('Not found', 404);
     }
     if (record.status === 'deleted') return;
+    if (record.status === 'cancelled') {
+      throw new MediaValidationError('Use pending-upload cancellation to retry this tombstone cleanup.', 409);
+    }
     if (!record.provider || record.provider === 'legacy' || !record.objectKey) {
       await this.repository.updateMediaById(id, { status: 'deleted', deletedAt: new Date() });
       return;
@@ -180,7 +241,13 @@ export class MediaService {
     if ((record.references || []).length > 0) {
       throw new MediaValidationError('Asset is still referenced and cannot be deleted.', 409);
     }
-    if (record.ownerType === 'article' && record.mediaKind === 'image') {
+    if (record.ownerType === 'story') {
+      // Registry links track current attachments; restorable revisions remain authoritative too.
+      await this.assertUnreferenced(record);
+      if (!record.referenceTrackingComplete) {
+        throw new MediaValidationError('Asset reference state is unknown; provider deletion was refused.', 409);
+      }
+    } else if (record.ownerType === 'article' && record.mediaKind === 'image') {
       if (await this.repository.hasPersistedArticleImageReference(record)) {
         throw new MediaValidationError('Asset is still referenced and cannot be deleted.', 409);
       }
@@ -328,6 +395,12 @@ export class MediaService {
     for (const record of candidates) {
       if (!record._id || !record.objectKey || (record.references || []).length) continue;
       try {
+        if (record.status === 'cancelled') {
+          if (!record.uploadExpiresAt || new Date(record.uploadExpiresAt).getTime() > Date.now()) continue;
+          await this.cleanCancelledUpload(record);
+          deleted += 1;
+          continue;
+        }
         if (record.ownerType === 'article' && record.mediaKind === 'image' &&
           await this.repository.hasPersistedArticleImageReference(record)) continue;
         for (const key of getCanonicalObjectKeys(record)) {
