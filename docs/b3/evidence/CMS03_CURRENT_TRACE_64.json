@@ -1,0 +1,872 @@
+{
+  "startedAt": "2026-10-12T04:54:45.348Z",
+  "sourceHead": "021a02ba4bf802568a796d759404807f121c4233",
+  "sourceTree": "a29a79fe44a4cf849c61b0dc0d0a8db9ee5433da",
+  "servedReactAssetInstrumented": true,
+  "acceptanceEvidence": false,
+  "buildProvenance": {
+    "freshOutput": true,
+    "result": "passed",
+    "buildId": "8Q1CZGZZkONcLjRtXYAjO",
+    "buildIdSha256": "6b3a9a7eeff06e8f0ced6950a8bc66d4d7bf419b7a96a98493d36404f66e7cd2",
+    "manifestSha256": "f59e90cd3c64c7691b867962144035a329be168314f9c2a1caed86a904c2912b",
+    "buildManifestSha256": "f59e90cd3c64c7691b867962144035a329be168314f9c2a1caed86a904c2912b",
+    "packageLockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2"
+  },
+  "checks": [
+    {
+      "role": "admin",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 1
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/content-queue",
+      "newErrors": 1
+    },
+    {
+      "role": "admin",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/review-queue",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin",
+      "finalPath": "/admin",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/work",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/content-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    },
+    {
+      "role": "reporter",
+      "requestedRoute": "/admin/review-queue",
+      "finalPath": "/admin/work",
+      "newErrors": 0
+    }
+  ],
+  "pageErrors": [
+    {
+      "role": "admin",
+      "path": "/admin",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35722)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:85226)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:115621)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110982\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:111491)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:133594)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "reporter",
+      "path": "/admin/work",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35722)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:85226)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:115621)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110982\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:111491)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:133594)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/review-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35722)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:85226)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:115621)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110982\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:111491)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:133594)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    },
+    {
+      "role": "admin",
+      "path": "/admin/content-queue",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rD (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:35722)\n    at oq (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:85226)\n    at iw (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:115621)\n    at http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:110982\n    at iu (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:111491)\n    at iX (http://localhost:3371/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js:1:133594)\n    at MessagePort.w (http://localhost:3371/_next/static/chunks/1255-3ac442c8923f6ba1.js:1:65059)"
+    }
+  ],
+  "mismatchTraces": [
+    {
+      "role": "admin",
+      "url": "http://localhost:3371/admin",
+      "parents": [
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "relative p-3 pt-20 sm:p-5 sm:pt-[88px] lg:p-6 lg:pt-[92px] xl:p-7 xl:pt-[96px] pb-28 lg:pb-8"
+        },
+        {
+          "tag": 5,
+          "type": "main",
+          "className": "relative min-h-screen min-w-0 flex-1 overflow-y-auto transition-colors lg:ml-[248px] lg:h-screen"
+        },
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "admin-shell min-h-screen text-[color:var(--admin-shell-text)] transition-colors lg:flex lg:h-screen lg:overflow-hidden"
+        },
+        {
+          "tag": 0,
+          "type": "Z"
+        },
+        {
+          "tag": 7,
+          "type": "null"
+        },
+        {
+          "tag": 10,
+          "type": "[object Object]"
+        },
+        {
+          "tag": 0,
+          "type": "T"
+        },
+        {
+          "tag": 1,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "f"
+        },
+        {
+          "tag": 1,
+          "type": "c"
+        },
+        {
+          "tag": 0,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "S"
+        }
+      ],
+      "expected": "div",
+      "actualNode": "#comment",
+      "actualComment": "$~",
+      "parentNodes": [
+        {
+          "type": "#comment",
+          "comment": "$~",
+          "className": null
+        },
+        {
+          "type": "TEMPLATE",
+          "comment": null,
+          "className": ""
+        },
+        {
+          "type": "DIV",
+          "comment": null,
+          "className": "mx-auto w-full max-w-[1500px] space-y-5 px-3 pb-10 sm:px-5"
+        },
+        {
+          "type": "#comment",
+          "comment": "/$",
+          "className": null
+        }
+      ],
+      "fiberFlags": 0
+    },
+    {
+      "role": "reporter",
+      "url": "http://localhost:3371/admin/work?access=denied",
+      "parents": [
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "relative p-3 pt-20 sm:p-5 sm:pt-[88px] lg:p-6 lg:pt-[92px] xl:p-7 xl:pt-[96px] pb-28 lg:pb-8"
+        },
+        {
+          "tag": 5,
+          "type": "main",
+          "className": "relative min-h-screen min-w-0 flex-1 overflow-y-auto transition-colors lg:ml-[248px] lg:h-screen"
+        },
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "admin-shell min-h-screen text-[color:var(--admin-shell-text)] transition-colors lg:flex lg:h-screen lg:overflow-hidden"
+        },
+        {
+          "tag": 0,
+          "type": "Z"
+        },
+        {
+          "tag": 7,
+          "type": "null"
+        },
+        {
+          "tag": 10,
+          "type": "[object Object]"
+        },
+        {
+          "tag": 0,
+          "type": "T"
+        },
+        {
+          "tag": 1,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "f"
+        },
+        {
+          "tag": 1,
+          "type": "c"
+        },
+        {
+          "tag": 0,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "S"
+        }
+      ],
+      "expected": "div",
+      "actualNode": "#comment",
+      "actualComment": "$",
+      "parentNodes": [
+        {
+          "type": "#comment",
+          "comment": "$",
+          "className": null
+        },
+        {
+          "type": "DIV",
+          "comment": null,
+          "className": "mx-auto w-full max-w-[1600px] space-y-5 px-3 pb-10 sm:px-5 lg:px-6"
+        },
+        {
+          "type": "#comment",
+          "comment": "$",
+          "className": null
+        },
+        {
+          "type": "#comment",
+          "comment": "/$",
+          "className": null
+        },
+        {
+          "type": "#comment",
+          "comment": "/$",
+          "className": null
+        }
+      ],
+      "fiberFlags": 0
+    },
+    {
+      "role": "reporter",
+      "url": "http://localhost:3371/admin/content-queue",
+      "parents": [
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "relative p-3 pt-20 sm:p-5 sm:pt-[88px] lg:p-6 lg:pt-[92px] xl:p-7 xl:pt-[96px] pb-28 lg:pb-8"
+        },
+        {
+          "tag": 5,
+          "type": "main",
+          "className": "relative min-h-screen min-w-0 flex-1 overflow-y-auto transition-colors lg:ml-[248px] lg:h-screen"
+        },
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "admin-shell min-h-screen text-[color:var(--admin-shell-text)] transition-colors lg:flex lg:h-screen lg:overflow-hidden"
+        },
+        {
+          "tag": 0,
+          "type": "Z"
+        },
+        {
+          "tag": 7,
+          "type": "null"
+        },
+        {
+          "tag": 10,
+          "type": "[object Object]"
+        },
+        {
+          "tag": 0,
+          "type": "T"
+        },
+        {
+          "tag": 1,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "f"
+        },
+        {
+          "tag": 1,
+          "type": "c"
+        },
+        {
+          "tag": 0,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "S"
+        }
+      ],
+      "expected": "div",
+      "actualNode": "#comment",
+      "actualComment": "$!",
+      "parentNodes": [
+        {
+          "type": "#comment",
+          "comment": "$!",
+          "className": null
+        },
+        {
+          "type": "TEMPLATE",
+          "comment": null,
+          "className": ""
+        },
+        {
+          "type": "DIV",
+          "comment": null,
+          "className": "mx-auto w-full max-w-[1500px] space-y-5 px-3 pb-10 sm:px-5"
+        },
+        {
+          "type": "#comment",
+          "comment": "/$",
+          "className": null
+        }
+      ],
+      "fiberFlags": 0
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:3371/admin/review-queue",
+      "parents": [
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "relative p-3 pt-20 sm:p-5 sm:pt-[88px] lg:p-6 lg:pt-[92px] xl:p-7 xl:pt-[96px] pb-28 lg:pb-8"
+        },
+        {
+          "tag": 5,
+          "type": "main",
+          "className": "relative min-h-screen min-w-0 flex-1 overflow-y-auto transition-colors lg:ml-[248px] lg:h-screen"
+        },
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "admin-shell min-h-screen text-[color:var(--admin-shell-text)] transition-colors lg:flex lg:h-screen lg:overflow-hidden"
+        },
+        {
+          "tag": 0,
+          "type": "Z"
+        },
+        {
+          "tag": 7,
+          "type": "null"
+        },
+        {
+          "tag": 10,
+          "type": "[object Object]"
+        },
+        {
+          "tag": 0,
+          "type": "T"
+        },
+        {
+          "tag": 1,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "f"
+        },
+        {
+          "tag": 1,
+          "type": "c"
+        },
+        {
+          "tag": 0,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "S"
+        }
+      ],
+      "expected": "div",
+      "actualNode": "#comment",
+      "actualComment": "$",
+      "parentNodes": [
+        {
+          "type": "#comment",
+          "comment": "$",
+          "className": null
+        },
+        {
+          "type": "#comment",
+          "comment": "$",
+          "className": null
+        },
+        {
+          "type": "DIV",
+          "comment": null,
+          "className": "mx-auto w-full max-w-[1600px] space-y-5 px-3 pb-10 sm:px-5 lg:px-6"
+        },
+        {
+          "type": "#comment",
+          "comment": "$",
+          "className": null
+        },
+        {
+          "type": "#comment",
+          "comment": "/$",
+          "className": null
+        },
+        {
+          "type": "#comment",
+          "comment": "/$",
+          "className": null
+        },
+        {
+          "type": "#comment",
+          "comment": "/$",
+          "className": null
+        }
+      ],
+      "fiberFlags": 0
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:3371/admin/content-queue",
+      "parents": [
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "relative p-3 pt-20 sm:p-5 sm:pt-[88px] lg:p-6 lg:pt-[92px] xl:p-7 xl:pt-[96px] pb-28 lg:pb-8"
+        },
+        {
+          "tag": 5,
+          "type": "main",
+          "className": "relative min-h-screen min-w-0 flex-1 overflow-y-auto transition-colors lg:ml-[248px] lg:h-screen"
+        },
+        {
+          "tag": 5,
+          "type": "div",
+          "className": "admin-shell min-h-screen text-[color:var(--admin-shell-text)] transition-colors lg:flex lg:h-screen lg:overflow-hidden"
+        },
+        {
+          "tag": 0,
+          "type": "Z"
+        },
+        {
+          "tag": 7,
+          "type": "null"
+        },
+        {
+          "tag": 10,
+          "type": "[object Object]"
+        },
+        {
+          "tag": 0,
+          "type": "T"
+        },
+        {
+          "tag": 1,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "f"
+        },
+        {
+          "tag": 1,
+          "type": "c"
+        },
+        {
+          "tag": 0,
+          "type": "s"
+        },
+        {
+          "tag": 0,
+          "type": "S"
+        }
+      ],
+      "expected": "div",
+      "actualNode": "#comment",
+      "actualComment": "$~",
+      "parentNodes": [
+        {
+          "type": "#comment",
+          "comment": "$~",
+          "className": null
+        },
+        {
+          "type": "TEMPLATE",
+          "comment": null,
+          "className": ""
+        },
+        {
+          "type": "DIV",
+          "comment": null,
+          "className": "mx-auto w-full max-w-[1500px] space-y-5 px-3 pb-10 sm:px-5"
+        },
+        {
+          "type": "#comment",
+          "comment": "/$",
+          "className": null
+        }
+      ],
+      "fiberFlags": 0
+    }
+  ],
+  "instrumentation": {
+    "asset": "4bd1b696-100b9d70ed4e49c1.js",
+    "originalSha256": "5421e13a91a9389517b66179f3b4b5eaa0d95245438066d4d7b19ac30aeb809b",
+    "instrumentedSha256": "937251ddbe13457a922221248b875d4ca2ce6524b91ded963675b43da5be2db3"
+  },
+  "completedAt": "2026-10-12T04:55:46.664Z",
+  "ok": false
+}
