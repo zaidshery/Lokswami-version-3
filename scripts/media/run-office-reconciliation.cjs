@@ -38,6 +38,7 @@ function parseOptions(args) {
 async function runBounded({ env, options, service, log, lockRoot = os.tmpdir(), signal }) {
   const scope = assertOfficeEnvironment(env);
   const lockPath = path.join(lockRoot, `lokswami-office-media-${scope.database}.lock`);
+  const cursorPath = path.join(lockRoot, `lokswami-office-media-${scope.database}.cursor.json`);
   const owner = crypto.randomUUID();
   let fd;
   try { fd = fs.openSync(lockPath, 'wx'); }
@@ -52,9 +53,22 @@ async function runBounded({ env, options, service, log, lockRoot = os.tmpdir(), 
   const deadline = Date.now() + options.maxRuntimeMs;
   let completed = 0;
   try {
+    let cursor = null;
+    try {
+      const checkpoint = JSON.parse(fs.readFileSync(cursorPath, 'utf8'));
+      if (checkpoint.version !== 1 || checkpoint.database !== scope.database
+        || checkpoint.bucket !== scope.bucket || checkpoint.region !== scope.region) throw new Error('Cleanup checkpoint scope is invalid.');
+      cursor = checkpoint.cursor;
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    log({ event: 'resumed', cursor, cursorPath });
     for (let cycle = 0; cycle < options.cycles && !signal?.aborted && Date.now() < deadline; cycle += 1) {
       const before = new Date();
-      const result = await service.reconcileCleanupDetailed(before, { limit: options.limit });
+      const result = await service.reconcileCleanupDetailed(before, { limit: options.limit, cursor });
+      if (!result.progress || result.progress.considered > options.limit) throw new Error('Cleanup service did not return bounded progression.');
+      cursor = result.progress.nextCursor;
+      const temporary = cursorPath + '.' + owner + '.tmp';
+      fs.writeFileSync(temporary, JSON.stringify({ version: 1, ...scope, cursor }), { flag: 'wx' });
+      fs.renameSync(temporary, cursorPath);
       completed += 1;
       log({ event: 'cycle', cycle: completed, cutoff: before.toISOString(), ...result });
       if (cycle + 1 < options.cycles && !signal?.aborted) {

@@ -50,6 +50,13 @@ export interface MediaRecord {
   createdAt?: string | Date;
 }
 
+/** Position in an oldest-first sweep. The fixed cutoff excludes retries updated mid-sweep. */
+export interface MediaCleanupCursor {
+  cutoff: string;
+  updatedAt: string;
+  id: string;
+}
+
 export interface MediaUploadRule {
   maxSizeBytes: number;
   errorType: string;

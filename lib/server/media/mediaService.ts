@@ -7,10 +7,13 @@ import {
 } from './mediaImageService';
 import {
   mediaRepository,
+  cleanupCursorFor,
+  validateCleanupCursor,
   type MediaRepository,
 } from './mediaRepository';
 import type {
   MediaRecord,
+  MediaCleanupCursor,
   MediaUploadPurpose,
   MediaUploadResult,
   MediaUploadRule,
@@ -89,6 +92,8 @@ export type ReconcileCleanupResult = {
   labelFailed: number;
   labelPersistenceFailed?: number;
   receiptPersistenceFailed?: number;
+  /** Only bounded callers receive progression; pass nextCursor to the next cycle. */
+  progress?: { considered: number; nextCursor: MediaCleanupCursor | null; wrapped: boolean };
 };
 
 function bytesFromMb(mb: number) {
@@ -498,13 +503,30 @@ export class MediaService {
   }
 
   /** Detailed classification for operated QA and future reconciliation reporting. */
-  async reconcileCleanupDetailed(before: Date, options: { limit?: number } = {}): Promise<ReconcileCleanupResult> {
+  async reconcileCleanupDetailed(before: Date, options: { limit?: number; cursor?: MediaCleanupCursor | null } = {}): Promise<ReconcileCleanupResult> {
     if (options.limit !== undefined && (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 100)) {
       throw new MediaValidationError('Cleanup batch limit must be between 1 and 100.');
     }
-    const candidates = options.limit === undefined
+    if (options.cursor) {
+      if (options.limit === undefined) throw new MediaValidationError('Cleanup continuation requires a bounded batch.');
+      validateCleanupCursor(options.cursor);
+    }
+    let cutoff = options.cursor ? new Date(options.cursor.cutoff) : before;
+    let candidates = options.limit === undefined
       ? await this.repository.listCleanupCandidates(before)
-      : await this.repository.listCleanupCandidates(before, options.limit);
+      : options.cursor
+        ? await this.repository.listCleanupCandidates(cutoff, options.limit, options.cursor)
+        : await this.repository.listCleanupCandidates(cutoff, options.limit);
+    let wrapped = false;
+    if (options.cursor && !candidates.length) {
+      // At most two bounded queries, and never more than limit cleanup considerations.
+      cutoff = before;
+      candidates = await this.repository.listCleanupCandidates(cutoff, options.limit);
+      wrapped = true;
+    }
+    // Capture the selected position before cleanup can update a receipt's timestamp.
+    const nextCursor = options.limit !== undefined && candidates.length === options.limit
+      ? cleanupCursorFor(candidates[candidates.length - 1], cutoff) : null;
     let deleted = 0;
     let failed = 0;
     let retained = 0;
@@ -591,6 +613,7 @@ export class MediaService {
       labelFailed,
       labelPersistenceFailed: labelFailed,
       receiptPersistenceFailed: persistenceFailed - labelFailed,
+      ...(options.limit === undefined ? {} : { progress: { considered: candidates.length, nextCursor, wrapped } }),
     };
   }
 }

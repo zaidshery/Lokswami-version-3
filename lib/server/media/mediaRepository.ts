@@ -11,7 +11,23 @@ import Video from '@/lib/models/Video';
 import EPaper from '@/lib/models/EPaper';
 import Author from '@/lib/models/Author';
 import User from '@/lib/models/User';
-import type { MediaAssetStatus, MediaRecord, MediaReference } from './mediaTypes';
+import type { MediaAssetStatus, MediaRecord, MediaReference, MediaCleanupCursor } from './mediaTypes';
+
+export function validateCleanupCursor(cursor: MediaCleanupCursor): void {
+  if (!cursor || typeof cursor.id !== 'string' || !cursor.id || cursor.id.length > 128
+    || ![cursor.cutoff, cursor.updatedAt].every(value => typeof value === 'string'
+      && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value)
+    || Date.parse(cursor.updatedAt) > Date.parse(cursor.cutoff)) {
+    throw new Error('Invalid cleanup continuation cursor.');
+  }
+}
+
+export function cleanupCursorFor(record: MediaRecord, cutoff: Date): MediaCleanupCursor {
+  const cursor = { cutoff: cutoff.toISOString(),
+    updatedAt: new Date(record.updatedAt || record.createdAt || 0).toISOString(), id: String(record._id || '') };
+  validateCleanupCursor(cursor);
+  return cursor;
+}
 
 let mediaFileQueue: Promise<unknown> = Promise.resolve();
 function withMediaFileLock<T>(work: () => Promise<T>): Promise<T> {
@@ -262,21 +278,35 @@ export class MediaRepository {
     });
   }
 
-  async listCleanupCandidates(before: Date, limit?: number): Promise<MediaRecord[]> {
+  async listCleanupCandidates(before: Date, limit?: number, cursor?: MediaCleanupCursor | null): Promise<MediaRecord[]> {
     if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 100)) {
       throw new Error('Cleanup batch limit must be between 1 and 100.');
+    }
+    if (cursor) {
+      if (limit === undefined) throw new Error('Cleanup continuation requires a bounded batch.');
+      validateCleanupCursor(cursor);
+      before = new Date(cursor.cutoff);
     }
     if (!process.env.MONGODB_URI) {
       const candidates = (await this.readFileRecords()).filter((record) => {
         const updated = new Date(record.updatedAt || record.createdAt || 0).getTime();
-        return ['cleanup_pending', 'cancelled'].includes(String(record.status)) && updated <= before.getTime();
+        return ['cleanup_pending', 'cancelled'].includes(String(record.status)) && updated <= before.getTime()
+          && (!cursor || updated > Date.parse(cursor.updatedAt)
+            || (updated === Date.parse(cursor.updatedAt) && String(record._id || '') > cursor.id));
       });
       return limit === undefined ? candidates : candidates
-        .sort((a, b) => new Date(a.updatedAt || a.createdAt || 0).getTime() - new Date(b.updatedAt || b.createdAt || 0).getTime())
+        .sort((a, b) => new Date(a.updatedAt || a.createdAt || 0).getTime() - new Date(b.updatedAt || b.createdAt || 0).getTime()
+          || (String(a._id || '') < String(b._id || '') ? -1 : String(a._id || '') > String(b._id || '') ? 1 : 0))
         .slice(0, limit);
     }
     await connectDB();
-    let query = Media.find({ status: { $in: ['cleanup_pending', 'cancelled'] }, updatedAt: { $lte: before } });
+    if (cursor && !/^[a-f0-9]{24}$/i.test(cursor.id)) throw new Error('Invalid Mongo cleanup cursor identity.');
+    let query = Media.find({ status: { $in: ['cleanup_pending', 'cancelled'] }, updatedAt: { $lte: before },
+      ...(cursor ? { $or: [
+        { updatedAt: { $gt: new Date(cursor.updatedAt) } },
+        { updatedAt: new Date(cursor.updatedAt), _id: { $gt: cursor.id } },
+      ] } : {}),
+    });
     if (limit !== undefined) query = query.sort({ updatedAt: 1, _id: 1 }).limit(limit);
     const records = await query.lean();
     return records as unknown as MediaRecord[];

@@ -33,9 +33,41 @@ describe('bounded office media reconciliation worker',()=>{
     const second=await runBounded({env,options,service:secondService,log,lockRoot:directory});
     expect(second.skipped).toBe(true);
     expect(secondService.reconcileCleanupDetailed).not.toHaveBeenCalled();
-    expect(firstService.reconcileCleanupDetailed).toHaveBeenCalledWith(expect.any(Date),{limit:2});
-    release({deleted:0,failed:0,retained:1,blocked:1});
+    expect(firstService.reconcileCleanupDetailed).toHaveBeenCalledWith(expect.any(Date),{limit:2,cursor:null});
+    release({deleted:0,failed:0,retained:1,blocked:1,progress:{considered:2,nextCursor:null,wrapped:false}});
     expect((await first).completed).toBe(1);
-    expect(fs.readdirSync(directory)).toEqual([]);
+    expect(fs.readdirSync(directory)).toEqual(['lokswami-office-media-'+env.LOKSWAMI_CMS_QA_DB_NAME+'.cursor.json']);
+  });
+
+  it('resumes durable progress across separately locked worker invocations and saves wrap/reset',async()=>{
+    directory=fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-office-worker-test-'));
+    const cursor={cutoff:'2026-10-13T00:00:00.000Z',updatedAt:'2026-10-01T00:00:00.000Z',id:'000000000000000000000002'};
+    const first={reconcileCleanupDetailed:vi.fn(async()=>({progress:{considered:2,nextCursor:cursor,wrapped:false}}))};
+    const next={reconcileCleanupDetailed:vi.fn(async()=>({progress:{considered:1,nextCursor:null,wrapped:true}}))};
+    const options=parseOptions(['--cycles','1','--limit','2']),log=vi.fn();
+    await runBounded({env,options,service:first,log,lockRoot:directory});
+    await runBounded({env,options,service:next,log,lockRoot:directory});
+    expect(next.reconcileCleanupDetailed).toHaveBeenCalledWith(expect.any(Date),{limit:2,cursor});
+    const checkpoint=JSON.parse(fs.readFileSync(path.join(directory,'lokswami-office-media-'+env.LOKSWAMI_CMS_QA_DB_NAME+'.cursor.json'),'utf8'));
+    expect(checkpoint.cursor).toBeNull();
+  });
+
+  it('retains the last successful checkpoint when selection fails and releases only its own lock',async()=>{
+    directory=fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-office-worker-test-'));
+    const cursor={cutoff:'2026-10-13T00:00:00.000Z',updatedAt:'2026-10-01T00:00:00.000Z',id:'000000000000000000000002'};
+    const options=parseOptions(['--cycles','1','--limit','2']),log=vi.fn();
+    await runBounded({env,options,service:{reconcileCleanupDetailed:async()=>({progress:{considered:2,nextCursor:cursor}})},log,lockRoot:directory});
+    const cursorPath=path.join(directory,'lokswami-office-media-'+env.LOKSWAMI_CMS_QA_DB_NAME+'.cursor.json'),before=fs.readFileSync(cursorPath);
+    await expect(runBounded({env,options,service:{reconcileCleanupDetailed:async()=>{throw new Error('database unavailable')}},log,lockRoot:directory})).rejects.toThrow('database unavailable');
+    expect(fs.readFileSync(cursorPath)).toEqual(before);
+    expect(fs.existsSync(path.join(directory,'lokswami-office-media-'+env.LOKSWAMI_CMS_QA_DB_NAME+'.lock'))).toBe(false);
+  });
+
+  it('refuses a checkpoint from another storage scope without running cleanup',async()=>{
+    directory=fs.mkdtempSync(path.join(os.tmpdir(),'lokswami-office-worker-test-'));
+    fs.writeFileSync(path.join(directory,'lokswami-office-media-'+env.LOKSWAMI_CMS_QA_DB_NAME+'.cursor.json'),JSON.stringify({version:1,database:env.LOKSWAMI_CMS_QA_DB_NAME,bucket:'other',region:'sgp1',cursor:null}));
+    const service={reconcileCleanupDetailed:vi.fn()};
+    await expect(runBounded({env,options:parseOptions([]),service,log:vi.fn(),lockRoot:directory})).rejects.toThrow('scope');
+    expect(service.reconcileCleanupDetailed).not.toHaveBeenCalled();
   });
 });
