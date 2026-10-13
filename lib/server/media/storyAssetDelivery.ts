@@ -162,4 +162,3 @@ export async function serveStoryAsset(req: NextRequest, context: RouteContext, p
     return NextResponse.json({ success: false, error: 'Failed to download story asset' }, { status: 500 });
   }
 }
-

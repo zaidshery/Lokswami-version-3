@@ -631,6 +631,7 @@ export default function EditStoryPage() {
     discardRecovery,
     setSaveStatus,
     clearDraftStorage,
+    resetSavedForm,
   } = useStoryAutosave({
     storyId,
     storyVersion,
@@ -638,38 +639,18 @@ export default function EditStoryPage() {
     hasLease,
     isLockedByOther,
     loadedAt,
-    onVersionAdvanced: (newVer) => setStoryVersion(newVer),
+    onVersionAdvanced: (newVer) => setStoryVersion((current) => Math.max(current, newVer)),
   });
 
   const handleRevisionRestored = (restoredStory: Record<string, unknown>) => {
     const loadedVersion = Number(restoredStory.version);
-    setFormData((prev) => ({
-      ...prev,
-      title: String(restoredStory.title || ''),
-      caption: String(restoredStory.caption || ''),
-      thumbnail: String(restoredStory.thumbnail || ''),
-      mediaType: restoredStory.mediaType === 'video' ? 'video' : 'image',
-      mediaUrl: String(restoredStory.mediaUrl || ''),
-      mediaKey: String(restoredStory.mediaKey || ''),
-      mediaSizeBytes: Number(restoredStory.mediaSizeBytes || 0),
-      mediaMimeType: String(restoredStory.mediaMimeType || ''),
-      storageProvider: String(restoredStory.storageProvider || ''),
-      linkUrl: String(restoredStory.linkUrl || ''),
-      linkLabel: String(restoredStory.linkLabel || ''),
-      category: String(restoredStory.category || ''),
-      author: String(restoredStory.author || ''),
-      durationSeconds: String(restoredStory.durationSeconds || ''),
-      priority: String(restoredStory.priority || ''),
-    }));
-    if (Array.isArray(restoredStory.mediaAssets)) {
-      setMediaAssets(restoredStory.mediaAssets as StoryMediaAsset[]);
-    }
+    // Cancel pending editor autosave while the complete persisted state reloads.
+    resetSavedForm(formData);
     setStoryVersion(
       Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : storyVersion + 1
     );
     setSuccess('Story restored from revision successfully');
-    setRevisionCount((prev) => prev + 1);
-    void fetchStory();
+    void fetchStory(true);
     void fetchStoryActivity();
   };
   const [workflow, setWorkflow] = useState<WorkflowState>(EMPTY_WORKFLOW);
@@ -839,7 +820,7 @@ export default function EditStoryPage() {
     [workflow.comments]
   );
 
-  const fetchStory = useCallback(async () => {
+  const fetchStory = useCallback(async (resetAutosave = false) => {
     if (!storyId) {
       setIsLoading(false);
       return;
@@ -918,6 +899,7 @@ export default function EditStoryPage() {
       ) as LinkedArticleStatus;
 
       setFormData(nextForm);
+      if (resetAutosave) resetSavedForm(nextForm);
       setStoryVersion(
         Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : 1
       );
@@ -956,7 +938,7 @@ export default function EditStoryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [storyId]);
+  }, [resetSavedForm, storyId]);
 
   const fetchStoryActivity = useCallback(async () => {
     if (!storyId) {

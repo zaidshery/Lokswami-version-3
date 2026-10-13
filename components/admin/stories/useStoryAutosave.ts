@@ -50,6 +50,18 @@ export function useStoryAutosave<T extends Record<string, unknown>>({
 
   const storageKey = `story-draft-${storyId}`;
 
+  const resetSavedForm = useCallback((savedForm: T) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    lastSavedSignatureRef.current = JSON.stringify(savedForm);
+    initialLoadedRef.current = true;
+    conflictRef.current = false;
+    setRecoveredDraft(null);
+    setSaveStatus('saved');
+    setStatusMessage('');
+    try { localStorage.removeItem(storageKey); } catch {}
+  }, [storageKey]);
+
   // Check for local recovery draft on initial load
   useEffect(() => {
     if (!storyId || typeof window === 'undefined') return;
@@ -186,6 +198,7 @@ export function useStoryAutosave<T extends Record<string, unknown>>({
   }, [storageKey]);
 
   return {
+    resetSavedForm,
     saveStatus,
     statusMessage,
     recoveredDraft,
