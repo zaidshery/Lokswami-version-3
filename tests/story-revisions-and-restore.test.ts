@@ -2,13 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildStoryRevisionSnapshot,
   StoryEditorialService,
-  StoryExpectedVersionError,
   StoryForbiddenError,
   StoryNotFoundError,
   StoryVersionConflictError,
-  updateStoryWithCas,
 } from '@/lib/server/storyEditorialService';
 import type { AdminSessionIdentity } from '@/lib/auth/admin';
+import { storyMediaAssetService } from '@/lib/server/media/storyMediaAssetService';
 
 const {
   connectDBMock,
@@ -115,14 +114,6 @@ describe('Story Revisions & Restore (Phase 3.7C)', () => {
     role: 'reporter',
   };
 
-  const otherReporter: AdminSessionIdentity = {
-    id: 'reporter-2',
-    email: 'other@example.com',
-    username: 'other',
-    name: 'Other Reporter',
-    role: 'reporter',
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
     connectDBMock.mockResolvedValue(undefined);
@@ -134,6 +125,40 @@ describe('Story Revisions & Restore (Phase 3.7C)', () => {
       alertTriggered: false,
       message: '',
     });
+  });
+
+  it.each(['file', 'mongo'] as const)('protects canonical restored assets before %s content CAS and surfaces synchronization failure', async store => {
+    const storyId = '507f1f77bcf86cd799439011';
+    const current = { _id:storyId, version:3, title:'Current', workflow:{status:'draft',createdBy:{id:adminUser.id}},
+      revisions:[{_id:'rev',version:1,title:'Prior',mediaAssets:[]}] };
+    getStoredStoryByIdMock.mockResolvedValue(current);
+    mockFindById.mockReturnValue({lean:vi.fn(async()=>current)});
+    const resolve = vi.spyOn(storyMediaAssetService,'resolveForWrite').mockResolvedValue([]);
+    const protect = vi.spyOn(storyMediaAssetService,'protectRestoration').mockRejectedValue(new Error('registry write failed'));
+    try {
+      await expect(StoryEditorialService.restoreStoryRevision(storyId,'rev',3,adminUser,store)).rejects.toMatchObject({status:503});
+      expect(resolve).toHaveBeenCalledWith([],adminUser,expect.objectContaining({storyId,restoration:true}));
+      expect(updateStoredStoryMock).not.toHaveBeenCalled();
+      expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+    } finally { resolve.mockRestore(); protect.mockRestore(); }
+  });
+
+  it.each(['file', 'mongo'] as const)('retains receipt protection when %s persistence fails after synchronization', async store => {
+    const storyId='507f1f77bcf86cd799439011';
+    const current={_id:storyId,version:3,title:'Current',workflow:{status:'draft',createdBy:{id:adminUser.id}},revisions:[{_id:'rev',version:1,title:'Prior',mediaAssets:[]}]};
+    getStoredStoryByIdMock.mockResolvedValue(current);
+    mockFindById.mockReturnValue({lean:vi.fn(async()=>current)});
+    updateStoredStoryMock.mockRejectedValue(new Error('content write failed'));
+    mockFindOneAndUpdate.mockReturnValue({lean:vi.fn(async()=>{throw new Error('content write failed')})});
+    const resolve=vi.spyOn(storyMediaAssetService,'resolveForWrite').mockResolvedValue([]);
+    const protect=vi.spyOn(storyMediaAssetService,'protectRestoration').mockResolvedValue(undefined);
+    const cleanup=vi.spyOn(storyMediaAssetService,'markUnattachedForCleanup');
+    try {
+      await expect(StoryEditorialService.restoreStoryRevision(storyId,'rev',3,adminUser,store)).rejects.toThrow('content write failed');
+      expect(protect).toHaveBeenCalledWith(storyId,[]);
+      expect(cleanup).not.toHaveBeenCalled();
+      expect(recordStoryActivityMock).not.toHaveBeenCalled();
+    } finally {resolve.mockRestore();protect.mockRestore();cleanup.mockRestore();}
   });
 
   describe('TASK 2 & 3: Revision Snapshot & Bounded Retention', () => {

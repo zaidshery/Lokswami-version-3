@@ -199,6 +199,42 @@ export class MediaRepository {
     return record ? (record as unknown as MediaRecord) : null;
   }
 
+  async attachRestoredStoryReference(id: string, storyId: string): Promise<MediaRecord | null> {
+    const reference: MediaReference = { ownerType: 'story', ownerId: storyId, field: 'mediaAssets', attachedAt: new Date() };
+    if (!process.env.MONGODB_URI) {
+      return withMediaFileLock(async () => {
+        const records = await this.readFileRecords();
+        const record = records.find((item) => String(item._id) === id);
+        if (!record || !['verified', 'attached', 'cleanup_pending'].includes(String(record.status))
+          || !record.verifiedAt || record.cancelledAt || record.deletedAt
+          || record.ownerType !== 'story' || (record.ownerId && record.ownerId !== storyId)
+          || (record.references || []).some((item) => item.ownerType === 'story' && item.ownerId !== storyId)) return null;
+        const references = record.references || [];
+        if (!references.some((item) => item.ownerType === 'story' && item.ownerId === storyId && item.field === 'mediaAssets')) {
+          references.push(reference);
+        }
+        Object.assign(record, { references, status: 'attached', referenceTrackingComplete: true, updatedAt: new Date() });
+        await this.writeFileRecords(records);
+        return record;
+      });
+    }
+    await connectDB();
+    // A single conditional update prevents cancellation/deletion or a foreign owner
+    // from racing the reference attachment. Preserve historical cleanupError.
+    return await Media.findOneAndUpdate({ _id: id, ownerType: 'story',
+      ownerId: { $in: ['', storyId, null] }, status: { $in: ['verified', 'attached', 'cleanup_pending'] },
+      verifiedAt: { $ne: null }, cancelledAt: null, deletedAt: null,
+      references: { $not: { $elemMatch: { ownerType: 'story', ownerId: { $ne: storyId } } } },
+    }, [{ $set: {
+      references: { $cond: [
+        { $anyElementTrue: { $map: { input: { $ifNull: ['$references', []] }, as: 'ref', in: {
+          $and: [{ $eq: ['$$ref.ownerType', 'story'] }, { $eq: ['$$ref.ownerId', storyId] }, { $eq: ['$$ref.field', 'mediaAssets'] }],
+        } } } },
+        '$references', { $concatArrays: [{ $ifNull: ['$references', []] }, [reference]] },
+      ] }, status: 'attached', referenceTrackingComplete: true, updatedAt: new Date(),
+    } }], { new: true }).lean() as MediaRecord | null;
+  }
+
   async addReference(id: string, reference: MediaReference): Promise<MediaRecord | null> {
     const record = await this.getMediaById(id);
     if (!record) return null;

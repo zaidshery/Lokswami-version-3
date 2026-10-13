@@ -64,7 +64,26 @@ export async function createBoundedMediaDownload(input: {
   expectedSize?: number;
   fetchImpl?: typeof fetch;
   idleTimeoutMs?: number;
+  range?: string;
 }) {
+  let range: string | undefined;
+  let rangeLength: number | undefined;
+  let expectedContentRange: string | undefined;
+  if (input.range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(input.range);
+    const size = Number(input.expectedSize || 0);
+    if (!match || (!match[1] && !match[2]) || !Number.isSafeInteger(size) || size <= 0) {
+      throw new MediaDownloadError('Invalid media byte range.', 416, 'MEDIA_RANGE_INVALID');
+    }
+    const start = match[1] ? Number(match[1]) : Math.max(0, size - Number(match[2]));
+    const end = match[1] && match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= size) {
+      throw new MediaDownloadError('Unsatisfiable media byte range.', 416, 'MEDIA_RANGE_INVALID');
+    }
+    range = `bytes=${start}-${end}`;
+    rangeLength = end - start + 1;
+    expectedContentRange = `bytes ${start}-${end}/${size}`;
+  }
   const signed = createDigitalOceanSpacesDownloadRequest(input.objectKey);
   const abort = new AbortController();
   const headerTimer = setTimeout(() => abort.abort(), input.idleTimeoutMs || 15_000);
@@ -72,7 +91,7 @@ export async function createBoundedMediaDownload(input: {
   try {
     upstream = await (input.fetchImpl || fetch)(signed.url, {
       method: 'GET',
-      headers: signed.headers,
+      headers: { ...signed.headers, ...(range ? { Range: range } : {}) },
       cache: 'no-store',
       redirect: 'error',
       signal: abort.signal,
@@ -98,7 +117,16 @@ export async function createBoundedMediaDownload(input: {
     );
   }
 
+  if (range && (upstream.status !== 206 || upstream.headers.get('content-range') !== expectedContentRange)) {
+    abort.abort();
+    throw new MediaDownloadError('Storage provider did not honor the byte range.', 502, 'MEDIA_RANGE_FAILED');
+  }
+
   const headerLength = Number(upstream.headers.get('content-length') || 0);
+  if (rangeLength && headerLength && headerLength !== rangeLength) {
+    abort.abort();
+    throw new MediaDownloadError('Storage byte range length is invalid.', 502, 'MEDIA_RANGE_FAILED');
+  }
   const declaredForLimit = headerLength || Number(input.expectedSize || 0);
   if (Number.isFinite(declaredForLimit) && declaredForLimit > input.maxBytes) {
     abort.abort();
@@ -112,11 +140,15 @@ export async function createBoundedMediaDownload(input: {
       try {
         const chunk = await readWithIdleTimeout(reader, input.idleTimeoutMs || 15_000, abort);
         if (chunk.done) {
+          if (rangeLength && received !== rangeLength) {
+            controller.error(new MediaDownloadError('Storage byte range was truncated.', 502, 'MEDIA_RANGE_FAILED'));
+            return;
+          }
           controller.close();
           return;
         }
         received += chunk.value.byteLength;
-        if (received > input.maxBytes) {
+        if (received > (rangeLength || input.maxBytes)) {
           abort.abort();
           await reader.cancel().catch(() => undefined);
           controller.error(new MediaDownloadError('Media exceeds the download size limit.', 413, 'MEDIA_TOO_LARGE'));

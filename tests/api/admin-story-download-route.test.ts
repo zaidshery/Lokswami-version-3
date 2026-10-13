@@ -26,6 +26,19 @@ function request(asset = 'media') {
 }
 
 describe('Story download storage boundary', () => {
+  it('uses the same authorization for inline preview and forwards a single byte range', async () => {
+    getStoredStoryById.mockResolvedValue({_id:'story-1',title:'Video',workflow,mediaType:'video',
+      mediaKey:'stories/video.mp4',mediaSizeBytes:10,mediaMimeType:'video/mp4'});
+    fetchMock.mockResolvedValue(new Response('abc',{status:206,headers:{'content-length':'3','content-range':'bytes 0-2/10'}}));
+    const {GET}=await import('@/app/api/admin/stories/[id]/preview/route');
+    const response=await GET(new Request('http://localhost/api/admin/stories/story-1/preview?asset=media',{headers:{range:'bytes=0-2'}}) as NextRequest,{params:Promise.resolve({id:'story-1'})});
+    expect(response.status).toBe(206);
+    expect(response.headers.get('content-disposition')).toMatch(/^inline/);
+    expect(response.headers.get('content-range')).toBe('bytes 0-2/10');
+    expect(await response.text()).toBe('abc');
+    getAdminSession.mockResolvedValue(null);
+    expect((await GET(request(),{params:Promise.resolve({id:'story-1'})})).status).toBe(401);
+  });
   const fetchMock = vi.fn();
   const original = { ...process.env };
 

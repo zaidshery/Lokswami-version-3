@@ -1223,9 +1223,19 @@ export class StoryEditorialService {
     );
 
     const currentWorkflow = resolveStoryWorkflow(current);
-    const restoredMediaAssets = Array.isArray(targetRevision.mediaAssets)
+    let restoredMediaAssets = Array.isArray(targetRevision.mediaAssets)
       ? JSON.parse(JSON.stringify(targetRevision.mediaAssets))
       : [];
+
+    try {
+      restoredMediaAssets = await storyMediaAssetService.resolveForWrite(restoredMediaAssets, actor, {
+        storyId: id, current: normalizeStoryMediaAssets(current.mediaAssets), restoration: true,
+      });
+      await storyMediaAssetService.protectRestoration(id, restoredMediaAssets);
+    } catch (error) {
+      if (error instanceof MediaValidationError) throw new StoryValidationError(error.message, error.status);
+      throw new StoryValidationError('Revision media synchronization failed. Story was not restored; retry safely.', 503);
+    }
 
     const restoredUpdates: Record<string, unknown> = {
       title: String(targetRevision.title || ''),
@@ -1258,7 +1268,7 @@ export class StoryEditorialService {
 
     const updated = await updateStoryWithCas(
       id,
-      restoredUpdates,
+      restoredMediaAssets.length ? storyMediaAssetService.applyPrimary(restoredUpdates, restoredMediaAssets) : restoredUpdates,
       expectedVersion,
       effectiveStore,
       {

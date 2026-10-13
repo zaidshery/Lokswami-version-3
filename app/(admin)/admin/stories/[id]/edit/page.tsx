@@ -217,6 +217,7 @@ function getMediaAssetLabel(asset: StoryMediaAsset) {
 
 type StoryMediaTileProps = {
   asset: StoryMediaAsset;
+  playbackUrl?: string;
   kindLabel: string;
   onPreview: () => void;
   replaceLabel?: string;
@@ -229,6 +230,7 @@ type StoryMediaTileProps = {
 
 function StoryMediaTile({
   asset,
+  playbackUrl,
   kindLabel,
   onPreview,
   replaceLabel,
@@ -261,7 +263,7 @@ function StoryMediaTile({
         ) : (
           <>
             <video
-              src={asset.url}
+              src={playbackUrl || asset.url}
               muted
               playsInline
               preload="metadata"
@@ -667,6 +669,8 @@ export default function EditStoryPage() {
     );
     setSuccess('Story restored from revision successfully');
     setRevisionCount((prev) => prev + 1);
+    void fetchStory();
+    void fetchStoryActivity();
   };
   const [workflow, setWorkflow] = useState<WorkflowState>(EMPTY_WORKFLOW);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUserOption[]>([]);
@@ -2353,6 +2357,7 @@ export default function EditStoryPage() {
                         key={asset.id}
                         asset={asset}
                         kindLabel="Video"
+                        playbackUrl={asset.assetId ? `/api/admin/stories/${routeId}/preview?asset=media&assetId=${encodeURIComponent(asset.assetId)}` : undefined}
                         replaceLabel={canReplaceStoryVideo ? 'Replace' : undefined}
                         removeLabel={canReplaceStoryVideo ? 'Delete' : undefined}
                         replaceInputId={canReplaceStoryVideo ? `replace-video-${asset.id}` : undefined}
@@ -3237,6 +3242,14 @@ export default function EditStoryPage() {
         </CmsEditorCanvas>
       </motion.div>
 
+      <StoryRevisionsDrawer
+        isOpen={isRevisionsOpen}
+        onClose={() => setIsRevisionsOpen(false)}
+        storyId={storyId}
+        currentVersion={storyVersion}
+        onRevisionRestored={handleRevisionRestored}
+      />
+
       {previewAsset ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-3xl rounded-2xl bg-white p-4 shadow-2xl">
@@ -3266,7 +3279,7 @@ export default function EditStoryPage() {
                 />
               ) : (
                 <video
-                  src={previewAsset.asset.url}
+                  src={previewAsset.asset.assetId ? `/api/admin/stories/${routeId}/preview?asset=media&assetId=${encodeURIComponent(previewAsset.asset.assetId)}` : previewAsset.asset.url}
                   controls
                   autoPlay
                   preload="metadata"

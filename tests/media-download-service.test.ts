@@ -6,6 +6,24 @@ import {
 } from '@/lib/server/media/mediaDownloadService';
 
 describe('bounded media downloads', () => {
+  it('forwards normalized ranges through signed private storage and retains 206 headers', async () => {
+    const fetchImpl = vi.fn(async () => new Response('abc', { status:206, headers:{'content-length':'3','content-range':'bytes 7-9/10'} }));
+    const download = await createBoundedMediaDownload({objectKey:'safe/video.mp4', maxBytes:100, expectedSize:10, range:'bytes=-3', fetchImpl:fetchImpl as typeof fetch});
+    expect(fetchImpl).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({headers:expect.objectContaining({Range:'bytes=7-9'})}));
+    expect(download.upstream.status).toBe(206);
+    expect(await new Response(download.body).text()).toBe('abc');
+  });
+
+  it.each(['bytes=20-', 'bytes=3-1', 'bytes=0-1,4-5', 'bytes=-0', 'garbage'])('rejects invalid range %s before provider access', async range => {
+    const fetchImpl = vi.fn();
+    await expect(createBoundedMediaDownload({objectKey:'safe/video.mp4',maxBytes:100,expectedSize:10,range,fetchImpl})).rejects.toMatchObject({status:416});
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('refuses an ignored Range rather than returning full bytes as partial content', async () => {
+    await expect(createBoundedMediaDownload({objectKey:'safe/video.mp4',maxBytes:100,expectedSize:10,range:'bytes=0-2',
+      fetchImpl:vi.fn(async()=>new Response('full',{status:200})) as typeof fetch})).rejects.toMatchObject({code:'MEDIA_RANGE_FAILED'});
+  });
   const original = { ...process.env };
   beforeEach(() => {
     process.env.DIGITALOCEAN_SPACES_ACCESS_KEY = 'test-access';

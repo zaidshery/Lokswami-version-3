@@ -6,6 +6,7 @@ import {
 } from '@/lib/content/storyMedia';
 import { mediaRepository, type MediaRepository } from './mediaRepository';
 import { MediaValidationError } from './mediaService';
+import { isValidDigitalOceanSpacesObjectKey } from '@/lib/utils/digitalOceanSpaces';
 
 export class StoryMediaAssetService {
   constructor(private readonly repository: MediaRepository = mediaRepository) {}
@@ -13,7 +14,7 @@ export class StoryMediaAssetService {
   async resolveForWrite(
     assets: StoryMediaAsset[],
     actor: AdminSessionIdentity,
-    options: { storyId?: string; current?: StoryMediaAsset[] } = {}
+    options: { storyId?: string; current?: StoryMediaAsset[]; restoration?: boolean } = {}
   ): Promise<StoryMediaAsset[]> {
     const current = normalizeStoryMediaAssets(options.current);
     const resolved: StoryMediaAsset[] = [];
@@ -26,7 +27,9 @@ export class StoryMediaAssetService {
       }
 
       const record = await this.repository.getMediaById(asset.assetId);
-      if (!record || !['verified', 'attached'].includes(String(record.status))) {
+      const restorable = options.restoration && record?.status === 'cleanup_pending' && record.verifiedAt;
+      if (!record || (!['verified', 'attached'].includes(String(record.status)) && !restorable)
+        || record.cancelledAt || record.deletedAt) {
         throw new MediaValidationError('Media upload receipt is missing or not verified.', 400);
       }
       if (record.createdById && record.createdById !== actor.id && actor.role === 'reporter') {
@@ -40,6 +43,15 @@ export class StoryMediaAssetService {
       }
       if (record.ownerId && options.storyId && record.ownerId !== options.storyId) {
         throw new MediaValidationError('Media upload receipt belongs to another Story.', 409);
+      }
+      if (options.restoration && (record.references || []).some((reference) =>
+        reference.ownerType === 'story' && reference.ownerId !== options.storyId)) {
+        throw new MediaValidationError('Revision media receipt belongs to another Story.', 409);
+      }
+      if (options.restoration && (!record.verifiedAt || !isValidDigitalOceanSpacesObjectKey(record.objectKey)
+        || !['image/jpeg', 'image/png', 'image/webp', 'video/mp4'].includes(String(record.type))
+        || !Number.isSafeInteger(record.size) || Number(record.size) <= 0)) {
+        throw new MediaValidationError('Revision media receipt has invalid trusted metadata.', 409);
       }
 
       resolved.push({
@@ -60,6 +72,16 @@ export class StoryMediaAssetService {
   applyPrimary(input: Record<string, unknown>, assets: StoryMediaAsset[]) {
     const primary = derivePrimaryStoryMedia(assets, String(input.thumbnail || ''));
     return { ...input, ...primary, mediaAssets: assets };
+  }
+
+  // Protect target receipts before content CAS. Failed CAS deliberately retains conservative
+  // protection; never unprotect an asset another concurrent mutation may have attached.
+  async protectRestoration(storyId: string, assets: StoryMediaAsset[]) {
+    for (const asset of assets) {
+      if (!asset.assetId) continue;
+      const record = await this.repository.attachRestoredStoryReference(asset.assetId, storyId);
+      if (!record) throw new MediaValidationError('Revision media changed or is no longer available.', 409);
+    }
   }
 
   async syncReferences(storyId: string, before: StoryMediaAsset[], after: StoryMediaAsset[]) {
