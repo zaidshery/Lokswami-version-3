@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createDigitalOceanSpacesBrowserUploadTarget,
+  buildDigitalOceanSpacesRawAssetUrl,
   isValidDigitalOceanSpacesObjectKey,
 } from '@/lib/utils/digitalOceanSpaces';
 
@@ -48,6 +49,12 @@ describe('DigitalOcean Spaces browser upload targets', () => {
     );
   });
 
+  it('preserves the exact case of an issued PDF object key during delivery', () => {
+    const key = 'lokswami/epapers/indore/2026-10-13/pdf/20261013T145412Z-Edition.pdf';
+    expect(buildDigitalOceanSpacesRawAssetUrl({ publicId: key, format: 'pdf' }))
+      .toBe('https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/' + key);
+  });
+
   it.each([
     '../secret',
     'safe/../secret',
@@ -59,6 +66,7 @@ describe('DigitalOcean Spaces browser upload targets', () => {
     'safe//file.jpg',
   ])('rejects unsafe or encoded object key %s', (key) => {
     expect(isValidDigitalOceanSpacesObjectKey(key)).toBe(false);
+    expect(() => buildDigitalOceanSpacesRawAssetUrl({ publicId: key, format: 'pdf' })).toThrow();
     expect(() => createDigitalOceanSpacesBrowserUploadTarget({
       key, contentType: 'image/jpeg',
     })).toThrow('Invalid DigitalOcean Spaces object key');

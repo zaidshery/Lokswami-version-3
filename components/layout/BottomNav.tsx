@@ -84,7 +84,7 @@ export default function BottomNav({
   const inactiveTone = isOverlayDark
     ? 'text-zinc-300 hover:text-white'
     : 'text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100';
-  const activeTone = isOverlayDark ? 'text-brand-400' : 'text-brand-500 dark:text-brand-400';
+  const activeTone = isOverlayDark ? 'text-brand-400' : 'text-brand-600 dark:text-brand-400';
   const activeBackgroundTone = isOverlayDark
     ? 'bg-white/10'
     : 'bg-brand-50 dark:bg-brand-500/15';

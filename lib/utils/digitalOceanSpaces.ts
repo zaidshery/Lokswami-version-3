@@ -668,10 +668,9 @@ function normalizeDeliveryFormat(value: string) {
 }
 
 export function buildDigitalOceanSpacesRawAssetUrl(options: SignedRawUploadUrlOptions) {
-  const publicId = normalizePublicId(options.publicId || '');
-  if (!publicId) {
-    throw new Error('Invalid DigitalOcean Spaces object key');
-  }
+  // Delivery must address the exact persisted key. Storage keys are case-sensitive;
+  // upload-name sanitization would change issued timestamp segments and lose objects.
+  const publicId = requireValidObjectKey(options.publicId || '');
 
   const format = normalizeDeliveryFormat(options.format || '');
   const key = path.posix.extname(publicId) || !format ? publicId : `${publicId}.${format}`;

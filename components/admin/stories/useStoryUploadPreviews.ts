@@ -10,15 +10,16 @@ export function useStoryUploadPreviews(assets: StoryMediaAsset[]) {
   const [urls, setUrls] = useState<Record<string, string>>({});
 
   const addUploadPreview = useCallback((asset: StoryMediaAsset, file: File) => {
-    const previous = urlsRef.current[asset.id];
+    const key = asset.assetId || asset.id;
+    const previous = urlsRef.current[key];
     if (previous) URL.revokeObjectURL(previous);
     const url = URL.createObjectURL(file);
-    urlsRef.current = { ...urlsRef.current, [asset.id]: url };
+    urlsRef.current = { ...urlsRef.current, [key]: url };
     setUrls(urlsRef.current);
   }, []);
 
   useEffect(() => {
-    const retained = new Set(assets.map((asset) => asset.id));
+    const retained = new Set(assets.map((asset) => asset.assetId || asset.id));
     const next = { ...urlsRef.current };
     let changed = false;
     for (const [id, url] of Object.entries(urlsRef.current)) {
@@ -39,5 +40,5 @@ export function useStoryUploadPreviews(assets: StoryMediaAsset[]) {
     urlsRef.current = {};
   }, []);
 
-  return { addUploadPreview, getUploadPreview: (asset: StoryMediaAsset) => urls[asset.id] };
+  return { addUploadPreview, getUploadPreview: (asset: StoryMediaAsset) => urls[asset.assetId || asset.id] };
 }

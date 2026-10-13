@@ -35,4 +35,16 @@ describe('unsaved Story upload previews', () => {
     unmount();
     expect(revoke).toHaveBeenCalledWith('blob:three');
   });
+  it('retains the replacement preview when the editor preserves the old tile ID', () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:replacement');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const uploaded = { ...asset, id: 'new-upload-tile', assetId: 'receipt-2' };
+    const persistedTile = { ...uploaded, id: asset.id };
+    const { result, rerender } = renderHook(({ assets }) => useStoryUploadPreviews(assets), { initialProps: { assets: [asset] } });
+    act(() => {
+      result.current.addUploadPreview(uploaded, new File(['v'], 'replacement.mp4', { type: 'video/mp4' }));
+      rerender({ assets: [persistedTile] });
+    });
+    expect(result.current.getUploadPreview(persistedTile)).toBe('blob:replacement');
+  });
 });
