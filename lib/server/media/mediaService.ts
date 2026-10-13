@@ -498,8 +498,13 @@ export class MediaService {
   }
 
   /** Detailed classification for operated QA and future reconciliation reporting. */
-  async reconcileCleanupDetailed(before: Date): Promise<ReconcileCleanupResult> {
-    const candidates = await this.repository.listCleanupCandidates(before);
+  async reconcileCleanupDetailed(before: Date, options: { limit?: number } = {}): Promise<ReconcileCleanupResult> {
+    if (options.limit !== undefined && (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 100)) {
+      throw new MediaValidationError('Cleanup batch limit must be between 1 and 100.');
+    }
+    const candidates = options.limit === undefined
+      ? await this.repository.listCleanupCandidates(before)
+      : await this.repository.listCleanupCandidates(before, options.limit);
     let deleted = 0;
     let failed = 0;
     let retained = 0;

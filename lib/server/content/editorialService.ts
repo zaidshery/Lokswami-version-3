@@ -201,6 +201,14 @@ export class EditorialService {
     const useFileStore = store === 'file';
 
     const bodyRecord = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
+    // Check the requested source before reporter normalization clears desk fields.
+    // An explicit linked handoff must be refused, not silently created as a direct article.
+    if (isReporterDeskRole(actor.role) && (
+      (typeof bodyRecord.sourceStoryId === 'string' && bodyRecord.sourceStoryId.trim()) ||
+      bodyRecord.sourceType === 'story'
+    )) {
+      throw new EditorialForbiddenError('Reporters cannot create linked articles directly from story packages.');
+    }
     const intentValue = bodyRecord.intent;
     if (
       intentValue !== undefined &&

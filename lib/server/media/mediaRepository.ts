@@ -262,15 +262,23 @@ export class MediaRepository {
     });
   }
 
-  async listCleanupCandidates(before: Date): Promise<MediaRecord[]> {
+  async listCleanupCandidates(before: Date, limit?: number): Promise<MediaRecord[]> {
+    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 100)) {
+      throw new Error('Cleanup batch limit must be between 1 and 100.');
+    }
     if (!process.env.MONGODB_URI) {
-      return (await this.readFileRecords()).filter((record) => {
+      const candidates = (await this.readFileRecords()).filter((record) => {
         const updated = new Date(record.updatedAt || record.createdAt || 0).getTime();
         return ['cleanup_pending', 'cancelled'].includes(String(record.status)) && updated <= before.getTime();
       });
+      return limit === undefined ? candidates : candidates
+        .sort((a, b) => new Date(a.updatedAt || a.createdAt || 0).getTime() - new Date(b.updatedAt || b.createdAt || 0).getTime())
+        .slice(0, limit);
     }
     await connectDB();
-    const records = await Media.find({ status: { $in: ['cleanup_pending', 'cancelled'] }, updatedAt: { $lte: before } }).lean();
+    let query = Media.find({ status: { $in: ['cleanup_pending', 'cancelled'] }, updatedAt: { $lte: before } });
+    if (limit !== undefined) query = query.sort({ updatedAt: 1, _id: 1 }).limit(limit);
+    const records = await query.lean();
     return records as unknown as MediaRecord[];
   }
 

@@ -100,6 +100,18 @@ describe('MediaService canonical asset boundary', () => {
     expect(records[0].status).toBe('deleted');
   });
 
+  it('passes a bounded batch to the repository before provider cleanup', async () => {
+    const cutoff = new Date();
+    await service.reconcileCleanupDetailed(cutoff, { limit: 2 });
+    expect(repository.listCleanupCandidates).toHaveBeenCalledWith(cutoff, 2);
+  });
+
+  it.each([0, 101, 1.5])('rejects invalid cleanup bound %s before reading or deleting', async (limit) => {
+    await expect(service.reconcileCleanupDetailed(new Date(), { limit })).rejects.toThrow();
+    expect(repository.listCleanupCandidates).not.toHaveBeenCalled();
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+  });
+
   it('blocks non-admin deletion', async () => {
     await expect(service.deleteMedia('media-1', reporter)).rejects.toThrow(MediaValidationError);
   });

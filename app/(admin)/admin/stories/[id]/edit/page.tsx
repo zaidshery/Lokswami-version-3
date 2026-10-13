@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useParams } from 'next/navigation';
+import { useStoryUploadPreviews } from '@/components/admin/stories/useStoryUploadPreviews';
 import {
   AlertCircle,
   ArrowLeft,
@@ -597,6 +598,7 @@ export default function EditStoryPage() {
 
   const [formData, setFormData] = useState<StoryFormData>(initialFormData);
   const [mediaAssets, setMediaAssets] = useState<StoryMediaAsset[]>([]);
+  const { addUploadPreview, getUploadPreview } = useStoryUploadPreviews(mediaAssets);
   const [usesMediaCollection, setUsesMediaCollection] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState('');
@@ -1109,7 +1111,7 @@ export default function EditStoryPage() {
       throw new Error(data.error || 'Failed to upload image.');
     }
 
-    return createStoryMediaAsset({
+    const uploadedAsset = createStoryMediaAsset({
       assetId: String(data.data?.assetId || ''),
       kind: 'image',
       url: String(data.data?.url || ''),
@@ -1120,6 +1122,8 @@ export default function EditStoryPage() {
       originalFileName: file.name,
       order,
     });
+    addUploadPreview(uploadedAsset, file);
+    return uploadedAsset;
   };
 
   const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1355,6 +1359,7 @@ export default function EditStoryPage() {
         originalFileName: file.name,
         order,
       });
+      addUploadPreview(uploadedAsset, file);
       setSuccess('Video uploaded successfully. Save the story to persist the new video.');
       return uploadedAsset;
     } catch (uploadError) {
@@ -2339,7 +2344,7 @@ export default function EditStoryPage() {
                         key={asset.id}
                         asset={asset}
                         kindLabel="Video"
-                        playbackUrl={asset.assetId ? `/api/admin/stories/${routeId}/preview?asset=media&assetId=${encodeURIComponent(asset.assetId)}` : undefined}
+                        playbackUrl={getUploadPreview(asset) || (asset.assetId ? `/api/admin/stories/${routeId}/preview?asset=media&assetId=${encodeURIComponent(asset.assetId)}` : undefined)}
                         replaceLabel={canReplaceStoryVideo ? 'Replace' : undefined}
                         removeLabel={canReplaceStoryVideo ? 'Delete' : undefined}
                         replaceInputId={canReplaceStoryVideo ? `replace-video-${asset.id}` : undefined}
@@ -3261,7 +3266,7 @@ export default function EditStoryPage() {
                 />
               ) : (
                 <video
-                  src={previewAsset.asset.assetId ? `/api/admin/stories/${routeId}/preview?asset=media&assetId=${encodeURIComponent(previewAsset.asset.assetId)}` : previewAsset.asset.url}
+                  src={getUploadPreview(previewAsset.asset) || (previewAsset.asset.assetId ? `/api/admin/stories/${routeId}/preview?asset=media&assetId=${encodeURIComponent(previewAsset.asset.assetId)}` : previewAsset.asset.url)}
                   controls
                   autoPlay
                   preload="metadata"
