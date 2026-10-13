@@ -6,7 +6,7 @@ import type { MediaRecord, MediaCleanupCursor } from '@/lib/server/media/mediaTy
 import type { SpacesAdapter } from '@/lib/server/media/spacesAdapter';
 
 vi.mock('@/lib/db/mongoose', () => ({ default: vi.fn(async () => undefined) }));
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 describe('bounded cleanup continuation', () => {
   it.each(['retained', 'blocked', 'lookup-failure'])('eventually considers a cancellation behind a full %s batch', async (kind) => {
@@ -50,6 +50,10 @@ describe('bounded cleanup continuation', () => {
 
   it.each(['provider', 'persistence'])('advances past %s failures and retries them on a later sweep', async failure => {
     vi.stubEnv('MONGODB_URI', '');
+    // Exercise a real millisecond collision deterministically. Only this test's
+    // Date is virtual; no QA/machine clock or persisted QA timestamps are changed.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-13T00:00:00.000Z'));
     const records: MediaRecord[] = ['a', 'b', 'c'].map((id, index) => ({
       _id: id, filename: id + '.png', url: 'https://cdn/' + id,
       status: 'cleanup_pending', ownerType: 'library', mediaKind: 'image', provider: 'do-spaces',
@@ -72,7 +76,10 @@ describe('bounded cleanup continuation', () => {
     expect(first).toMatchObject(failure === 'provider' ? { providerFailed: 2 } : { persistenceFailed: 2 });
     expect(first.progress!.nextCursor).toMatchObject({ id: 'b', updatedAt: '2026-10-01T00:00:01.000Z' });
     const next = await service.reconcileCleanupDetailed(new Date(), { limit: 2, cursor: first.progress!.nextCursor });
-    expect(next).toMatchObject({ deleted: 1, progress: { considered: 1, nextCursor: null } });
+    // A provider retry updated exactly at the cutoff can share this page with
+    // the later candidate. It remains bounded and must not starve that candidate.
+    expect(next).toMatchObject({ deleted: 1, progress: { considered: failure === 'provider' ? 2 : 1 } });
+    expect(next.failed).toBe(failure === 'provider' ? 1 : 0);
     expect(records[2].status).toBe('deleted');
     failing = false;
     expect(await service.reconcileCleanupDetailed(new Date(), { limit: 2 })).toMatchObject({ deleted: 2 });
