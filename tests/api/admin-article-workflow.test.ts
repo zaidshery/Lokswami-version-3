@@ -209,6 +209,69 @@ describe('Admin Article Workflow Characterization', () => {
     expect(notifyWorkflowEventMock).not.toHaveBeenCalled();
   });
 
+  it.each(['file', 'mongo'])('rejects archived publication without writes in %s storage', async (store) => {
+    const articleId = store === 'mongo' ? MONGO_ARTICLE_ID : 'article-1';
+    const article = createBaseTestArticle({
+      _id: articleId,
+      workflow: { status: 'archived', priority: 'urgent', comments: [] },
+      publishedAt: '2026-09-08T10:00:00.000Z',
+    });
+    const baseline = structuredClone(article);
+    if (store === 'mongo') {
+      process.env.MONGODB_URI = 'mongodb://localhost/test';
+      connectDBMock.mockResolvedValue(undefined);
+      articleFindByIdMock.mockReturnValue({ lean: vi.fn().mockResolvedValue(article) });
+    } else {
+      getStoredArticleByIdMock.mockResolvedValue(article);
+    }
+    const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+    for (const role of ['admin', 'super_admin']) {
+      getAdminSessionMock.mockResolvedValue({ id: 'admin-1', name: 'Admin', email: 'admin@example.com', role });
+      for (const action of ['publish', 'schedule', 'fast_publish']) {
+        const response = await PATCH(createJsonRequest('PATCH', {
+          action, expectedVersion: 3, scheduledFor: '2099-01-01T00:00:00.000Z',
+          comment: 'Explicit human urgent publication request',
+        }, undefined, articleId), { params: Promise.resolve({ id: articleId }) });
+        expect(response.status).toBe(409);
+        expect(await response.json()).toEqual({
+          success: false,
+          error: 'Archived articles cannot change publication workflow. Restoring a content revision does not reactivate publication.',
+        });
+      }
+    }
+    expect(article).toEqual(baseline);
+    expect(updateStoredArticleMock).not.toHaveBeenCalled();
+    expect(articleFindOneAndUpdateMock).not.toHaveBeenCalled();
+    expect(recordArticleActivityMock).not.toHaveBeenCalled();
+    expect(notifyWorkflowEventMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['copy_editor', 'reporter', null])('keeps archived publish authorization for %s', async (role) => {
+    getAdminSessionMock.mockResolvedValue(role ? { id: 'editor-1', name: 'Editor', email: 'editor@example.com', role } : null);
+    getStoredArticleByIdMock.mockResolvedValue(createBaseTestArticle({ workflow: { status: 'archived' } }));
+    const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+    const response = await PATCH(createJsonRequest('PATCH', { action: 'publish', expectedVersion: 3 }), {
+      params: Promise.resolve({ id: 'article-1' }),
+    });
+    expect(response.status).toBe(role ? 403 : 401);
+    expect(updateStoredArticleMock).not.toHaveBeenCalled();
+    expect(articleFindOneAndUpdateMock).not.toHaveBeenCalled();
+    expect(recordArticleActivityMock).not.toHaveBeenCalled();
+    expect(notifyWorkflowEventMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves the stale version conflict before archived workflow rejection', async () => {
+    getStoredArticleByIdMock.mockResolvedValue(createBaseTestArticle({ workflow: { status: 'archived' } }));
+    const { PATCH } = await import('@/app/api/admin/articles/[id]/route');
+    const response = await PATCH(createJsonRequest('PATCH', { action: 'publish', expectedVersion: 2 }), {
+      params: Promise.resolve({ id: 'article-1' }),
+    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'ARTICLE_VERSION_CONFLICT', currentVersion: 3 });
+    expect(updateStoredArticleMock).not.toHaveBeenCalled();
+    expect(recordArticleActivityMock).not.toHaveBeenCalled();
+  });
+
   it('pins readiness failure on publish with 400 blocker message', async () => {
     const unreadyArticle = createBaseTestArticle({
       summary: '',
