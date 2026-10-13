@@ -47,8 +47,35 @@ class MediaCleanupStateError extends MediaValidationError {
   constructor() { super('Cancellation cleanup identity or expiry is unknown.', 409); }
 }
 
-class MediaProviderCleanupError extends MediaValidationError {
-  constructor() { super('Provider cleanup failed; cancellation is retained for retry.', 503); }
+export class MediaProviderCleanupError extends MediaValidationError {
+  readonly persistenceError?: unknown;
+  readonly providerError?: unknown;
+  readonly labelPersistenceFailed: boolean;
+
+  constructor(
+    message = 'Provider cleanup failed; cancellation is retained for retry.',
+    persistenceError?: unknown,
+    providerError?: unknown
+  ) {
+    super(
+      persistenceError
+        ? 'Provider cleanup failed and error label persistence failed; cancellation is retained for retry.'
+        : message,
+      503
+    );
+    this.persistenceError = persistenceError;
+    this.providerError = providerError;
+    this.labelPersistenceFailed = Boolean(persistenceError);
+  }
+}
+
+export class MediaReceiptPersistenceError extends Error {
+  readonly persistenceError?: unknown;
+  constructor(message = 'Media receipt persistence failed.', persistenceError?: unknown) {
+    super(message);
+    this.name = 'MediaReceiptPersistenceError';
+    this.persistenceError = persistenceError;
+  }
 }
 
 export type ReconcileCleanupResult = {
@@ -58,6 +85,10 @@ export type ReconcileCleanupResult = {
   blocked: number;
   lookupFailed: number;
   providerFailed: number;
+  persistenceFailed: number;
+  labelFailed: number;
+  labelPersistenceFailed?: number;
+  receiptPersistenceFailed?: number;
 };
 
 function bytesFromMb(mb: number) {
@@ -222,11 +253,24 @@ export class MediaService {
     await this.assertUnreferenced(record);
     try {
       await this.spaces.deleteAssetByPublicId(String(record.objectKey));
-    } catch {
-      await this.repository.updateMediaById(String(record._id), { cleanupError: 'provider_cleanup_failed' });
-      throw new MediaProviderCleanupError();
+    } catch (providerError) {
+      let persistenceError: unknown = null;
+      try {
+        await this.repository.updateMediaById(String(record._id), { cleanupError: 'provider_cleanup_failed' });
+      } catch (error) {
+        persistenceError = error;
+      }
+      throw new MediaProviderCleanupError(
+        'Provider cleanup failed; cancellation is retained for retry.',
+        persistenceError,
+        providerError
+      );
     }
-    await this.repository.updateMediaById(String(record._id), { cleanupError: '', deletedAt: new Date() });
+    try {
+      await this.repository.updateMediaById(String(record._id), { cleanupError: '', deletedAt: new Date() });
+    } catch (persistenceError) {
+      throw new MediaReceiptPersistenceError('Media receipt persistence failed after object deletion.', persistenceError);
+    }
     // Keep status=cancelled in reconciliation forever: a PUT begun before expiry can finish later.
     // Such objects retain an authoritative cleanup owner; neither completion nor attachment can revive it.
   }
@@ -462,6 +506,8 @@ export class MediaService {
     let blocked = 0;
     let lookupFailed = 0;
     let providerFailed = 0;
+    let persistenceFailed = 0;
+    let labelFailed = 0;
     for (const record of candidates) {
       let disposition: 'ready' | 'retained' | 'blocked';
       try {
@@ -479,21 +525,44 @@ export class MediaService {
           await this.cleanCancelledUpload(record);
           deleted += 1;
         } catch (error) {
-          if (error instanceof MediaReferenceProtectionError) retained += 1;
-          else if (error instanceof MediaReferenceLookupError) { failed += 1; lookupFailed += 1; }
-          else if (error instanceof MediaCleanupStateError) blocked += 1;
-          else { failed += 1; if (error instanceof MediaProviderCleanupError) providerFailed += 1; }
+          if (error instanceof MediaReferenceProtectionError) {
+            retained += 1;
+          } else if (error instanceof MediaReferenceLookupError) {
+            failed += 1;
+            lookupFailed += 1;
+          } else if (error instanceof MediaCleanupStateError) {
+            blocked += 1;
+          } else if (error instanceof MediaProviderCleanupError) {
+            failed += 1;
+            providerFailed += 1;
+            if (error.labelPersistenceFailed) {
+              persistenceFailed += 1;
+              labelFailed += 1;
+            }
+          } else {
+            failed += 1;
+            persistenceFailed += 1;
+          }
         }
         continue;
       }
+      let providerDeleteFailed = false;
       try {
         for (const key of getCanonicalObjectKeys(record)) {
           await this.spaces.deleteAssetByPublicId(key);
         }
       } catch {
-        await this.repository.updateMediaById(String(record._id), { cleanupError: 'provider_cleanup_failed' });
+        providerDeleteFailed = true;
+      }
+      if (providerDeleteFailed) {
         failed += 1;
         providerFailed += 1;
+        try {
+          await this.repository.updateMediaById(String(record._id), { cleanupError: 'provider_cleanup_failed' });
+        } catch {
+          persistenceFailed += 1;
+          labelFailed += 1;
+        }
         continue;
       }
       try {
@@ -503,9 +572,21 @@ export class MediaService {
         deleted += 1;
       } catch {
         failed += 1;
+        persistenceFailed += 1;
       }
     }
-    return { deleted, failed, retained, blocked, lookupFailed, providerFailed };
+    return {
+      deleted,
+      failed,
+      retained,
+      blocked,
+      lookupFailed,
+      providerFailed,
+      persistenceFailed,
+      labelFailed,
+      labelPersistenceFailed: labelFailed,
+      receiptPersistenceFailed: persistenceFailed - labelFailed,
+    };
   }
 }
 

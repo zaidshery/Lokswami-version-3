@@ -3,7 +3,7 @@ import type { AdminSessionIdentity } from '@/lib/auth/admin';
 import type { MediaRecord } from '@/lib/server/media/mediaTypes';
 import type { MediaRepository } from '@/lib/server/media/mediaRepository';
 import type { SpacesAdapter } from '@/lib/server/media/spacesAdapter';
-import { MediaService, MediaValidationError } from '@/lib/server/media/mediaService';
+import { MediaService, MediaValidationError, MediaProviderCleanupError, MediaReceiptPersistenceError } from '@/lib/server/media/mediaService';
 import { StoryVideoAssetService } from '@/lib/server/media/storyVideoAssetService';
 
 const storage = vi.hoisted(() => ({ verify: vi.fn(), target: vi.fn() }));
@@ -156,10 +156,152 @@ describe('pending Story upload cancellation', () => {
     record.uploadExpiresAt = new Date(Date.now() - 1000);
     vi.mocked(repository.updateMediaById).mockRejectedValueOnce(new Error('database unavailable'));
 
-    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ failed: 1, providerFailed: 0, lookupFailed: 0 });
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({
+      failed: 1,
+      providerFailed: 0,
+      lookupFailed: 0,
+      persistenceFailed: 1,
+      labelFailed: 0,
+      receiptPersistenceFailed: 1,
+    });
     expect(record.status).toBe('cancelled');
     expect(record.cleanupError).toBeUndefined();
     expect(spaces.deleteAssetByPublicId).toHaveBeenCalledTimes(1);
+  });
+  it('preserves provider-failure identity when both provider deletion and cleanupError persistence fail for cancelled upload', async () => {
+    record.status = 'cancelled';
+    record.cancelledAt = new Date();
+    record.uploadExpiresAt = new Date(Date.now() - 1000);
+    vi.mocked(spaces.deleteAssetByPublicId).mockRejectedValue(new Error('provider outage'));
+    vi.mocked(repository.updateMediaById).mockRejectedValue(new Error('database outage'));
+
+    const result = await service.reconcileCleanupDetailed(new Date());
+    expect(result).toMatchObject({
+      deleted: 0,
+      failed: 1,
+      providerFailed: 1,
+      persistenceFailed: 1,
+      labelFailed: 1,
+      retained: 0,
+    });
+    expect(await service.reconcileCleanup(new Date())).toEqual({ deleted: 0, failed: 1 });
+
+    const directError = await service.cancelPendingUpload('receipt', admin).catch((e: unknown) => e) as MediaProviderCleanupError;
+    expect(directError).toBeInstanceOf(MediaProviderCleanupError);
+    expect(directError).toMatchObject({ status: 503, labelPersistenceFailed: true });
+    expect(directError.persistenceError).toBeDefined();
+  });
+  it('continues processing subsequent candidates when earlier cancelled upload experiences combined provider/persistence outage', async () => {
+    const badRecord: MediaRecord = {
+      _id: 'bad-receipt', filename: 'bad.mp4', url: 'https://qa/stories/videos/bad.mp4',
+      type: 'video/mp4', size: 0, status: 'cancelled', provider: 'do-spaces',
+      createdById: 'r', ownerType: 'story', objectKey: 'stories/videos/bad.mp4', mediaKind: 'video',
+      references: [], referenceTrackingComplete: false, cancelledAt: new Date(), uploadExpiresAt: new Date(Date.now() - 1000),
+    };
+    const goodRecord: MediaRecord = {
+      _id: 'good-receipt', filename: 'good.mp4', url: 'https://qa/stories/videos/good.mp4',
+      type: 'video/mp4', size: 0, status: 'cancelled', provider: 'do-spaces',
+      createdById: 'r', ownerType: 'story', objectKey: 'stories/videos/good.mp4', mediaKind: 'video',
+      references: [], referenceTrackingComplete: false, cancelledAt: new Date(), uploadExpiresAt: new Date(Date.now() - 1000),
+    };
+    const protectedRecord: MediaRecord = {
+      _id: 'protected-receipt', filename: 'protected.mp4', url: 'https://qa/stories/videos/protected.mp4',
+      type: 'video/mp4', size: 0, status: 'cleanup_pending', provider: 'do-spaces',
+      createdById: 'r', ownerType: 'story', objectKey: 'stories/videos/protected.mp4', mediaKind: 'video',
+      references: [{ ownerType: 'story', ownerId: 'story-1', attachedAt: new Date() }], referenceTrackingComplete: true,
+    };
+    vi.mocked(repository.listCleanupCandidates).mockResolvedValueOnce([badRecord, goodRecord, protectedRecord]);
+    vi.mocked(spaces.deleteAssetByPublicId).mockImplementation(async (key: string) => {
+      if (key === 'stories/videos/bad.mp4') throw new Error('bad provider failure');
+    });
+    vi.mocked(repository.updateMediaById).mockImplementation(async (id: string, updates: Partial<MediaRecord>) => {
+      if (id === 'bad-receipt') throw new Error('bad db error');
+      return { _id: id, ...updates } as MediaRecord;
+    });
+
+    const result = await service.reconcileCleanupDetailed(new Date());
+    expect(result).toMatchObject({
+      deleted: 1,
+      failed: 1,
+      retained: 1,
+      providerFailed: 1,
+      persistenceFailed: 1,
+      labelFailed: 1,
+    });
+    expect(spaces.deleteAssetByPublicId).toHaveBeenCalledWith('stories/videos/bad.mp4');
+    expect(spaces.deleteAssetByPublicId).toHaveBeenCalledWith('stories/videos/good.mp4');
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalledWith('stories/videos/protected.mp4');
+  });
+  it('handles provider-only failure in ordinary cleanup without misclassifying as retained or persistence failure', async () => {
+    record.status = 'cleanup_pending';
+    record.referenceTrackingComplete = true;
+    vi.mocked(repository.hasPersistedReference).mockResolvedValue(false);
+    vi.mocked(spaces.deleteAssetByPublicId).mockRejectedValue(new Error('spaces unavailable'));
+
+    const result = await service.reconcileCleanupDetailed(new Date());
+    expect(result).toMatchObject({
+      deleted: 0,
+      failed: 1,
+      providerFailed: 1,
+      persistenceFailed: 0,
+      labelFailed: 0,
+      retained: 0,
+    });
+    expect(record.cleanupError).toBe('provider_cleanup_failed');
+    expect(await service.reconcileCleanup(new Date())).toEqual({ deleted: 0, failed: 1 });
+  });
+  it('preserves provider-failure identity and does not terminate batch when ordinary cleanup error-label write throws', async () => {
+    const ordinaryFailing: MediaRecord = {
+      _id: 'ordinary-fail', filename: 'fail.mp4', url: 'https://qa/stories/videos/fail.mp4',
+      type: 'video/mp4', size: 0, status: 'cleanup_pending', provider: 'do-spaces',
+      createdById: 'r', ownerType: 'story', objectKey: 'stories/videos/fail.mp4', mediaKind: 'video',
+      references: [], referenceTrackingComplete: true,
+    };
+    const ordinarySucceeding: MediaRecord = {
+      _id: 'ordinary-ok', filename: 'ok.mp4', url: 'https://qa/stories/videos/ok.mp4',
+      type: 'video/mp4', size: 0, status: 'cleanup_pending', provider: 'do-spaces',
+      createdById: 'r', ownerType: 'story', objectKey: 'stories/videos/ok.mp4', mediaKind: 'video',
+      references: [], referenceTrackingComplete: true,
+    };
+    vi.mocked(repository.listCleanupCandidates).mockResolvedValueOnce([ordinaryFailing, ordinarySucceeding]);
+    vi.mocked(repository.hasPersistedReference).mockResolvedValue(false);
+    vi.mocked(spaces.deleteAssetByPublicId).mockImplementation(async (key: string) => {
+      if (key === 'stories/videos/fail.mp4') throw new Error('fail key provider 500');
+    });
+    vi.mocked(repository.updateMediaById).mockImplementation(async (id: string, updates: Partial<MediaRecord>) => {
+      if (id === 'ordinary-fail') throw new Error('db write failed for label');
+      Object.assign(ordinarySucceeding, updates);
+      return ordinarySucceeding;
+    });
+
+    const result = await service.reconcileCleanupDetailed(new Date());
+    expect(result).toMatchObject({
+      deleted: 1,
+      failed: 1,
+      providerFailed: 1,
+      persistenceFailed: 1,
+      labelFailed: 1,
+      retained: 0,
+    });
+    expect(ordinarySucceeding.status).toBe('deleted');
+  });
+  it('distinguishes successful provider deletion followed by receipt-persistence failure in ordinary cleanup', async () => {
+    record.status = 'cleanup_pending';
+    record.referenceTrackingComplete = true;
+    vi.mocked(repository.hasPersistedReference).mockResolvedValue(false);
+    vi.mocked(spaces.deleteAssetByPublicId).mockResolvedValueOnce(undefined);
+    vi.mocked(repository.updateMediaById).mockRejectedValueOnce(new Error('db commit failed'));
+
+    const result = await service.reconcileCleanupDetailed(new Date());
+    expect(result).toMatchObject({
+      deleted: 0,
+      failed: 1,
+      providerFailed: 0,
+      persistenceFailed: 1,
+      labelFailed: 0,
+      receiptPersistenceFailed: 1,
+    });
+    expect(spaces.deleteAssetByPublicId).toHaveBeenCalledWith(record.objectKey);
   });
   it.each(['revision', 'unknown', 'lookup'])('reconciliation cannot bypass %s protection for ordinary Story cleanup', async kind => {
     record.status = 'cleanup_pending';

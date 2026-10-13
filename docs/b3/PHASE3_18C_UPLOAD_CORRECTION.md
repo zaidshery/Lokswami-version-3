@@ -45,11 +45,19 @@ Registry links and authoritative persisted references are still checked before d
 `reconcileCleanup(before)` preserves its `{ deleted, failed }` result for existing callers.
 `reconcileCleanupDetailed(before)` runs the same service path and adds `retained` (confirmed
 references), `blocked` (invalid or unknown state, including an unexpired tombstone),
-`lookupFailed` (authoritative reference lookup could not finish), and `providerFailed`
-(provider DELETE failed). `failed` remains the total operational failure count, including
-lookup, provider, or receipt-persistence failures. A provider 409 alone is not a reference
-signal. Only an explicit reference result or the service's typed reference protection outcome
-can count as retained. Lookup uncertainty never permits provider deletion.
+`lookupFailed` (authoritative reference lookup could not finish), `providerFailed`
+(provider DELETE failed), `persistenceFailed` (database label write or receipt update failed),
+and `labelFailed` (failure to persist the error label). `failed` remains the total operational
+failure count, counting each failed candidate once regardless of dual provider/persistence
+outages. A provider 409 alone is not a reference signal. Only an explicit reference result
+or the service's typed reference protection outcome can count as retained. Lookup uncertainty
+never permits provider deletion.
+
+In both cancelled upload cleanup and ordinary cleanup, writing `cleanupError: 'provider_cleanup_failed'`
+is guarded so a secondary database write failure cannot replace `MediaProviderCleanupError`, mask
+`providerFailed`, or terminate iteration over subsequent candidates in the batch. Successful
+provider deletion followed by receipt-persistence failure is similarly isolated and counted under
+`persistenceFailed` without claiming provider deletion failed.
 
 The historical office receipt already bears `provider_cleanup_failed`. Its provenance cannot
 be established from that label alone, so the reporting pass preserves that value; it does not
