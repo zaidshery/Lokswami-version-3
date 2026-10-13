@@ -168,14 +168,14 @@ function LiveUpdateStory({
         />
       </Link>
       <div className="flex min-w-0 flex-col justify-between gap-1.5">
-        <Link href={href} className="editorial-focus-ring hindi-headline line-clamp-2 break-words text-[15px] font-semibold leading-[1.35] hover:text-brand-600 dark:hover:text-brand-400">
+        <Link href={href} className="editorial-focus-ring hindi-headline line-clamp-2 break-words text-[15px] font-semibold leading-[1.35] text-zinc-900 dark:text-zinc-100 hover:text-brand-600 dark:hover:text-brand-400">
           {article.title}
         </Link>
         <div className="flex min-w-0 items-center justify-between gap-1 text-[11px] leading-snug text-zinc-600 dark:text-zinc-400">
           <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1">
             <span className="max-w-full truncate font-medium text-brand-600 dark:text-brand-400">{categoryLabel}</span>
             <span aria-hidden="true">·</span>
-            <time dateTime={article.publishedAt}>{formatUiDate(article.publishedAt)}</time>
+            <time className="text-zinc-600 dark:text-zinc-400" dateTime={article.publishedAt}>{formatUiDate(article.publishedAt)}</time>
           </span>
           <WhatsAppShareLink article={article} language={language} placement="live_updates" />
         </div>
