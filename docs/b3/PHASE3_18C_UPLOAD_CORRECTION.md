@@ -34,6 +34,34 @@ late in-flight PUTs. This change does not claim immediate revocation or permanen
 one inventory. Do not discard cancelled tombstones or drop a database containing them while
 an upload may still be in flight. No cloud lifecycle/permission change is part of this patch.
 
+## Office reconciliation reporting correction
+
+The office live pass at PR #52 head retained a video referenced by a restorable Story revision,
+but the broad reconciliation catch counted it as failed and wrote
+`cleanupError=provider_cleanup_failed`. A confirmed current or revision reference is now a
+retained outcome: it causes no provider DELETE, failure count, or new cleanup-error write.
+Registry links and authoritative persisted references are still checked before deletion.
+
+`reconcileCleanup(before)` preserves its `{ deleted, failed }` result for existing callers.
+`reconcileCleanupDetailed(before)` runs the same service path and adds `retained` (confirmed
+references), `blocked` (invalid or unknown state, including an unexpired tombstone),
+`lookupFailed` (authoritative reference lookup could not finish), and `providerFailed`
+(provider DELETE failed). `failed` remains the total operational failure count, including
+lookup, provider, or receipt-persistence failures. A provider 409 alone is not a reference
+signal. Only an explicit reference result or the service's typed reference protection outcome
+can count as retained. Lookup uncertainty never permits provider deletion.
+
+The historical office receipt already bears `provider_cleanup_failed`. Its provenance cannot
+be established from that label alone, so the reporting pass preserves that value; it does not
+silently clear or relabel it. The original sanitized before/after audit remains in the office
+QA evidence directory. Any later decision to clear that one historical label requires an
+audited, receipt-scoped service operation with independent evidence. No direct database repair
+or migration is part of this correction.
+
+Cancellation still uses the original expiry gate, exact object key and permanent tombstone.
+The new counters do not schedule reconciliation. One successful DELETE or empty inventory
+still cannot prove permanent absence of a late in-flight PUT.
+
 Controlled fixtures certify these pipeline paths only. Representative editorial workflows,
 revision restoration, daily E-Paper/monthly E-Magazine controls and the original ECONNRESET
 investigation remain separate acceptance tasks. PR #51 is not modified by this correction.

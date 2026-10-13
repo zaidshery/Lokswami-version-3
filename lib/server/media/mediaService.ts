@@ -35,6 +35,31 @@ export class MediaValidationError extends Error {
   }
 }
 
+class MediaReferenceProtectionError extends MediaValidationError {
+  constructor() { super('Asset is still referenced and cannot be deleted.', 409); }
+}
+
+class MediaReferenceLookupError extends Error {
+  constructor() { super('Authoritative media reference lookup failed.'); }
+}
+
+class MediaCleanupStateError extends MediaValidationError {
+  constructor() { super('Cancellation cleanup identity or expiry is unknown.', 409); }
+}
+
+class MediaProviderCleanupError extends MediaValidationError {
+  constructor() { super('Provider cleanup failed; cancellation is retained for retry.', 503); }
+}
+
+export type ReconcileCleanupResult = {
+  deleted: number;
+  failed: number;
+  retained: number;
+  blocked: number;
+  lookupFailed: number;
+  providerFailed: number;
+};
+
 function bytesFromMb(mb: number) {
   return mb * 1024 * 1024;
 }
@@ -173,8 +198,16 @@ export class MediaService {
   }
 
   private async assertUnreferenced(record: MediaRecord) {
-    if ((record.references || []).length || await this.repository.hasPersistedReference(record)) {
-      throw new MediaValidationError('Asset is still referenced and cannot be deleted.', 409);
+    if ((record.references || []).length || await this.hasPersistedReferenceForCleanup(record)) {
+      throw new MediaReferenceProtectionError();
+    }
+  }
+
+  private async hasPersistedReferenceForCleanup(record: MediaRecord) {
+    try {
+      return await this.repository.hasPersistedReference(record);
+    } catch {
+      throw new MediaReferenceLookupError();
     }
   }
 
@@ -184,16 +217,16 @@ export class MediaService {
         !record.objectKey?.startsWith('stories/videos/') || !isValidDigitalOceanSpacesObjectKey(record.objectKey) ||
         !record.uploadExpiresAt || !Number.isFinite(new Date(record.uploadExpiresAt).getTime()) ||
         new Date(record.uploadExpiresAt).getTime() > Date.now()) {
-      throw new MediaValidationError('Cancellation cleanup identity or expiry is unknown.', 409);
+      throw new MediaCleanupStateError();
     }
     await this.assertUnreferenced(record);
     try {
       await this.spaces.deleteAssetByPublicId(String(record.objectKey));
-      await this.repository.updateMediaById(String(record._id), { cleanupError: '', deletedAt: new Date() });
     } catch {
       await this.repository.updateMediaById(String(record._id), { cleanupError: 'provider_cleanup_failed' });
-      throw new MediaValidationError('Provider cleanup failed; cancellation is retained for retry.', 503);
+      throw new MediaProviderCleanupError();
     }
+    await this.repository.updateMediaById(String(record._id), { cleanupError: '', deletedAt: new Date() });
     // Keep status=cancelled in reconciliation forever: a PUT begun before expiry can finish later.
     // Such objects retain an authoritative cleanup owner; neither completion nor attachment can revive it.
   }
@@ -388,42 +421,91 @@ export class MediaService {
     }
   }
 
+  private async classifyCleanupCandidate(record: MediaRecord): Promise<'ready' | 'retained' | 'blocked'> {
+    if (!record._id || !record.objectKey || !isValidDigitalOceanSpacesObjectKey(record.objectKey)) return 'blocked';
+    if ((record.references || []).length) return 'retained';
+
+    if (record.status === 'cancelled') {
+      if (!record.cancelledAt || record.ownerType !== 'story' || record.mediaKind !== 'video' ||
+          record.provider !== 'do-spaces' || !record.objectKey.startsWith('stories/videos/') ||
+          !record.uploadExpiresAt || !Number.isFinite(new Date(record.uploadExpiresAt).getTime()) ||
+          new Date(record.uploadExpiresAt).getTime() > Date.now()) return 'blocked';
+      return await this.hasPersistedReferenceForCleanup(record) ? 'retained' : 'ready';
+    }
+    if (record.status !== 'cleanup_pending') return 'blocked';
+    if (record.ownerType === 'story') {
+      if (await this.hasPersistedReferenceForCleanup(record)) return 'retained';
+      return record.referenceTrackingComplete ? 'ready' : 'blocked';
+    }
+    if (record.ownerType === 'article' && record.mediaKind === 'image') {
+      try {
+        return await this.repository.hasPersistedArticleImageReference(record) ? 'retained' : 'ready';
+      } catch {
+        throw new MediaReferenceLookupError();
+      }
+    }
+    return record.referenceTrackingComplete ? 'ready' : 'blocked';
+  }
+
+  /** Keep the existing result shape for callers that compare or serialize it. */
   async reconcileCleanup(before: Date): Promise<{ deleted: number; failed: number }> {
+    const { deleted, failed } = await this.reconcileCleanupDetailed(before);
+    return { deleted, failed };
+  }
+
+  /** Detailed classification for operated QA and future reconciliation reporting. */
+  async reconcileCleanupDetailed(before: Date): Promise<ReconcileCleanupResult> {
     const candidates = await this.repository.listCleanupCandidates(before);
     let deleted = 0;
     let failed = 0;
+    let retained = 0;
+    let blocked = 0;
+    let lookupFailed = 0;
+    let providerFailed = 0;
     for (const record of candidates) {
-      if (!record._id || !record.objectKey || (record.references || []).length) continue;
+      let disposition: 'ready' | 'retained' | 'blocked';
       try {
-        if (record.status === 'cancelled') {
-          if (!record.uploadExpiresAt || new Date(record.uploadExpiresAt).getTime() > Date.now()) continue;
+        disposition = await this.classifyCleanupCandidate(record);
+      } catch {
+        failed += 1;
+        lookupFailed += 1;
+        continue;
+      }
+      if (disposition === 'retained') { retained += 1; continue; }
+      if (disposition === 'blocked') { blocked += 1; continue; }
+
+      if (record.status === 'cancelled') {
+        try {
           await this.cleanCancelledUpload(record);
           deleted += 1;
-          continue;
+        } catch (error) {
+          if (error instanceof MediaReferenceProtectionError) retained += 1;
+          else if (error instanceof MediaReferenceLookupError) { failed += 1; lookupFailed += 1; }
+          else if (error instanceof MediaCleanupStateError) blocked += 1;
+          else { failed += 1; if (error instanceof MediaProviderCleanupError) providerFailed += 1; }
         }
-        if (!isValidDigitalOceanSpacesObjectKey(record.objectKey)) continue;
-        if (record.ownerType === 'story') {
-          await this.assertUnreferenced(record);
-          if (!record.referenceTrackingComplete) continue;
-        } else if (!(record.ownerType === 'article' && record.mediaKind === 'image') &&
-                   !record.referenceTrackingComplete) continue;
-        if (record.ownerType === 'article' && record.mediaKind === 'image' &&
-          await this.repository.hasPersistedArticleImageReference(record)) continue;
+        continue;
+      }
+      try {
         for (const key of getCanonicalObjectKeys(record)) {
           await this.spaces.deleteAssetByPublicId(key);
         }
+      } catch {
+        await this.repository.updateMediaById(String(record._id), { cleanupError: 'provider_cleanup_failed' });
+        failed += 1;
+        providerFailed += 1;
+        continue;
+      }
+      try {
         await this.repository.updateMediaById(String(record._id), {
           status: 'deleted', deletedAt: new Date(), cleanupError: '',
         });
         deleted += 1;
       } catch {
-        await this.repository.updateMediaById(String(record._id), {
-          cleanupError: 'provider_cleanup_failed',
-        });
         failed += 1;
       }
     }
-    return { deleted, failed };
+    return { deleted, failed, retained, blocked, lookupFailed, providerFailed };
   }
 }
 

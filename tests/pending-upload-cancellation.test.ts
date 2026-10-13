@@ -3,7 +3,7 @@ import type { AdminSessionIdentity } from '@/lib/auth/admin';
 import type { MediaRecord } from '@/lib/server/media/mediaTypes';
 import type { MediaRepository } from '@/lib/server/media/mediaRepository';
 import type { SpacesAdapter } from '@/lib/server/media/spacesAdapter';
-import { MediaService } from '@/lib/server/media/mediaService';
+import { MediaService, MediaValidationError } from '@/lib/server/media/mediaService';
 import { StoryVideoAssetService } from '@/lib/server/media/storyVideoAssetService';
 
 const storage = vi.hoisted(() => ({ verify: vi.fn(), target: vi.fn() }));
@@ -65,6 +65,101 @@ describe('pending Story upload cancellation', () => {
     expect(record.status).toBe('cancelled');
     await service.cancelPendingUpload('receipt', admin);
     expect(record.cleanupError).toBe('');
+  });
+  it('counts a restorable-revision reference as retained, without a new provider failure', async () => {
+    record.status = 'cleanup_pending';
+    record.referenceTrackingComplete = true;
+    record.cleanupError = '';
+    vi.mocked(repository.hasPersistedReference).mockResolvedValue(true);
+
+    const result = await service.reconcileCleanupDetailed(new Date());
+
+    expect(result).toMatchObject({ deleted: 0, failed: 0, retained: 1 });
+    expect(await service.reconcileCleanup(new Date())).toEqual({ deleted: 0, failed: 0 });
+    expect(record).toMatchObject({ status: 'cleanup_pending', cleanupError: '' });
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+    expect(repository.updateMediaById).not.toHaveBeenCalled();
+  });
+  it('preserves a historical cleanup error when reference provenance cannot be inferred from its label', async () => {
+    record.status = 'cleanup_pending';
+    record.referenceTrackingComplete = true;
+    record.cleanupError = 'provider_cleanup_failed';
+    vi.mocked(repository.hasPersistedReference).mockResolvedValue(true);
+
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ retained: 1, failed: 0, providerFailed: 0 });
+    expect(record.cleanupError).toBe('provider_cleanup_failed');
+    expect(repository.updateMediaById).not.toHaveBeenCalled();
+  });
+  it('counts a registry reference as retained without querying or deleting', async () => {
+    record.status = 'cleanup_pending';
+    record.references = [{ ownerType: 'story', ownerId: 'story-1', attachedAt: new Date() }];
+
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ retained: 1, failed: 0 });
+    expect(repository.hasPersistedReference).not.toHaveBeenCalled();
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+  });
+  it('reports lookup uncertainty separately and does not write a provider error', async () => {
+    record.status = 'cleanup_pending';
+    record.referenceTrackingComplete = true;
+    vi.mocked(repository.hasPersistedReference).mockRejectedValue(new Error('lookup unavailable'));
+
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ failed: 1, lookupFailed: 1, providerFailed: 0, retained: 0 });
+    expect(repository.updateMediaById).not.toHaveBeenCalled();
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+  });
+  it.each(['unknown_tracking', 'invalid_key', 'unexpired_tombstone'])('blocks %s without a provider error', async kind => {
+    record.status = kind === 'unexpired_tombstone' ? 'cancelled' : 'cleanup_pending';
+    record.referenceTrackingComplete = false;
+    if (kind === 'invalid_key') record.objectKey = '../foreign.mp4';
+    if (kind === 'unexpired_tombstone') {
+      record.cancelledAt = new Date();
+      record.uploadExpiresAt = new Date(Date.now() + 600000);
+    }
+
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ blocked: 1, failed: 0, providerFailed: 0 });
+    expect(repository.updateMediaById).not.toHaveBeenCalled();
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+  });
+  it('treats a provider 409 as a provider failure, never as a confirmed reference', async () => {
+    record.status = 'cleanup_pending';
+    record.referenceTrackingComplete = true;
+    vi.mocked(spaces.deleteAssetByPublicId).mockRejectedValue(new MediaValidationError('provider conflict', 409));
+
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ failed: 1, providerFailed: 1, retained: 0 });
+    expect(record.cleanupError).toBe('provider_cleanup_failed');
+    expect(record.status).toBe('cleanup_pending');
+  });
+  it('rechecks an expired tombstone and retains it if a reference appears before deletion', async () => {
+    record.status = 'cancelled';
+    record.cancelledAt = new Date();
+    record.uploadExpiresAt = new Date(Date.now() - 1000);
+    vi.mocked(repository.hasPersistedReference).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ retained: 1, failed: 0 });
+    expect(spaces.deleteAssetByPublicId).not.toHaveBeenCalled();
+    expect(repository.updateMediaById).not.toHaveBeenCalled();
+  });
+  it('keeps an expired cancellation tombstone retryable after a real provider failure', async () => {
+    record.status = 'cancelled';
+    record.cancelledAt = new Date();
+    record.uploadExpiresAt = new Date(Date.now() - 1000);
+    vi.mocked(spaces.deleteAssetByPublicId).mockRejectedValueOnce(new Error('provider unavailable'));
+
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ failed: 1, providerFailed: 1, retained: 0 });
+    expect(record).toMatchObject({ status: 'cancelled', cleanupError: 'provider_cleanup_failed' });
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ deleted: 1, failed: 0 });
+    expect(record).toMatchObject({ status: 'cancelled', cleanupError: '' });
+  });
+  it('reports receipt persistence failure without claiming provider deletion failed', async () => {
+    record.status = 'cancelled';
+    record.cancelledAt = new Date();
+    record.uploadExpiresAt = new Date(Date.now() - 1000);
+    vi.mocked(repository.updateMediaById).mockRejectedValueOnce(new Error('database unavailable'));
+
+    expect(await service.reconcileCleanupDetailed(new Date())).toMatchObject({ failed: 1, providerFailed: 0, lookupFailed: 0 });
+    expect(record.status).toBe('cancelled');
+    expect(record.cleanupError).toBeUndefined();
+    expect(spaces.deleteAssetByPublicId).toHaveBeenCalledTimes(1);
   });
   it.each(['revision', 'unknown', 'lookup'])('reconciliation cannot bypass %s protection for ordinary Story cleanup', async kind => {
     record.status = 'cleanup_pending';
