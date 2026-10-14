@@ -64,7 +64,7 @@ function EPaperPageStripComponent({
       className={`${styles.controls} shrink-0 border-t border-zinc-200/90 bg-white/95 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 sm:rounded-b-2xl ${className}`}
     >
       {isOpen ? <>
-      {onReturnToReading ? <div className={`${styles.stripHeading} flex items-center justify-between px-4 pt-1 text-xs text-zinc-500`}><span>Choose a page</span><button type="button" onClick={onReturnToReading} className="min-h-11 rounded-lg px-2 font-semibold text-red-700 dark:text-red-300 sm:min-h-8">Return to reading</button></div> : null}
+      {onReturnToReading ? <div className={`${styles.stripHeading} flex items-center justify-between px-4 pt-1 text-xs text-zinc-500 dark:text-zinc-400`}><span>Choose a page</span><button type="button" onClick={onReturnToReading} className="min-h-11 rounded-lg px-2 font-semibold text-red-700 dark:text-red-300 sm:min-h-8">Return to reading</button></div> : null}
       <div
         ref={scrollContainerRef}
         tabIndex={0}
