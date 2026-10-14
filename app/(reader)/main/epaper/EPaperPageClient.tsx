@@ -3306,7 +3306,7 @@ export default function EPaperPageClient({
       </div>
 
       {activePaper ? (
-        <div ref={readerContainerRef} role="dialog" aria-modal="true" aria-label={`${activePaper.title} publication reader`} className={`${readerStyles.readerOverlay} fixed inset-0 z-[95] bg-zinc-950/70 p-0 backdrop-blur-md sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
+        <div ref={readerContainerRef} role="dialog" aria-modal="true" aria-label={`${activePaper.title} publication reader`} className={`${readerStyles.readerOverlay} fixed inset-0 z-[95] bg-zinc-950/70 p-0 sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
           <div data-publication-reader-frame className={`${readerStyles.readerFrame} relative mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden border-0 bg-white shadow-2xl dark:bg-zinc-950 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-200 sm:dark:border-zinc-800`}>
             <EPaperToolbar
               title={activePaper.title}
