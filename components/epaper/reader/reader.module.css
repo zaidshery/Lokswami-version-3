@@ -24,6 +24,7 @@
 }
 :global(body):has(:global(#main-content) .readerOpenMarker) :global(#main-content) { visibility: hidden; }
 .readerOverlay, .readerNotice { visibility: visible; }
+:global(body):has(:global(#main-content) .readerOpenMarker) :global(#main-content [role='dialog']) { visibility: visible; }
 
 .book {
   position: relative;

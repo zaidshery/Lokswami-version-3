@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useEffect,
   useRef,
+  useMemo,
   useState,
   type TouchEvent as ReactTouchEvent,
 } from 'react';
@@ -13,6 +14,7 @@ import styles from './reader.module.css';
 import EPaperHotspotLayer from './EPaperHotspotLayer';
 import type { EPaperArticleRecord } from '@/lib/types/epaper';
 import type { ReaderPageTurn } from './useEPaperPageTurn';
+import { getEpaperReaderImage } from '@/lib/utils/epaperReaderImage';
 
 const PAGE_SWIPE_MIN_DISTANCE_PX = 36;
 const PAGE_SWIPE_MIN_VELOCITY_PX_MS = 0.20;
@@ -127,6 +129,10 @@ function EPaperCanvasViewportComponent({
   }, [spreadSecondImagePath]);
   const imageLoaded = loadedSource === imagePath && Boolean(imagePath);
   const imageError = failedSource === imagePath && Boolean(imagePath);
+  const primaryDelivery = useMemo(() => getEpaperReaderImage(imagePath, pageWidth, pageHeight,
+    { zoom, spread: isSpreadMode, responsiveSpread }), [imagePath, pageWidth, pageHeight, zoom, isSpreadMode, responsiveSpread]);
+  const secondDelivery = useMemo(() => getEpaperReaderImage(spreadSecondImagePath || '', spreadSecondWidth || pageWidth, spreadSecondHeight || pageHeight,
+    { zoom, spread: isSpreadMode, responsiveSpread }), [spreadSecondImagePath, spreadSecondWidth, spreadSecondHeight, pageWidth, pageHeight, zoom, isSpreadMode, responsiveSpread]);
   const gesture = useRef({ x: 0, y: 0, suppressClick: false });
 
   // Apply pan transform directly to content element via CSS transform for 60fps gesture rendering
@@ -502,7 +508,7 @@ function EPaperCanvasViewportComponent({
             {imagePath && !imageError ? (
               <img
                 ref={observePageImage}
-                src={imagePath}
+                {...primaryDelivery}
                 width={pageWidth}
                 height={pageHeight}
                 decoding="async"
@@ -570,7 +576,7 @@ function EPaperCanvasViewportComponent({
                 </div>
               ) : <img
                 ref={observeSecondPageImage}
-                src={spreadSecondImagePath}
+                {...secondDelivery}
                 width={spreadSecondWidth || pageWidth}
                 height={spreadSecondHeight || pageHeight}
                 decoding="async"
@@ -599,10 +605,10 @@ function EPaperCanvasViewportComponent({
             </div>
           ) : null}
           {pageTurn?.phase === 'turning' ? <div aria-hidden="true" data-reader-turn={pageTurn.direction === 1 ? 'forward' : 'backward'} className={`${styles.turnStage} ${isSpreadMode ? styles.turnSpread : ''} ${pageTurn.direction === 1 ? styles.turnForward : styles.turnBackward}`}>
-            <div className={styles.turnUnderlay}>{(isSpreadMode && pageTurn.direction === 1 ? pageTurn.secondImage : pageTurn.image) ? <img src={isSpreadMode && pageTurn.direction === 1 ? pageTurn.secondImage : pageTurn.image} alt="" draggable={false} /> : <span>Page image unavailable</span>}</div>
+            <div className={styles.turnUnderlay}>{(isSpreadMode && pageTurn.direction === 1 ? pageTurn.secondImage : pageTurn.image) ? <img src={isSpreadMode && pageTurn.direction === 1 ? pageTurn.secondImage : pageTurn.image} srcSet={isSpreadMode && pageTurn.direction === 1 ? pageTurn.secondSrcSet : pageTurn.srcSet} sizes={pageTurn.sizes} decoding="async" alt="" draggable={false} /> : <span>Page image unavailable</span>}</div>
             <div className={styles.turnLeaf} data-turn-leaf onAnimationEnd={(event) => { if (event.target === event.currentTarget) onTurnComplete?.(); }}>
-              <div className={styles.turnFront}><img src={isSpreadMode && pageTurn.direction === 1 ? spreadSecondImagePath : imagePath} alt="" draggable={false} /></div>
-              <div className={styles.turnBack}>{(isSpreadMode && pageTurn.direction === -1 ? pageTurn.secondImage : pageTurn.image) ? <img src={isSpreadMode && pageTurn.direction === -1 ? pageTurn.secondImage : pageTurn.image} alt="" draggable={false} /> : <span>Page image unavailable</span>}</div>
+              <div className={styles.turnFront}><img {...(isSpreadMode && pageTurn.direction === 1 ? secondDelivery : primaryDelivery)} decoding="async" alt="" draggable={false} /></div>
+              <div className={styles.turnBack}>{(isSpreadMode && pageTurn.direction === -1 ? pageTurn.secondImage : pageTurn.image) ? <img src={isSpreadMode && pageTurn.direction === -1 ? pageTurn.secondImage : pageTurn.image} srcSet={isSpreadMode && pageTurn.direction === -1 ? pageTurn.secondSrcSet : pageTurn.srcSet} sizes={pageTurn.sizes} decoding="async" alt="" draggable={false} /> : <span>Page image unavailable</span>}</div>
             </div>
           </div> : null}
         </div>

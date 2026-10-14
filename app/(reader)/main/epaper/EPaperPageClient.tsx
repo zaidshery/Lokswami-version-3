@@ -44,6 +44,7 @@ import dynamic from 'next/dynamic';
 import EPaperCanvasViewport from '@/components/epaper/reader/EPaperCanvasViewport';
 import EPaperToolbar from '@/components/epaper/reader/EPaperToolbar';
 import EPaperPageStrip from '@/components/epaper/reader/EPaperPageStrip';
+import { getEpaperReaderImage } from '@/lib/utils/epaperReaderImage';
 import EPaperStoryPreview from '@/components/epaper/reader/EPaperStoryPreview';
 import readerStyles from '@/components/epaper/reader/reader.module.css';
 import { useEPaperPageTurn } from '@/components/epaper/reader/useEPaperPageTurn';
@@ -1506,9 +1507,13 @@ export default function EPaperPageClient({
       const maxPages = Math.max(1, Number(activePaper.pageCount || 1));
       const resolvedPage = clampPage(nextPage, 1, shouldShowSpreadMode ? Math.max(1, maxPages - 1) : maxPages);
       if (resolvedPage === activePage) return;
+      const nextPageMeta = activePaper.pages.find(page => page.pageNumber === resolvedPage);
+      const nextCompanion = shouldShowSpreadMode ? activePaper.pages.find(page => page.pageNumber === resolvedPage + 1) : undefined;
+      const delivery = getEpaperReaderImage(nextPageMeta?.imagePath || '', nextPageMeta?.width || 1200, nextPageMeta?.height || 1600, { spread: shouldShowSpreadMode });
+      const companionDelivery = nextCompanion ? getEpaperReaderImage(nextCompanion.imagePath || '', nextCompanion.width || 1200, nextCompanion.height || 1600, { spread: true }) : undefined;
       const accepted = startReaderTurn({ page: resolvedPage, direction: resolvedPage > activePage ? 1 : -1,
-        image: activePaper.pages.find((page) => page.pageNumber === resolvedPage)?.imagePath || '',
-        secondImage: shouldShowSpreadMode ? activePaper.pages.find((page) => page.pageNumber === resolvedPage + 1)?.imagePath : undefined,
+        image: delivery.src, srcSet: delivery.srcSet, sizes: delivery.sizes,
+        secondImage: companionDelivery?.src, secondSrcSet: companionDelivery?.srcSet,
       }, () => {
       setActivePage(resolvedPage);
       setPreviewZoom(1);
@@ -1894,7 +1899,11 @@ export default function EPaperPageClient({
       const pageData = pageSummaries.find((s) => s.pageNumber === pNum);
       if (pageData?.imagePath) {
         const img = new window.Image();
-        img.src = pageData.imagePath;
+        const delivery = getEpaperReaderImage(pageData.imagePath, pageData.width, pageData.height, { spread: shouldShowSpreadMode });
+        if (delivery.sizes) img.sizes = delivery.sizes;
+        if (delivery.srcSet) img.srcset = delivery.srcSet;
+        img.onload = () => { void img.decode?.().catch(() => {}); };
+        img.src = delivery.src;
       }
     });
   }, [activePage, activePaper, pageSummaries, shouldShowSpreadMode]);
@@ -3398,7 +3407,7 @@ export default function EPaperPageClient({
               canGoNext={canGoNextPage}
               isSpreadMode={shouldShowSpreadMode}
               spreadSecondImagePath={spreadCompanionPage?.imagePath}
-              responsiveSpread={readerDisplayMode === 'auto'}
+              responsiveSpread={readerDisplayMode === 'auto' && activePaper.pageCount > 1 && Boolean(spreadCompanionPage)}
               spreadSecondWidth={spreadCompanionPage?.width}
               spreadSecondHeight={spreadCompanionPage?.height}
               spreadSecondPageNumber={spreadCompanionPage?.pageNumber}

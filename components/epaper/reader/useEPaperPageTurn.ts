@@ -7,6 +7,9 @@ export type ReaderPageTurn = {
   direction: 1 | -1;
   image: string;
   secondImage?: string;
+  srcSet?: string;
+  secondSrcSet?: string;
+  sizes?: string;
   phase: 'loading' | 'turning';
 };
 
@@ -32,7 +35,7 @@ export function useEPaperPageTurn(identity: string) {
     busy.current = true;
     const token = ++generation.current;
     setTurn({ ...input, phase: 'loading' });
-    const preload = (src?: string) => new Promise<void>(resolve => {
+    const preload = (src?: string, srcSet?: string) => new Promise<void>(resolve => {
       if (!src) { resolve(); return; }
       const image = new Image();
       let finished = false;
@@ -42,10 +45,13 @@ export function useEPaperPageTurn(identity: string) {
         if (typeof image.decode === 'function') void image.decode().catch(() => {}).then(done);
         else done();
       };
-      image.onload = decoded; image.onerror = done; image.src = src;
+      image.onload = decoded; image.onerror = done;
+      if (input.sizes) image.sizes = input.sizes;
+      if (srcSet) image.srcset = srcSet;
+      image.src = src;
       if (image.complete) { if (image.naturalWidth) decoded(); else done(); }
     });
-    void Promise.all([preload(input.image), preload(input.secondImage)]).then(() => {
+    void Promise.all([preload(input.image, input.srcSet), preload(input.secondImage, input.secondSrcSet)]).then(() => {
       if (generation.current !== token) return;
       // Paint the existing loading phase before inserting the animated image
       // layers, rather than doing image preparation in the input's frame.
