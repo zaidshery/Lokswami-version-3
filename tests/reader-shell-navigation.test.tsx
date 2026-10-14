@@ -138,6 +138,16 @@ describe('Phase 3.3: Reader Shell & Navigation Contracts', () => {
   });
 
   describe('3. BottomNav Accessible Typography and Touch Targets', () => {
+    it.each(['/main/epaper', '/main/e-magazine'])('retains the active publication highlight and route at %s', (route) => {
+      mockPathname.mockReturnValue(route);
+      const { container, rerender } = render(<BottomNav />);
+      const active = container.querySelector('a[aria-current="page"]');
+      expect(active).toHaveAttribute('href', route);
+      expect(active?.querySelector('[data-publication-nav-indicator]')).toHaveAttribute('aria-hidden', 'true');
+      mockPathname.mockReturnValue('/main'); rerender(<BottomNav />);
+      expect(container.querySelector('[data-publication-nav-indicator]')).toBeNull();
+      expect(container.querySelector('a[aria-current="page"]')).toHaveAttribute('href', '/main');
+    });
     it('renders navigation links with min >=44x44px touch targets', () => {
       render(<BottomNav />);
       const links = screen.getAllByRole('link');

@@ -59,7 +59,8 @@ export default function BottomNav({
   isOverlayDark = false,
 }: BottomNavProps) {
   const pathname = usePathname();
-  const { language } = useAppStore();
+  const language = useAppStore((state) => state.language);
+  const isPublicationRoute = pathname?.startsWith('/main/epaper') || pathname?.startsWith('/main/e-magazine');
   const { data: session, status } = useSession();
 
   const isAuthenticated = status === 'authenticated' && Boolean(session?.user);
@@ -129,7 +130,9 @@ export default function BottomNav({
               aria-current={isActive ? 'page' : undefined}
               className="reader-touch-link relative flex min-h-[44px] min-w-[44px] w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 min-[360px]:px-1 editorial-focus-ring"
             >
-              {isActive ? (
+              {isActive && isPublicationRoute ? (
+                <div aria-hidden="true" data-publication-nav-indicator className={`absolute inset-0.5 rounded-xl ${activeBackgroundTone} min-[360px]:inset-1`} />
+              ) : isActive ? (
                 <motion.div
                   layoutId="bottomNavActive"
                   className={`absolute inset-0.5 rounded-xl ${activeBackgroundTone} min-[360px]:inset-1`}
