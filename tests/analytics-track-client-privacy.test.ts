@@ -63,6 +63,20 @@ describe('trackClient privacy and session migration', () => {
     });
   });
 
+  it('resolves the existing timezone metadata once per document across repeated events', () => {
+    const expected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const formatter = vi.spyOn(Intl, 'DateTimeFormat');
+    Object.defineProperty(navigator, 'sendBeacon', { configurable: true, value: vi.fn(() => true) });
+    try {
+      trackClientEvent({ event: 'qa_reader_action', page: '/main/e-magazine' });
+      trackClientEvent({ event: 'qa_reader_action', page: '/main/e-magazine' });
+      expect(formatter).toHaveBeenCalledTimes(1);
+      expect(window.dataLayer?.at(-1)).toEqual(expect.objectContaining({
+        lokswami_metadata: expect.objectContaining({ browserTimeZone: expected }),
+      }));
+    } finally { formatter.mockRestore(); }
+  });
+
   it('generates a new session ID and stores it in sessionStorage, leaving localStorage empty', () => {
     const id = getSessionId();
 

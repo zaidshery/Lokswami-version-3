@@ -508,12 +508,13 @@ function EPaperCanvasViewportComponent({
                 alt={`Page ${pageNumber}`}
                 onLoad={() => setLoadedSource(imagePath)}
                 onError={() => setFailedSource(imagePath)}
-                className={`${styles.pageImage} block h-auto w-auto pointer-events-none select-none transition-[image-rendering]`}
+                className={`${styles.pageImage} ${pageWidth && pageHeight ? styles.sizedPageImage : ''} block h-auto w-auto pointer-events-none select-none transition-[image-rendering]`}
                 style={{
+                  '--page-ratio': pageWidth && pageHeight ? pageWidth / pageHeight : undefined,
                   imageRendering: zoom >= 2 ? '-webkit-optimize-contrast' : 'auto',
                   WebkitFontSmoothing: 'antialiased',
                   transformOrigin: 'center center',
-                }}
+                } as React.CSSProperties}
                 draggable={false}
               />
             ) : (
@@ -576,12 +577,14 @@ function EPaperCanvasViewportComponent({
                 alt={`Page ${spreadSecondPageNumber}`}
                 onLoad={() => setSecondLoadedSource(spreadSecondImagePath)}
                 onError={() => setSecondFailedSource(spreadSecondImagePath)}
-                className={`${styles.pageImage} block h-auto w-auto pointer-events-none select-none transition-[image-rendering]`}
+                className={`${styles.pageImage} ${(spreadSecondWidth || pageWidth) && (spreadSecondHeight || pageHeight) ? styles.sizedPageImage : ''} block h-auto w-auto pointer-events-none select-none transition-[image-rendering]`}
                 style={{
+                  '--page-ratio': (spreadSecondWidth || pageWidth) && (spreadSecondHeight || pageHeight)
+                    ? (spreadSecondWidth || pageWidth)! / (spreadSecondHeight || pageHeight)! : undefined,
                   imageRendering: zoom >= 2 ? '-webkit-optimize-contrast' : 'auto',
                   WebkitFontSmoothing: 'antialiased',
                   transformOrigin: 'center center',
-                }}
+                } as React.CSSProperties}
                 draggable={false}
               />}
               {secondLoadedSource === spreadSecondImagePath && secondFailedSource !== spreadSecondImagePath && !pageTurn ? (

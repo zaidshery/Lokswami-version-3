@@ -2978,7 +2978,7 @@ export default function EPaperPageClient({
         : '';
 
   return (
-    <div className="relative pb-2 md:pb-4">
+    <div className={`relative pb-2 md:pb-4 ${activePaper ? readerStyles.readerOpenMarker : ''}`} data-publication-reader-open={activePaper ? 'true' : undefined}>
       {!activePaper ? (
         <h1 className="sr-only">
           {isMonthlyPublication
@@ -3011,6 +3011,7 @@ export default function EPaperPageClient({
         </div>
       ) : null}
 
+      <div hidden={Boolean(activePaper)}>
       <section className="cnp-surface relative overflow-hidden rounded-2xl border border-zinc-200/80 p-3.5 shadow-sm dark:border-zinc-800 sm:p-4 md:p-5">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 shadow-[0_1px_8px_rgba(225,29,72,0.35)]" />
         <div className="mb-4 border-b border-zinc-200/80 pb-4 dark:border-zinc-800">
@@ -3293,6 +3294,7 @@ export default function EPaperPageClient({
           </div>
         )}
       </section>
+      </div>
 
       {activePaper ? (
         <div ref={readerContainerRef} role="dialog" aria-modal="true" aria-label={`${activePaper.title} publication reader`} className={`${readerStyles.readerOverlay} fixed inset-0 z-[95] bg-zinc-950/70 p-0 backdrop-blur-md sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
@@ -3324,7 +3326,7 @@ export default function EPaperPageClient({
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}
               onToggleSpreadMode={() =>
-                setReaderDisplayMode((mode) => (mode === 'spread' ? 'single' : 'spread'))
+                setReaderDisplayMode((mode) => (mode === 'single' ? 'spread' : 'single'))
               }
               onOpenDownload={() => setIsDownloadModalOpen(true)}
               onClose={handleCloseReader}

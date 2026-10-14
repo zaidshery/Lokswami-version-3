@@ -100,7 +100,7 @@ function MainLayoutContent({
 
       {/* Unified Sticky Shell Container (Breaking News + Header stack naturally) */}
       {!isFullscreenReader || isReaderImmersiveMode ? (
-        <div className={`sticky top-0 z-40 w-full ${isReaderImmersiveMode ? 'invisible pointer-events-none' : ''}`} aria-hidden={isReaderImmersiveMode || undefined} ref={node => { node?.toggleAttribute('inert', isReaderImmersiveMode); }}>
+        <div data-publication-shell-background className={`sticky top-0 z-40 w-full ${isReaderImmersiveMode ? 'invisible pointer-events-none' : ''}`} aria-hidden={isReaderImmersiveMode || undefined} ref={node => { node?.toggleAttribute('inert', isReaderImmersiveMode); }}>
           <BreakingNews />
           <Header />
         </div>
@@ -143,7 +143,7 @@ function MainLayoutContent({
 
       {/* Footer */}
       {!isFullscreenReader || isReaderImmersiveMode ? (
-        <div className={isReaderImmersiveMode ? 'invisible pointer-events-none' : 'block'} aria-hidden={isReaderImmersiveMode || undefined} ref={node => { node?.toggleAttribute('inert', isReaderImmersiveMode); }}>
+        <div data-publication-shell-background className={isReaderImmersiveMode ? 'invisible pointer-events-none' : 'block'} aria-hidden={isReaderImmersiveMode || undefined} ref={node => { node?.toggleAttribute('inert', isReaderImmersiveMode); }}>
           <Footer />
         </div>
       ) : null}
