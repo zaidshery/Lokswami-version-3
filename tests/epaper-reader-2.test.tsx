@@ -288,6 +288,27 @@ describe('Phase 3.15A — E-Paper Reader 2.0 Acceptance', () => {
   });
 
   describe('Page Image Failure & Retry Behavior', () => {
+    it('keeps both spread hotspots interactive when images loaded before hydration', () => {
+      const complete = vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+      const naturalWidth = vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(3000);
+      const select = vi.fn();
+      const story = { _id: 'qa-story-1', epaperId: 'qa-issue', pageNumber: 1,
+        title: 'QA first page', slug: 'qa-first', hotspot: { x: .05, y: .05, w: .2, h: .15 },
+        createdAt: '', updatedAt: '' };
+      try {
+        render(<EPaperCanvasViewport imagePath="/cached-first.jpg" pageNumber={1} zoom={1}
+          articles={[story]} onSelectStory={select} isSpreadMode
+          spreadSecondImagePath="/cached-second.jpg" spreadSecondPageNumber={2}
+          spreadSecondArticles={[{ ...story, _id: 'qa-story-2', pageNumber: 2, title: 'QA second page' }]} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Read story: QA first page' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Read story: QA second page' }));
+        expect(select).toHaveBeenCalledTimes(2);
+      } finally {
+        complete.mockRestore();
+        naturalWidth.mockRestore();
+      }
+    });
+
     it('renders accessible error state and retry action when image fails', () => {
       render(
         <EPaperCanvasViewport

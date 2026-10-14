@@ -18,4 +18,6 @@ A supported draft revision of that monthly issue reached ready-to-publish but pu
 
 The standalone handoff remains multiple writes. Process termination between retirement and promotion, compensation failure, and cross-process operation without configured distributed locking are not certified crash-safe by this correction. Replica-set transaction behavior needs independent runtime acceptance. Do not treat unit coverage or the office standalone success as those guarantees.
 
+Released QA hotspot data reached the public API, but the canvas sometimes omitted its interactive layer when server-rendered images finished loading before hydration. Both page image refs now recognize already decoded images. A regression exercises both spread-page hotspots without dispatching a load event. The active Visual/Text preview control also failed dark contrast at 2.25:1; its scoped dark color now uses light red.
+
 Automatically captured original failures, subsequent runs, lab conditions, screenshots, resource identities and validation/build provenance are retained under the original checkout's ignored `artifacts/phase3-qa/phase318c-office-20261013/functional-acceptance-20261014/`. The final report there distinguishes current results, reused evidence, manual NOT RUN checks and post-launch field monitoring.

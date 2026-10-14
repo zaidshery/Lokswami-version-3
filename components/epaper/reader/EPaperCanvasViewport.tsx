@@ -108,6 +108,15 @@ function EPaperCanvasViewportComponent({
   const [failedSource, setFailedSource] = useState('');
   const [secondLoadedSource, setSecondLoadedSource] = useState('');
   const [secondFailedSource, setSecondFailedSource] = useState('');
+  // An SSR image can finish loading before hydration attaches its load handler.
+  const observePageImage = useCallback((image: HTMLImageElement | null) => {
+    if (image?.complete && image.naturalWidth > 0) setLoadedSource(imagePath);
+  }, [imagePath]);
+  const observeSecondPageImage = useCallback((image: HTMLImageElement | null) => {
+    if (image?.complete && image.naturalWidth > 0 && spreadSecondImagePath) {
+      setSecondLoadedSource(spreadSecondImagePath);
+    }
+  }, [spreadSecondImagePath]);
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const imageLoaded = loadedSource === imagePath && Boolean(imagePath);
   const imageError = failedSource === imagePath && Boolean(imagePath);
@@ -493,6 +502,7 @@ function EPaperCanvasViewportComponent({
           >
             {imagePath && !imageError ? (
               <img
+                ref={observePageImage}
                 src={imagePath}
                 alt={`Page ${pageNumber}`}
                 onLoad={() => setLoadedSource(imagePath)}
@@ -561,6 +571,7 @@ function EPaperCanvasViewportComponent({
                   <button type="button" onClick={() => { setSecondFailedSource(''); setSecondLoadedSource(''); }} className="reader-focus-ring mt-3 min-h-11 min-w-11 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold">Retry page {spreadSecondPageNumber}</button>
                 </div>
               ) : <img
+                ref={observeSecondPageImage}
                 src={spreadSecondImagePath}
                 alt={`Page ${spreadSecondPageNumber}`}
                 onLoad={() => setSecondLoadedSource(spreadSecondImagePath)}
