@@ -205,6 +205,7 @@ export default function SwipeVideoCard({
         ) : active ? (
           <video
             ref={videoRef}
+            crossOrigin={item.captionUrl ? 'anonymous' : undefined}
             src={item.hlsUrl || item.playbackUrl || item.videoUrl}
             poster={item.posterUrl || item.thumbnail}
             className="h-full w-full object-cover"

@@ -69,4 +69,23 @@ describe('publication family query casting', () => {
       { $set: { isCurrentRevision: true } }
     );
   });
+
+  it('restores the previous standalone revision on a stale version conflict', async () => {
+    vi.spyOn(EPaper, 'startSession').mockRejectedValue(new Error('standalone'));
+    vi.spyOn(EPaper, 'find').mockReturnValue({
+      select: () => ({ lean: async () => [{ _id: legacyId, version: 4 }] }),
+    } as never);
+    vi.spyOn(EPaper, 'findOneAndUpdate').mockReturnValue({ lean: async () => null } as never);
+    vi.spyOn(EPaper, 'findById').mockReturnValue({
+      select: () => ({ lean: async () => ({ version: 8 }) }),
+    } as never);
+    const update = vi.spyOn(EPaper, 'updateMany').mockResolvedValue({ matchedCount: 1 } as never);
+    await expect(new EpaperRepository().publishEdition(id, uuid, {}, 7)).rejects.toMatchObject({
+      currentVersion: 8, expectedVersion: 7,
+    });
+    expect(update).toHaveBeenLastCalledWith(
+      { _id: legacyId, version: 4, status: 'published', isCurrentRevision: false },
+      { $set: { isCurrentRevision: true } }
+    );
+  });
 });
