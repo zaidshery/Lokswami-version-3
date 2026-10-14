@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EpaperConflictError, EpaperForbiddenError, EpaperNotFoundError, EpaperValidationError } from '@/lib/server/epaper/epaperTypes';
+import { revalidatePath, revalidateTag } from 'next/cache';
+
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
 const mocks = vi.hoisted(() => ({
   session: vi.fn(),
@@ -88,6 +91,27 @@ describe('Phase 2.4 admin E-Paper domain contracts', () => {
     expect((await route.PUT(request(`/api/admin/epapers/${id}`, 'PUT', { title: 'Updated' }), context)).status).toBe(200);
     expect((await route.PATCH(request(`/api/admin/epapers/${id}`, 'PATCH', { productionStatus: 'pages_ready' }), context)).status).toBe(200);
     expect((await route.DELETE(request(`/api/admin/epapers/${id}`, 'DELETE'), context)).status).toBe(200);
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['epaper', 'published', '/main/epaper'], ['epaper', 'archived', '/main/epaper'],
+    ['emagazine', 'published', '/main/e-magazine'], ['emagazine', 'archived', '/main/e-magazine'],
+  ])('invalidates only the %s listing after %s commits', async (publicationType, productionStatus, readerPath) => {
+    mocks.updateWorkflow.mockResolvedValueOnce({ data: { _id: id, publicationType, productionStatus } });
+    const { PATCH } = await import('@/app/api/admin/epapers/[id]/route');
+    const response = await PATCH(request(`/api/admin/epapers/${id}`, 'PATCH', { productionStatus }), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(200);
+    expect(revalidateTag).toHaveBeenCalledExactlyOnceWith(`${publicationType}-reader-feed`);
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith(readerPath);
+  });
+
+  it('does not invalidate reader caches when a workflow mutation is rejected', async () => {
+    mocks.updateWorkflow.mockRejectedValueOnce(new EpaperForbiddenError());
+    const { PATCH } = await import('@/app/api/admin/epapers/[id]/route');
+    expect((await PATCH(request(`/api/admin/epapers/${id}`, 'PATCH', { productionStatus: 'published' }), { params: Promise.resolve({ id }) })).status).toBe(403);
+    expect(revalidateTag).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it.each([

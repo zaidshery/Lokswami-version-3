@@ -158,13 +158,13 @@ async function listInitialEPapers(
 const listCachedDefaultEPapers = unstable_cache(
   () => listInitialEPapers('all', '', 'epaper'),
   ['public-epaper-feed-first-page-v1'],
-  { revalidate: 300 }
+  { revalidate: 300, tags: ['epaper-reader-feed'] }
 );
 
 const listCachedDefaultEMagazines = unstable_cache(
   () => listInitialEPapers('all', '', 'emagazine'),
   ['public-emagazine-feed-first-page-v1'],
-  { revalidate: 300 }
+  { revalidate: 300, tags: ['emagazine-reader-feed'] }
 );
 
 async function fetchInitialEPapers(
