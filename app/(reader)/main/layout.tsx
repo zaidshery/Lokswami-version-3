@@ -32,10 +32,6 @@ export default function MainLayout({
   return <MainLayoutContent pathname={pathname} isElectionObsMode={false}>{children}</MainLayoutContent>;
 }
 
-function PublicationBackgroundBoundary({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
-  return enabled ? <Suspense fallback={null}>{children}</Suspense> : children;
-}
-
 function ElectionMainLayout({ children, pathname }: { children: React.ReactNode; pathname: string }) {
   const searchParams = useSearchParams();
   return (
@@ -105,15 +101,13 @@ function MainLayoutContent({
       {/* Unified Sticky Shell Container (Breaking News + Header stack naturally) */}
       {!isFullscreenReader || isReaderImmersiveMode ? (
         <div data-publication-shell-background className={`sticky top-0 z-40 w-full ${isReaderImmersiveMode ? 'invisible pointer-events-none' : ''}`} aria-hidden={isReaderImmersiveMode || undefined} ref={node => { node?.toggleAttribute('inert', isReaderImmersiveMode); }}>
-          <PublicationBackgroundBoundary enabled={isEpaperRoute}>
-            <BreakingNews />
-            <Header />
-          </PublicationBackgroundBoundary>
+          <BreakingNews />
+          <Header />
         </div>
       ) : null}
 
       {/* Mobile Menu Drawer */}
-      {!isElectionObsMode && !isSwipeRoute ? <PublicationBackgroundBoundary enabled={isEpaperRoute}><MobileMenu isOpen={isMobileMenuOpen} onClose={() => setMobileMenuOpen(false)} /></PublicationBackgroundBoundary> : null}
+      {!isElectionObsMode && !isSwipeRoute ? <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setMobileMenuOpen(false)} /> : null}
 
       <main
         id="main-content"
@@ -150,7 +144,7 @@ function MainLayoutContent({
       {/* Footer */}
       {!isFullscreenReader || isReaderImmersiveMode ? (
         <div data-publication-shell-background className={isReaderImmersiveMode ? 'invisible pointer-events-none' : 'block'} aria-hidden={isReaderImmersiveMode || undefined} ref={node => { node?.toggleAttribute('inert', isReaderImmersiveMode); }}>
-          <PublicationBackgroundBoundary enabled={isEpaperRoute}><Footer /></PublicationBackgroundBoundary>
+          <Footer />
         </div>
       ) : null}
 
