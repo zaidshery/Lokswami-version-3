@@ -61,6 +61,7 @@ export type PublicVideoItem = {
   mediaProvider: VideoMediaProvider;
   aspectRatio: VideoAspectRatio;
   captionUrl: string;
+  captionLanguage?: string;
   transcript: string;
   processingStatus: VideoProcessingStatus;
   instagramUrl: string;
@@ -78,6 +79,16 @@ export type PublicVideoItem = {
 
 function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+/** Carry the existing accessibility metadata through all reader delivery paths. */
+export function getPublicVideoCaption(source: { captionUrl?: unknown; accessibilityMeta?: unknown }) {
+  const meta = source.accessibilityMeta && typeof source.accessibilityMeta === 'object'
+    ? source.accessibilityMeta as Record<string, unknown> : {};
+  const captionUrl = text(source.captionUrl) || text(meta.captionsUrl);
+  const language = text(meta.captionLanguage);
+  return { captionUrl, captionLanguage: captionUrl
+    ? (/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(language) ? language : 'hi') : '' };
 }
 
 function number(value: unknown, fallback = 0) {
@@ -226,7 +237,7 @@ export function toPublicVideoItem(
     hlsUrl: text(source.hlsUrl),
     mediaProvider: inferVideoMediaProvider(source.mediaProvider || playbackUrl),
     aspectRatio: normalizeVideoAspectRatio(source.aspectRatio),
-    captionUrl: text(source.captionUrl),
+    ...getPublicVideoCaption(source),
     transcript: text(source.transcript),
     processingStatus: 'ready',
     instagramUrl: text(source.instagramUrl),
@@ -257,6 +268,8 @@ export const PUBLIC_VIDEO_PROJECTION = [
   'mediaProvider',
   'aspectRatio',
   'captionUrl',
+  'accessibilityMeta.captionsUrl',
+  'accessibilityMeta.captionLanguage',
   'transcript',
   'processingStatus',
   'instagramUrl',

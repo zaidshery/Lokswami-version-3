@@ -1,5 +1,16 @@
 .canvas {
+  container-type: size;
   background-image: radial-gradient(ellipse at center, transparent 25%, rgb(0 0 0 / 5%) 100%);
+}
+
+.pageImage { max-height: calc(100cqh - 8px); max-width: calc(100cqw - 8px); }
+.companionPage { display: none; }
+.spread .companionPage { display: block; }
+.spread .pageImage { max-width: calc((100cqw - 9px) / 2); }
+@media (min-width: 1024px) and (pointer: fine) {
+  .autoSpread .companionPage { display: block; }
+  .autoSpread .pageImage { max-width: calc((100cqw - 9px) / 2); }
+  .autoSpread::after { content: ''; position: absolute; inset: 0 auto 0 50%; width: 24px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, rgb(0 0 0 / 12%), transparent); pointer-events: none; }
 }
 
 .book {

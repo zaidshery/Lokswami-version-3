@@ -42,6 +42,9 @@ export interface EPaperCanvasViewportProps {
   spreadSecondImagePath?: string;
   spreadSecondPageNumber?: number;
   spreadSecondArticles?: EPaperArticleRecord[];
+  spreadSecondWidth?: number;
+  spreadSecondHeight?: number;
+  responsiveSpread?: boolean;
 }
 
 /**
@@ -51,6 +54,8 @@ export interface EPaperCanvasViewportProps {
 function EPaperCanvasViewportComponent({
   imagePath,
   pageNumber,
+  pageWidth,
+  pageHeight,
   zoom,
   minZoom = 1,
   maxZoom = 4,
@@ -68,6 +73,9 @@ function EPaperCanvasViewportComponent({
   spreadSecondImagePath,
   spreadSecondPageNumber,
   spreadSecondArticles = [],
+  spreadSecondWidth,
+  spreadSecondHeight,
+  responsiveSpread = false,
   pageTurn,
   onTurnComplete,
 }: EPaperCanvasViewportProps) {
@@ -117,22 +125,9 @@ function EPaperCanvasViewportComponent({
       setSecondLoadedSource(spreadSecondImagePath);
     }
   }, [spreadSecondImagePath]);
-  const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const imageLoaded = loadedSource === imagePath && Boolean(imagePath);
   const imageError = failedSource === imagePath && Boolean(imagePath);
   const gesture = useRef({ x: 0, y: 0, suppressClick: false });
-  // The content box already excludes CSS padding; reserve only the page-stack shadow.
-  const pageMaxHeight = bounds.height ? Math.max(1, bounds.height - 8) : 'calc(100dvh - 280px)';
-  const pageMaxWidth = bounds.width ? Math.max(1, (bounds.width - 8 - (isSpreadMode ? 1 : 0)) / (isSpreadMode ? 2 : 1)) : (isSpreadMode ? '43vw' : '92vw');
-
-  useEffect(() => {
-    if (!containerRef.current || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      setBounds({ width: entry.contentRect.width, height: entry.contentRect.height });
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   // Apply pan transform directly to content element via CSS transform for 60fps gesture rendering
   const applyTransform = useCallback((x: number, y: number, currentZoom: number) => {
@@ -159,7 +154,14 @@ function EPaperCanvasViewportComponent({
       applyTransform(panRef.current.x, panRef.current.y, zoom);
     }
     previousSource.current = imagePath;
-  }, [zoom, imagePath, applyTransform, bounds.width, bounds.height]);
+  }, [zoom, imagePath, applyTransform]);
+
+  useEffect(() => {
+    if (!containerRef.current || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => applyTransform(panRef.current.x, panRef.current.y, zoom));
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [applyTransform, zoom]);
 
   useEffect(() => {
     return () => {
@@ -490,26 +492,24 @@ function EPaperCanvasViewportComponent({
         }}
       >
         {/* Spread View or Single Page */}
-        <div data-reader-book className={`${styles.book} ${isSpreadMode ? styles.spread : ''} flex items-center gap-px`}>
+        <div data-reader-book className={`${styles.book} ${isSpreadMode ? styles.spread : ''} ${responsiveSpread ? styles.autoSpread : ''} flex items-center gap-px`}>
           {/* Primary Page */}
           <div
             data-reader-page={pageNumber}
             className={`${styles.page} relative overflow-hidden bg-white ring-1 ring-black/10`}
-            style={{
-              maxHeight: pageMaxHeight,
-              maxWidth: pageMaxWidth,
-            }}
           >
             {imagePath && !imageError ? (
               <img
                 ref={observePageImage}
                 src={imagePath}
+                width={pageWidth}
+                height={pageHeight}
+                decoding="async"
                 alt={`Page ${pageNumber}`}
                 onLoad={() => setLoadedSource(imagePath)}
                 onError={() => setFailedSource(imagePath)}
-                className="block h-auto w-auto max-w-full pointer-events-none select-none transition-[image-rendering]"
+                className={`${styles.pageImage} block h-auto w-auto pointer-events-none select-none transition-[image-rendering]`}
                 style={{
-                  maxHeight: pageMaxHeight,
                   imageRendering: zoom >= 2 ? '-webkit-optimize-contrast' : 'auto',
                   WebkitFontSmoothing: 'antialiased',
                   transformOrigin: 'center center',
@@ -555,14 +555,10 @@ function EPaperCanvasViewportComponent({
           </div>
 
           {/* Optional Second Page in Spread Mode */}
-          {isSpreadMode && spreadSecondImagePath ? (
+          {(isSpreadMode || responsiveSpread) && spreadSecondImagePath ? (
             <div
               data-reader-page={spreadSecondPageNumber}
-              className={`${styles.page} relative overflow-hidden bg-white ring-1 ring-black/10`}
-              style={{
-                maxHeight: pageMaxHeight,
-                maxWidth: pageMaxWidth,
-              }}
+              className={`${styles.page} ${styles.companionPage} relative overflow-hidden bg-white ring-1 ring-black/10`}
             >
               {secondFailedSource === spreadSecondImagePath ? (
                 <div role="alert" aria-label={`Page ${spreadSecondPageNumber} unavailable`} className="flex w-64 max-w-full flex-col items-center justify-center p-5 text-center text-zinc-700">
@@ -573,12 +569,15 @@ function EPaperCanvasViewportComponent({
               ) : <img
                 ref={observeSecondPageImage}
                 src={spreadSecondImagePath}
+                width={spreadSecondWidth || pageWidth}
+                height={spreadSecondHeight || pageHeight}
+                decoding="async"
+                loading="lazy"
                 alt={`Page ${spreadSecondPageNumber}`}
                 onLoad={() => setSecondLoadedSource(spreadSecondImagePath)}
                 onError={() => setSecondFailedSource(spreadSecondImagePath)}
-                className="block h-auto w-auto max-w-full pointer-events-none select-none transition-[image-rendering]"
+                className={`${styles.pageImage} block h-auto w-auto pointer-events-none select-none transition-[image-rendering]`}
                 style={{
-                  maxHeight: pageMaxHeight,
                   imageRendering: zoom >= 2 ? '-webkit-optimize-contrast' : 'auto',
                   WebkitFontSmoothing: 'antialiased',
                   transformOrigin: 'center center',

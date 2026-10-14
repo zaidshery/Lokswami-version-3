@@ -1017,7 +1017,7 @@ export default function EPaperPageClient({
   const hasInitializedListEffect = useRef(false);
   const [error, setError] = useState('');
   const [readerSidebarView, setReaderSidebarView] = useState<ReaderSidebarView>('pages');
-  const [readerDisplayMode, setReaderDisplayMode] = useState<'single' | 'spread'>('single');
+  const [readerDisplayMode, setReaderDisplayMode] = useState<'single' | 'spread' | 'auto'>('auto');
   const [isDesktopContextRailVisible, setIsDesktopContextRailVisible] = useState(false);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement | null>(null);
@@ -1106,7 +1106,7 @@ export default function EPaperPageClient({
   const canUseSpreadMode = Boolean(
     activePaper && activePaper.pageCount > 1 && isWideScreen && !isCoarsePointer
   );
-  const shouldShowSpreadMode = canUseSpreadMode && readerDisplayMode === 'spread';
+  const shouldShowSpreadMode = canUseSpreadMode && readerDisplayMode !== 'single';
   const hasArchiveFilters =
     (!isMonthlyPublication && selectedCity !== 'all') || Boolean(selectedPublishDate);
   const syncSavedLibrary = useCallback(() => {
@@ -1168,13 +1168,6 @@ export default function EPaperPageClient({
       setPendingStorySlug(story);
     }
 
-    if (typeof window !== 'undefined') {
-      if (window.innerWidth >= 768) {
-        setReaderDisplayMode('spread');
-      } else {
-        setReaderDisplayMode('single');
-      }
-    }
   }, []);
 
   useEffect(() => {
@@ -1762,9 +1755,9 @@ export default function EPaperPageClient({
     [pageSummaries]
   );
   const spreadCompanionPage = useMemo(() => {
-    if (!shouldShowSpreadMode) return null;
+    if (readerDisplayMode === 'single') return null;
     return pageSummaries.find((item) => item.pageNumber === activePage + 1) || null;
-  }, [activePage, pageSummaries, shouldShowSpreadMode]);
+  }, [activePage, pageSummaries, readerDisplayMode]);
   const previewSrc = activePageImage || pdfFallbackPreview;
   const previewIsDataUrl = previewSrc.startsWith('data:');
   const previewWidth = activePageMeta?.width || 1200;
@@ -3403,6 +3396,9 @@ export default function EPaperPageClient({
               canGoNext={canGoNextPage}
               isSpreadMode={shouldShowSpreadMode}
               spreadSecondImagePath={spreadCompanionPage?.imagePath}
+              responsiveSpread={readerDisplayMode === 'auto'}
+              spreadSecondWidth={spreadCompanionPage?.width}
+              spreadSecondHeight={spreadCompanionPage?.height}
               spreadSecondPageNumber={spreadCompanionPage?.pageNumber}
               spreadSecondArticles={spreadCompanionPage?.articles}
             />

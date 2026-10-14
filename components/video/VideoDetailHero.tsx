@@ -103,6 +103,8 @@ export default function VideoDetailHero({
             videoId={selectedVideo.id}
             title={selectedVideo.title}
             src={selectedVideo.videoUrl}
+            captionUrl={selectedVideo.captionUrl}
+            captionLanguage={selectedVideo.captionLanguage}
             poster={selectedVideo.thumbnail}
             fallbackDuration={selectedVideo.duration}
             isActive={true}

@@ -35,6 +35,8 @@ function mapMetadataVideoToFeedItem(
     description: video.description,
     thumbnail: video.thumbnail,
     videoUrl: video.videoUrl,
+    captionUrl: video.captionUrl,
+    captionLanguage: video.captionLanguage,
     duration: video.duration,
     category: video.category,
     isShort: video.isShort,
