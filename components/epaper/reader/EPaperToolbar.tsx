@@ -1,7 +1,6 @@
 'use client';
 
 import React, { memo } from 'react';
-import { usePublicationReaderTheme } from '@/lib/hooks/usePublicationReaderTheme';
 import {
   ChevronLeft,
   ChevronRight,
@@ -95,14 +94,12 @@ function EPaperToolbarComponent({
   language = 'hi',
   isSaved = false,
   onToggleSave,
-  theme: themeOverride,
+  theme = 'light',
   onToggleTheme,
   companionPage,
   thumbnailsOpen = true,
   onToggleThumbnails,
 }: EPaperToolbarProps) {
-  const storedTheme = usePublicationReaderTheme();
-  const theme = themeOverride ?? storedTheme;
   const isEmagazine = publicationType === 'emagazine' || shareContentType === 'emagazine';
   const pageLabel = isSpreadMode && companionPage ? `${currentPage}–${companionPage}` : `${currentPage}`;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import PublicationReaderOverlay from '@/components/epaper/reader/PublicationReaderOverlay';
+import { usePublicationReaderTheme } from '@/lib/hooks/usePublicationReaderTheme';
 import {
   type SyntheticEvent as ReactSyntheticEvent,
   type TouchEvent as ReactTouchEvent,
@@ -991,6 +991,7 @@ export default function EPaperPageClient({
   isRequestedPaperUnavailable = false,
 }: EPaperPageClientProps) {
   const language = useAppStore((state) => state.language);
+  const theme = usePublicationReaderTheme();
   const toggleTheme = useAppStore((state) => state.toggleTheme);
   const setEpaperReaderOpen = useAppStore((state) => state.setEpaperReaderOpen);
   const prefersReducedMotion = useReducedMotion();
@@ -3305,7 +3306,7 @@ export default function EPaperPageClient({
       </div>
 
       {activePaper ? (
-        <PublicationReaderOverlay ref={readerContainerRef} role="dialog" aria-modal="true" aria-label={`${activePaper.title} publication reader`} className={`${readerStyles.readerOverlay} fixed inset-0 z-[95] bg-zinc-950/70 p-0 sm:bg-black/75 sm:p-4`} data-swipe-ignore="true">
+        <div ref={readerContainerRef} role="dialog" aria-modal="true" aria-label={`${activePaper.title} publication reader`} className={`${readerStyles.readerOverlay} fixed inset-0 z-[95] bg-zinc-950/70 p-0 sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
           <div data-publication-reader-frame className={`${readerStyles.readerFrame} relative mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden border-0 bg-white shadow-2xl dark:bg-zinc-950 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-200 sm:dark:border-zinc-800`}>
             <EPaperToolbar
               title={activePaper.title}
@@ -3345,6 +3346,7 @@ export default function EPaperPageClient({
               language={language}
               isSaved={isActivePaperSaved}
               onToggleSave={handleIssueSaveToggle}
+              theme={theme}
               onToggleTheme={toggleTheme}
               companionPage={shouldShowSpreadMode ? spreadCompanionPage?.pageNumber : undefined}
               thumbnailsOpen={thumbnailsOpen}
@@ -3428,7 +3430,7 @@ export default function EPaperPageClient({
               isOpen={thumbnailsOpen}
             />
           </div>
-        </PublicationReaderOverlay>
+        </div>
       ) : null}
 
       {activeArticle && activePaper ? <EPaperStoryPreview
