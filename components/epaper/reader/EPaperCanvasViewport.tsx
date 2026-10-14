@@ -512,6 +512,7 @@ function EPaperCanvasViewportComponent({
                 width={pageWidth}
                 height={pageHeight}
                 decoding="async"
+                fetchPriority="high"
                 alt={`Page ${pageNumber}`}
                 onLoad={() => setLoadedSource(imagePath)}
                 onError={() => setFailedSource(imagePath)}

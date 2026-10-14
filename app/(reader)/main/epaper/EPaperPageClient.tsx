@@ -3254,7 +3254,7 @@ export default function EPaperPageClient({
                           alt={paper.title}
                           fill
                           quality={60}
-                          priority={index < 4}
+                          priority={!activePaper && index < 4}
                           className="object-contain p-2"
                           sizes="(max-width: 639px) 44vw, (max-width: 767px) 46vw, (max-width: 1279px) 30vw, 22vw"
                         />
