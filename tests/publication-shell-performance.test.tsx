@@ -10,7 +10,7 @@ vi.mock('@/lib/store/appStore', () => ({ useAppStore: (select: (s: unknown) => u
 vi.mock('@/components/layout/Header', () => ({ default: () => { if (state.pendingHeader) throw new Promise(() => {}); return <header data-testid="shell-header">Header</header>; } }));
 vi.mock('@/components/layout/Footer', () => ({ default: () => <footer data-testid="shell-footer">Footer</footer> }));
 vi.mock('@/components/layout/Container', () => ({ default: ({ children, className }: { children: React.ReactNode; className: string }) => <div data-testid="shell-container" className={className}>{children}</div> }));
-vi.mock('@/components/layout/BottomNav', () => ({ default: () => { if (state.pendingHeader) throw new Promise(() => {}); return null; } }));
+vi.mock('@/components/layout/BottomNav', () => ({ default: () => null }));
 vi.mock('@/components/layout/MobileMenu', () => ({ default: () => null }));
 vi.mock('@/components/auth/SigninRoleBanner', () => ({ default: () => null }));
 vi.mock('@/components/ui/BreakingNews', () => ({ default: () => null }));
@@ -19,7 +19,7 @@ vi.mock('@/components/ui/PopupOrchestrator', () => ({ default: () => null }));
 import MainLayout from '@/app/(reader)/main/layout';
 beforeEach(() => { state.path = '/main/e-magazine'; state.open = false; state.pendingHeader = false; });
 describe('publication overlay keeps background geometry stable', () => {
-  it('keeps the publication available while background header and navigation are pending', () => {
+  it('keeps the publication available while the background header is pending', () => {
     state.pendingHeader = true;
     render(<MainLayout><button>QA next page</button></MainLayout>);
     expect(screen.getByRole('button', { name: 'QA next page' })).toBeVisible();

@@ -131,7 +131,7 @@ function MainLayoutContent({
                   : 'reader-bottom-safe-pad xl:pb-4'
         }
       >
-        {!isFullscreenReader ? <PublicationBackgroundBoundary enabled={isEpaperRoute}><SigninRoleBanner /></PublicationBackgroundBoundary> : null}
+        {!isFullscreenReader ? <SigninRoleBanner /> : null}
         <Container
           className={
             isElectionObsMode || isSwipeRoute
@@ -154,18 +154,16 @@ function MainLayoutContent({
         </div>
       ) : null}
 
-      {!isFullscreenReader ? <PublicationBackgroundBoundary enabled={isEpaperRoute}><DailyEpaperAlert /></PublicationBackgroundBoundary> : null}
-      {!isFullscreenReader ? <PublicationBackgroundBoundary enabled={isEpaperRoute}><PopupOrchestrator /></PublicationBackgroundBoundary> : null}
+      {!isFullscreenReader ? <DailyEpaperAlert /> : null}
+      {!isFullscreenReader ? <PopupOrchestrator /> : null}
 
       {/* Bottom Navigation - Mobile + Tablet (below 1280px) */}
       {showBottomNav ? (
-        <PublicationBackgroundBoundary enabled={isEpaperRoute}>
         <BottomNav
           onMenuClick={toggleMobileMenu}
           isMenuOpen={isMobileMenuOpen}
           isOverlayDark={(isImmersiveVideoMode && isVideosRoute) || isSwipeRoute}
         />
-        </PublicationBackgroundBoundary>
       ) : null}
     </div>
   );
