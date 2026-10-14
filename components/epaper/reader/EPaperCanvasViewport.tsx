@@ -511,7 +511,7 @@ function EPaperCanvasViewportComponent({
                 {...primaryDelivery}
                 width={pageWidth}
                 height={pageHeight}
-                decoding="async"
+                decoding={zoom <= 1 && primaryDelivery.srcSet ? 'sync' : 'async'}
                 fetchPriority="high"
                 alt={`Page ${pageNumber}`}
                 onLoad={() => setLoadedSource(imagePath)}
