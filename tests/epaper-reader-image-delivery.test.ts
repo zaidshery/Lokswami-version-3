@@ -11,7 +11,7 @@ describe('publication reader uses the existing image delivery seam', () => {
     expect(image.src).toContain(encodeURIComponent('/uploads/qa/page-16.jpg'));
     expect(image.srcSet).toContain('640w');
     expect(image.sizes).toContain('(min-width: 1024px)');
-    expect(image.src).toContain('q=80');
+    expect(image.src).toContain('q=75');
   });
   it('requests higher resolution and quality as controlled zoom increases', () => {
     const fit = getEpaperReaderImage('/uploads/qa/page.jpg', 3000, 3208, { spread: true });

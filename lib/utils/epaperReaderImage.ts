@@ -11,6 +11,6 @@ export function getEpaperReaderImage(
   const sizes = options.spread ? spread : options.responsiveSpread
     ? `(min-width: 1024px) and (pointer: fine) ${spread}, (min-width: 1024px) and (pointer: none) ${spread}, ${single}`
     : single;
-  const { props } = getImageProps({ src, width, height, alt: '', sizes, quality: zoom >= 2 ? 90 : 80 });
+  const { props } = getImageProps({ src, width, height, alt: '', sizes, quality: zoom >= 2 ? 90 : 75 });
   return { src: props.src, srcSet: props.srcSet, sizes: props.sizes };
 }
