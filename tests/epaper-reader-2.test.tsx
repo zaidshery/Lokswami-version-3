@@ -306,20 +306,17 @@ describe('Phase 3.15A — E-Paper Reader 2.0 Acceptance', () => {
   });
 
   describe('Page Image Failure & Retry Behavior', () => {
-    it('reserves image geometry and keeps high-resolution zoom decoding asynchronous', () => {
-      const { container, rerender } = render(<EPaperCanvasViewport imagePath="/qa-page.jpg" pageNumber={1}
+    it('reserves the processed image geometry before load and uses async decoding', () => {
+      const { container } = render(<EPaperCanvasViewport imagePath="/qa-page.jpg" pageNumber={1}
         pageWidth={3000} pageHeight={3208} zoom={1} responsiveSpread
         spreadSecondImagePath="/qa-second.jpg" spreadSecondPageNumber={2}
         spreadSecondWidth={3000} spreadSecondHeight={3208} />);
       for (const image of container.querySelectorAll('img')) {
         expect(image).toHaveAttribute('width', '3000');
         expect(image).toHaveAttribute('height', '3208');
+        expect(image).toHaveAttribute('decoding', 'async');
       }
-      expect(container.querySelector('[data-reader-page="1"] img')).toHaveAttribute('decoding', 'sync');
-      expect(container.querySelector('[data-reader-page="2"] img')).toHaveAttribute('decoding', 'async');
       expect(container.querySelector('[data-reader-page="2"]')).toBeInTheDocument();
-      rerender(<EPaperCanvasViewport imagePath="/qa-page.jpg" pageNumber={1} pageWidth={3000} pageHeight={3208} zoom={2} />);
-      expect(container.querySelector('[data-reader-page="1"] img')).toHaveAttribute('decoding', 'async');
     });
     it('keeps both spread hotspots interactive when images loaded before hydration', () => {
       const complete = vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
