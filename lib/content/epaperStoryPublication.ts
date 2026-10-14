@@ -39,7 +39,7 @@ export function makeReleasedEpaperStory(source: Record<string, unknown>, actorId
     pageImagePath: String(source.pageImagePath || ''),
     contentHtml, excerpt, coverImagePath: String(source.coverImagePath || ''),
     hotspot: { ...hotspot }, version, releasedAt: new Date().toISOString(), releasedById: actorId,
-    sourceUpdatedAt: new Date(String(source.updatedAt)).toISOString(),
+    sourceUpdatedAt: new Date(source.updatedAt instanceof Date ? source.updatedAt.getTime() : String(source.updatedAt)).toISOString(),
   };
 }
 

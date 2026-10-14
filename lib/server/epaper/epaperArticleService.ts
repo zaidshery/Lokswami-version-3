@@ -174,7 +174,7 @@ export class EpaperArticleService {
     if (!paper || !story) throw new EpaperNotFoundError('Published issue or story not found.');
     const released = asObject(story.releasedSnapshot);
     if (released.sourceUpdatedAt === expected.toISOString()) return Number(released.version || 0);
-    if (new Date(String(story.updatedAt)).getTime() !== expected.getTime()) {
+    if (new Date(toIsoDate(story.updatedAt) || '').getTime() !== expected.getTime()) {
       throw new EpaperConflictError('Story changed. Reload and review the latest saved version.');
     }
     const pages = Array.isArray(paper.pages) ? paper.pages.map(asObject) : [];

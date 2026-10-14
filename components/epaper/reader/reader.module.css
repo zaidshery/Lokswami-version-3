@@ -38,6 +38,10 @@
 }
 .storyNavigationPlaceholder { min-height: 44px; }
 
+:global(html.dark) .storyNavigation :global(ol span) {
+  color: #a1a1aa;
+}
+
 /* Keep the publication visible in phone/tablet landscape while pages stay open. */
 @media (max-height: 500px) {
   .storyNavigationPlaceholder { min-height: 32px; }
