@@ -232,6 +232,12 @@ function getBrowserTimeZone() {
   }
 }
 
+// Resolve the unchanged public-reader metadata before an input can force
+// hydration effects to perform the expensive first Intl initialization.
+if (typeof window !== 'undefined' && /^\/main\/(?:e-magazine|epaper)(?:\/|$)/.test(window.location.pathname)) {
+  window.setTimeout(getBrowserTimeZone, 0);
+}
+
 function getReferrerMetadata() {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
     return {

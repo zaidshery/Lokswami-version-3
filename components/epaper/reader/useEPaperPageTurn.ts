@@ -35,12 +35,21 @@ export function useEPaperPageTurn(identity: string) {
     const preload = (src?: string) => new Promise<void>(resolve => {
       if (!src) { resolve(); return; }
       const image = new Image();
+      let finished = false;
       const timeout = setTimeout(done, 1500);
-      function done() { clearTimeout(timeout); image.onload = null; image.onerror = null; resolve(); }
-      image.onload = done; image.onerror = done; image.src = src;
-      if (image.complete) done();
+      function done() { if (finished) return; finished = true; clearTimeout(timeout); image.onload = null; image.onerror = null; resolve(); }
+      const decoded = () => {
+        if (typeof image.decode === 'function') void image.decode().catch(() => {}).then(done);
+        else done();
+      };
+      image.onload = decoded; image.onerror = done; image.src = src;
+      if (image.complete) { if (image.naturalWidth) decoded(); else done(); }
     });
     void Promise.all([preload(input.image), preload(input.secondImage)]).then(() => {
+      if (generation.current !== token) return;
+      // Paint the existing loading phase before inserting the animated image
+      // layers, rather than doing image preparation in the input's frame.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
       if (generation.current !== token) return;
       setTurn({ ...input, phase: 'turning' });
       finish.current = () => {
@@ -55,6 +64,7 @@ export function useEPaperPageTurn(identity: string) {
       // Animationend owns normal completion; keep a bounded recovery for a
       // browser that drops that event (for example during a visibility change).
       timer.current = setTimeout(() => finish.current?.(), 800);
+      }));
     });
     return true;
   }, []);

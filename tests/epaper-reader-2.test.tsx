@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import EPaperToolbar from '@/components/epaper/reader/EPaperToolbar';
 import EPaperPageStrip from '@/components/epaper/reader/EPaperPageStrip';
@@ -199,6 +199,24 @@ describe('Phase 3.15A — E-Paper Reader 2.0 Acceptance', () => {
 
       fireEvent.click(page3);
       expect(onSelectPage).toHaveBeenCalledWith(3);
+    });
+    it('hydrates only nearby thumbnails while keeping every ordered jump control', () => {
+      let observe!: (entries: IntersectionObserverEntry[]) => void;
+      vi.stubGlobal('IntersectionObserver', class {
+        constructor(callback: (entries: IntersectionObserverEntry[]) => void) { observe = callback; }
+        observe() {} disconnect() {}
+      });
+      try {
+        const allPages = Array.from({ length: 32 }, (_, i) => ({ pageNumber: i + 1, imagePath: `/qa-${i + 1}.jpg` }));
+        const select = vi.fn();
+        const { container } = render(<EPaperPageStrip pages={allPages} activePage={16} onSelectPage={select} />);
+        expect(screen.getAllByRole('button', { name: /^Jump to page/ })).toHaveLength(32);
+        expect(container.querySelectorAll('img')).toHaveLength(3);
+        const last = screen.getByRole('button', { name: 'Jump to page 32' });
+        fireEvent.click(last); expect(select).toHaveBeenCalledWith(32);
+        act(() => observe([{ isIntersecting: true, target: last } as unknown as IntersectionObserverEntry]));
+        expect(last.querySelector('img')).toHaveAttribute('alt', 'Page 32');
+      } finally { vi.unstubAllGlobals(); }
     });
   });
 

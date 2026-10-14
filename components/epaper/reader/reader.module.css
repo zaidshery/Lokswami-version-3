@@ -18,10 +18,12 @@
 
 /* The server-rendered overlay already establishes reader mode. Hide its
    covered shell before client effects, without moving or remounting it. */
-:global(body):has(.readerOpenMarker) :global([data-publication-shell-background]) {
+:global(body):has(:global(#main-content) .readerOpenMarker) :global([data-publication-shell-background]) {
   visibility: hidden;
   content-visibility: hidden;
 }
+:global(body):has(:global(#main-content) .readerOpenMarker) :global(#main-content) { visibility: hidden; }
+.readerOverlay, .readerNotice { visibility: visible; }
 
 .book {
   position: relative;

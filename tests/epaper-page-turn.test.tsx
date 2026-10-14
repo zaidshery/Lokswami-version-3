@@ -11,10 +11,24 @@ function readyImages(reduced = false) {
   vi.stubGlobal('Image', class { complete = true; onload = null; onerror = null; src = ''; });
 }
 describe('settled page turn state', () => {
+  it('waits for bitmap decoding and a loading paint before animating', async () => {
+    readyImages(); let decoded!: () => void;
+    const decode = vi.fn(() => new Promise<void>(resolve => { decoded = resolve; }));
+    vi.stubGlobal('Image', class { complete = true; naturalWidth = 1200; onload = null; onerror = null; src = ''; decode = decode; });
+    const commit = vi.fn(); const { result } = renderHook(() => useEPaperPageTurn('qa'));
+    await act(async () => { result.current.start({ page: 2, direction: 1, image: '/two' }, commit); });
+    expect(decode).toHaveBeenCalledOnce(); expect(result.current.turn?.phase).toBe('loading');
+    await act(async () => decoded());
+    await act(async () => vi.advanceTimersByTime(16)); expect(result.current.turn?.phase).toBe('loading');
+    await act(async () => vi.advanceTimersByTime(16)); expect(result.current.turn?.phase).toBe('turning');
+    act(() => result.current.complete()); expect(commit).toHaveBeenCalledOnce();
+  });
   it.each([1, -1] as const)('preloads then commits exactly once after direction %s settles', async direction => {
     readyImages(); const commit = vi.fn();
     const { result } = renderHook(() => useEPaperPageTurn('issue:spread'));
     await act(async () => { result.current.start({ page: direction === 1 ? 3 : 1, direction, image: '/next.webp', secondImage: '/right.webp' }, commit); });
+    expect(result.current.turn?.phase).toBe('loading');
+    await act(async () => vi.advanceTimersByTime(40));
     expect(result.current.turn?.phase).toBe('turning'); expect(commit).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(360)); expect(commit).not.toHaveBeenCalled();
     act(() => result.current.complete()); expect(commit).toHaveBeenCalledOnce(); expect(result.current.turn).toBeNull();
@@ -35,6 +49,7 @@ describe('settled page turn state', () => {
   it('does not commit twice when animation completion and the recovery timer race', async () => {
     readyImages();const commit=vi.fn();const {result}=renderHook(()=>useEPaperPageTurn('one'));
     await act(async()=>{result.current.start({page:2,direction:1,image:'/two'},commit);});
+    await act(async()=>vi.advanceTimersByTime(40));
     act(()=>{result.current.complete();result.current.complete();vi.advanceTimersByTime(1000);});
     expect(commit).toHaveBeenCalledOnce();
   });
@@ -43,11 +58,19 @@ describe('settled page turn state', () => {
     const commit=vi.fn();const {result}=renderHook(()=>useEPaperPageTurn('one'));
     act(()=>{result.current.start({page:2,direction:1,image:'/slow'},commit);});
     expect(result.current.turn?.phase).toBe('loading');expect(commit).not.toHaveBeenCalled();
-    await act(async()=>vi.advanceTimersByTime(1500));expect(result.current.turn?.phase).toBe('turning');
+    await act(async()=>vi.advanceTimersByTime(1500));
+    await act(async()=>vi.advanceTimersByTime(40));expect(result.current.turn?.phase).toBe('turning');
     act(()=>vi.advanceTimersByTime(800));expect(commit).toHaveBeenCalledOnce();
   });
 });
 describe('page input and departing leaf', () => {
+  it('shows pending feedback without changing the settled page', () => {
+    render(<EPaperCanvasViewport imagePath="/one" pageNumber={1} zoom={1}
+      pageTurn={{ page: 2, direction: 1, image: '/two', phase: 'loading' }} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading page');
+    expect(screen.getByAltText('Page 1')).toHaveAttribute('src', '/one');
+    expect(document.querySelector('[data-reader-turn]')).toBeNull();
+  });
   it('turns at a non-story desktop edge but keeps a hotspot click separate', () => {
     const next=vi.fn();const select=vi.fn();render(<EPaperCanvasViewport imagePath="/one" pageNumber={1} zoom={1} onNextPage={next} onSelectStory={select} articles={[{_id:'story',epaperId:'one',slug:'story',title:'Story',pageNumber:1,hotspot:{x:.1,y:.1,w:.3,h:.3}}]} />);
     const image=screen.getByAltText('Page 1');fireEvent.load(image);

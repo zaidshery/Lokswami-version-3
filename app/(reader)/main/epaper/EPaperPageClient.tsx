@@ -2993,7 +2993,7 @@ export default function EPaperPageClient({
       <div className="pointer-events-none absolute top-[24rem] -left-12 h-52 w-52 rounded-full bg-cyan-200/28 blur-3xl dark:bg-cyan-900/12 sm:top-[27rem] sm:h-64 sm:w-64" />
 
       {readerNotice && !activeArticle ? (
-        <div className="pointer-events-none fixed inset-x-0 top-20 z-[120] flex justify-center px-3">
+        <div className={`${readerStyles.readerNotice} pointer-events-none fixed inset-x-0 top-20 z-[120] flex justify-center px-3`}>
           <div
             className={`pointer-events-auto inline-flex max-w-xl items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur ${
               readerNotice.tone === 'success'
@@ -3406,6 +3406,7 @@ export default function EPaperPageClient({
             />
 
             <EPaperPageStrip
+              key={activePaper._id}
               pages={pageSummaries}
               activePage={activePage}
               onSelectPage={(page) => {

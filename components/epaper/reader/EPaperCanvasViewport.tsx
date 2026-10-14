@@ -491,6 +491,7 @@ function EPaperCanvasViewportComponent({
           transform: `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0) scale(${zoom})`,
         }}
       >
+        {pageTurn?.phase === 'loading' ? <div role="status" className="pointer-events-none absolute bottom-4 right-4 z-40 rounded-lg bg-zinc-950/90 px-3 py-2 text-sm text-white">Loading page…</div> : null}
         {/* Spread View or Single Page */}
         <div data-reader-book className={`${styles.book} ${isSpreadMode ? styles.spread : ''} ${responsiveSpread ? styles.autoSpread : ''} flex items-center gap-px`}>
           {/* Primary Page */}
