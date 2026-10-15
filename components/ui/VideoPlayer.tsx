@@ -156,6 +156,8 @@ export interface VideoPlayerProps {
   videoId: string;
   title: string;
   src: string;
+  captionUrl?: string;
+  captionLanguage?: string;
   poster?: string;
   fallbackDuration?: number;
   isActive: boolean;
@@ -187,6 +189,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     videoId,
     title,
     src,
+    captionUrl,
+    captionLanguage = 'hi',
     poster,
     fallbackDuration = 0,
     isActive,
@@ -295,6 +299,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const youtubeId = useMemo(() => extractYouTubeVideoId(src), [src]);
   const isLiveStream = Boolean(isLive || isYouTubeLiveUrl(src));
   const isYouTube = Boolean(youtubeId);
+  const captionLabel = useMemo(() => {
+    try { return new Intl.DisplayNames(['en'], { type: 'language' }).of(captionLanguage) || captionLanguage; }
+    catch { return captionLanguage; }
+  }, [captionLanguage]);
 
   useEffect(() => {
     if (!isYouTube && src && !isValidMediaSource(src)) {
@@ -551,7 +559,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     tracks.forEach((track, index) => {
       track.mode = captionsEnabled && index === 0 ? 'showing' : 'disabled';
     });
-  }, [captionsEnabled, isYouTube, src]);
+    const syncNativeCaptionControl = () => onCaptionsChange?.(video.textTracks[0]?.mode === 'showing');
+    if (captionUrl) video.textTracks.addEventListener?.('change', syncNativeCaptionControl);
+    return () => video.textTracks.removeEventListener?.('change', syncNativeCaptionControl);
+  }, [captionsEnabled, isYouTube, src, captionUrl, onCaptionsChange]);
 
   useEffect(() => {
     if (isYouTube) return;
@@ -750,6 +761,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
         <video
           ref={videoRef}
           src={src}
+          crossOrigin={isValidMediaSource(captionUrl) ? 'anonymous' : undefined}
           poster={poster}
           className="h-full w-full object-contain"
           playsInline
@@ -825,10 +837,24 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               setErrorClassification('generic');
             }
           }}
-        />
+        >
+          {isValidMediaSource(captionUrl) ? <track kind="captions" src={captionUrl}
+            srcLang={captionLanguage} label={captionLabel}
+            default={captionsEnabled} onLoad={() => {
+              const track = videoRef.current?.textTracks[0];
+              if (track) track.mode = captionsEnabled ? 'showing' : 'disabled';
+            }} /> : null}
+        </video>
       )}
 
       {/* Buffering Indicator */}
+      {isSafeMediaSrc && isValidMediaSource(captionUrl) && onCaptionsChange ? <button type="button"
+        className="reader-focus-ring absolute right-3 top-3 z-30 min-h-11 rounded-lg bg-black/80 px-3 text-sm text-white"
+        aria-label={`Captions: ${captionLabel}`}
+        aria-pressed={captionsEnabled} onClick={() => onCaptionsChange(!captionsEnabled)}>
+        CC · {captionLabel}
+      </button> : null}
+
       {isBuffering && !isPaused && !playbackError && (
         <div
           className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-[1px]"

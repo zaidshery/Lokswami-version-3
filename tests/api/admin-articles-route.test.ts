@@ -279,6 +279,16 @@ describe('/api/admin/articles route', () => {
     expect(ensureBreakingTtsForArticleMock).not.toHaveBeenCalled();
   });
 
+  it.each([{sourceStoryId:'story-1'},{sourceType:'story'}])('refuses explicit reporter linked handoff before normalization or persistence: %j', async source => {
+    getAdminSessionMock.mockResolvedValue({id:'reporter-1',email:'reporter@example.com',name:'Reporter',role:'reporter'});
+    const {POST}=await import('@/app/api/admin/articles/route');
+    const response=await POST(new Request('http://localhost/api/admin/articles',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({title:'Reporter request',content:'<p>Reporting content.</p>',image:'https://cdn/image.jpg',intent:'draft',...source})}) as unknown as NextRequest);
+    expect(response.status).toBe(403);
+    expect(createStoredArticleMock).not.toHaveBeenCalled();
+    expect(getStoryRecordForArticleLinkingMock).not.toHaveBeenCalled();
+  });
+
   it('rejects an unknown article intent without mutation or activity', async () => {
     getAdminSessionMock.mockResolvedValue({
       id: 'admin-1',

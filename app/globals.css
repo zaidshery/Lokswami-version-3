@@ -1785,9 +1785,8 @@
   scrollbar-width: thin !important;
 }
 
-/* Fix WebKit iframe black screen bug in fullscreen */
-html:has(:fullscreen) *,
-html:has(:-webkit-full-screen) *,
+/* FullscreenFix synchronizes this class for native and vendor fullscreen.
+   Avoid document-wide :has() invalidation during ordinary reader updates. */
 html.fullscreen-active *,
 .fullscreen-active * {
   transform: none !important;

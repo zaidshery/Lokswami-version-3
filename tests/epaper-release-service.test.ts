@@ -99,4 +99,24 @@ describe('EpaperArticleService release concurrency contract', () => {
     await expect(new EpaperArticleService(repo).release(adminActor, epaperId, articleId, expected))
       .rejects.toBeInstanceOf(EpaperForbiddenError);
   });
+
+  it('accepts a freshly reloaded Mongo Date with nonzero milliseconds', async () => {
+    const savedAt = new Date('2026-10-14T07:28:36.040Z');
+    const repo = buildRepo();
+    const story = await repo.findArticle({ _id: articleId });
+    vi.mocked(repo.findArticle).mockResolvedValue({ ...story, updatedAt: savedAt });
+    await expect(new EpaperArticleService(repo).release(actor, epaperId, articleId, savedAt.toISOString())).resolves.toBe(4);
+    expect(repo.updateArticleConditional).toHaveBeenCalledWith(
+      { _id: articleId, epaperId, updatedAt: savedAt },
+      { $set: { releasedSnapshot: expect.objectContaining({ sourceUpdatedAt: savedAt.toISOString() }) } }
+    );
+  });
+
+  it('still rejects a genuinely stale subsecond version without a write', async () => {
+    const repo = buildRepo({ findArticle: vi.fn(() => ({ updatedAt: new Date('2026-10-14T07:28:36.041Z') })) });
+    await expect(new EpaperArticleService(repo).release(actor, epaperId, articleId, '2026-10-14T07:28:36.040Z'))
+      .rejects.toBeInstanceOf(EpaperConflictError);
+    expect(repo.updateArticleConditional).not.toHaveBeenCalled();
+    expect(repo.markPageReady).not.toHaveBeenCalled();
+  });
 });

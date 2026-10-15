@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useParams } from 'next/navigation';
+import { useStoryUploadPreviews } from '@/components/admin/stories/useStoryUploadPreviews';
 import {
   AlertCircle,
   ArrowLeft,
@@ -217,6 +218,7 @@ function getMediaAssetLabel(asset: StoryMediaAsset) {
 
 type StoryMediaTileProps = {
   asset: StoryMediaAsset;
+  playbackUrl?: string;
   kindLabel: string;
   onPreview: () => void;
   replaceLabel?: string;
@@ -229,6 +231,7 @@ type StoryMediaTileProps = {
 
 function StoryMediaTile({
   asset,
+  playbackUrl,
   kindLabel,
   onPreview,
   replaceLabel,
@@ -261,7 +264,7 @@ function StoryMediaTile({
         ) : (
           <>
             <video
-              src={asset.url}
+              src={playbackUrl || asset.url}
               muted
               playsInline
               preload="metadata"
@@ -595,6 +598,7 @@ export default function EditStoryPage() {
 
   const [formData, setFormData] = useState<StoryFormData>(initialFormData);
   const [mediaAssets, setMediaAssets] = useState<StoryMediaAsset[]>([]);
+  const { addUploadPreview, getUploadPreview } = useStoryUploadPreviews(mediaAssets);
   const [usesMediaCollection, setUsesMediaCollection] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState('');
@@ -629,6 +633,7 @@ export default function EditStoryPage() {
     discardRecovery,
     setSaveStatus,
     clearDraftStorage,
+    resetSavedForm,
   } = useStoryAutosave({
     storyId,
     storyVersion,
@@ -636,37 +641,19 @@ export default function EditStoryPage() {
     hasLease,
     isLockedByOther,
     loadedAt,
-    onVersionAdvanced: (newVer) => setStoryVersion(newVer),
+    onVersionAdvanced: (newVer) => setStoryVersion((current) => Math.max(current, newVer)),
   });
 
   const handleRevisionRestored = (restoredStory: Record<string, unknown>) => {
     const loadedVersion = Number(restoredStory.version);
-    setFormData((prev) => ({
-      ...prev,
-      title: String(restoredStory.title || ''),
-      caption: String(restoredStory.caption || ''),
-      thumbnail: String(restoredStory.thumbnail || ''),
-      mediaType: restoredStory.mediaType === 'video' ? 'video' : 'image',
-      mediaUrl: String(restoredStory.mediaUrl || ''),
-      mediaKey: String(restoredStory.mediaKey || ''),
-      mediaSizeBytes: Number(restoredStory.mediaSizeBytes || 0),
-      mediaMimeType: String(restoredStory.mediaMimeType || ''),
-      storageProvider: String(restoredStory.storageProvider || ''),
-      linkUrl: String(restoredStory.linkUrl || ''),
-      linkLabel: String(restoredStory.linkLabel || ''),
-      category: String(restoredStory.category || ''),
-      author: String(restoredStory.author || ''),
-      durationSeconds: String(restoredStory.durationSeconds || ''),
-      priority: String(restoredStory.priority || ''),
-    }));
-    if (Array.isArray(restoredStory.mediaAssets)) {
-      setMediaAssets(restoredStory.mediaAssets as StoryMediaAsset[]);
-    }
+    // Cancel pending editor autosave while the complete persisted state reloads.
+    resetSavedForm(formData);
     setStoryVersion(
       Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : storyVersion + 1
     );
     setSuccess('Story restored from revision successfully');
-    setRevisionCount((prev) => prev + 1);
+    void fetchStory(true);
+    void fetchStoryActivity();
   };
   const [workflow, setWorkflow] = useState<WorkflowState>(EMPTY_WORKFLOW);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUserOption[]>([]);
@@ -835,7 +822,7 @@ export default function EditStoryPage() {
     [workflow.comments]
   );
 
-  const fetchStory = useCallback(async () => {
+  const fetchStory = useCallback(async (resetAutosave = false) => {
     if (!storyId) {
       setIsLoading(false);
       return;
@@ -914,6 +901,7 @@ export default function EditStoryPage() {
       ) as LinkedArticleStatus;
 
       setFormData(nextForm);
+      if (resetAutosave) resetSavedForm(nextForm);
       setStoryVersion(
         Number.isInteger(loadedVersion) && loadedVersion > 0 ? loadedVersion : 1
       );
@@ -952,7 +940,7 @@ export default function EditStoryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [storyId]);
+  }, [resetSavedForm, storyId]);
 
   const fetchStoryActivity = useCallback(async () => {
     if (!storyId) {
@@ -1123,7 +1111,7 @@ export default function EditStoryPage() {
       throw new Error(data.error || 'Failed to upload image.');
     }
 
-    return createStoryMediaAsset({
+    const uploadedAsset = createStoryMediaAsset({
       assetId: String(data.data?.assetId || ''),
       kind: 'image',
       url: String(data.data?.url || ''),
@@ -1134,6 +1122,8 @@ export default function EditStoryPage() {
       originalFileName: file.name,
       order,
     });
+    addUploadPreview(uploadedAsset, file);
+    return uploadedAsset;
   };
 
   const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1369,6 +1359,7 @@ export default function EditStoryPage() {
         originalFileName: file.name,
         order,
       });
+      addUploadPreview(uploadedAsset, file);
       setSuccess('Video uploaded successfully. Save the story to persist the new video.');
       return uploadedAsset;
     } catch (uploadError) {
@@ -2353,6 +2344,7 @@ export default function EditStoryPage() {
                         key={asset.id}
                         asset={asset}
                         kindLabel="Video"
+                        playbackUrl={getUploadPreview(asset) || (asset.assetId ? `/api/admin/stories/${routeId}/preview?asset=media&assetId=${encodeURIComponent(asset.assetId)}` : undefined)}
                         replaceLabel={canReplaceStoryVideo ? 'Replace' : undefined}
                         removeLabel={canReplaceStoryVideo ? 'Delete' : undefined}
                         replaceInputId={canReplaceStoryVideo ? `replace-video-${asset.id}` : undefined}
@@ -3237,6 +3229,14 @@ export default function EditStoryPage() {
         </CmsEditorCanvas>
       </motion.div>
 
+      <StoryRevisionsDrawer
+        isOpen={isRevisionsOpen}
+        onClose={() => setIsRevisionsOpen(false)}
+        storyId={storyId}
+        currentVersion={storyVersion}
+        onRevisionRestored={handleRevisionRestored}
+      />
+
       {previewAsset ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-3xl rounded-2xl bg-white p-4 shadow-2xl">
@@ -3266,7 +3266,7 @@ export default function EditStoryPage() {
                 />
               ) : (
                 <video
-                  src={previewAsset.asset.url}
+                  src={getUploadPreview(previewAsset.asset) || (previewAsset.asset.assetId ? `/api/admin/stories/${routeId}/preview?asset=media&assetId=${encodeURIComponent(previewAsset.asset.assetId)}` : previewAsset.asset.url)}
                   controls
                   autoPlay
                   preload="metadata"

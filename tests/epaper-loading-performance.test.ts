@@ -26,7 +26,7 @@ describe('e-paper loading performance', () => {
     );
 
     expect(grid).toContain('quality={60}');
-    expect(grid).toContain('priority={index < 4}');
+    expect(grid).toContain('priority={!activePaper && index < 4}');
     expect(grid).not.toContain('unoptimized');
   });
 

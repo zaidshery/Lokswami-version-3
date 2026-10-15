@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store/appStore';
+import { useShallow } from 'zustand/react/shallow';
 import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
 import MobileMenu from '@/components/layout/MobileMenu';
@@ -57,7 +58,12 @@ function MainLayoutContent({
     setMobileMenuOpen,
     isImmersiveVideoMode,
     isEpaperReaderOpen,
-  } = useAppStore();
+  } = useAppStore(useShallow(state => ({
+    setIsMobile: state.setIsMobile, setIsTablet: state.setIsTablet,
+    toggleMobileMenu: state.toggleMobileMenu, isMobileMenuOpen: state.isMobileMenuOpen,
+    setMobileMenuOpen: state.setMobileMenuOpen, isImmersiveVideoMode: state.isImmersiveVideoMode,
+    isEpaperReaderOpen: state.isEpaperReaderOpen,
+  })));
   const isVideosRoute = pathname?.startsWith('/main/videos') ?? false;
   const isSwipeRoute = pathname?.startsWith('/main/shorts/') ?? false;
   const isEpaperRoute =
@@ -93,8 +99,8 @@ function MainLayoutContent({
       </a>
 
       {/* Unified Sticky Shell Container (Breaking News + Header stack naturally) */}
-      {!isFullscreenReader ? (
-        <div className="sticky top-0 z-40 w-full">
+      {!isFullscreenReader || isReaderImmersiveMode ? (
+        <div data-publication-shell-background className={`sticky top-0 z-40 w-full ${isReaderImmersiveMode ? 'invisible pointer-events-none' : ''}`} aria-hidden={isReaderImmersiveMode || undefined} ref={node => { node?.toggleAttribute('inert', isReaderImmersiveMode); }}>
           <BreakingNews />
           <Header />
         </div>
@@ -113,7 +119,7 @@ function MainLayoutContent({
             : isImmersiveVideoMode
               ? 'pb-0 pt-0'
               : isReaderImmersiveMode
-                ? 'pb-0 pt-0'
+                ? 'reader-bottom-safe-pad xl:pb-4'
                 : isVideosRoute
                   ? 'xl:pb-4'
                   : 'reader-bottom-safe-pad xl:pb-4'
@@ -127,7 +133,7 @@ function MainLayoutContent({
               : isImmersiveVideoMode
               ? 'py-0 !max-w-none !px-0'
               : isReaderImmersiveMode
-                ? 'py-0 !max-w-none !px-0'
+                ? 'py-4 md:py-5 !px-3 sm:!px-5 lg:!px-6'
                 : 'py-4 md:py-5 !px-3 sm:!px-5 lg:!px-6'
           }
         >
@@ -136,8 +142,8 @@ function MainLayoutContent({
       </main>
 
       {/* Footer */}
-      {!isFullscreenReader ? (
-        <div className="block">
+      {!isFullscreenReader || isReaderImmersiveMode ? (
+        <div data-publication-shell-background className={isReaderImmersiveMode ? 'invisible pointer-events-none' : 'block'} aria-hidden={isReaderImmersiveMode || undefined} ref={node => { node?.toggleAttribute('inert', isReaderImmersiveMode); }}>
           <Footer />
         </div>
       ) : null}

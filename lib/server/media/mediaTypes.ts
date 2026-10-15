@@ -7,6 +7,7 @@ export type MediaUploadPurpose =
 
 export type MediaAssetStatus =
   | 'pending'
+  | 'cancelled'
   | 'verified'
   | 'attached'
   | 'cleanup_pending'
@@ -37,6 +38,8 @@ export interface MediaRecord {
   ownerType?: MediaOwnerType;
   ownerId?: string;
   expectedSize?: number;
+  uploadExpiresAt?: string | Date;
+  cancelledAt?: string | Date;
   referenceTrackingComplete?: boolean;
   references?: MediaReference[];
   variants?: MediaOptimizedVariantMap;
@@ -45,6 +48,13 @@ export interface MediaRecord {
   deletedAt?: string | Date;
   updatedAt?: string | Date;
   createdAt?: string | Date;
+}
+
+/** Position in an oldest-first sweep. The fixed cutoff excludes retries updated mid-sweep. */
+export interface MediaCleanupCursor {
+  cutoff: string;
+  updatedAt: string;
+  id: string;
 }
 
 export interface MediaUploadRule {

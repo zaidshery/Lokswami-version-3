@@ -44,6 +44,7 @@ import dynamic from 'next/dynamic';
 import EPaperCanvasViewport from '@/components/epaper/reader/EPaperCanvasViewport';
 import EPaperToolbar from '@/components/epaper/reader/EPaperToolbar';
 import EPaperPageStrip from '@/components/epaper/reader/EPaperPageStrip';
+import { getEpaperReaderImage } from '@/lib/utils/epaperReaderImage';
 import EPaperStoryPreview from '@/components/epaper/reader/EPaperStoryPreview';
 import readerStyles from '@/components/epaper/reader/reader.module.css';
 import { useEPaperPageTurn } from '@/components/epaper/reader/useEPaperPageTurn';
@@ -1017,7 +1018,7 @@ export default function EPaperPageClient({
   const hasInitializedListEffect = useRef(false);
   const [error, setError] = useState('');
   const [readerSidebarView, setReaderSidebarView] = useState<ReaderSidebarView>('pages');
-  const [readerDisplayMode, setReaderDisplayMode] = useState<'single' | 'spread'>('single');
+  const [readerDisplayMode, setReaderDisplayMode] = useState<'single' | 'spread' | 'auto'>('auto');
   const [isDesktopContextRailVisible, setIsDesktopContextRailVisible] = useState(false);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement | null>(null);
@@ -1106,7 +1107,7 @@ export default function EPaperPageClient({
   const canUseSpreadMode = Boolean(
     activePaper && activePaper.pageCount > 1 && isWideScreen && !isCoarsePointer
   );
-  const shouldShowSpreadMode = canUseSpreadMode && readerDisplayMode === 'spread';
+  const shouldShowSpreadMode = canUseSpreadMode && readerDisplayMode !== 'single';
   const hasArchiveFilters =
     (!isMonthlyPublication && selectedCity !== 'all') || Boolean(selectedPublishDate);
   const syncSavedLibrary = useCallback(() => {
@@ -1168,13 +1169,6 @@ export default function EPaperPageClient({
       setPendingStorySlug(story);
     }
 
-    if (typeof window !== 'undefined') {
-      if (window.innerWidth >= 768) {
-        setReaderDisplayMode('spread');
-      } else {
-        setReaderDisplayMode('single');
-      }
-    }
   }, []);
 
   useEffect(() => {
@@ -1513,9 +1507,13 @@ export default function EPaperPageClient({
       const maxPages = Math.max(1, Number(activePaper.pageCount || 1));
       const resolvedPage = clampPage(nextPage, 1, shouldShowSpreadMode ? Math.max(1, maxPages - 1) : maxPages);
       if (resolvedPage === activePage) return;
+      const nextPageMeta = activePaper.pages.find(page => page.pageNumber === resolvedPage);
+      const nextCompanion = shouldShowSpreadMode ? activePaper.pages.find(page => page.pageNumber === resolvedPage + 1) : undefined;
+      const delivery = getEpaperReaderImage(nextPageMeta?.imagePath || '', nextPageMeta?.width || 1200, nextPageMeta?.height || 1600, { spread: shouldShowSpreadMode });
+      const companionDelivery = nextCompanion ? getEpaperReaderImage(nextCompanion.imagePath || '', nextCompanion.width || 1200, nextCompanion.height || 1600, { spread: true }) : undefined;
       const accepted = startReaderTurn({ page: resolvedPage, direction: resolvedPage > activePage ? 1 : -1,
-        image: activePaper.pages.find((page) => page.pageNumber === resolvedPage)?.imagePath || '',
-        secondImage: shouldShowSpreadMode ? activePaper.pages.find((page) => page.pageNumber === resolvedPage + 1)?.imagePath : undefined,
+        image: delivery.src, srcSet: delivery.srcSet, sizes: delivery.sizes,
+        secondImage: companionDelivery?.src, secondSrcSet: companionDelivery?.srcSet,
       }, () => {
       setActivePage(resolvedPage);
       setPreviewZoom(1);
@@ -1762,9 +1760,9 @@ export default function EPaperPageClient({
     [pageSummaries]
   );
   const spreadCompanionPage = useMemo(() => {
-    if (!shouldShowSpreadMode) return null;
+    if (readerDisplayMode === 'single') return null;
     return pageSummaries.find((item) => item.pageNumber === activePage + 1) || null;
-  }, [activePage, pageSummaries, shouldShowSpreadMode]);
+  }, [activePage, pageSummaries, readerDisplayMode]);
   const previewSrc = activePageImage || pdfFallbackPreview;
   const previewIsDataUrl = previewSrc.startsWith('data:');
   const previewWidth = activePageMeta?.width || 1200;
@@ -1901,7 +1899,11 @@ export default function EPaperPageClient({
       const pageData = pageSummaries.find((s) => s.pageNumber === pNum);
       if (pageData?.imagePath) {
         const img = new window.Image();
-        img.src = pageData.imagePath;
+        const delivery = getEpaperReaderImage(pageData.imagePath, pageData.width, pageData.height, { spread: shouldShowSpreadMode });
+        if (delivery.sizes) img.sizes = delivery.sizes;
+        if (delivery.srcSet) img.srcset = delivery.srcSet;
+        img.onload = () => { void img.decode?.().catch(() => {}); };
+        img.src = delivery.src;
       }
     });
   }, [activePage, activePaper, pageSummaries, shouldShowSpreadMode]);
@@ -2985,7 +2987,7 @@ export default function EPaperPageClient({
         : '';
 
   return (
-    <div className="relative pb-2 md:pb-4">
+    <div className={`relative pb-2 md:pb-4 ${activePaper ? readerStyles.readerOpenMarker : ''}`} data-publication-reader-open={activePaper ? 'true' : undefined}>
       {!activePaper ? (
         <h1 className="sr-only">
           {isMonthlyPublication
@@ -3000,7 +3002,7 @@ export default function EPaperPageClient({
       <div className="pointer-events-none absolute top-[24rem] -left-12 h-52 w-52 rounded-full bg-cyan-200/28 blur-3xl dark:bg-cyan-900/12 sm:top-[27rem] sm:h-64 sm:w-64" />
 
       {readerNotice && !activeArticle ? (
-        <div className="pointer-events-none fixed inset-x-0 top-20 z-[120] flex justify-center px-3">
+        <div className={`${readerStyles.readerNotice} pointer-events-none fixed inset-x-0 top-20 z-[120] flex justify-center px-3`}>
           <div
             className={`pointer-events-auto inline-flex max-w-xl items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur ${
               readerNotice.tone === 'success'
@@ -3018,6 +3020,7 @@ export default function EPaperPageClient({
         </div>
       ) : null}
 
+      <div hidden={Boolean(activePaper)}>
       <section className="cnp-surface relative overflow-hidden rounded-2xl border border-zinc-200/80 p-3.5 shadow-sm dark:border-zinc-800 sm:p-4 md:p-5">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 shadow-[0_1px_8px_rgba(225,29,72,0.35)]" />
         <div className="mb-4 border-b border-zinc-200/80 pb-4 dark:border-zinc-800">
@@ -3251,7 +3254,7 @@ export default function EPaperPageClient({
                           alt={paper.title}
                           fill
                           quality={60}
-                          priority={index < 4}
+                          priority={!activePaper && index < 4}
                           className="object-contain p-2"
                           sizes="(max-width: 639px) 44vw, (max-width: 767px) 46vw, (max-width: 1279px) 30vw, 22vw"
                         />
@@ -3300,9 +3303,10 @@ export default function EPaperPageClient({
           </div>
         )}
       </section>
+      </div>
 
       {activePaper ? (
-        <div ref={readerContainerRef} role="dialog" aria-modal="true" aria-label={`${activePaper.title} publication reader`} className={`${readerStyles.readerOverlay} fixed inset-0 z-[95] bg-zinc-950/70 p-0 backdrop-blur-md sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
+        <div ref={readerContainerRef} role="dialog" aria-modal="true" aria-label={`${activePaper.title} publication reader`} className={`${readerStyles.readerOverlay} fixed inset-0 z-[95] bg-zinc-950/70 p-0 sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
           <div data-publication-reader-frame className={`${readerStyles.readerFrame} relative mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden border-0 bg-white shadow-2xl dark:bg-zinc-950 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-200 sm:dark:border-zinc-800`}>
             <EPaperToolbar
               title={activePaper.title}
@@ -3331,7 +3335,7 @@ export default function EPaperPageClient({
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}
               onToggleSpreadMode={() =>
-                setReaderDisplayMode((mode) => (mode === 'spread' ? 'single' : 'spread'))
+                setReaderDisplayMode((mode) => (mode === 'single' ? 'spread' : 'single'))
               }
               onOpenDownload={() => setIsDownloadModalOpen(true)}
               onClose={handleCloseReader}
@@ -3403,11 +3407,15 @@ export default function EPaperPageClient({
               canGoNext={canGoNextPage}
               isSpreadMode={shouldShowSpreadMode}
               spreadSecondImagePath={spreadCompanionPage?.imagePath}
+              responsiveSpread={readerDisplayMode === 'auto' && activePaper.pageCount > 1 && Boolean(spreadCompanionPage)}
+              spreadSecondWidth={spreadCompanionPage?.width}
+              spreadSecondHeight={spreadCompanionPage?.height}
               spreadSecondPageNumber={spreadCompanionPage?.pageNumber}
               spreadSecondArticles={spreadCompanionPage?.articles}
             />
 
             <EPaperPageStrip
+              key={activePaper._id}
               pages={pageSummaries}
               activePage={activePage}
               onSelectPage={(page) => {

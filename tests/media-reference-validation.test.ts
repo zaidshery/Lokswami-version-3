@@ -49,6 +49,16 @@ describe('persisted media reference validation', () => {
     await expect(new MediaRepository().hasPersistedArticleImageReference(record)).rejects.toThrow('Database unavailable');
   });
 
+  it('protects pending video IDs and keys held only by a foreign Story revision', async () => {
+    mocks.story.mockResolvedValue({ _id: 'foreign-story' });
+    const pending = { ...record, status: 'pending' as const, ownerType: 'story' as const,
+      mediaKind: 'video' as const, objectKey: 'stories/videos/owned.mp4', references: [], referenceTrackingComplete: false };
+    expect(await new MediaRepository().hasPersistedReference(pending)).toBe(true);
+    const query = mocks.story.mock.calls[0][0];
+    expect(query.$or).toContainEqual({ 'revisions.mediaAssets.assetId': { $regex: expect.any(String) } });
+    expect(query.$or).toContainEqual({ 'revisions.mediaAssets.key': { $regex: expect.any(String) } });
+  });
+
   it('protects file-store draft and revision URLs across alternate delivery origins', async () => {
     vi.stubEnv('MONGODB_URI', '');
     mocks.read.mockResolvedValue(JSON.stringify([{ workflow: { status: 'draft' },

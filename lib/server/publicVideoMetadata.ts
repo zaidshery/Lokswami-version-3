@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { isMongoAvailable } from '@/lib/db/mongoAvailability';
 import Video from '@/lib/models/Video';
 import { getStoredVideoById } from '@/lib/storage/videosFile';
-import { isPubliclyPublishedVideo, isSwipeFeedEligibleVideo } from '@/lib/content/videoPublication';
+import { getPublicVideoCaption, isPubliclyPublishedVideo, isSwipeFeedEligibleVideo } from '@/lib/content/videoPublication';
 
 export type PublicVideoMetadata = {
   id: string;
@@ -11,6 +11,8 @@ export type PublicVideoMetadata = {
   description: string;
   thumbnail: string;
   videoUrl: string;
+  captionUrl?: string;
+  captionLanguage?: string;
   duration: number;
   category: string;
   isShort: boolean;
@@ -29,6 +31,8 @@ type PublicVideoSource = {
   description?: string;
   thumbnail?: string;
   videoUrl?: string;
+  captionUrl?: string;
+  accessibilityMeta?: Record<string, unknown>;
   duration?: number;
   category?: string;
   isShort?: boolean;
@@ -104,6 +108,7 @@ function toPublicVideo(input: PublicVideoSource | null | undefined): PublicVideo
     description: String(input.description || '').trim(),
     thumbnail: resolveThumbnail(String(input.thumbnail || ''), videoUrl),
     videoUrl,
+    ...getPublicVideoCaption(input),
     duration: Math.max(1, Math.floor(Number(input.duration) || 1)),
     category: String(input.category || 'Videos').trim() || 'Videos',
     isShort: Boolean(input.isShort),
@@ -117,7 +122,7 @@ async function getMongoVideo(id: string) {
     if (!Types.ObjectId.isValid(id)) return null;
 
     const record = await Video.findOne({ _id: id, isPublished: true })
-      .select('_id slug title description thumbnail videoUrl duration category isShort aspectRatio isPublished views publishedAt updatedAt workflow processingStatus')
+      .select('_id slug title description thumbnail videoUrl captionUrl accessibilityMeta.captionsUrl accessibilityMeta.captionLanguage duration category isShort aspectRatio isPublished views publishedAt updatedAt workflow processingStatus')
       .lean<PublicVideoSource | null>();
 
     return toPublicVideo(record);

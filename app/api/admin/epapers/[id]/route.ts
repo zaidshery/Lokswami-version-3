@@ -1,5 +1,6 @@
 import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { getAdminSession } from '@/lib/auth/admin';
 import { epaperEditorialService } from '@/lib/server/epaper/epaperEditorialService';
 import {
@@ -69,6 +70,11 @@ async function PATCHHandler(req: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const result = await epaperEditorialService.updateWorkflow(actor, id, await req.json().catch(() => ({})));
+    if (result.data.productionStatus === 'published' || result.data.productionStatus === 'archived') {
+      const type = result.data.publicationType === 'emagazine' ? 'emagazine' : 'epaper';
+      revalidateTag(`${type}-reader-feed`);
+      revalidatePath(type === 'emagazine' ? '/main/e-magazine' : '/main/epaper');
+    }
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     return errorResponse(error, 'Failed to update e-paper production');

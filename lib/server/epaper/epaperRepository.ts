@@ -4,6 +4,7 @@ import { Types, type ClientSession } from 'mongoose';
 import { isReleasedEpaperIssue } from '@/lib/content/epaperStoryPublication';
 import connectDB from '@/lib/db/mongoose';
 import { isMongoAvailable, reportMongoUnavailable } from '@/lib/db/mongoAvailability';
+import { withDistributedLock } from '@/lib/security/distributedLock';
 import EPaper, { EPAPER_ACTIVE_DRAFT_INDEX } from '@/lib/models/EPaper';
 import EPaperArticle from '@/lib/models/EPaperArticle';
 import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
@@ -791,6 +792,13 @@ export class EpaperRepository {
       try {
         let result: EpaperRecord | null = null;
         await session.withTransaction(async () => {
+          // Release the partial unique current-issue slot before claiming it.
+          // The transaction rolls this retirement back if publication fails.
+          await EPaper.updateMany(
+            previousRevisionFilter,
+            { $set: { isCurrentRevision: false } },
+            { session }
+          );
           result = (await EPaper.findOneAndUpdate(publishFilter, publishMutation, {
             new: true,
             runValidators: true,
@@ -798,13 +806,8 @@ export class EpaperRepository {
           }).lean()) as EpaperRecord | null;
           if (!result) {
             await throwVersionConflict();
-            return;
+            throw new EpaperConflictError('Publication changed during the revision handoff.');
           }
-          await EPaper.updateMany(
-            previousRevisionFilter,
-            { $set: { isCurrentRevision: false } },
-            { session }
-          );
         });
         return result;
       } catch (txError: unknown) {
@@ -822,19 +825,31 @@ export class EpaperRepository {
       }
     }
 
-    const updated = (await EPaper.findOneAndUpdate(publishFilter, publishMutation, {
-      new: true,
-      runValidators: true,
-    }).lean()) as EpaperRecord | null;
-    if (!updated) {
-      await throwVersionConflict();
-      return null;
-    }
-    await EPaper.updateMany(
-      previousRevisionFilter,
-      { $set: { isCurrentRevision: false } }
-    );
-    return updated;
+    return withDistributedLock(`epaper:publish:${familyId}`, async () => {
+      // Standalone Mongo cannot transact the handoff. Record the exact current
+      // revision and restore it on an ordinary failed/stale publication attempt.
+      const previous = await EPaper.find(previousRevisionFilter).select('_id version').lean();
+      await EPaper.updateMany(previousRevisionFilter, { $set: { isCurrentRevision: false } });
+      try {
+        const updated = (await EPaper.findOneAndUpdate(publishFilter, publishMutation, {
+          new: true,
+          runValidators: true,
+        }).lean()) as EpaperRecord | null;
+        if (!updated) {
+          await throwVersionConflict();
+          throw new EpaperConflictError('Publication changed during the revision handoff.');
+        }
+        return updated;
+      } catch (error) {
+        for (const prior of previous) {
+          await EPaper.updateMany(
+            { _id: prior._id, version: prior.version, status: 'published', isCurrentRevision: false },
+            { $set: { isCurrentRevision: true } }
+          );
+        }
+        throw error;
+      }
+    });
   }
 
   async listOcrSuggestions(query: EpaperRecord) {

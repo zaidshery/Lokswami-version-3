@@ -39,6 +39,28 @@ function EPaperPageStripComponent({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const activeThumbnailRef = useRef<HTMLButtonElement | null>(null);
   const [failedImages, setFailedImages] = useState<string[]>([]);
+  const [visibleImages, setVisibleImages] = useState(() => new Set(
+    pages.filter(page => Math.abs(page.pageNumber - activePage) <= 1).map(page => page.pageNumber)
+  ));
+
+  useEffect(() => {
+    if (!isOpen || !scrollContainerRef.current) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisibleImages(new Set(pages.map(page => page.pageNumber)));
+      return;
+    }
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting).map(entry => Number((entry.target as HTMLElement).dataset.pageThumbnail));
+      if (!visible.length) return;
+      setVisibleImages(previous => {
+        const next = new Set(previous);
+        visible.forEach(page => next.add(page));
+        return next.size === previous.size ? previous : next;
+      });
+    }, { root: scrollContainerRef.current, rootMargin: '0px 128px', threshold: 0.01 });
+    scrollContainerRef.current.querySelectorAll('[data-page-thumbnail]').forEach(node => observer.observe(node));
+    return () => observer.disconnect();
+  }, [pages, isOpen]);
 
   // Auto-scroll to center active page thumbnail
   useEffect(() => {
@@ -64,7 +86,7 @@ function EPaperPageStripComponent({
       className={`${styles.controls} shrink-0 border-t border-zinc-200/90 bg-white/95 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 sm:rounded-b-2xl ${className}`}
     >
       {isOpen ? <>
-      {onReturnToReading ? <div className={`${styles.stripHeading} flex items-center justify-between px-4 pt-1 text-xs text-zinc-500`}><span>Choose a page</span><button type="button" onClick={onReturnToReading} className="min-h-11 rounded-lg px-2 font-semibold text-red-700 dark:text-red-300 sm:min-h-8">Return to reading</button></div> : null}
+      {onReturnToReading ? <div className={`${styles.stripHeading} flex items-center justify-between px-4 pt-1 text-xs text-zinc-500 dark:text-zinc-400`}><span>Choose a page</span><button type="button" onClick={onReturnToReading} className="min-h-11 rounded-lg px-2 font-semibold text-red-700 dark:text-red-300 sm:min-h-8">Return to reading</button></div> : null}
       <div
         ref={scrollContainerRef}
         tabIndex={0}
@@ -79,6 +101,7 @@ function EPaperPageStripComponent({
           return (
             <button
               key={page.pageNumber}
+              data-page-thumbnail={page.pageNumber}
               ref={isActive ? activeThumbnailRef : null}
               type="button"
               onClick={() => onSelectPage(page.pageNumber)}
@@ -93,7 +116,7 @@ function EPaperPageStripComponent({
             >
               {/* Thumbnail Container */}
               <div className={`${styles.thumbnailImage} relative h-20 w-14 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800 sm:h-24 sm:w-16`}>
-                {page.imagePath && !failedImages.includes(page.imagePath) ? (
+                {visibleImages.has(page.pageNumber) && page.imagePath && !failedImages.includes(page.imagePath) ? (
                   <Image
                     src={page.imagePath}
                     alt={`Page ${page.pageNumber}`}

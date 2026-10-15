@@ -55,7 +55,7 @@ function NewsRail({ articles, language, popular = false }: Pick<Props, 'articles
             <div className="flex min-w-0 items-center justify-between gap-1 text-[11px] leading-snug text-zinc-600 dark:text-zinc-400">
               <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1">
                 <span className="max-w-full truncate font-medium text-brand-600 dark:text-brand-400">{categoryName(article, language)}</span>
-                <span aria-hidden="true">·</span><time className="whitespace-nowrap" dateTime={article.publishedAt}>{formatUiDate(article.publishedAt)}</time>
+                <span aria-hidden="true">·</span><time className="whitespace-nowrap text-zinc-600 dark:text-zinc-400" dateTime={article.publishedAt}>{formatUiDate(article.publishedAt)}</time>
               </span>
               <WhatsAppShareLink article={article} language={language} placement={popular ? 'popular_news' : 'latest_news'} />
             </div>
@@ -120,7 +120,7 @@ export default function HomepageTopPackage({ articles, language, loading }: Omit
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <span className="min-w-0 truncate font-semibold text-brand-600 dark:text-brand-400">{categoryName(lead, language)}</span>
             <span aria-hidden="true">·</span>
-            <time className="whitespace-nowrap" dateTime={lead.publishedAt}>{formatUiDate(lead.publishedAt)}</time>
+            <time className="whitespace-nowrap text-zinc-600 dark:text-zinc-400" dateTime={lead.publishedAt}>{formatUiDate(lead.publishedAt)}</time>
           </div>
           <WhatsAppShareLink article={lead} language={language} placement="lead_story" />
         </div>

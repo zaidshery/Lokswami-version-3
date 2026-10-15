@@ -333,12 +333,15 @@ describe('app/api/admin mutation inventory', () => {
       stubCount,
       wrappedMutationCount,
     }).toEqual({
-      handlerCount: 97,
-      browserMutationCount: 91,
+      handlerCount: 98,
+      browserMutationCount: 92,
       machineSecretCount: 2,
       dualModeCount: 2,
       stubCount: 2,
-      wrappedMutationCount: 95,
+      wrappedMutationCount: 96,
     });
+    const cancellationSource = readFileSync(path.join(adminApiRoot, 'media/[id]/cancel/route.ts'), 'utf8');
+    expect(cancellationSource).toContain('export const POST = withAdminMutation(');
+    expect(cancellationSource).not.toContain('machineRequest:');
   });
 });

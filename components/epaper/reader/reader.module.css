@@ -1,6 +1,30 @@
 .canvas {
+  container-type: size;
   background-image: radial-gradient(ellipse at center, transparent 25%, rgb(0 0 0 / 5%) 100%);
 }
+
+.pageImage { max-height: calc(100dvh - 280px); max-width: 92vw; max-height: calc(100cqh - 8px); max-width: calc(100cqw - 8px); }
+.pageImage.sizedPageImage { width: min(calc((100cqh - 8px) * var(--page-ratio)), calc(100cqw - 8px)); aspect-ratio: var(--page-ratio); }
+.companionPage { display: none; }
+.spread .companionPage { display: block; }
+.spread .pageImage { max-width: 43vw; max-width: calc((100cqw - 9px) / 2); }
+.spread .pageImage.sizedPageImage { width: min(calc((100cqh - 8px) * var(--page-ratio)), calc((100cqw - 9px) / 2)); }
+@media (min-width: 1024px) and (pointer: fine), (min-width: 1024px) and (pointer: none) {
+  .autoSpread .companionPage { display: block; }
+  .autoSpread .pageImage { max-width: calc((100cqw - 9px) / 2); }
+  .autoSpread .pageImage.sizedPageImage { width: min(calc((100cqh - 8px) * var(--page-ratio)), calc((100cqw - 9px) / 2)); }
+  .autoSpread::after { content: ''; position: absolute; inset: 0 auto 0 50%; width: 24px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, rgb(0 0 0 / 12%), transparent); pointer-events: none; }
+}
+
+/* The server-rendered overlay already establishes reader mode. Hide its
+   covered shell before client effects, without moving or remounting it. */
+:global(body):has(:global(#main-content) .readerOpenMarker) :global([data-publication-shell-background]) {
+  visibility: hidden;
+  content-visibility: hidden;
+}
+:global(body):has(:global(#main-content) .readerOpenMarker) :global(#main-content) { visibility: hidden; }
+.readerOverlay, .readerNotice { visibility: visible; }
+:global(body):has(:global(#main-content) .readerOpenMarker) :global(#main-content [role='dialog']) { visibility: visible; }
 
 .book {
   position: relative;
@@ -37,6 +61,10 @@
   .storyNavigation > details > summary { min-height: 44px; padding-top: 12px; padding-bottom: 12px; padding-right: 140px; }
 }
 .storyNavigationPlaceholder { min-height: 44px; }
+
+:global(html.dark) .storyNavigation :global(ol span) {
+  color: #a1a1aa;
+}
 
 /* Keep the publication visible in phone/tablet landscape while pages stay open. */
 @media (max-height: 500px) {

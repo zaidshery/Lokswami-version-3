@@ -806,6 +806,9 @@ export class StoryEditorialService {
         throw error;
       }
     }
+    // Capture client intent before deriving canonical fields (including last-video clearing).
+    const clientStorageUpdates = { ...updates };
+    const validatedMediaUpdate = updates.mediaAssets !== undefined;
     const nextMediaAssets = applyDerivedStoryMediaUpdates(updates, current);
     const mediaAssetsError = validateStoryMediaAssets(nextMediaAssets);
     if (mediaAssetsError) {
@@ -813,10 +816,12 @@ export class StoryEditorialService {
     }
 
     const trustedStorageFields = ['mediaKey', 'mediaUrl', 'mediaSizeBytes', 'mediaMimeType', 'storageProvider'] as const;
-    const trustedStorageChanged = trustedStorageFields.some(
-      (field) => updates[field] !== undefined && String(updates[field]) !== String(current[field] ?? '')
-    );
-    if (trustedStorageChanged && !nextMediaAssets.some((asset) => asset.kind === 'video' && asset.assetId)) {
+    const invalidClientStorageChange = trustedStorageFields.some((field) => {
+      if (clientStorageUpdates[field] === undefined) return false;
+      const expected = validatedMediaUpdate ? updates[field] : current[field];
+      return String(clientStorageUpdates[field]) !== String(expected ?? '');
+    });
+    if (invalidClientStorageChange) {
       throw new StoryValidationError(
         'Trusted Story video metadata can only be changed through a verified upload receipt.',
         400
@@ -1218,9 +1223,19 @@ export class StoryEditorialService {
     );
 
     const currentWorkflow = resolveStoryWorkflow(current);
-    const restoredMediaAssets = Array.isArray(targetRevision.mediaAssets)
+    let restoredMediaAssets = Array.isArray(targetRevision.mediaAssets)
       ? JSON.parse(JSON.stringify(targetRevision.mediaAssets))
       : [];
+
+    try {
+      restoredMediaAssets = await storyMediaAssetService.resolveForWrite(restoredMediaAssets, actor, {
+        storyId: id, current: normalizeStoryMediaAssets(current.mediaAssets), restoration: true,
+      });
+      await storyMediaAssetService.protectRestoration(id, restoredMediaAssets);
+    } catch (error) {
+      if (error instanceof MediaValidationError) throw new StoryValidationError(error.message, error.status);
+      throw new StoryValidationError('Revision media synchronization failed. Story was not restored; retry safely.', 503);
+    }
 
     const restoredUpdates: Record<string, unknown> = {
       title: String(targetRevision.title || ''),
@@ -1253,7 +1268,7 @@ export class StoryEditorialService {
 
     const updated = await updateStoryWithCas(
       id,
-      restoredUpdates,
+      restoredMediaAssets.length ? storyMediaAssetService.applyPrimary(restoredUpdates, restoredMediaAssets) : restoredUpdates,
       expectedVersion,
       effectiveStore,
       {

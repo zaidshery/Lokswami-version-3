@@ -201,6 +201,14 @@ export class EditorialService {
     const useFileStore = store === 'file';
 
     const bodyRecord = typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
+    // Check the requested source before reporter normalization clears desk fields.
+    // An explicit linked handoff must be refused, not silently created as a direct article.
+    if (isReporterDeskRole(actor.role) && (
+      (typeof bodyRecord.sourceStoryId === 'string' && bodyRecord.sourceStoryId.trim()) ||
+      bodyRecord.sourceType === 'story'
+    )) {
+      throw new EditorialForbiddenError('Reporters cannot create linked articles directly from story packages.');
+    }
     const intentValue = bodyRecord.intent;
     if (
       intentValue !== undefined &&
@@ -670,6 +678,15 @@ export class EditorialService {
     const expectedVersion = actionBody.expectedVersion ?? null;
     if (expectedVersion !== null && expectedVersion !== currentVersion) {
       throw new ArticleVersionConflictError(currentVersion, current.updatedAt);
+    }
+
+    // Revision restoration changes content only. Archived Articles have no
+    // outgoing publication workflow action, including urgent publishing.
+    if (resolveArticleWorkflow(current).status === 'archived') {
+      throw new EditorialValidationError(
+        'Archived articles cannot change publication workflow. Restoring a content revision does not reactivate publication.',
+        409
+      );
     }
 
     if ((action === 'publish' || action === 'fast_publish') && isBreakingArticleMissingAudio(current)) {

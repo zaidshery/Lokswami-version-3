@@ -14,6 +14,30 @@ const forged: StoryMediaAsset = {
 };
 
 describe('Story canonical media attachment boundary', () => {
+  it('restores a verified cleanup-pending receipt using canonical metadata and guarded attachment', async () => {
+    const record = { _id: 'asset-1', createdById: reporter.id, provider: 'do-spaces',
+      objectKey: 'stories/video.mp4', url: 'https://cdn/video.mp4', type: 'video/mp4', size: 99,
+      filename: 'video.mp4', status: 'cleanup_pending', verifiedAt: new Date(),
+      ownerType: 'story', ownerId: '', mediaKind: 'video' };
+    const attach = vi.fn(async () => record);
+    const service = new StoryMediaAssetService({ getMediaById: vi.fn(async () => record),
+      attachRestoredStoryReference: attach } as unknown as MediaRepository);
+    const assets = await service.resolveForWrite([forged], reporter, { storyId: 'story-1', restoration: true });
+    expect(assets[0].key).toBe(record.objectKey);
+    await service.protectRestoration('story-1', assets);
+    expect(attach).toHaveBeenCalledWith('asset-1', 'story-1');
+    await expect(service.resolveForWrite([forged], reporter, { storyId: 'story-1' })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it.each(['deleted', 'cancelled', 'pending', 'failed'])('refuses %s revision receipts', async (status) => {
+    const service = new StoryMediaAssetService({ getMediaById: vi.fn(async () => ({status, verifiedAt: new Date()})) } as unknown as MediaRepository);
+    await expect(service.resolveForWrite([forged], reporter, {storyId:'story-1', restoration:true})).rejects.toMatchObject({status:400});
+  });
+
+  it('does not silently accept a failed guarded synchronization', async () => {
+    const service = new StoryMediaAssetService({attachRestoredStoryReference: vi.fn(async () => null)} as unknown as MediaRepository);
+    await expect(service.protectRestoration('story-1', [forged])).rejects.toMatchObject({status:409});
+  });
   it('derives trusted fields from the receipt and ignores client provider/key/url', async () => {
     const repository = {
       getMediaById: vi.fn(async () => ({

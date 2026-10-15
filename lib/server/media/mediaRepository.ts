@@ -11,7 +11,30 @@ import Video from '@/lib/models/Video';
 import EPaper from '@/lib/models/EPaper';
 import Author from '@/lib/models/Author';
 import User from '@/lib/models/User';
-import type { MediaRecord, MediaReference } from './mediaTypes';
+import type { MediaAssetStatus, MediaRecord, MediaReference, MediaCleanupCursor } from './mediaTypes';
+
+export function validateCleanupCursor(cursor: MediaCleanupCursor): void {
+  if (!cursor || typeof cursor.id !== 'string' || !cursor.id || cursor.id.length > 128
+    || ![cursor.cutoff, cursor.updatedAt].every(value => typeof value === 'string'
+      && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value)
+    || Date.parse(cursor.updatedAt) > Date.parse(cursor.cutoff)) {
+    throw new Error('Invalid cleanup continuation cursor.');
+  }
+}
+
+export function cleanupCursorFor(record: MediaRecord, cutoff: Date): MediaCleanupCursor {
+  const cursor = { cutoff: cutoff.toISOString(),
+    updatedAt: new Date(record.updatedAt || record.createdAt || 0).toISOString(), id: String(record._id || '') };
+  validateCleanupCursor(cursor);
+  return cursor;
+}
+
+let mediaFileQueue: Promise<unknown> = Promise.resolve();
+function withMediaFileLock<T>(work: () => Promise<T>): Promise<T> {
+  const result = mediaFileQueue.then(work, work);
+  mediaFileQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
 
 function filterMediaForUser(records: MediaRecord[], user: AdminSessionIdentity): MediaRecord[] {
   if (!isReporterDeskRole(user.role)) {
@@ -31,6 +54,28 @@ function sortMediaByCreatedAt(records: MediaRecord[]): MediaRecord[] {
 }
 
 export class MediaRepository {
+  /** Includes all persisted current/revision references, irrespective of registry completeness. */
+  async hasPersistedReference(record: MediaRecord): Promise<boolean> {
+    return this.hasPersistedArticleImageReference(record);
+  }
+
+  async transitionStatus(id: string, from: MediaAssetStatus, updates: Partial<MediaRecord>): Promise<MediaRecord | null> {
+    if (!process.env.MONGODB_URI) {
+      // Serialize read/compare/write across repository instances in this process.
+      return withMediaFileLock(async () => {
+        const records = await this.readFileRecords();
+        const record = records.find((item) => String(item._id) === id && item.status === from);
+        if (!record) return null;
+        Object.assign(record, updates, { updatedAt: new Date() });
+        await this.writeFileRecords(records);
+        return record;
+      });
+    }
+    await connectDB();
+    return await Media.findOneAndUpdate({ _id: id, status: from },
+      { $set: { ...updates, updatedAt: new Date() } }, { new: true }).lean() as MediaRecord | null;
+  }
+
   /** Old article uploads have no registry links; validate persisted uses before repairing that state. */
   async hasPersistedArticleImageReference(record: MediaRecord): Promise<boolean> {
     const urls = [record.url, ...Object.values(record.variants || {})]
@@ -72,8 +117,8 @@ export class MediaRepository {
     });
     // Include private content and restorable revisions, not only published discovery records.
     return Boolean(await exists(Article, [...articleFields, ...articleFields.map((field) => `revisions.${field}`)]) ||
-      await exists(Story as unknown as typeof Article, ['thumbnail', 'mediaUrl', 'mediaKey', 'mediaAssets.url', 'mediaAssets.assetId',
-        'revisions.thumbnail', 'revisions.mediaUrl', 'revisions.mediaKey', 'revisions.mediaAssets.url', 'revisions.mediaAssets.assetId']) ||
+      await exists(Story as unknown as typeof Article, ['thumbnail', 'mediaUrl', 'mediaKey', 'mediaAssets.url', 'mediaAssets.key', 'mediaAssets.assetId',
+        'revisions.thumbnail', 'revisions.mediaUrl', 'revisions.mediaKey', 'revisions.mediaAssets.url', 'revisions.mediaAssets.key', 'revisions.mediaAssets.assetId']) ||
       await exists(Video as unknown as typeof Article, ['thumbnail', 'videoUrl', 'posterUrl', 'playbackUrl', 'hlsUrl', 'captionUrl', 'sourceAssetId']) ||
       await exists(EPaper as unknown as typeof Article, ['thumbnail', 'thumbnailPath', 'pdfUrl', 'pdfPath', 'pages.imagePath']) ||
       await exists(Author as unknown as typeof Article, ['avatar']) ||
@@ -112,26 +157,19 @@ export class MediaRepository {
     const { filename, url, size = 0, type = 'image/*', uploadedBy = 'admin' } = data;
 
     if (!process.env.MONGODB_URI) {
-      const dataDir = path.resolve(process.cwd(), 'data');
-      await fs.mkdir(dataDir, { recursive: true });
-      const dataPath = this.getJsonFilePath();
-      let medias: MediaRecord[] = [];
-      try {
-        const raw = await fs.readFile(dataPath, 'utf-8');
-        const parsed = JSON.parse(raw || '[]');
-        medias = Array.isArray(parsed) ? (parsed as MediaRecord[]) : [];
-      } catch {}
-
-      const newMedia: MediaRecord = {
-        ...data,
-        _id: crypto.randomUUID(),
-        filename, url, size, type, uploadedBy,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      medias.push(newMedia);
-      await fs.writeFile(dataPath, JSON.stringify(medias, null, 2), 'utf-8');
-      return newMedia;
+      return withMediaFileLock(async () => {
+        const medias = await this.readFileRecords();
+        const newMedia: MediaRecord = {
+          ...data,
+          _id: crypto.randomUUID(),
+          filename, url, size, type, uploadedBy,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        medias.push(newMedia);
+        await this.writeFileRecords(medias);
+        return newMedia;
+      });
     }
 
     await connectDB();
@@ -163,16 +201,54 @@ export class MediaRepository {
   async updateMediaById(id: string, updates: Partial<MediaRecord>): Promise<MediaRecord | null> {
     const normalized = { ...updates, updatedAt: new Date() };
     if (!process.env.MONGODB_URI) {
-      const records = await this.readFileRecords();
-      const index = records.findIndex((record) => String(record._id) === id);
-      if (index < 0) return null;
-      records[index] = { ...records[index], ...normalized };
-      await this.writeFileRecords(records);
-      return records[index];
+      return withMediaFileLock(async () => {
+        const records = await this.readFileRecords();
+        const index = records.findIndex((record) => String(record._id) === id);
+        if (index < 0) return null;
+        records[index] = { ...records[index], ...normalized };
+        await this.writeFileRecords(records);
+        return records[index];
+      });
     }
     await connectDB();
     const record = await Media.findByIdAndUpdate(id, { $set: normalized }, { new: true }).lean();
     return record ? (record as unknown as MediaRecord) : null;
+  }
+
+  async attachRestoredStoryReference(id: string, storyId: string): Promise<MediaRecord | null> {
+    const reference: MediaReference = { ownerType: 'story', ownerId: storyId, field: 'mediaAssets', attachedAt: new Date() };
+    if (!process.env.MONGODB_URI) {
+      return withMediaFileLock(async () => {
+        const records = await this.readFileRecords();
+        const record = records.find((item) => String(item._id) === id);
+        if (!record || !['verified', 'attached', 'cleanup_pending'].includes(String(record.status))
+          || !record.verifiedAt || record.cancelledAt || record.deletedAt
+          || record.ownerType !== 'story' || (record.ownerId && record.ownerId !== storyId)
+          || (record.references || []).some((item) => item.ownerType === 'story' && item.ownerId !== storyId)) return null;
+        const references = record.references || [];
+        if (!references.some((item) => item.ownerType === 'story' && item.ownerId === storyId && item.field === 'mediaAssets')) {
+          references.push(reference);
+        }
+        Object.assign(record, { references, status: 'attached', referenceTrackingComplete: true, updatedAt: new Date() });
+        await this.writeFileRecords(records);
+        return record;
+      });
+    }
+    await connectDB();
+    // A single conditional update prevents cancellation/deletion or a foreign owner
+    // from racing the reference attachment. Preserve historical cleanupError.
+    return await Media.findOneAndUpdate({ _id: id, ownerType: 'story',
+      ownerId: { $in: ['', storyId, null] }, status: { $in: ['verified', 'attached', 'cleanup_pending'] },
+      verifiedAt: { $ne: null }, cancelledAt: null, deletedAt: null,
+      references: { $not: { $elemMatch: { ownerType: 'story', ownerId: { $ne: storyId } } } },
+    }, [{ $set: {
+      references: { $cond: [
+        { $anyElementTrue: { $map: { input: { $ifNull: ['$references', []] }, as: 'ref', in: {
+          $and: [{ $eq: ['$$ref.ownerType', 'story'] }, { $eq: ['$$ref.ownerId', storyId] }, { $eq: ['$$ref.field', 'mediaAssets'] }],
+        } } } },
+        '$references', { $concatArrays: [{ $ifNull: ['$references', []] }, [reference]] },
+      ] }, status: 'attached', referenceTrackingComplete: true, updatedAt: new Date(),
+    } }], { new: true }).lean() as MediaRecord | null;
   }
 
   async addReference(id: string, reference: MediaReference): Promise<MediaRecord | null> {
@@ -202,15 +278,37 @@ export class MediaRepository {
     });
   }
 
-  async listCleanupCandidates(before: Date): Promise<MediaRecord[]> {
+  async listCleanupCandidates(before: Date, limit?: number, cursor?: MediaCleanupCursor | null): Promise<MediaRecord[]> {
+    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 100)) {
+      throw new Error('Cleanup batch limit must be between 1 and 100.');
+    }
+    if (cursor) {
+      if (limit === undefined) throw new Error('Cleanup continuation requires a bounded batch.');
+      validateCleanupCursor(cursor);
+      before = new Date(cursor.cutoff);
+    }
     if (!process.env.MONGODB_URI) {
-      return (await this.readFileRecords()).filter((record) => {
+      const candidates = (await this.readFileRecords()).filter((record) => {
         const updated = new Date(record.updatedAt || record.createdAt || 0).getTime();
-        return record.status === 'cleanup_pending' && updated <= before.getTime();
+        return ['cleanup_pending', 'cancelled'].includes(String(record.status)) && updated <= before.getTime()
+          && (!cursor || updated > Date.parse(cursor.updatedAt)
+            || (updated === Date.parse(cursor.updatedAt) && String(record._id || '') > cursor.id));
       });
+      return limit === undefined ? candidates : candidates
+        .sort((a, b) => new Date(a.updatedAt || a.createdAt || 0).getTime() - new Date(b.updatedAt || b.createdAt || 0).getTime()
+          || (String(a._id || '') < String(b._id || '') ? -1 : String(a._id || '') > String(b._id || '') ? 1 : 0))
+        .slice(0, limit);
     }
     await connectDB();
-    const records = await Media.find({ status: 'cleanup_pending', updatedAt: { $lte: before } }).lean();
+    if (cursor && !/^[a-f0-9]{24}$/i.test(cursor.id)) throw new Error('Invalid Mongo cleanup cursor identity.');
+    let query = Media.find({ status: { $in: ['cleanup_pending', 'cancelled'] }, updatedAt: { $lte: before },
+      ...(cursor ? { $or: [
+        { updatedAt: { $gt: new Date(cursor.updatedAt) } },
+        { updatedAt: new Date(cursor.updatedAt), _id: { $gt: cursor.id } },
+      ] } : {}),
+    });
+    if (limit !== undefined) query = query.sort({ updatedAt: 1, _id: 1 }).limit(limit);
+    const records = await query.lean();
     return records as unknown as MediaRecord[];
   }
 
@@ -218,9 +316,11 @@ export class MediaRepository {
     try {
       const raw = await fs.readFile(this.getJsonFilePath(), 'utf-8');
       const parsed = JSON.parse(raw || '[]');
-      return Array.isArray(parsed) ? (parsed as MediaRecord[]) : [];
-    } catch {
-      return [];
+      if (!Array.isArray(parsed)) throw new Error('Invalid media registry.');
+      return parsed as MediaRecord[];
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return [];
+      throw error;
     }
   }
 

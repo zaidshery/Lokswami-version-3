@@ -59,7 +59,8 @@ export default function BottomNav({
   isOverlayDark = false,
 }: BottomNavProps) {
   const pathname = usePathname();
-  const { language } = useAppStore();
+  const language = useAppStore((state) => state.language);
+  const isPublicationRoute = pathname?.startsWith('/main/epaper') || pathname?.startsWith('/main/e-magazine');
   const { data: session, status } = useSession();
 
   const isAuthenticated = status === 'authenticated' && Boolean(session?.user);
@@ -84,7 +85,7 @@ export default function BottomNav({
   const inactiveTone = isOverlayDark
     ? 'text-zinc-300 hover:text-white'
     : 'text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100';
-  const activeTone = isOverlayDark ? 'text-brand-400' : 'text-brand-500 dark:text-brand-400';
+  const activeTone = isOverlayDark ? 'text-brand-400' : 'text-brand-600 dark:text-brand-400';
   const activeBackgroundTone = isOverlayDark
     ? 'bg-white/10'
     : 'bg-brand-50 dark:bg-brand-500/15';
@@ -129,7 +130,9 @@ export default function BottomNav({
               aria-current={isActive ? 'page' : undefined}
               className="reader-touch-link relative flex min-h-[44px] min-w-[44px] w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 min-[360px]:px-1 editorial-focus-ring"
             >
-              {isActive ? (
+              {isActive && isPublicationRoute ? (
+                <div aria-hidden="true" data-publication-nav-indicator className={`absolute inset-0.5 rounded-xl ${activeBackgroundTone} min-[360px]:inset-1`} />
+              ) : isActive ? (
                 <motion.div
                   layoutId="bottomNavActive"
                   className={`absolute inset-0.5 rounded-xl ${activeBackgroundTone} min-[360px]:inset-1`}

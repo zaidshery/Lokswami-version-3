@@ -18,10 +18,12 @@ function createSessionId() {
 
 let inMemorySessionId = '';
 let inMemoryTabId = '';
+let browserTimeZone: string | undefined;
 
 export function _resetSessionIdForTesting(): void {
   inMemorySessionId = '';
   inMemoryTabId = '';
+  browserTimeZone = undefined;
   if (typeof window !== 'undefined' && ANALYTICS_OWNED_NAME.test(window.name)) {
     try {
       window.name = '';
@@ -219,13 +221,21 @@ function getViewportBucket() {
 }
 
 function getBrowserTimeZone() {
+  if (browserTimeZone !== undefined) return browserTimeZone;
   if (typeof Intl === 'undefined') return '';
 
   try {
-    return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 80);
+    browserTimeZone = String(Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 80);
+    return browserTimeZone;
   } catch {
     return '';
   }
+}
+
+// Resolve the unchanged public-reader metadata before an input can force
+// hydration effects to perform the expensive first Intl initialization.
+if (typeof window !== 'undefined' && /^\/main\/(?:e-magazine|epaper)(?:\/|$)/.test(window.location.pathname)) {
+  window.setTimeout(getBrowserTimeZone, 0);
 }
 
 function getReferrerMetadata() {
