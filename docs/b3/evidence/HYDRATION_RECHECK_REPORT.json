@@ -1,0 +1,1143 @@
+{
+  "startedAt": "2026-10-12T12:11:22.995Z",
+  "head": "4d15bf741f85603272f0f3f6c1f9fa4906f63aff",
+  "tree": "22aa8389f396bd15b3c6efcc11b798fe49228064",
+  "node": "v20.20.2",
+  "roles": [
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "signIn": "actual credentials",
+      "sessionRole": "super_admin",
+      "publicationStatus": 200,
+      "blockedExternalRequests": 9
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "signIn": "actual credentials",
+      "sessionRole": "super_admin",
+      "publicationStatus": 200,
+      "blockedExternalRequests": 9
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "signIn": "actual credentials",
+      "sessionRole": "super_admin",
+      "publicationStatus": 200,
+      "blockedExternalRequests": 9
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "signIn": "actual credentials",
+      "sessionRole": "super_admin",
+      "publicationStatus": 200,
+      "blockedExternalRequests": 9
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "signIn": "actual credentials",
+      "sessionRole": "admin",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 8
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "signIn": "actual credentials",
+      "sessionRole": "admin",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 8
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "signIn": "actual credentials",
+      "sessionRole": "admin",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 8
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "signIn": "actual credentials",
+      "sessionRole": "admin",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 8
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "signIn": "actual credentials",
+      "sessionRole": "copy_editor",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 11
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "signIn": "actual credentials",
+      "sessionRole": "copy_editor",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 11
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "signIn": "actual credentials",
+      "sessionRole": "copy_editor",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 11
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "signIn": "actual credentials",
+      "sessionRole": "copy_editor",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 11
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "signIn": "actual credentials",
+      "sessionRole": "reporter",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 11
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "signIn": "actual credentials",
+      "sessionRole": "reporter",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 11
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "signIn": "actual credentials",
+      "sessionRole": "reporter",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 11
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "signIn": "actual credentials",
+      "sessionRole": "reporter",
+      "publicationStatus": 403,
+      "blockedExternalRequests": 11
+    }
+  ],
+  "cases": [
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/content-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/review-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/assignments",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/content-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/review-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/assignments",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/content-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/review-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/assignments",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/content-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/review-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/assignments",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "super_admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/content-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/review-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/assignments",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/content-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/review-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/assignments",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/content-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/review-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/assignments",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/content-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/review-queue",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/assignments",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "admin",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "copy_editor",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "en",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "Asia/Kolkata",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/admin",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/work",
+      "status": 200,
+      "finalPath": "/admin/work",
+      "denied": false,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/content-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/review-queue",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/assignments",
+      "status": 200,
+      "finalPath": "/admin/work?access=denied",
+      "denied": true,
+      "documentErrors": 0
+    },
+    {
+      "role": "reporter",
+      "language": "hi",
+      "timezoneId": "America/Los_Angeles",
+      "route": "/admin/my-work",
+      "status": 200,
+      "finalPath": "/admin/my-work",
+      "denied": false,
+      "documentErrors": 0
+    }
+  ],
+  "errors": [],
+  "consoleHydrationErrors": [],
+  "ok": true,
+  "runnerSha256": "8accc96e7d72a3b9a06e34209d6d3ba566aea49a66a70791121119d9b2891925",
+  "lockSha256": "8c66dd8d1d731a4a6beb17724b349d5f830b3e04dc014ac74c06fa3478e5fee2",
+  "buildId": "Q_pPrBGDGktxSd2U2MYNv",
+  "buildManifestSha256": "c5cf00c9cad3bf7c43c356c57f1b7afce6ecaec065643555eefdd77e3a51e6c3",
+  "isolation": {
+    "origin": "http://localhost:3319",
+    "mongoHost": "127.0.0.1",
+    "mongoPort": 27039,
+    "database": "lokswami_hydration_qa_13d49972e1",
+    "initialCollections": 0,
+    "externalNodeEgress": "blocked",
+    "externalBrowserEgress": "blocked",
+    "fixtures": "empty database; reserved QA identities only"
+  },
+  "browserVersion": "151.0.7922.34",
+  "lastLoginWrites": 4,
+  "browserSmoke": {
+    "startTime": "2026-10-12T12:13:09.652Z",
+    "duration": 3910.018,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "finalTrackedStatus": "",
+  "completedAt": "2026-10-12T12:13:13.652Z"
+}

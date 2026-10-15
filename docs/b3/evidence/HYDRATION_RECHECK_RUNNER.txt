@@ -1,0 +1,74 @@
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const assert = require('assert/strict');
+const { spawn, execFileSync } = require('child_process');
+const repo = path.resolve(__dirname, '../lokswami');
+const node = path.join(__dirname, 'node_modules/node/bin/node');
+const { chromium } = require(path.join(repo, 'node_modules/@playwright/test'));
+const { MongoClient } = require(path.join(repo, 'node_modules/mongodb'));
+const origin = 'http://localhost:3319';
+const binaries = '/tmp/lokswami-hydration-runtime';
+const dbName = 'lokswami_hydration_qa_' + crypto.randomBytes(5).toString('hex');
+const roles = ['super_admin', 'admin', 'copy_editor', 'reporter'];
+const users = roles.map(role => ({role, loginId: 'qa-' + role.replaceAll('_', '-'), password: crypto.randomBytes(24).toString('base64url')}));
+const passwordKeys = ['SUPER_ADMIN', 'ADMIN', 'COPY_EDITOR', 'REPORTER'];
+const report = {startedAt: new Date().toISOString(), head: execFileSync('git', ['rev-parse','HEAD'], {cwd:repo,encoding:'utf8'}).trim(), tree: execFileSync('git',['rev-parse','HEAD^{tree}'],{cwd:repo,encoding:'utf8'}).trim(), node:process.version, roles:[], cases:[], errors:[], consoleHydrationErrors:[], ok:false};
+const children = [];
+let browser, client;
+const delay = ms => new Promise(resolve=>setTimeout(resolve,ms));
+const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+function start(command,args,env,log) {
+  const fd=fs.openSync(path.join(__dirname,log),'w');
+  const child=spawn(command,args,{cwd:repo,env,stdio:['ignore',fd,fd]}); fs.closeSync(fd); children.push(child); return child;
+}
+async function ready(url) {for(let i=0;i<90;i++){try{const r=await fetch(url,{signal:AbortSignal.timeout(3000)});if(r.ok)return;}catch{} await delay(500);}throw Error('Local QA server did not become ready');}
+const env={PATH:path.dirname(node)+':'+process.env.PATH, TZ:'UTC', NEXT_TELEMETRY_DISABLED:'1', MONGODB_URI:'mongodb://127.0.0.1:27039/'+dbName, LOKSWAMI_CMS_QA:'true', LOKSWAMI_CMS_QA_DB_NAME:dbName, TS_NODE_TRANSPILE_ONLY:'true', DISABLE_REQUEST_LOG:'true', DISABLE_AUDIT_LOG:'true', DISABLE_CSP_REPORT_LOG:'true', NODE_OPTIONS:'--require='+path.join(repo,'scripts/phase3/offline-network-guard.cjs')};
+async function main(){
+  assert.equal(execFileSync('git',['status','--porcelain','--untracked-files=no'],{cwd:repo,encoding:'utf8'}).trim(),'','Tracked source must be clean');
+  report.runnerSha256=hash(__filename);report.lockSha256=hash(path.join(repo,'package-lock.json'));report.buildId=fs.readFileSync(path.join(repo,'.next/BUILD_ID'),'utf8').trim(); report.buildManifestSha256=hash(path.join(repo,'.next/build-manifest.json'));
+  const dbPath=path.join(__dirname,dbName); fs.mkdirSync(dbPath);
+  start(path.join(binaries,'mongo/bin/mongod'),['--bind_ip','127.0.0.1','--port','27039','--nounixsocket','--dbpath',dbPath],{PATH:process.env.PATH},'mongo.log');
+  client=new MongoClient(env.MONGODB_URI,{serverSelectionTimeoutMS:2000});
+  for(let i=0;i<20;i++){try{await client.connect();break;}catch(e){if(i===19)throw e;await delay(500);}}
+  assert.equal((await client.db().listCollections().toArray()).length,0);
+  report.isolation={origin,mongoHost:'127.0.0.1',mongoPort:27039,database:dbName,initialCollections:0,externalNodeEgress:'blocked',externalBrowserEgress:'blocked',fixtures:'empty database; reserved QA identities only'};
+  const provisionEnv={...env,NODE_ENV:'development'}; users.forEach((u,i)=>provisionEnv['LOKSWAMI_QA_'+passwordKeys[i]+'_PASSWORD']=u.password);
+  execFileSync(node,[path.join(repo,'node_modules/ts-node/dist/bin.js'),'--files','-r','tsconfig-paths/register','--compiler-options',JSON.stringify({module:'CommonJS',moduleResolution:'node',baseUrl:'.'}),'scripts/cms-qa/provision.ts'],{cwd:repo,env:provisionEnv,stdio:'pipe'});
+  const secret=crypto.randomBytes(48).toString('base64url');
+  start(node,[path.join(repo,'node_modules/next/dist/bin/next'),'start','-H','127.0.0.1','-p','3319'],{...env,NODE_ENV:'production',AUTH_URL:origin,NEXTAUTH_URL:origin,NEXT_PUBLIC_SITE_URL:origin,AUTH_SECRET:secret,NEXTAUTH_SECRET:secret,JWT_SECRET:secret,AUTH_TRUST_HOST:'true',SOCIAL_AUTOMATION_PROVIDER:'manual',EPAPER_BACKGROUND_PROCESSING_ENABLED:'0',EPAPER_LOCAL_OCR_ENABLED:'0',NEXT_PUBLIC_EPAPER_REMOTE_OCR_FALLBACK:'false',NEXT_PUBLIC_USE_REMOTE_DEMO_MEDIA:'false'},'server.log');
+  await ready(origin+'/api/auth/session');
+  browser=await chromium.launch({headless:true,executablePath:path.join(binaries,'chrome/chrome-headless-shell-linux64/chrome-headless-shell')}); report.browserVersion=browser.version();
+  const routes=['/admin','/admin/work','/admin/content-queue','/admin/review-queue','/admin/assignments','/admin/my-work'];
+  for(const u of users)for(const language of ['en','hi'])for(const timezoneId of ['Asia/Kolkata','America/Los_Angeles']){
+    const context=await browser.newContext({viewport:{width:1440,height:1000},timezoneId});let blocked=0;
+    await context.route('**/*',r=>{const url=new URL(r.request().url());if(url.origin===origin)return r.continue();blocked++;if(r.request().isNavigationRequest())console.log('Blocked navigation '+url.origin+url.pathname);return r.abort('blockedbyclient');});
+    await context.addInitScript(({language})=>localStorage.setItem('lokswami-storage',JSON.stringify({state:{language,theme:'light',themePreference:'light'},version:0})),{language});
+    const page=await context.newPage();page.setDefaultTimeout(30000);let currentRoute='/signin';
+    page.on('pageerror',e=>report.errors.push({role:u.role,language,timezoneId,route:currentRoute,message:e.message}));
+    page.on('console',m=>{if(m.type()==='error'&&/hydration|Minified React error|server rendered HTML/i.test(m.text()))report.consoleHydrationErrors.push({role:u.role,language,timezoneId,route:currentRoute,message:m.text()});});
+    await page.goto(origin+'/signin?redirect=/admin',{waitUntil:'domcontentloaded'});
+    await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(el=>el.textContent.includes('Reader & Subscriber')&&Object.keys(el).some(k=>k.startsWith('__reactProps'))));
+    await page.getByRole('textbox',{name:'Staff Login ID or Email',exact:true}).fill(u.loginId);
+    await page.locator('input[autocomplete="current-password"]:visible').fill(u.password);
+    currentRoute='bootstrap /admin';await page.getByRole('button',{name:'Sign in to Newsroom',exact:true}).click();await page.waitForURL(url=>url.pathname==='/admin');
+    await page.locator('nav[aria-label="Newsroom tools"]:visible').waitFor();await page.waitForTimeout(350);
+    const session=await (await context.request.get(origin+'/api/auth/session')).json();assert.equal(session.user.role,u.role);
+    const publicationStatus=(await context.request.get(origin+'/api/admin/epapers')).status();assert.equal(publicationStatus,u.role==='super_admin'?200:403);
+    report.roles.push({role:u.role,language,timezoneId,signIn:'actual credentials',sessionRole:session.user.role,publicationStatus});
+    for(const route of routes){currentRoute=route;const before=report.errors.length;const response=await page.goto(origin+route,{waitUntil:'domcontentloaded',timeout:45000});assert(response&&response.status()<400);
+      const denied=(route==='/admin/my-work'&&u.role==='super_admin')||(['/admin/content-queue','/admin/review-queue','/admin/assignments'].includes(route)&&['copy_editor','reporter'].includes(u.role));
+      if(denied){await page.waitForURL(url=>url.pathname==='/admin/work'&&url.searchParams.get('access')==='denied');await page.getByText(language==='hi'?'एक्सेस अस्वीकृत':'Access denied',{exact:true}).waitFor();}
+      else{assert.equal(new URL(page.url()).pathname,route);await page.locator('main').first().waitFor();}
+      await page.waitForFunction(()=>!Array.from(document.querySelectorAll('[role="status"]')).some(el=>el.textContent.includes('Loading newsroom dashboard')),undefined,{timeout:30000});await page.waitForTimeout(350);
+      report.cases.push({role:u.role,language,timezoneId,route,status:response.status(),finalPath:new URL(page.url()).pathname+(new URL(page.url()).search),denied,documentErrors:report.errors.length-before});
+    }
+    report.roles[report.roles.length-1].blockedExternalRequests=blocked;await context.close();console.log('Verified '+u.role+' '+language+' '+timezoneId+' ('+report.cases.length+' route cases)');
+  }
+  report.lastLoginWrites=await client.db().collection('users').countDocuments({lastLoginAt:{$type:'date'}});assert.equal(report.lastLoginWrites,4);assert.deepEqual(report.errors,[]);assert.deepEqual(report.consoleHydrationErrors,[]);assert.equal(report.cases.length,96);
+  execFileSync(node,[path.join(repo,'node_modules/@playwright/test/cli.js'),'test','admin-critical-flows.spec.js','--config',path.join(__dirname,'playwright-recheck.config.mjs')],{cwd:repo,env:{...env,CI:'true'},stdio:'pipe'});
+  const smoke=JSON.parse(fs.readFileSync(path.join(__dirname,'browser-smoke.json'),'utf8'));report.browserSmoke=smoke.stats;assert.equal(smoke.stats.unexpected,0);assert.equal(smoke.stats.skipped,0);assert.equal(smoke.stats.flaky,0);assert.equal(smoke.stats.expected,5);
+  report.finalTrackedStatus=execFileSync('git',['status','--porcelain','--untracked-files=no'],{cwd:repo,encoding:'utf8'}).trim();assert.equal(report.finalTrackedStatus,'');report.ok=true;
+}
+main().catch(e=>{report.failure=e.message;console.error(e.message);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();if(client)await client.close();for(const child of children.reverse()){child.kill('SIGTERM');await Promise.race([new Promise(r=>child.once('exit',r)),delay(5000)]);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');}report.completedAt=new Date().toISOString();fs.writeFileSync(path.join(__dirname,'hydration-recheck.json'),JSON.stringify(report,null,2)+'\n');console.log('Report saved; owned processes stopped.');});
