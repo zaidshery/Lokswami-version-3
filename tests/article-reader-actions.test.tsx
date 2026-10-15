@@ -156,6 +156,10 @@ describe('article reader actions', () => {
     expect(actions).toContainElement(screen.getByRole('button', { name: 'Share article' }));
     expect(actions).toContainElement(screen.getByRole('link', { name: 'E-Paper' }));
     expect(actions.parentElement?.parentElement).toContainElement(screen.getByRole('button', { name: 'View profile picture of News Desk' }));
+    const toolsCard = actions.closest('[data-article-tools-card]');
+    expect(toolsCard).toContainElement(screen.getByRole('region', { name: 'Listen to article' }));
+    expect(toolsCard).toContainElement(screen.getByRole('button', { name: 'Summary' }));
+    expect(screen.getByRole('button', { name: 'Save article' })).toHaveAccessibleDescription('Sign in to save this article');
     expect(mocks.shareProps).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Reader story headline',

@@ -22,7 +22,7 @@ function dateLabel(value: string | undefined, language: 'hi' | 'en') {
 }
 
 export default function ArticleReaderHeader({
-  article, language, readMinutes, onAuthorClick, children, media, notice, showCategory = true,
+  article, language, readMinutes, onAuthorClick, children, media, notice, tools, showCategory = true,
 }: {
   article: HeaderArticle;
   language: 'hi' | 'en';
@@ -31,6 +31,7 @@ export default function ArticleReaderHeader({
   children: ReactNode;
   media?: ReactNode;
   notice?: ReactNode;
+  tools?: ReactNode;
   showCategory?: boolean;
 }) {
   const category = resolveNewsCategory(article.category);
@@ -59,7 +60,7 @@ export default function ArticleReaderHeader({
       {article.summary.trim() ? <p className={styles.summary}>{article.summary}</p> : null}
     </header>
     {media}
-    <div className={styles.metadata}>
+    <div className={styles.metadata} data-article-tools-card>
       <div className={styles.byline}>
         <div className={styles.authorDetails}>
           {authorName ? (
@@ -72,20 +73,21 @@ export default function ArticleReaderHeader({
                 ) : <span className="flex h-full w-full items-center justify-center bg-red-700 font-bold text-white">{authorName.charAt(0)}</span>}
               </button>
               <div className="min-w-0">
-                <p className="break-words font-bold text-zinc-900 dark:text-zinc-100">{authorName}</p>
-                {article.author.programName ? <p className="break-words text-xs">{article.author.programName}</p> : null}
+                <p className={`${styles.authorName} break-words`}>{authorName}</p>
+                {article.author.programName ? <p className={`${styles.authorProgram} break-words`}>{article.author.programName}</p> : null}
+                <div className={styles.publicationDetails}>
+                  {published ? <p><span className="sr-only">{language === 'hi' ? 'प्रकाशित: ' : 'Published: '}</span><time dateTime={published.iso}>{published.text}</time> IST</p> : null}
+                  <p>{published ? <span aria-hidden="true">· </span> : null}{language === 'hi' ? `${readMinutes} मिनट में पढ़ें` : `${readMinutes} min read`}</p>
+                </div>
               </div>
             </div>
-          ) : null}
+          ) : <p className={styles.publicationDetails}>{published ? <><span className="sr-only">{language === 'hi' ? 'प्रकाशित: ' : 'Published: '}</span><time dateTime={published.iso}>{published.text}</time> IST · </> : null}{language === 'hi' ? `${readMinutes} मिनट में पढ़ें` : `${readMinutes} min read`}</p>}
         </div>
         <div className={styles.headerActions}>{children}</div>
-        <div className={styles.publicationDetails}>
-          {published ? <p>{language === 'hi' ? 'प्रकाशित: ' : 'Published: '}<time dateTime={published.iso}>{published.text}</time> <span className="text-xs">IST</span></p> : null}
-          {showUpdated ? <p>{language === 'hi' ? 'अपडेट: ' : 'Updated: '}<time dateTime={updated.iso}>{updated.text}</time> <span className="text-xs">IST</span></p> : null}
-          <p className="text-xs">{language === 'hi' ? `${readMinutes} मिनट में पढ़ें` : `${readMinutes} min read`}</p>
-        </div>
       </div>
+      {showUpdated ? <p className={styles.updatedDetails}>{language === 'hi' ? 'अपडेट: ' : 'Updated: '}<time dateTime={updated.iso}>{updated.text}</time> IST</p> : null}
       {notice}
+      {tools}
     </div>
     </>
   );

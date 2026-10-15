@@ -70,6 +70,15 @@ describe('article reader header', () => {
     expect(screen.queryByText(/Updated:/)).not.toBeInTheDocument();
   });
 
+  it('keeps publication metadata before actions when the author name is absent', () => {
+    const { container } = render(<ArticleReaderHeader article={{ ...article, author: { id: '', name: '', avatar: '' } }} language="en" readMinutes={3} onAuthorClick={() => {}}><button>Share</button></ArticleReaderHeader>);
+    const published = container.querySelector('time');
+    expect(published).toHaveAttribute('datetime', article.publishedAt);
+    expect(screen.getByText('3 min read', { exact: false })).toBeInTheDocument();
+    expect(published!.compareDocumentPosition(screen.getByRole('button', { name: 'Share' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /profile picture/ })).not.toBeInTheDocument();
+  });
+
   it('omits absent byline/summary and invalid dates without inventing author or taxonomy', () => {
     const { container } = render(<ArticleReaderHeader article={{ ...article, summary: '', author: { id: '', name: '', avatar: '' }, category: 'Custom desk', publishedAt: '', updatedAt: '' }} language="en" readMinutes={1} onAuthorClick={() => {}}>{null}</ArticleReaderHeader>);
     expect(container.querySelector('time')).toBeNull();

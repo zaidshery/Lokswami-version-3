@@ -113,8 +113,8 @@ export default function HomepageTopPackage({ articles, language, loading }: Omit
         <Link href={buildArticlePublicPath(lead)} tabIndex={-1} aria-hidden="true" className="editorial-focus-ring relative mb-3 block aspect-video overflow-hidden rounded-editorial-sm">
           <ReaderImage src={buildArticleImageVariantUrl(lead.image, 'hero')} alt={lead.title} fill priority sizes="(min-width: 1440px) 532px, (min-width: 1280px) 40vw, 100vw" className="object-cover" />
         </Link>
-        <h1 className="hindi-headline line-clamp-3 break-words text-[clamp(1.3125rem,5.5vw,1.5rem)] font-bold leading-[1.23] tracking-[-0.01em] md:text-[clamp(1.5rem,2.4vw,1.75rem)]">
-          <Link href={buildArticlePublicPath(lead)} className="editorial-focus-ring hover:text-brand-600 dark:hover:text-brand-400">{lead.title}</Link>
+        <h1 className="hindi-headline break-words text-[clamp(1.125rem,4.6vw,1.25rem)] font-bold !leading-[1.5] tracking-[-0.01em] md:text-[clamp(1.5rem,2.4vw,1.75rem)]">
+          <Link href={buildArticlePublicPath(lead)} className="editorial-focus-ring line-clamp-2 hover:text-brand-600 dark:hover:text-brand-400">{lead.title}</Link>
         </h1>
         <div data-testid="lead-metadata" className="mt-3 flex min-w-0 items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
