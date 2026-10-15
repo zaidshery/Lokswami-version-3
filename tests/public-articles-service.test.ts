@@ -50,6 +50,66 @@ describe('public articles service', () => {
     isMongoAvailableMock.mockResolvedValue(false);
   });
 
+  it.each(['file', 'mongo'] as const)('backfills the %s ticker and preserves breaking priority through client sorting', async (source) => {
+    const { ArticleRepository } = await import('@/lib/server/content/articleRepository');
+    const { PublicArticleService } = await import('@/lib/server/content/publicArticleService');
+    const { sortBreakingNewsItems } = await import('@/lib/types/breaking');
+    const repo = new ArticleRepository();
+    vi.spyOn(repo, 'resolveSource').mockResolvedValue(source);
+    const rows = [
+      { ...publishedBase, _id: 'latest', title: 'Latest published', publishedAt: '2026-01-03T00:00:00Z' },
+      { ...publishedBase, _id: 'breaking', title: 'Active breaking', isBreaking: true, publishedAt: '2026-01-01T00:00:00Z' },
+      { ...publishedBase, _id: 'expired', title: 'Expired flag, published story', isBreaking: true,
+        publishedAt: '2026-01-02T00:00:00Z', editorial: { breakingExpiresAt: '2020-01-01T00:00:00Z' } },
+      { ...publishedBase, _id: 'draft', title: 'Draft', workflow: { status: 'draft' } },
+      { ...publishedBase, _id: 'future', title: 'Future', workflow: { status: 'scheduled', scheduledFor: '2099-01-01T00:00:00Z' } },
+    ];
+    const mongo = vi.spyOn(repo, 'listMongoBreakingCandidates').mockResolvedValue(rows);
+    const file = vi.spyOn(repo, 'listAllStored').mockResolvedValue(rows);
+    const service = new PublicArticleService(repo);
+    const result = await service.getBreakingArticles(3);
+    expect(result.map(item => item.id)).toEqual(['breaking', 'latest', 'expired']);
+    expect(sortBreakingNewsItems(result).map(item => item.id)).toEqual(['breaking', 'latest', 'expired']);
+    expect(result[2].ttsAudioUrl).toBeUndefined();
+    expect((await service.getBreakingArticles(1)).map(item => item.id)).toEqual(['breaking']);
+    expect(source === 'mongo' ? mongo : file).toHaveBeenCalled();
+    expect(source === 'mongo' ? file : mongo).not.toHaveBeenCalled();
+    rows.splice(1, 1);
+    expect((await service.getBreakingArticles(3)).map(item => item.id)).toEqual(['latest', 'expired']);
+  });
+
+  it('streams past expired Mongo flags and filters publication before limiting backfill', async () => {
+    const { ArticleRepository } = await import('@/lib/server/content/articleRepository');
+    const { PublicArticleService } = await import('@/lib/server/content/publicArticleService');
+    const active = { ...publishedBase, _id: 'older-breaking', title: 'Older active breaking',
+      isBreaking: true, publishedAt: '2026-01-01T00:00:00Z' };
+    const expired = Array.from({ length: 60 }, (_, index) => ({ ...active, _id: `expired-${index}`,
+      publishedAt: '2026-01-02T00:00:00Z', editorial: { breakingExpiresAt: '2020-01-01T00:00:00Z' } }));
+    const cursor = {
+      async *[Symbol.asyncIterator]() { yield* [...expired, active]; },
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    const flaggedQuery = { select: vi.fn().mockReturnThis(), sort: vi.fn().mockReturnThis(),
+      maxTimeMS: vi.fn().mockReturnThis(), lean: vi.fn().mockReturnThis(), cursor: vi.fn().mockReturnValue(cursor) };
+    const latestQuery = { select: vi.fn().mockReturnThis(), sort: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(), maxTimeMS: vi.fn().mockReturnThis(), lean: vi.fn().mockResolvedValue([
+        { ...publishedBase, _id: 'ordinary', title: 'Newer ordinary', publishedAt: '2026-01-03T00:00:00Z' },
+      ]) };
+    articleFindMock.mockReturnValueOnce(flaggedQuery).mockReturnValueOnce(latestQuery);
+    const repo = new ArticleRepository();
+    vi.spyOn(repo, 'resolveSource').mockResolvedValue('mongo');
+    expect((await new PublicArticleService(repo).getBreakingArticles(2)).map(item => item.id))
+      .toEqual(['older-breaking', 'ordinary']);
+    expect(cursor.close).toHaveBeenCalled();
+    const flaggedFilter = articleFindMock.mock.calls[0][0];
+    const latestFilter = articleFindMock.mock.calls[1][0];
+    expect(flaggedFilter.$and[1]).toEqual({ isBreaking: true });
+    expect(JSON.stringify(flaggedFilter.$and[0])).toContain('workflow.status');
+    expect(latestFilter.$and[0]).toEqual(flaggedFilter.$and[0]);
+    expect(latestFilter.$and[1]).toEqual({ _id: { $nin: ['older-breaking'] } });
+    expect(latestQuery.limit).toHaveBeenCalledWith(10);
+  });
+
   it('supplies progressive National candidates only through the existing public publication guard', async () => {
     const rows = Array.from({ length: 10 }, (_, i) => ({ ...publishedBase, _id: `national-${i}`, title: `National ${i}`, slug: `national-${i}`, category: 'National', publishedAt: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z` }));
     listAllStoredArticlesMock.mockResolvedValue([

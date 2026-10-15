@@ -527,13 +527,38 @@ export class ArticleRepository {
   }
 
   async listMongoBreakingCandidates(limit: number): Promise<unknown[]> {
-    return Article.find({})
-      .select(
-        '_id slug title category city cityName locationTag publishedAt createdAt updatedAt views isBreaking editorial workflow reporterMeta breakingTts'
-      )
+    const projection = '_id slug title category city cityName locationTag publishedAt createdAt updatedAt views isBreaking editorial workflow reporterMeta breakingTts';
+    const publicFilter = buildMongoFilter({});
+    // Check flag windows with the same newsroom-timezone rules as file storage.
+    // Stream flagged stories so expired flags cannot crowd active ones out of a
+    // fixed candidate window, without loading the entire history into memory.
+    const cursor = Article.find({ $and: [publicFilter, { isBreaking: true }] })
+      .select(projection)
       .sort({ publishedAt: -1, _id: -1 })
-      .limit(Math.min(25 * 5, Math.max(limit * 5, limit)))
+      .maxTimeMS(5000)
+      .lean()
+      .cursor();
+    const breaking = [];
+    try {
+      for await (const article of cursor) {
+        if (!isPubliclyPublishedArticle(article) || !resolveArticleEditorialFlags(asObject(article)).isBreaking) continue;
+        breaking.push(article);
+        if (breaking.length >= limit) break;
+      }
+    } finally {
+      await cursor.close();
+    }
+    if (breaking.length >= limit) return breaking;
+
+    const latest = await Article.find({
+      $and: [publicFilter, { _id: { $nin: breaking.map(article => article._id) } }],
+    })
+      .select(projection)
+      .sort({ publishedAt: -1, _id: -1 })
+      .limit(Math.min(125, Math.max(limit * 5, limit)))
+      .maxTimeMS(5000)
       .lean();
+    return [...breaking, ...latest];
   }
 
   async listAllStored(): Promise<unknown[]> {

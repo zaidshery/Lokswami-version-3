@@ -85,9 +85,9 @@ export function LogoIcon({
         alt="Lokswami Emblem"
         width={sizeConfig.icon}
         height={sizeConfig.icon}
-        className={`relative z-[1] block h-full w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-300 motion-safe:group-hover/logo:scale-[1.06] ${inHeaderLogo ? 'max-md:top-[1.5px]' : ''}`}
+        className={`relative z-[1] block h-full w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-300 motion-safe:group-hover/logo:scale-[1.06] ${inHeaderLogo ? 'top-[1.5px]' : ''}`}
         priority={isPriority}
-        sizes="(max-width: 639px) 44px, (max-width: 1023px) 50px, 58px"
+        sizes={inHeaderLogo ? '(min-width: 1024px) 46px, (min-width: 768px) 48px, (min-width: 390px) 36px, (min-width: 360px) 32px, 28px' : '(max-width: 639px) 44px, (max-width: 1023px) 50px, 58px'}
       />
     </span>
   );
@@ -196,7 +196,7 @@ export default function Logo({
   const logoContent = (
     <motion.div
       data-logo-root="true"
-      className={`group/logo flex max-w-full shrink-0 items-center ${responsiveHeader ? '[--reader-logo-icon:20px] [--reader-logo-wordmark:94px] [--reader-logo-gap:4px] min-[360px]:[--reader-logo-icon:22px] min-[360px]:[--reader-logo-wordmark:110px] min-[390px]:[--reader-logo-icon:24px] min-[390px]:[--reader-logo-wordmark:120px] md:[--reader-logo-icon:46px] md:[--reader-logo-wordmark:172px] md:[--reader-logo-gap:10px] lg:[--reader-logo-icon:40px] lg:[--reader-logo-wordmark:186px]' : ''} ${className}`}
+      className={`group/logo flex max-w-full shrink-0 items-center ${responsiveHeader ? '[--reader-logo-icon:28px] [--reader-logo-wordmark:86px] [--reader-logo-gap:4px] min-[360px]:[--reader-logo-icon:32px] min-[360px]:[--reader-logo-wordmark:100px] min-[360px]:[--reader-logo-gap:6px] min-[390px]:[--reader-logo-icon:36px] min-[390px]:[--reader-logo-wordmark:112px] md:[--reader-logo-icon:48px] md:[--reader-logo-wordmark:172px] md:[--reader-logo-gap:8px] lg:[--reader-logo-icon:46px] lg:[--reader-logo-wordmark:166px]' : ''} ${className}`}
       whileHover={reduceMotion || responsiveHeader ? undefined : { scale: 1.012, y: -1 }}
       whileTap={responsiveHeader ? undefined : { scale: 0.985 }}
       transition={{ type: 'spring', stiffness: 420, damping: 32 }}

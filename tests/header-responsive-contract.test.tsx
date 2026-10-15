@@ -42,10 +42,10 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(menu.querySelector('svg')?.classList.contains('h-[25.5px]')).toBe(true);
       expect(menu.querySelector('svg')?.classList.contains('md:h-5')).toBe(true);
       const home = screen.getByLabelText('Lokswami Home');
-      expect(home.querySelector('[data-logo-element="icon"] img')?.classList.contains('max-md:top-[1.5px]')).toBe(true);
+      expect(home.querySelector('[data-logo-element="icon"] img')?.classList.contains('top-[1.5px]')).toBe(true);
       const root = home.querySelector('[data-logo-root]')!;
-      expect(root.className).toContain('[--reader-logo-icon:20px]');
-      expect(root.className).toContain('[--reader-logo-wordmark:94px]');
+      expect(root.className).toContain('[--reader-logo-icon:28px]');
+      expect(root.className).toContain('[--reader-logo-wordmark:86px]');
       expect(root.className).toContain('[--reader-logo-gap:4px]');
       for (const element of ['icon', 'wordmark']) {
         expect(home.querySelector(`[data-logo-element="${element}"]`)?.parentElement?.className).toContain('max-md:items-center');
@@ -59,8 +59,8 @@ describe('Responsive Header & Language Refinement Contract', () => {
       expect(menu.querySelector('svg')).toHaveAttribute('stroke-width', '2.3');
       expect(menu.querySelector('svg')?.classList.contains('lg:h-6')).toBe(true);
       const logo = screen.getByLabelText('Lokswami Home').querySelector('[data-logo-root]')!;
-      expect(logo.className).toContain('lg:[--reader-logo-icon:40px]');
-      expect(logo.className).toContain('lg:[--reader-logo-wordmark:186px]');
+      expect(logo.className).toContain('lg:[--reader-logo-icon:46px]');
+      expect(logo.className).toContain('lg:[--reader-logo-wordmark:166px]');
     });
     it.each([320, 390, 768, 1024, 1440])('keeps required controls in the same DOM at %i pixels', (width) => {
       window.innerWidth = width;

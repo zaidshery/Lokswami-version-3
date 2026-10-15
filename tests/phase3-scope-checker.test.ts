@@ -183,7 +183,13 @@ describe('B3 Development Accelerator v1 — Scope & Secret Checker Deep Validati
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('PASS: Scope & secrets safety check passed.');
-      expect(result.stderr).toBe('');
+      // The scanner deliberately permits large assets and reports them as warnings.
+      // Scope/secret violations must still fail the process and never pass here.
+      expect(result.stderr).not.toContain('SCOPE / SECRET SAFETY VIOLATIONS DETECTED');
+      if (result.stderr.trim()) {
+        expect(result.stderr).toContain('LARGE BINARY FILE WARNINGS');
+        expect(result.stderr).toContain('Ensure large files are intentional');
+      }
     });
 
     it('never prints secret contents or values in violation reports', () => {

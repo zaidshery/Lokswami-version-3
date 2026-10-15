@@ -420,7 +420,6 @@ function normalizeBreakingItem(source: unknown): PublicBreakingItem | null {
     input.city || input.cityName || input.locationTag || reporterMeta.locationTag || ''
   );
   const isBreaking = resolveArticleEditorialFlags(input).isBreaking;
-  if (!isBreaking) return null;
 
   const reusableTts = isBreaking
     ? resolveReusableBreakingTts({
@@ -442,7 +441,7 @@ function normalizeBreakingItem(source: unknown): PublicBreakingItem | null {
     category: category || undefined,
     createdAt: publishedAt,
     href: buildArticlePublicPath({ id, slug: toText(input.slug) }),
-    priority: Math.max(1, new Date(publishedAt).getTime()),
+    priority: isBreaking ? 2 : 1,
     ...(reusableTts
       ? {
           ttsAudioUrl: reusableTts.audioUrl,
@@ -453,6 +452,8 @@ function normalizeBreakingItem(source: unknown): PublicBreakingItem | null {
 }
 
 function compareBreakingItems(a: PublicBreakingItem, b: PublicBreakingItem) {
+  const byPriority = (b.priority || 0) - (a.priority || 0);
+  if (byPriority !== 0) return byPriority;
   return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
 }
 

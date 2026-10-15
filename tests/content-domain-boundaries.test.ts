@@ -264,7 +264,7 @@ describe('Phase 2.1 Content Domain Boundaries', () => {
   });
 
   describe('Breaking & Feed queries', () => {
-    it('returns breaking articles sorted by publish time', async () => {
+    it('returns breaking articles by publish time ahead of ordinary published backfill', async () => {
       listAllStoredArticlesMock.mockResolvedValue([
         {
           ...publishedArticle,
@@ -293,12 +293,13 @@ describe('Phase 2.1 Content Domain Boundaries', () => {
       ]);
 
       const breaking = await publicArticleService.getBreakingArticles(5);
-      expect(breaking).toHaveLength(2);
+      expect(breaking).toHaveLength(3);
       expect(breaking[0]?.id).toBe('breaking-2');
       expect(breaking[1]?.id).toBe('breaking-1');
+      expect(breaking[2]?.id).toBe('ordinary-article');
     });
 
-    it('returns an empty breaking feed when no published article is marked breaking', async () => {
+    it('backfills the ticker when no published article is marked breaking', async () => {
       listAllStoredArticlesMock.mockResolvedValue([
         {
           ...publishedArticle,
@@ -306,7 +307,9 @@ describe('Phase 2.1 Content Domain Boundaries', () => {
         },
       ]);
 
-      await expect(publicArticleService.getBreakingArticles(5)).resolves.toEqual([]);
+      await expect(publicArticleService.getBreakingArticles(5)).resolves.toEqual([
+        expect.objectContaining({ id: publishedArticle._id, priority: 1 }),
+      ]);
     });
 
     it('returns latest legacy feed with cursor metadata', async () => {
