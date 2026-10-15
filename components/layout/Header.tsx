@@ -8,16 +8,19 @@ import { signOut, useSession } from 'next-auth/react';
 import {
   Bookmark,
   LogOut,
+  Languages,
   Menu,
   Moon,
   Newspaper,
+  Search,
   Settings,
   Sun,
   User,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import DesktopNav from './DesktopNav';
-import Logo, { LogoWordmark } from '@/components/layout/Logo';
+import Logo from '@/components/layout/Logo';
+import ReaderHeaderContainer from './ReaderHeaderContainer';
 
 /** Renders the main site header with reader auth actions. */
 export default function Header() {
@@ -27,21 +30,19 @@ export default function Header() {
   const {
     theme,
     toggleTheme,
-    language,
-    toggleLanguage,
+    language: storedLanguage,
+    setLanguage,
     toggleMobileMenu,
     isMobileMenuOpen,
   } = useAppStore();
   const { data: session, status } = useSession();
+  const language = mounted ? storedLanguage : 'hi';
+  useEffect(() => { setMounted(true); }, []);
 
   const userName = session?.user?.name?.trim() || 'Reader';
   const userEmail = session?.user?.email?.trim() || '';
   const userImage = session?.user?.image || null;
   const userInitial = (userName.charAt(0) || userEmail.charAt(0) || 'R').toUpperCase();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!isUserMenuOpen) {
@@ -78,236 +79,209 @@ export default function Header() {
     }
   }
 
-  if (!mounted) {
-    return (
-      <header
-        aria-label="Site header"
-        aria-busy="true"
-        className="fixed left-0 right-0 top-11 z-50 border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12"
-      >
-        <div className="relative flex h-12 items-center justify-between px-2 min-[380px]:px-3 sm:h-[3.45rem] sm:px-5 md:px-8">
-          <div className="flex shrink-0 items-center">
-            <div className="flex h-12 items-center sm:hidden">
-              <span className="h-9.5 w-9.5 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-            </div>
-            <div className="hidden sm:block lg:hidden">
-              <Logo size="headerMobile" href="/main" />
-            </div>
-            <div className="hidden lg:block">
-              <Logo size="headerDesktop" href="/main" />
-            </div>
-          </div>
-          <div className="flex min-w-0 flex-1 items-center justify-center px-1 translate-x-4 min-[375px]:translate-x-5 sm:translate-x-0 sm:hidden">
-            <span className="h-7.5 w-28 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-          </div>
-          <div aria-hidden="true" className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-            <span className="h-8 w-14 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800 min-[380px]:h-8.5 min-[380px]:w-15 sm:h-9 sm:w-16 sm:rounded-xl" />
-            <span className="hidden lg:inline-block h-9 w-20 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-            <span className="h-8 w-8 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800 min-[380px]:h-8.5 min-[380px]:w-8.5 sm:h-9 sm:w-9 sm:rounded-xl" />
-            <span className="hidden lg:inline-block h-8 w-14 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800 sm:h-9 sm:rounded-xl" />
-          </div>
-        </div>
-        <div aria-hidden="true" className="flex min-h-10 items-center gap-3 overflow-hidden border-t border-zinc-200/80 px-2 sm:px-4 md:min-h-11 md:px-6 2xl:justify-center dark:border-zinc-800">
-          {[64, 88, 76, 96, 72, 84, 90, 78].map((width, i) => (
-            <span key={i} className="h-3 shrink-0 animate-pulse rounded-full bg-zinc-100 dark:bg-zinc-800" style={{ width }} />
-          ))}
-        </div>
-      </header>
-    );
-  }
-
   return (
-    <header className="fixed left-0 right-0 top-11 z-50 border-b border-zinc-200/85 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md transition-all duration-500 dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12">
-      <div className="relative w-full px-2 min-[380px]:px-3 sm:px-5 md:px-8">
-        <div className="relative flex h-12 items-center justify-between gap-1 sm:h-[3.45rem] sm:gap-3">
-          {/* Left: Mobile Hamburger Menu / Tablet & Desktop Logo */}
-          <div className="flex shrink-0 items-center">
-            {/* Mobile: 3-line hamburger menu button */}
-            <div className="flex h-12 items-center sm:hidden">
-              <button
-                type="button"
-                onClick={toggleMobileMenu}
-                className="reader-touch-button reader-focus-ring -ml-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl text-zinc-800 transition-colors hover:bg-zinc-100 hover:text-zinc-950 active:scale-95 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-white"
-                aria-label={language === 'hi' ? 'मेनू खोलें' : 'Open menu'}
-                aria-controls="mobile-drawer"
-                aria-expanded={isMobileMenuOpen}
-              >
-                <Menu className="h-5.5 w-5.5" strokeWidth={2.2} />
-              </button>
-            </div>
-            {/* Tablet: Full Logo */}
-            <div className="hidden min-w-0 sm:block lg:hidden">
-              <Logo size="headerMobile" href="/main" />
-            </div>
-            {/* Desktop: Full Logo */}
-            <div className="hidden min-w-0 lg:block">
-              <Logo size="headerDesktop" href="/main" />
-            </div>
-          </div>
-
-          {/* Center: Hindi Written Logo "लोकस्वामी" on mobile */}
-          <div className="flex min-w-0 flex-1 items-center justify-center px-1 translate-x-4 min-[375px]:translate-x-5 sm:translate-x-0 sm:hidden">
-            <Link
-              href="/main"
-              className="cnp-motion inline-flex h-12 max-w-full items-center justify-center transition-transform duration-200 active:scale-95"
-              aria-label="Lokswami Home"
-            >
-              <LogoWordmark
-                size="headerCompact"
-                className="max-w-[120px] min-[360px]:max-w-[130px] min-[390px]:max-w-[145px]"
-              />
+    <header data-testid="reader-brand-navigation" className="relative z-40 w-full border-b border-zinc-200/85 bg-white transition-colors dark:border-zinc-800 dark:bg-[#0e0e12]">
+      <ReaderHeaderContainer className="relative">
+        <div className="relative flex h-14 min-w-0 items-center justify-between gap-1 sm:h-16 sm:gap-3">
+          <div className="flex min-w-0 shrink-0 items-center gap-0 min-[360px]:gap-1 md:gap-2">
+            <button type="button" onClick={toggleMobileMenu}
+              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 lg:h-12 lg:w-12 lg:min-h-[48px] lg:min-w-[48px]"
+              aria-label={language === 'hi' ? 'मेनू खोलें' : 'Open menu'}
+              aria-controls="mobile-drawer" aria-expanded={isMobileMenuOpen}>
+              <Menu className="h-[25.5px] w-[25.5px] md:h-5 md:w-5 lg:h-6 lg:w-6" strokeWidth={2.3} />
+            </button>
+            <Link href="/main" aria-label="Lokswami Home" className="editorial-focus-ring inline-flex shrink-0 items-center rounded-sm">
+              <Logo size="headerDesktop" responsiveHeader />
             </Link>
           </div>
 
-          <div className="flex shrink-0 items-center justify-end sm:ml-2">
-            <div className="inline-flex max-w-full items-center gap-1 rounded-xl border border-zinc-200/90 bg-gradient-to-b from-white to-zinc-100/80 p-0.5 shadow-[0_8px_18px_rgba(15,23,42,0.08)] dark:border-zinc-700/80 dark:from-zinc-900 dark:to-zinc-900/75 sm:gap-1.5 sm:rounded-2xl sm:p-1">
-              <Link
-                href="/main/epaper"
-                className="cnp-motion reader-touch-button reader-focus-ring inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-red-200/80 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-2 text-[10.5px] font-semibold text-white shadow-sm transition-all hover:brightness-105 active:scale-95 dark:border-red-500/30 min-[380px]:h-8.5 min-[380px]:px-2.5 min-[380px]:text-[11px] sm:h-9 sm:rounded-xl sm:px-2.5 sm:text-xs"
-                aria-label={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
+          <div className="relative ml-auto flex shrink-0 items-center justify-end gap-1 md:gap-2">
+            {/* Required actions remain visible at every width. */}
+            <Link
+              href="/main/epaper"
+              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40 md:w-auto md:flex-row md:gap-1.5 md:rounded-xl md:border md:border-brand-500/30 md:bg-brand-500 md:px-3 md:text-xs md:font-semibold md:text-white md:shadow-sm md:hover:bg-brand-600 md:dark:text-white order-0"
+              aria-label="E-Paper"
+              title={language === 'hi' ? 'ई-पेपर पढ़ें' : 'Read E-Paper'}
+            >
+              <Newspaper className="h-5 w-5 shrink-0 md:h-4 md:w-4" strokeWidth={2} />
+              <span className="text-[9px] font-semibold leading-none md:hidden">ePaper</span>
+              <span className="hidden leading-none tracking-normal md:inline">{language === 'hi' ? 'ई-पेपर' : 'E-Paper'}</span>
+            </Link>
+
+            {/* One app-style mobile action; segmented controls start at tablet width. */}
+            <button type="button" onClick={() => setLanguage(language === 'hi' ? 'en' : 'hi')}
+              data-testid="reader-mobile-language"
+              aria-label={language === 'hi' ? 'Language: HI. Switch to English' : 'Language: EN. Switch to Hindi'}
+              aria-pressed={language === 'en'}
+              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 md:hidden order-1">
+              <Languages className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+              <span className="text-[9px] leading-none">{language === 'hi' ? 'HI' : 'EN'}</span>
+            </button>
+            <div
+              role="group"
+              aria-label={language === 'hi' ? 'भाषा चयन' : 'Language selection'}
+              className="hidden h-11 items-center rounded-xl border border-zinc-200/90 bg-zinc-100/90 p-0.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90 md:inline-flex order-1"
+            >
+              <button
+                type="button"
+                onClick={() => setLanguage('hi')}
+                aria-pressed={language === 'hi'}
+                aria-label="हिन्दी भाषा चुनें (Select Hindi)"
+                className={`editorial-focus-ring relative flex h-full min-h-[44px] !min-w-[28px] sm:!min-w-[44px] items-center justify-center rounded-[10px] px-1 text-[10px] font-bold tracking-tight transition-colors sm:px-2.5 sm:text-xs ${
+                  language === 'hi'
+                    ? 'bg-white text-brand-600 shadow-sm font-black ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:text-brand-400 dark:ring-white/10'
+                    : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                }`}
               >
-                <Newspaper className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                <span className="leading-none tracking-normal">{language === 'hi' ? 'ई-पेपर' : 'e-Paper'}</span>
-              </Link>
-
-              <div className="relative hidden lg:block" ref={userMenuRef}>
-                {status === 'loading' ? (
-                  <div className="h-10 w-10 animate-pulse rounded-full border border-zinc-200/80 bg-zinc-200/80 dark:border-zinc-700 dark:bg-zinc-700" />
-                ) : userEmail ? (
-                  <>
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => setIsUserMenuOpen((open) => !open)}
-                      className="relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-zinc-200/80 bg-white text-zinc-800 shadow-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-                      aria-label={language === 'hi' ? 'रीडर मेनू' : 'Reader menu'}
-                    >
-                      {userImage ? (
-                        <Image
-                          src={userImage}
-                          alt={userName}
-                          fill
-                          sizes="40px"
-                          unoptimized
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-sm font-bold">{userInitial}</span>
-                      )}
-                    </motion.button>
-
-                    <AnimatePresence>
-                      {isUserMenuOpen ? (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.96, y: -8 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.98, y: -6 }}
-                          transition={{ duration: 0.16, ease: 'easeOut' }}
-                          className="absolute right-0 top-12 z-[80] w-72 rounded-2xl border border-zinc-200 bg-white p-3 shadow-[0_22px_50px_rgba(15,23,42,0.18)] dark:border-zinc-700 dark:bg-zinc-900"
-                        >
-                          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/80">
-                            <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                              {userName}
-                            </p>
-                            <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                              {userEmail}
-                            </p>
-                          </div>
-
-                          <div className="mt-2 space-y-1">
-                            <Link
-                              href="/main/account"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                            >
-                              <User size={16} />
-                              <span>My Account</span>
-                            </Link>
-                            <Link
-                              href="/main/saved"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                            >
-                              <Bookmark size={16} />
-                              <span>Saved Articles</span>
-                            </Link>
-                            <Link
-                              href="/main/preferences"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                            >
-                              <Settings size={16} />
-                              <span>Preferences</span>
-                            </Link>
-                          </div>
-
-                          <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-                            <button
-                              type="button"
-                              onClick={handleReaderSignOut}
-                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                            >
-                              <LogOut size={16} />
-                              <span>Sign Out</span>
-                            </button>
-                          </div>
-                        </motion.div>
-                      ) : null}
-                    </AnimatePresence>
-                  </>
-                ) : (
-                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                    <Link
-                      href="/signin"
-                      className="cnp-motion inline-flex h-10 items-center gap-1 rounded-xl border border-zinc-200/80 bg-white px-3 text-xs font-semibold text-zinc-800 shadow-sm hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-red-500/40 dark:hover:bg-red-500/15 dark:hover:text-red-300"
-                      aria-label={language === 'hi' ? 'साइन इन' : 'Sign In'}
-                    >
-                      <User size={16} />
-                      <span>Sign In</span>
-                    </Link>
-                  </motion.div>
-                )}
-              </div>
-
-              <motion.button
-                onClick={toggleTheme}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className="cnp-motion reader-touch-button reader-focus-ring inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-800 shadow-sm hover:border-amber-300 hover:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800 min-[380px]:h-8.5 min-[380px]:w-8.5 sm:h-9 sm:w-9 sm:rounded-xl"
-                aria-label="Toggle theme"
+                <span>HI</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                aria-pressed={language === 'en'}
+                aria-label="Select English language (अंग्रेज़ी चुनें)"
+                className={`editorial-focus-ring relative flex h-full min-h-[44px] !min-w-[28px] sm:!min-w-[44px] items-center justify-center rounded-[10px] px-1 text-[10px] font-bold tracking-tight transition-colors sm:px-2.5 sm:text-xs ${
+                  language === 'en'
+                    ? 'bg-white text-brand-600 shadow-sm font-black ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:text-brand-400 dark:ring-white/10'
+                    : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                }`}
               >
-                <span className="attention-pulsate-bck-slow inline-flex">
-                  {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-                </span>
-              </motion.button>
-
-              {/* Desktop Only: HI / EN Language Toggle after Theme Toggle */}
-              <motion.button
-                onClick={toggleLanguage}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className="cnp-motion reader-touch-button reader-focus-ring hidden lg:inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-zinc-200/80 bg-white px-2.5 text-xs font-bold text-zinc-800 shadow-sm hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 sm:h-9 sm:rounded-xl"
-                aria-label={language === 'hi' ? 'भाषा: हिंदी / English' : 'Language: English / Hindi'}
-                title={language === 'hi' ? 'Switch to English' : 'हिंदी में बदलें'}
-              >
-                <span className={language === 'hi' ? 'text-red-600 dark:text-red-400 font-black' : 'text-zinc-400 dark:text-zinc-500 font-semibold'}>
-                  हि
-                </span>
-                <span className="text-zinc-300 dark:text-zinc-600 font-normal">/</span>
-                <span className={language === 'en' ? 'text-red-600 dark:text-red-400 font-black' : 'text-zinc-400 dark:text-zinc-500 font-semibold'}>
-                  EN
-                </span>
-              </motion.button>
+                <span>EN</span>
+              </button>
             </div>
+
+            {/* Search Entry Button - Accessible across all viewports */}
+            <Link
+              href="/main/search"
+              className="editorial-focus-ring inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800 md:rounded-xl md:border md:border-zinc-200/90 md:bg-white md:shadow-sm md:dark:border-zinc-800 md:dark:bg-zinc-900 order-2"
+              aria-label={language === 'hi' ? 'समाचार खोजें' : 'Search news'}
+              title={language === 'hi' ? 'खोजें' : 'Search'}
+            >
+              <Search className="h-5 w-5" strokeWidth={2} />
+            </Link>
+
+            <div className="relative hidden lg:block order-3" ref={userMenuRef}>
+              {status === 'loading' ? (
+                <div className="h-11 w-11 min-h-[44px] min-w-[44px] animate-pulse rounded-full border border-zinc-200/90 bg-zinc-200/80 dark:border-zinc-800 dark:bg-zinc-700" />
+              ) : userEmail ? (
+                <>
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setIsUserMenuOpen((open) => !open)}
+                    className="editorial-focus-ring relative inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center overflow-hidden rounded-full border border-zinc-200/90 bg-white text-zinc-800 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                    aria-label={language === 'hi' ? 'रीडर मेनू' : 'Reader menu'}
+                  >
+                    {userImage ? (
+                      <Image
+                        src={userImage}
+                        alt={userName}
+                        fill
+                        sizes="44px"
+                        unoptimized
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm font-bold">{userInitial}</span>
+                    )}
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {isUserMenuOpen ? (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.96, y: -8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.98, y: -6 }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                        className="absolute right-0 top-12 z-[80] w-72 rounded-2xl border border-zinc-200 bg-white p-3 shadow-[0_22px_50px_rgba(15,23,42,0.18)] dark:border-zinc-700 dark:bg-zinc-900"
+                      >
+                        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/80">
+                          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                            {userName}
+                          </p>
+                          <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                            {userEmail}
+                          </p>
+                        </div>
+
+                        <div className="mt-2 space-y-1">
+                          <Link
+                            href="/main/account"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          >
+                            <User size={16} />
+                            <span>My Account</span>
+                          </Link>
+                          <Link
+                            href="/main/saved"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          >
+                            <Bookmark size={16} />
+                            <span>Saved Articles</span>
+                          </Link>
+                          <Link
+                            href="/main/preferences"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          >
+                            <Settings size={16} />
+                            <span>Preferences</span>
+                          </Link>
+                        </div>
+
+                        <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                          <button
+                            type="button"
+                            onClick={handleReaderSignOut}
+                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-brand-600 transition hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40"
+                          >
+                            <LogOut size={16} />
+                            <span>Sign Out</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+                </>
+              ) : (
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  <Link
+                    href="/signin"
+                    className="cnp-motion editorial-focus-ring inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-xl border border-zinc-200/90 bg-white px-3 text-xs font-semibold text-zinc-800 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-brand-500/40 dark:hover:bg-brand-950/40 dark:hover:text-brand-300"
+                    aria-label={language === 'hi' ? 'साइन इन' : 'Sign In'}
+                  >
+                    <User size={16} />
+                    <span>Sign In</span>
+                  </Link>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Desktop Only: Theme Toggle */}
+            <motion.button
+              onClick={toggleTheme}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="cnp-motion editorial-focus-ring hidden lg:inline-flex h-11 w-9 min-h-[44px] sm:w-11 shrink-0 items-center justify-center rounded-xl border border-zinc-200/90 bg-white text-zinc-800 shadow-sm hover:border-amber-300 hover:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 order-4"
+              aria-label="Toggle theme"
+            >
+              <span className="attention-pulsate-bck-slow inline-flex">
+                {mounted && theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              </span>
+            </motion.button>
           </div>
         </div>
-      </div>
+      </ReaderHeaderContainer>
 
-      <div className="border-t border-zinc-200/80 dark:border-zinc-800">
-        <div className="scrollbar-hide reader-scroll-x flex min-h-10 items-center overflow-x-auto touch-pan-x px-2 sm:px-4 md:min-h-11 md:px-6 2xl:justify-center" data-swipe-ignore="true">
-          <DesktopNav className="min-w-max py-0" />
-        </div>
+      <div data-testid="reader-category-bar" className="reader-secondary-chrome min-w-0 border-t border-zinc-200/80 dark:border-zinc-800">
+        <ReaderHeaderContainer>
+          <div className="scrollbar-hide reader-scroll-x flex h-11 min-w-0 items-center overflow-x-auto overscroll-x-contain touch-pan-x" data-swipe-ignore="true">
+            <DesktopNav className="min-w-max py-0" />
+          </div>
+        </ReaderHeaderContainer>
       </div>
     </header>
   );

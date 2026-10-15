@@ -19,7 +19,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { trackClientEvent } from '@/lib/analytics/trackClient';
-import { toAbsoluteShareUrl } from '@/lib/utils/articleShare';
+import { buildSocialShareUrl, copyCanonicalUrl, resolveCanonicalShareUrl, shareNative } from '@/lib/utils/universalShare';
 
 export type ShareContentType = 'article' | 'epaper' | 'emagazine' | 'video';
 export type SharePlatform =
@@ -28,6 +28,7 @@ export type SharePlatform =
   | 'facebook'
   | 'x'
   | 'linkedin'
+  | 'telegram'
   | 'copy';
 
 type ShareMenuProps = {
@@ -40,10 +41,13 @@ type ShareMenuProps = {
   placement?: string;
   language?: 'hi' | 'en';
   triggerLabel?: string;
+  triggerIcon?: 'share' | 'whatsapp';
+  directWhatsApp?: boolean;
   ariaLabel?: string;
   className?: string;
   buttonClassName?: string;
   align?: 'start' | 'end';
+  onShareEvent?: (event: 'share_click' | 'share_complete', platform: SharePlatform) => void;
 };
 
 type MenuPosition = {
@@ -69,7 +73,7 @@ function buildWhatsAppText(
         ? 'Open e-magazine'
         : 'Open e-paper';
   const body = customText.trim() || [title.trim(), text.trim()].filter(Boolean).join('\n');
-  const linkLine = url.trim() && !body.includes(url.trim()) ? `${cta}: ${url.trim()}` : '';
+  const linkLine = url.trim() && !body.split(/\s+/).includes(url.trim()) ? `${cta}: ${url.trim()}` : '';
   return [body, linkLine].filter(Boolean).join('\n');
 }
 
@@ -83,51 +87,13 @@ function buildExternalShareUrl(
     contentType: ShareContentType;
   }
 ) {
-  const encodedUrl = encodeURIComponent(input.url);
-
-  if (platform === 'whatsapp') {
-    const message = buildWhatsAppText(
-      input.title,
-      input.text,
-      input.whatsappText,
-      input.url,
-      input.contentType
-    );
-    return `https://wa.me/?text=${encodeURIComponent(message)}`;
-  }
-
-  if (platform === 'facebook') {
-    return `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
-  }
-
-  if (platform === 'x') {
-    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(input.title)}&url=${encodedUrl}`;
-  }
-
-  return `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
-}
-
-async function copyText(value: string) {
-  if (typeof navigator.clipboard?.writeText === 'function') {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = value;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-
-  try {
-    if (!document.execCommand('copy')) {
-      throw new Error('Copy command was unavailable.');
-    }
-  } finally {
-    textarea.remove();
-  }
+  return buildSocialShareUrl(platform, {
+    url: input.url,
+    title: input.title,
+    text: platform === 'whatsapp'
+      ? buildWhatsAppText(input.title, input.text, input.whatsappText, input.url, input.contentType)
+      : input.title,
+  });
 }
 
 export default function ShareMenu({
@@ -140,18 +106,21 @@ export default function ShareMenu({
   placement = 'reader',
   language = 'en',
   triggerLabel,
+  triggerIcon = 'share',
+  directWhatsApp = false,
   ariaLabel,
   className = '',
   buttonClassName = '',
   align = 'end',
+  onShareEvent,
 }: ShareMenuProps) {
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const copyResetTimerRef = useRef<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
-  const [resolvedUrl, setResolvedUrl] = useState(url);
+  const [resolvedUrl, setResolvedUrl] = useState('');
+  const [shareStatus, setShareStatus] = useState('');
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [menuPosition, setMenuPosition] = useState<MenuPosition>({
     left: VIEWPORT_MARGIN,
@@ -178,16 +147,11 @@ export default function ShareMenu({
 
   useEffect(() => {
     setCanNativeShare(typeof navigator.share === 'function');
-    setResolvedUrl(toAbsoluteShareUrl(url, window.location.origin));
+    setResolvedUrl(resolveCanonicalShareUrl(url));
+    setIsOpen(false);
+    setCopyStatus('idle');
+    setShareStatus('');
   }, [url]);
-
-  useEffect(() => {
-    return () => {
-      if (copyResetTimerRef.current !== null) {
-        window.clearTimeout(copyResetTimerRef.current);
-      }
-    };
-  }, []);
 
   const updateMenuPosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -261,6 +225,10 @@ export default function ShareMenu({
 
   const trackShare = useCallback(
     (event: 'share_click' | 'share_complete', platform: SharePlatform) => {
+      if (onShareEvent) {
+        onShareEvent(event, platform);
+        return;
+      }
       trackClientEvent({
         event,
         source: 'share_menu',
@@ -272,20 +240,18 @@ export default function ShareMenu({
         },
       });
     },
-    [contentId, contentType, placement]
+    [contentId, contentType, placement, onShareEvent]
   );
 
   const handleNativeShare = async () => {
     trackShare('share_click', 'native');
-    try {
-      await navigator.share({ title, text: text || undefined, url: resolvedUrl });
+    const result = await shareNative({ title, text, url: resolvedUrl });
+    if (result === 'shared') {
       trackShare('share_complete', 'native');
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        console.error('Native share failed:', error);
-      }
-    } finally {
       closeMenu(true);
+    } else {
+      setShareStatus(language === 'hi' ? 'नीचे शेयर करने का तरीका चुनें।' : 'Choose a sharing option below.');
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     }
   };
 
@@ -300,31 +266,104 @@ export default function ShareMenu({
       url: resolvedUrl,
       contentType,
     });
-    window.open(shareUrl, '_blank', 'noopener,noreferrer');
-    trackShare('share_complete', platform);
-    closeMenu(true);
+    if (!shareUrl) return;
+    try {
+      window.open(shareUrl, '_blank', 'noopener,noreferrer');
+      // Opening a destination cannot confirm that the user completed a share.
+      setShareStatus(language === 'hi' ? 'विंडो न खुले तो लिंक कॉपी करें।' : 'If no window opens, use Copy link.');
+    } catch {
+      setShareStatus(language === 'hi' ? 'लिंक कॉपी करके शेयर करें।' : 'Use Copy link to share.');
+    }
   };
 
   const handleCopy = async () => {
     trackShare('share_click', 'copy');
     try {
-      await copyText(resolvedUrl);
+      if (!await copyCanonicalUrl(resolvedUrl)) throw new Error('Copy failed');
       trackShare('share_complete', 'copy');
       setCopyStatus('copied');
     } catch {
       setCopyStatus('failed');
     }
 
-    if (copyResetTimerRef.current !== null) {
-      window.clearTimeout(copyResetTimerRef.current);
-    }
-    copyResetTimerRef.current = window.setTimeout(() => {
-      setCopyStatus('idle');
-      closeMenu(true);
-    }, 1_500);
+    // Keep failure feedback available until another attempt or dismissal.
   };
 
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+function isTabbableVisible(el: HTMLElement): boolean {
+  // Responsive toolbars may hide an ancestor while the button itself stays display:flex.
+  for (let current: HTMLElement | null = el; current; current = current.parentElement) {
+    if (current.hasAttribute('hidden') || current.hasAttribute('inert') || current.getAttribute('aria-hidden') === 'true') {
+      return false;
+    }
+    if (typeof window !== 'undefined') {
+      const style = window.getComputedStyle(current);
+      if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false;
+    }
+  }
+  return true;
+}
+
+function findAdjacentTabbableElement(
+  reference: HTMLElement,
+  forward: boolean,
+  containerToExclude?: HTMLElement | null
+): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+
+  const elements = Array.from(
+    document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+  ).filter((el) => {
+    if (containerToExclude && containerToExclude.contains(el)) return false;
+    if (el.hasAttribute('disabled')) return false;
+    if (el.tabIndex < 0) return false;
+    return isTabbableVisible(el);
+  });
+
+  const index = elements.indexOf(reference);
+  if (index === -1) return null;
+
+  if (forward) {
+    return elements[index + 1] || null;
+  }
+  return elements[index - 1] || null;
+}
+
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    // Reader playback/navigation shortcuts must not consume menu keystrokes.
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu(true);
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      const forward = !event.shiftKey;
+      const trigger = triggerRef.current;
+      const menuEl = menuRef.current;
+      closeMenu(false);
+
+      if (trigger) {
+        const target = findAdjacentTabbableElement(trigger, forward, menuEl);
+        if (target) {
+          target.focus();
+        } else {
+          trigger.focus();
+        }
+      }
+      return;
+    }
+
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
 
     const items = Array.from(
@@ -359,14 +398,18 @@ export default function ShareMenu({
           role="menu"
           aria-label={displayedAriaLabel}
           onClick={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
+          onTouchEnd={(event) => event.stopPropagation()}
           onKeyDown={handleMenuKeyDown}
-          className="fixed z-[100] w-[244px] rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
-          style={{ left: menuPosition.left, top: menuPosition.top }}
+          className="fixed z-[160] w-[244px] rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+          style={{ left: menuPosition.left, top: menuPosition.top, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100dvh - 16px)', overflowY: 'auto' }}
         >
           {canNativeShare ? (
             <button
               type="button"
               role="menuitem"
+              tabIndex={-1}
               onClick={() => void handleNativeShare()}
               className={itemClassName}
             >
@@ -378,6 +421,7 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => handleExternalShare('whatsapp')}
             className={itemClassName}
           >
@@ -387,6 +431,7 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => handleExternalShare('facebook')}
             className={itemClassName}
           >
@@ -396,6 +441,7 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => handleExternalShare('x')}
             className={itemClassName}
           >
@@ -407,16 +453,29 @@ export default function ShareMenu({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => handleExternalShare('linkedin')}
             className={itemClassName}
           >
             <Linkedin aria-hidden="true" className="h-4 w-4 text-sky-700" />
             LinkedIn
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => handleExternalShare('telegram')}
+            className={itemClassName}
+          >
+            <MessageCircle aria-hidden="true" className="h-4 w-4 text-sky-600" />
+            Telegram
+          </button>
+          <p role="status" className="px-3 text-xs text-zinc-600 dark:text-zinc-300">{shareStatus}</p>
           <div className="my-1 h-px bg-zinc-200 dark:bg-zinc-700" aria-hidden="true" />
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => void handleCopy()}
             className={itemClassName}
           >
@@ -448,22 +507,41 @@ export default function ShareMenu({
       <button
         ref={triggerRef}
         type="button"
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
+        data-share-action
+        disabled={!resolvedUrl}
+        aria-haspopup={directWhatsApp ? undefined : 'menu'}
+        aria-expanded={directWhatsApp ? undefined : isOpen}
         aria-controls={isOpen ? menuId : undefined}
         aria-label={displayedAriaLabel}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === 'ArrowDown' && !isOpen && !directWhatsApp) {
+            event.preventDefault();
+            setCopyStatus('idle');
+            setShareStatus('');
+            setIsOpen(true);
+          }
+        }}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          if (directWhatsApp) { handleExternalShare('whatsapp'); return; }
           setCopyStatus('idle');
+          setShareStatus('');
           setIsOpen((current) => !current);
         }}
         className={buttonClassName || 'reader-touch-button reader-focus-ring inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'}
       >
-        <Share2 className="h-4 w-4" aria-hidden="true" />
+        {triggerIcon === 'whatsapp' ? (
+          <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+            <path d="M13.601 2.326A7.85 7.85 0 0 0 8.015 0C3.58 0-.049 3.627-.05 8.064a8.01 8.01 0 0 0 1.05 3.98L0 16l4.062-1.066a8.03 8.03 0 0 0 3.952 1.008h.003c4.435 0 8.064-3.627 8.064-8.064a7.9 7.9 0 0 0-2.48-5.552zm-5.586 12.3h-.003a6.68 6.68 0 0 1-3.402-.93l-.244-.145-2.41.632.643-2.35-.158-.242a6.69 6.69 0 0 1-1.028-3.526c.002-3.692 3.01-6.7 6.706-6.7a6.66 6.66 0 0 1 4.738 1.97 6.67 6.67 0 0 1 1.958 4.74c-.002 3.693-3.01 6.702-6.706 6.702z" />
+            <path d="M11.74 9.93c-.202-.101-1.196-.59-1.382-.658-.185-.067-.32-.101-.455.101-.134.202-.522.658-.64.793-.118.134-.236.151-.438.05-.202-.1-.851-.313-1.62-.997-.598-.533-1.002-1.19-1.12-1.392-.118-.202-.013-.311.088-.412.09-.089.202-.236.303-.353.101-.118.135-.202.202-.337.067-.135.034-.253-.017-.354-.05-.101-.455-1.096-.623-1.5-.163-.392-.329-.338-.455-.344-.118-.005-.252-.006-.387-.006s-.354.05-.539.252c-.185.202-.707.69-.707 1.684 0 .994.724 1.955.825 2.09.101.134 1.425 2.176 3.45 3.05.482.208.857.332 1.15.425.483.154.922.132 1.269.08.387-.058 1.196-.488 1.365-.96.168-.472.168-.876.117-.96-.05-.084-.185-.135-.387-.236z" />
+          </svg>
+        ) : <Share2 className="h-4 w-4" aria-hidden="true" />}
         <span>{displayedTriggerLabel}</span>
       </button>
       {menu}
+      {directWhatsApp ? <span role="status" className="sr-only">{shareStatus}</span> : null}
     </div>
   );
 }

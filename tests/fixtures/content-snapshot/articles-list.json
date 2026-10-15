@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "_id": "public-article-101",
+        "slug": "indore-water-project",
+        "title": "Indore water project update",
+        "summary": "A sanitized summary used only to test the public response shape.",
+        "image": "https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/articles/water-project.jpg",
+        "category": "Regional",
+        "author": { "name": "News Desk" },
+        "tags": ["Indore", { "name": "Civic" }],
+        "publishedAt": "2026-09-10T08:00:00.000Z"
+      },
+      {
+        "id": "public-article-102",
+        "slug": "state-policy-briefing",
+        "title": "State policy briefing",
+        "summary": "A second sanitized article.",
+        "image": "/media/policy.png",
+        "category": { "name": "State" },
+        "author": "Editorial Desk",
+        "publishedAt": "2026-09-09T07:00:00.000Z"
+      }
+    ]
+  },
+  "meta": { "pagination": { "limit": 2, "hasMore": false } }
+}

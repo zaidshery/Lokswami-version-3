@@ -17,5 +17,11 @@ export default async function AdminDashboardPage() {
     limit: 100,
   });
 
-  return <ActionFirstDashboard overview={overview} role={admin.role} />;
+  return (
+    <ActionFirstDashboard
+      overview={overview}
+      role={admin.role}
+      userName={admin.name || admin.email || null}
+    />
+  );
 }

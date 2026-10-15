@@ -95,7 +95,7 @@ export const PAGE_ACCESS: Record<AdminPageKey, readonly AdminRole[]> = {
   copy_desk: ['super_admin', 'admin', 'copy_editor'],
   articles: ['super_admin', 'admin', 'copy_editor'],
   article_create: ['super_admin', 'admin', 'reporter', 'copy_editor'],
-  article_edit: ['super_admin', 'admin', 'copy_editor'],
+  article_edit: ['super_admin', 'admin', 'reporter', 'copy_editor'],
   stories: ['super_admin', 'admin', 'reporter', 'copy_editor'],
   story_create: ['super_admin', 'admin', 'reporter'],
   story_edit: ['super_admin', 'admin', 'reporter', 'copy_editor'],
@@ -103,25 +103,25 @@ export const PAGE_ACCESS: Record<AdminPageKey, readonly AdminRole[]> = {
   video_create: ['super_admin', 'admin'],
   video_edit: ['super_admin', 'admin', 'copy_editor'],
   social_posts: ['super_admin', 'admin', 'copy_editor'],
-  epapers: ['super_admin', 'admin', 'copy_editor'],
-  epaper_create: ['super_admin', 'admin'],
-  epaper_edit: ['super_admin', 'admin', 'copy_editor'],
-  epaper_page_edit: ['super_admin', 'admin', 'copy_editor'],
+  epapers: ['super_admin'],
+  epaper_create: ['super_admin'],
+  epaper_edit: ['super_admin'],
+  epaper_page_edit: ['super_admin'],
   media: ['super_admin', 'admin', 'reporter', 'copy_editor'],
-  polls: ['super_admin', 'admin'],
+  polls: ['super_admin'],
   categories: ['super_admin', 'admin'],
   contact_messages: ['super_admin', 'admin'],
-  ai_ops: ['super_admin', 'admin'],
+  ai_ops: ['super_admin'],
   settings: ['super_admin'],
-  newsroom_settings: ['super_admin', 'admin'],
+  newsroom_settings: ['super_admin'],
   revenue: ['super_admin'],
-  team: ['super_admin', 'admin'],
-  users: ['super_admin', 'admin'],
+  team: ['super_admin'],
+  users: ['super_admin'],
   analytics: ['super_admin', 'admin'],
   business_value: ['super_admin'],
   audit_log: ['super_admin'],
   permission_review: ['super_admin'],
-  operations_center: ['super_admin', 'admin'],
+  operations_center: ['super_admin'],
   operations_diagnostics: ['super_admin'],
 };
 
@@ -158,7 +158,7 @@ export const PAGE_LABELS: Record<AdminPageKey, string> = {
   newsroom_settings: 'Newsroom Settings',
   revenue: 'Revenue & Ads Control',
   team: 'Team',
-  users: 'Users & Subscribers',
+  users: 'User Accounts',
   analytics: 'Analytics',
   business_value: 'Business Value',
   audit_log: 'Audit Log',
@@ -167,7 +167,11 @@ export const PAGE_LABELS: Record<AdminPageKey, string> = {
   operations_diagnostics: 'Operations Diagnostics',
 };
 
-const REPORTER_EDITABLE_WORKFLOW_STATUSES: WorkflowStatus[] = ['draft', 'changes_requested'];
+const REPORTER_EDITABLE_WORKFLOW_STATUSES: WorkflowStatus[] = [
+  'draft',
+  'changes_requested',
+  'rejected',
+];
 const COPY_EDITOR_EDITABLE_WORKFLOW_STATUSES: WorkflowStatus[] = [
   'assigned',
   'in_review',
@@ -220,10 +224,9 @@ export function isOwnContent(
   content: PermissionContentRecord
 ): boolean {
   if (!user) return false;
-  return (
-    matchesActor(user, resolveCreatedById(content)) ||
-    matchesArticleAuthorScope(resolveLegacyAuthorName(content), user)
-  );
+  const createdById = resolveCreatedById(content);
+  if (createdById) return matchesActor(user, createdById);
+  return matchesArticleAuthorScope(resolveLegacyAuthorName(content), user);
 }
 
 export function isAssignedContent(
@@ -244,7 +247,7 @@ export function canViewPage(
 }
 
 export function canManageTeam(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canManageTargetAdminRole(
@@ -285,11 +288,23 @@ export function canManageSettings(role: AdminRole | null | undefined): boolean {
 }
 
 export function canManageNewsroomSettings(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canRunGlobalAiOps(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
+}
+
+export function canManagePolls(role: AdminRole | null | undefined): boolean {
+  return isSuperAdminRole(role);
+}
+
+export function canManageUsers(role: AdminRole | null | undefined): boolean {
+  return isSuperAdminRole(role);
+}
+
+export function canDispatchSocialPosts(role: AdminRole | null | undefined): boolean {
+  return isSuperAdminRole(role);
 }
 
 export function canManageLeadershipReports(
@@ -421,11 +436,11 @@ export function canDeleteContent(
 }
 
 export function canCreateEpaper(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canEditEpaper(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || role === 'copy_editor' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canPrepareEpaperForPublish(
@@ -437,11 +452,11 @@ export function canPrepareEpaperForPublish(
 export function canManageEpaperAssignments(
   role: AdminRole | null | undefined
 ): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canPublishEpaper(role: AdminRole | null | undefined): boolean {
-  return role === 'admin' || isSuperAdminRole(role);
+  return isSuperAdminRole(role);
 }
 
 export function canDeleteEpaper(role: AdminRole | null | undefined): boolean {

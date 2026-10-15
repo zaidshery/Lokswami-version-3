@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { canManageLeadershipReports } from '@/lib/auth/permissions';
@@ -32,7 +33,7 @@ async function requireLeadershipAdmin() {
   return { ok: true as const, admin };
 }
 
-export async function PATCH(req: NextRequest) {
+async function PATCHHandler(req: NextRequest) {
   const adminResult = await requireLeadershipAdmin();
   if (!adminResult.ok) {
     return adminResult.response;
@@ -83,3 +84,5 @@ export async function PATCH(req: NextRequest) {
     );
   }
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

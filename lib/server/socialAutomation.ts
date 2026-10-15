@@ -4,6 +4,13 @@ import {
   type SocialPlatform,
 } from '@/lib/content/newsroomPublishing';
 import type { WorkflowActorRef } from '@/lib/workflow/types';
+import {
+  computeHmacSignature,
+  redactSensitiveString,
+  verifyWebhookSignature,
+} from '@/lib/server/distribution/webhookSecurity';
+
+export { computeHmacSignature, redactSensitiveString, verifyWebhookSignature };
 
 const FALLBACK_SITE_URL = 'http://localhost:3000';
 
@@ -43,6 +50,10 @@ export type SocialAutomationPublicConfig = Pick<
 
 function clean(value: unknown, maxLength = 500) {
   return String(value ?? '').trim().slice(0, maxLength);
+}
+
+function redactProviderSecrets(message: string, config: SocialAutomationConfig) {
+  return redactSensitiveString(message, [config.sharedSecret, config.webhookUrl]);
 }
 
 function getOrigin() {
@@ -94,9 +105,18 @@ export function getSocialAutomationPublicConfig(): SocialAutomationPublicConfig 
 export function buildSocialAutomationPayload(params: {
   post: SocialAutomationRecord;
   actor: WorkflowActorRef;
+  deliveryId?: string;
+  idempotencyKey?: string;
 }) {
   const origin = getOrigin();
+  const deliveryId = params.deliveryId || params.post._id || 'del-1';
+  const idempotencyKey =
+    params.idempotencyKey || `idemp-${params.post.sourceStoryId}-${params.post.platform}`;
+
   return {
+    contractVersion: '2026-09.v1',
+    deliveryId,
+    idempotencyKey,
     source: 'lokswami',
     kind: 'social_post_dispatch',
     generatedAt: new Date().toISOString(),
@@ -139,6 +159,8 @@ function extractDispatchResult(
 export async function dispatchSocialPostToAutomation(params: {
   post: SocialAutomationRecord;
   actor: WorkflowActorRef;
+  deliveryId?: string;
+  idempotencyKey?: string;
 }) {
   const config = getSocialAutomationConfig();
   if (!config.enabled || !config.webhookUrl) {
@@ -149,25 +171,40 @@ export async function dispatchSocialPostToAutomation(params: {
     );
   }
 
+  const deliveryId = params.deliveryId || params.post._id || 'del-1';
+  const timestamp = Math.floor(Date.now() / 1000);
+  const payload = buildSocialAutomationPayload(params);
+  const rawBody = JSON.stringify(payload);
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Lokswami-Event': 'social_post_dispatch',
+    'X-Lokswami-Provider': config.provider,
+    'X-Lokswami-Delivery-Id': deliveryId,
+    'X-Lokswami-Timestamp': String(timestamp),
+    'Idempotency-Key': payload.idempotencyKey,
+  };
+
+  if (config.sharedSecret) {
+    headers['X-Lokswami-Signature'] = computeHmacSignature(
+      config.sharedSecret,
+      timestamp,
+      deliveryId,
+      rawBody
+    );
+  }
+
   const response = await fetch(config.webhookUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Lokswami-Event': 'social_post_dispatch',
-      'X-Lokswami-Provider': config.provider,
-      ...(config.sharedSecret
-        ? {
-            'X-Lokswami-Signature': config.sharedSecret,
-          }
-        : {}),
-    },
-    body: JSON.stringify(buildSocialAutomationPayload(params)),
+    headers,
+    body: rawBody,
     signal: AbortSignal.timeout(config.timeoutMs),
   });
 
   const responseText = await response.text();
   if (!response.ok) {
-    throw new Error(responseText || `Automation dispatch failed with status ${response.status}`);
+    const message = responseText || `Automation dispatch failed with status ${response.status}`;
+    throw new Error(redactProviderSecrets(clean(message, 2000), config));
   }
 
   let parsed: unknown = null;

@@ -16,7 +16,7 @@ export default async function EditArticlePage({
   }
 
   if (!canViewPage(admin.role, 'article_edit')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   return <EditArticlePageClient />;

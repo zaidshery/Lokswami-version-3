@@ -41,6 +41,13 @@ export interface IVideo {
   processingStatus?: VideoProcessingStatus;
   instagramUrl?: string;
   youtubeUrl?: string;
+  sourceAssetId?: string;
+  lastError?: string;
+  accessibilityMeta?: {
+    hasCaptions?: boolean;
+    hasTranscript?: boolean;
+    controls?: boolean;
+  };
 }
 
 const VideoSchema = new mongoose.Schema<IVideo>({
@@ -70,7 +77,17 @@ const VideoSchema = new mongoose.Schema<IVideo>({
   aspectRatio: { type: String, enum: ['9:16', '16:9', '1:1', 'unknown'], default: 'unknown' },
   captionUrl: { type: String, default: '', trim: true },
   transcript: { type: String, default: '', maxlength: 20000 },
-  processingStatus: { type: String, enum: ['ready', 'processing', 'failed'], default: 'ready' },
+  processingStatus: {
+    type: String,
+    enum: ['uploaded', 'processing', 'ready', 'failed', 'review', 'approved', 'published'],
+    default: 'ready',
+  },
+  sourceAssetId: { type: String, default: '', trim: true },
+  lastError: { type: String, default: '', trim: true },
+  accessibilityMeta: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({ hasCaptions: false, hasTranscript: false, controls: true }),
+  },
   instagramUrl: { type: String, default: '', trim: true },
   youtubeUrl: { type: String, default: '', trim: true },
 });

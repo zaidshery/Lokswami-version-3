@@ -163,7 +163,7 @@ export default function HeroCard({ article, parallax = { x: 0, y: 0 }, variant =
           >
             <div className="mb-2.5 flex items-center justify-between">
               <span className="h-1.5 w-10 rounded-full bg-gradient-to-r from-red-500 to-red-400" />
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
                 Top Pick <ArrowUpRight className="h-3.5 w-3.5" />
               </span>
             </div>

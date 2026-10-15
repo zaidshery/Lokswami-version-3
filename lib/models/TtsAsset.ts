@@ -16,6 +16,7 @@ export interface ITtsAsset {
   sourceType: TtsSourceType;
   sourceId: string;
   sourceParentId?: string;
+  revisionInitializationOwner?: string;
   variant: TtsVariant;
   title?: string;
   textHash: string;
@@ -47,6 +48,7 @@ const TtsAssetSchema = new mongoose.Schema<ITtsAsset>(
     sourceType: { type: String, enum: TTS_SOURCE_TYPES, required: true },
     sourceId: { type: String, required: true, trim: true, maxlength: 120 },
     sourceParentId: { type: String, trim: true, maxlength: 120, default: '' },
+    revisionInitializationOwner: { type: String, trim: true, maxlength: 120 },
     variant: { type: String, enum: TTS_VARIANTS, required: true },
     title: { type: String, trim: true, maxlength: 220, default: '' },
     textHash: { type: String, required: true, trim: true, maxlength: 80 },

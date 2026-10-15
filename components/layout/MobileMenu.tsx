@@ -4,11 +4,25 @@ import { useEffect, useRef, type ComponentType, type CSSProperties } from 'react
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
-import { X, ChevronRight, Facebook, Twitter, Instagram, Youtube, Languages } from 'lucide-react';
+import {
+  X,
+  ChevronRight,
+  Facebook,
+  Twitter,
+  Instagram,
+  Youtube,
+  Languages,
+  Zap,
+  User,
+  Sun,
+  Moon,
+  Monitor,
+  SunMoon,
+} from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import Logo from '@/components/layout/Logo';
 import { COMPANY_INFO } from '@/lib/constants/company';
-import { NEWS_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCategories';
+import MobileNewsNavigation from './MobileNewsNavigation';
 import { READER_NAVIGATION } from '@/lib/constants/readerNavigation';
 
 interface MobileMenuProps {
@@ -64,29 +78,29 @@ const SOCIAL_BRAND_STYLES: Record<SocialLink['brand'], { glow: string; rgb: stri
 };
 
 export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
-  const { language, setLanguage } = useAppStore();
-  const { status } = useSession();
+  const { language, setLanguage, themePreference, setThemePreference } = useAppStore();
+  const { data: session, status } = useSession();
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const accountHref =
     status === 'authenticated'
       ? '/main/account'
       : '/signin?redirect=/main/account';
 
-  const pages = [
-    READER_NAVIGATION.home,
-    READER_NAVIGATION.latest,
-    READER_NAVIGATION.elections,
-    READER_NAVIGATION.videos,
-    READER_NAVIGATION.epaper,
-    READER_NAVIGATION.emagazine,
-    READER_NAVIGATION.search,
-    { name: '\u0905\u0915\u093e\u0909\u0902\u091f', nameEn: 'Account', href: accountHref },
-    READER_NAVIGATION.contact,
+  const products = [
+    {
+      name: 'फ़टाफ़ट',
+      nameEn: 'Quick News',
+      tagline: 'Shorts & Fast Updates',
+      href: '/main/ftaftaf',
+      icon: Zap,
+    },
   ];
 
+  const generalPages = [READER_NAVIGATION.search];
   useEffect(() => {
     if (!isOpen) return;
 
+    const previousFocusedElement = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -99,7 +113,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       }
 
       if (event.key !== 'Tab' || !drawerRef.current) return;
-      const focusables = drawerRef.current.querySelectorAll<HTMLElement>(selector);
+      const focusables = Array.from(drawerRef.current.querySelectorAll<HTMLElement>(selector)).filter(element => !element.closest('[hidden]'));
       if (focusables.length === 0) return;
 
       const first = focusables[0];
@@ -115,13 +129,14 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       }
     };
 
-    const focusables = drawerRef.current?.querySelectorAll<HTMLElement>(selector);
+    const focusables = Array.from(drawerRef.current?.querySelectorAll<HTMLElement>(selector) || []).filter(element => !element.closest('[hidden]'));
     focusables?.[0]?.focus();
     document.addEventListener('keydown', onKeyDown);
 
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
+      previousFocusedElement?.focus();
     };
   }, [isOpen, onClose]);
 
@@ -143,7 +158,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             id="mobile-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label={language === 'hi' ? '\u0928\u0947\u0935\u093f\u0917\u0947\u0936\u0928 \u092e\u0947\u0928\u0942' : 'Navigation menu'}
+            aria-label={language === 'hi' ? 'नेविगेशन मेनू' : 'Navigation menu'}
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
@@ -154,19 +169,19 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-100">
-                    {language === 'hi' ? '\u092e\u0947\u0928\u0942' : 'Menu'}
+                    {language === 'hi' ? 'मेनू' : 'Menu'}
                   </span>
                 </div>
                 <button
                   onClick={onClose}
-                  className="cnp-motion reader-touch-button reader-focus-ring -mr-1 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                  aria-label={language === 'hi' ? '\u092e\u0947\u0928\u0942 \u092c\u0902\u0926 \u0915\u0930\u0947\u0902' : 'Close menu'}
+                  className="cnp-motion reader-touch-button editorial-focus-ring -mr-1 inline-flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-editorial-sm border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  aria-label={language === 'hi' ? 'मेनू बंद करें' : 'Close menu'}
                 >
                   <X size={20} />
                 </button>
               </div>
 
-              {/* Language Switcher Preference in Drawer */}
+              {/* 1. Language Switcher in Drawer */}
               <div className="border-b border-zinc-200/80 px-4 py-3 dark:border-zinc-800">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -179,9 +194,9 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     <button
                       type="button"
                       onClick={() => setLanguage('hi')}
-                      className={`reader-touch-button rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                      className={`reader-touch-button editorial-focus-ring flex min-h-[44px] items-center rounded-editorial-sm px-3.5 py-2 text-xs font-bold transition-all ${
                         language === 'hi'
-                          ? 'bg-white text-orange-600 shadow-sm dark:bg-zinc-800 dark:text-orange-400'
+                          ? 'bg-white text-brand-500 shadow-sm dark:bg-zinc-800 dark:text-brand-400'
                           : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
                       }`}
                       aria-pressed={language === 'hi'}
@@ -191,9 +206,9 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     <button
                       type="button"
                       onClick={() => setLanguage('en')}
-                      className={`reader-touch-button rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                      className={`reader-touch-button editorial-focus-ring flex min-h-[44px] items-center rounded-editorial-sm px-3.5 py-2 text-xs font-bold transition-all ${
                         language === 'en'
-                          ? 'bg-white text-orange-600 shadow-sm dark:bg-zinc-800 dark:text-orange-400'
+                          ? 'bg-white text-brand-500 shadow-sm dark:bg-zinc-800 dark:text-brand-400'
                           : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
                       }`}
                       aria-pressed={language === 'en'}
@@ -204,49 +219,152 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 </div>
               </div>
 
+              {/* 2. Categories */}
               <div className="px-3.5 pt-3.5">
                 <h3 className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-                  {language === 'hi' ? '\u0936\u094d\u0930\u0947\u0923\u093f\u092f\u093e\u0901' : 'Categories'}
+                  {language === 'hi' ? 'श्रेणियाँ' : 'Categories'}
                 </h3>
                 <div className="mt-2 space-y-1">
-                  {NEWS_CATEGORIES.map((category) => (
-                    <Link
-                      key={category.id}
-                      href={getNewsCategoryHref(category.slug)}
-                      onClick={onClose}
-                      className="cnp-motion reader-touch-link reader-focus-ring group flex min-h-12 items-center justify-between rounded-xl bg-white px-2.5 py-2.5 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white shadow-sm"
-                          style={{ backgroundColor: category.color }}
-                        >
-                          {category.name.charAt(0)}
-                        </span>
-                        <div>
-                          <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{category.name}</span>
-                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{category.nameEn}</span>
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className="text-zinc-500 transition-colors group-hover:text-red-600 dark:text-zinc-400 dark:group-hover:text-red-400" />
-                    </Link>
-                  ))}
+                  <MobileNewsNavigation language={language} onNavigate={onClose} />
                 </div>
               </div>
 
+              {/* 3. Products */}
               <div className="mx-4 mt-3 border-t border-zinc-200/80 dark:border-zinc-800" />
-
-              <div className="px-3.5 py-3.5">
+              <div className="px-3.5 py-3">
                 <h3 className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-                  {language === 'hi' ? '\u092a\u0947\u091c' : 'Pages'}
+                  {language === 'hi' ? 'उत्पाद' : 'Products'}
                 </h3>
                 <div className="mt-2 space-y-1">
-                  {pages.map((page) => (
+                  {products.map((product) => {
+                    const Icon = product.icon;
+                    return (
+                      <Link
+                        key={product.href}
+                        href={product.href}
+                        onClick={onClose}
+                        className="cnp-motion reader-touch-link reader-focus-ring group flex min-h-12 items-center justify-between rounded-xl bg-white px-2.5 py-2 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                            <Icon size={18} />
+                          </span>
+                          <div>
+                            <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                              {language === 'hi' ? product.name : product.nameEn}
+                            </span>
+                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{product.tagline}</span>
+                          </div>
+                        </div>
+                        <ChevronRight size={16} className="text-zinc-500 transition-colors group-hover:text-brand-500 dark:text-zinc-400 dark:group-hover:text-brand-400" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. Account */}
+              <div className="mx-4 mt-1 border-t border-zinc-200/80 dark:border-zinc-800" />
+              <div className="px-3.5 py-3">
+                <h3 className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+                  {language === 'hi' ? 'खाता' : 'Account'}
+                </h3>
+                <div className="mt-2 space-y-1">
+                  <Link
+                    href={accountHref}
+                    onClick={onClose}
+                    className="cnp-motion reader-touch-link reader-focus-ring group flex min-h-12 items-center justify-between rounded-xl bg-white px-2.5 py-2 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                        <User size={18} />
+                      </span>
+                      <div>
+                        <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          {status === 'authenticated'
+                            ? (language === 'hi' ? 'प्रोफ़ाइल और खाता' : 'Profile & Account')
+                            : (language === 'hi' ? 'साइन इन करें' : 'Sign In')}
+                        </span>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {status === 'authenticated'
+                            ? session?.user?.email || (language === 'hi' ? 'खाता सेटिंग्स' : 'Account settings')
+                            : (language === 'hi' ? 'सहेजे गए लेख और प्राथमिकताएं' : 'Saved articles & preferences')}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-zinc-500 transition-colors group-hover:text-brand-500 dark:text-zinc-400 dark:group-hover:text-brand-400" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* 5. Preferences / Appearance */}
+              <div className="mx-4 mt-1 border-t border-zinc-200/80 dark:border-zinc-800" />
+              <div className="px-3.5 py-3">
+                <div className="flex items-center gap-2 px-1">
+                  <SunMoon size={16} className="text-zinc-500 dark:text-zinc-400" />
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+                    {language === 'hi' ? 'दिखावट / Appearance' : 'Appearance / दिखावट'}
+                  </h3>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-800 dark:bg-zinc-900">
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('auto')}
+                    className={`reader-touch-button editorial-focus-ring flex min-h-[44px] items-center justify-center gap-1.5 rounded-editorial-sm px-2 py-2 text-xs font-bold transition-all ${
+                      themePreference === 'auto'
+                        ? 'bg-white text-brand-500 shadow-sm dark:bg-zinc-800 dark:text-brand-400'
+                        : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    }`}
+                    aria-pressed={themePreference === 'auto'}
+                    aria-label={language === 'hi' ? 'सिस्टम थीम (ऑटो)' : 'System Theme (Auto)'}
+                  >
+                    <Monitor size={14} />
+                    <span>{language === 'hi' ? 'ऑटो' : 'Auto'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('light')}
+                    className={`reader-touch-button editorial-focus-ring flex min-h-[44px] items-center justify-center gap-1.5 rounded-editorial-sm px-2 py-2 text-xs font-bold transition-all ${
+                      themePreference === 'light'
+                        ? 'bg-white text-brand-500 shadow-sm dark:bg-zinc-800 dark:text-brand-400'
+                        : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    }`}
+                    aria-pressed={themePreference === 'light'}
+                    aria-label={language === 'hi' ? 'लाइट थीम' : 'Light Theme'}
+                  >
+                    <Sun size={14} />
+                    <span>{language === 'hi' ? 'लाइट' : 'Light'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('dark')}
+                    className={`reader-touch-button editorial-focus-ring flex min-h-[44px] items-center justify-center gap-1.5 rounded-editorial-sm px-2 py-2 text-xs font-bold transition-all ${
+                      themePreference === 'dark'
+                        ? 'bg-white text-brand-500 shadow-sm dark:bg-zinc-800 dark:text-brand-400'
+                        : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    }`}
+                    aria-pressed={themePreference === 'dark'}
+                    aria-label={language === 'hi' ? 'डार्क थीम' : 'Dark Theme'}
+                  >
+                    <Moon size={14} />
+                    <span>{language === 'hi' ? 'डार्क' : 'Dark'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 6. General Pages */}
+              <div className="mx-4 mt-1 border-t border-zinc-200/80 dark:border-zinc-800" />
+              <div className="px-3.5 py-3">
+                <h3 className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+                  {language === 'hi' ? 'अन्य पेज' : 'Pages'}
+                </h3>
+                <div className="mt-2 space-y-1">
+                  {generalPages.map((page) => (
                     <Link
                       key={page.href}
                       href={page.href}
                       onClick={onClose}
-                      className="cnp-motion reader-touch-link reader-focus-ring flex min-h-12 items-center justify-between rounded-xl bg-white px-2.5 py-2.5 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800"
+                      className="cnp-motion reader-touch-link reader-focus-ring flex min-h-12 items-center justify-between rounded-xl bg-white px-2.5 py-2 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800"
                     >
                       <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                         {language === 'hi' ? page.name : page.nameEn}

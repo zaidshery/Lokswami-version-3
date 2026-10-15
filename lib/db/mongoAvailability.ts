@@ -26,10 +26,19 @@ function parsePositiveEnvInt(name: string, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function redactMongoReason(reason: string): string {
+  if (!reason) return '';
+  return reason
+    .replace(/mongodb(\+srv)?:\/\/[^\s"'<>]+/gi, 'mongodb[REDACTED_URI]')
+    .replace(/(password|secret|key|token|credential)(=|:\s*)([^\s&,;]+)/gi, '$1$2[REDACTED]')
+    .slice(0, 300);
+}
+
 function getErrorMessage(error: unknown) {
-  return error instanceof Error && error.message.trim()
+  const raw = error instanceof Error && error.message.trim()
     ? error.message.trim()
     : String(error);
+  return redactMongoReason(raw);
 }
 
 function shouldUseCachedStatus(now: number, availableTtlMs: number, unavailableTtlMs: number) {
@@ -43,14 +52,14 @@ function shouldUseCachedStatus(now: number, availableTtlMs: number, unavailableT
 function markStatus(status: 'available' | 'unavailable', reason = '') {
   state.status = status;
   state.checkedAt = Date.now();
-  state.lastReason = reason;
+  state.lastReason = redactMongoReason(reason);
 }
 
 function logUnavailable(label: string, reason: string) {
   const now = Date.now();
   if (now - state.lastLogAt < LOG_THROTTLE_MS) return;
   state.lastLogAt = now;
-  console.warn(`[MongoDB] ${label} unavailable, using fallback storage. ${reason}`);
+  console.warn(`[MongoDB] ${label} unavailable, using fallback storage. ${redactMongoReason(reason)}`);
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {

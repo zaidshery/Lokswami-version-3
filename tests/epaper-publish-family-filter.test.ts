@@ -1,0 +1,91 @@
+// @vitest-environment node
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import EPaper from '@/lib/models/EPaper';
+import { EpaperRepository } from '@/lib/server/epaper/epaperRepository';
+
+afterEach(() => vi.restoreAllMocks());
+
+describe('publication family query casting', () => {
+  const id = '665000000000000000000001';
+  const uuid = '91db0408-cf7a-442f-9696-5c2ea9f9963c';
+  const legacyId = '665000000000000000000002';
+
+  it.each([
+    ['transaction', uuid], ['standalone', uuid],
+    ['transaction', legacyId], ['standalone', legacyId],
+    ['transaction', 'family-legacy'], ['standalone', 'family-legacy'],
+  ])('publishes with a castable family filter on %s Mongo for %s', async (mode, familyId) => {
+    const realFind = EPaper.find.bind(EPaper);
+    const session = {
+      withTransaction: vi.fn(async (work: () => Promise<void>) => {
+        if (mode === 'standalone') {
+          throw Object.assign(new Error('Transaction numbers are only allowed on a replica set member or mongos'), {
+            code: 20, codeName: 'IllegalOperation',
+          });
+        }
+        await work();
+      }),
+      endSession: vi.fn(async () => {}),
+    };
+    vi.spyOn(EPaper, 'startSession').mockResolvedValue(session as never);
+    vi.spyOn(EPaper, 'findOneAndUpdate').mockReturnValue({
+      lean: async () => ({ _id: id, familyId, status: 'published', version: 8 }),
+    } as never);
+    vi.spyOn(EPaper, 'find').mockReturnValue({
+      select: () => ({ lean: async () => [] }),
+      cast: () => {},
+    } as never);
+    const demote = vi.spyOn(EPaper, 'updateMany').mockImplementation((filter) => {
+      // Use the real model caster: mocks alone previously missed the UUID CastError.
+      realFind(filter).cast(EPaper);
+      return Promise.resolve({ matchedCount: 1, modifiedCount: 1 }) as never;
+    });
+
+    await expect(new EpaperRepository().publishEdition(id, familyId, {}, 7)).resolves.toMatchObject({ status: 'published' });
+    const filter = demote.mock.calls[0][0];
+    expect(filter).toEqual({
+      $or: familyId === legacyId ? [{ familyId }, { _id: familyId }] : [{ familyId }],
+      _id: { $ne: id }, isCurrentRevision: { $ne: false }, status: 'published',
+    });
+    expect(demote.mock.calls[0][2]).toEqual(mode === 'transaction' ? { session } : undefined);
+    expect(session.endSession).toHaveBeenCalledOnce();
+    expect(demote.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(EPaper.findOneAndUpdate).mock.invocationCallOrder[0]
+    );
+  });
+
+  it('restores the exact previous standalone revision if publication fails', async () => {
+    vi.spyOn(EPaper, 'startSession').mockRejectedValue(new Error('standalone'));
+    vi.spyOn(EPaper, 'find').mockReturnValue({
+      select: () => ({ lean: async () => [{ _id: legacyId, version: 4 }] }),
+    } as never);
+    vi.spyOn(EPaper, 'findOneAndUpdate').mockReturnValue({
+      lean: async () => { throw new Error('write failed'); },
+    } as never);
+    const update = vi.spyOn(EPaper, 'updateMany').mockResolvedValue({ matchedCount: 1 } as never);
+    await expect(new EpaperRepository().publishEdition(id, uuid, {}, 7)).rejects.toThrow('write failed');
+    expect(update).toHaveBeenLastCalledWith(
+      { _id: legacyId, version: 4, status: 'published', isCurrentRevision: false },
+      { $set: { isCurrentRevision: true } }
+    );
+  });
+
+  it('restores the previous standalone revision on a stale version conflict', async () => {
+    vi.spyOn(EPaper, 'startSession').mockRejectedValue(new Error('standalone'));
+    vi.spyOn(EPaper, 'find').mockReturnValue({
+      select: () => ({ lean: async () => [{ _id: legacyId, version: 4 }] }),
+    } as never);
+    vi.spyOn(EPaper, 'findOneAndUpdate').mockReturnValue({ lean: async () => null } as never);
+    vi.spyOn(EPaper, 'findById').mockReturnValue({
+      select: () => ({ lean: async () => ({ version: 8 }) }),
+    } as never);
+    const update = vi.spyOn(EPaper, 'updateMany').mockResolvedValue({ matchedCount: 1 } as never);
+    await expect(new EpaperRepository().publishEdition(id, uuid, {}, 7)).rejects.toMatchObject({
+      currentVersion: 8, expectedVersion: 7,
+    });
+    expect(update).toHaveBeenLastCalledWith(
+      { _id: legacyId, version: 4, status: 'published', isCurrentRevision: false },
+      { $set: { isCurrentRevision: true } }
+    );
+  });
+});

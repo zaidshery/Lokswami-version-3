@@ -1,0 +1,15 @@
+# Office cleanup continuation
+
+Base candidate: PR #55, `0b70bd818a8b8b9e2fda610505ca78036aa1c128`.
+
+The oldest retained, blocked or reference-lookup-failing receipts could occupy every bounded batch. Repeated selection never reached later eligible cancellations. A source negative control reproduced each of these three cases with a batch of two across three passes; the later cancellation received no provider deletion attempt.
+
+Bounded `reconcileCleanupDetailed(before, { limit, cursor })` now returns `progress`: the number considered, `nextCursor`, and whether selection wrapped. Callers pass the returned cursor into their next cycle. Unbounded callers retain their existing result shapes, and `reconcileCleanup(before)` still returns only `deleted` and `failed`.
+
+The cursor contains a fixed sweep cutoff and the last selected `(updatedAt, id)` tuple. MongoDB uses the equivalent compound predicate and sorts by `updatedAt`, then `_id`, before applying the limit. File storage uses that same deterministic tie-breaker, including its existing `createdAt`/epoch timestamp fallback. The position is captured before cleanup changes a receipt. Retry writes beyond the cutoff wait for the next sweep, allowing later records in the current sweep to receive consideration. A short page completes the sweep; an exhausted full-page cursor wraps using at most one additional bounded query. Each cycle considers no more than its limit.
+
+The office worker saves a versioned, database/bucket/region-scoped checkpoint by temporary-file write and atomic rename while holding its existing exclusive lock. A subsequent invocation resumes it. Selection or checkpoint failures stop the worker; an old successful checkpoint remains available for safe retry. A crash before checkpoint persistence may repeat exact-key operations on restart. This is intentional at-least-once cleanup: cancellations remain tombstones, and protection/expiry checks run again. Invalid or foreign-scope checkpoints fail closed and require inspection. No production scheduler is configured.
+
+Reference protection, future upload expiry, exact-key deletion, cleanup error classification and receipt updates are unchanged. Progression does not mutate skipped receipts or clear their historical error labels. Fixed cutoffs prevent newly updated retries from extending a sweep indefinitely; newly eligible records are considered on a subsequent sweep. Reconciliation callers that elect to use a bound must retain `nextCursor` to obtain this progression.
+
+The focused regressions cover full protected/blocked/lookup-failure batches, timestamp ties, compound Mongo selection, failure retries, exhausted-cursor wrap, service restart, worker restart, checkpoint scope rejection and overlap exclusion. The automatically captured source negative control, validation/build logs, pinned historical documents and candidate-bound office observations are retained separately under the office evidence directory in `cleanup-progression-20261014`. Historical reports are not current-candidate results.

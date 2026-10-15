@@ -7,6 +7,10 @@ type SwipeSettingsSheetProps = {
   open: boolean;
   dataSaver: boolean;
   onDataSaverChange: (enabled: boolean) => void;
+  autoplay?: boolean;
+  onAutoplayChange?: (enabled: boolean) => void;
+  muteDefault?: boolean;
+  onMuteDefaultChange?: (enabled: boolean) => void;
   onClose: () => void;
   returnFocusRef: RefObject<HTMLElement>;
 };
@@ -18,6 +22,10 @@ export default function SwipeSettingsSheet({
   open,
   dataSaver,
   onDataSaverChange,
+  autoplay = true,
+  onAutoplayChange,
+  muteDefault = true,
+  onMuteDefaultChange,
   onClose,
   returnFocusRef,
 }: SwipeSettingsSheetProps) {
@@ -26,6 +34,7 @@ export default function SwipeSettingsSheet({
 
   useEffect(() => {
     if (!open) return;
+    const returnFocusEl = returnFocusRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     closeRef.current?.focus();
@@ -56,7 +65,7 @@ export default function SwipeSettingsSheet({
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
-      returnFocusRef.current?.focus();
+      returnFocusEl?.focus();
     };
   }, [onClose, open, returnFocusRef]);
 
@@ -75,6 +84,8 @@ export default function SwipeSettingsSheet({
         aria-labelledby="swipe-settings-title"
         className="w-full rounded-t-[28px] bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-4 text-zinc-950 shadow-2xl dark:bg-zinc-950 dark:text-white"
         onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+        onTouchEnd={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300 dark:bg-zinc-700" />
         <div className="flex items-center justify-between gap-4">
@@ -83,7 +94,7 @@ export default function SwipeSettingsSheet({
               Swipe settings
             </h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              Control how much media is loaded while you browse.
+              Control playback and data settings for Shorts.
             </p>
           </div>
           <button
@@ -97,30 +108,90 @@ export default function SwipeSettingsSheet({
           </button>
         </div>
 
-        <div className="mt-6 flex items-center justify-between gap-5 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-          <div>
-            <p className="font-bold">Data Saver</p>
-            <p id="swipe-data-saver-help" className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-300">
-              Keep upcoming stories as posters until you open them.
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={dataSaver}
-            aria-describedby="swipe-data-saver-help"
-            onClick={() => onDataSaverChange(!dataSaver)}
-            className={`reader-focus-ring relative h-11 w-16 shrink-0 rounded-full transition-colors ${
-              dataSaver ? 'bg-emerald-600' : 'bg-zinc-400 dark:bg-zinc-700'
-            }`}
-          >
-            <span
-              className={`absolute left-0 top-1.5 h-8 w-8 rounded-full bg-white shadow transition-transform ${
-                dataSaver ? 'translate-x-6' : 'translate-x-1.5'
+        <div className="mt-5 space-y-3">
+          {/* Autoplay setting */}
+          <div className="flex items-center justify-between gap-5 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+            <div>
+              <p className="font-bold">Autoplay next story</p>
+              <p id="swipe-autoplay-help" className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-300">
+                Automatically start playing videos as you swipe.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="Autoplay next story"
+              aria-checked={autoplay}
+              aria-describedby="swipe-autoplay-help"
+              onClick={() => onAutoplayChange?.(!autoplay)}
+              className={`reader-focus-ring relative h-11 w-16 shrink-0 rounded-full transition-colors ${
+                autoplay ? 'bg-emerald-600' : 'bg-zinc-400 dark:bg-zinc-700'
               }`}
-            />
-            <span className="sr-only">Data Saver</span>
-          </button>
+            >
+              <span
+                className={`absolute left-0 top-1.5 h-8 w-8 rounded-full bg-white shadow transition-transform ${
+                  autoplay ? 'translate-x-6' : 'translate-x-1.5'
+                }`}
+              />
+              <span className="sr-only">Autoplay next story</span>
+            </button>
+          </div>
+
+          {/* Mute Default setting */}
+          <div className="flex items-center justify-between gap-5 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+            <div>
+              <p className="font-bold">Start muted</p>
+              <p id="swipe-mute-help" className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-300">
+                Always begin video playback with audio muted.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="Start muted"
+              aria-checked={muteDefault}
+              aria-describedby="swipe-mute-help"
+              onClick={() => onMuteDefaultChange?.(!muteDefault)}
+              className={`reader-focus-ring relative h-11 w-16 shrink-0 rounded-full transition-colors ${
+                muteDefault ? 'bg-emerald-600' : 'bg-zinc-400 dark:bg-zinc-700'
+              }`}
+            >
+              <span
+                className={`absolute left-0 top-1.5 h-8 w-8 rounded-full bg-white shadow transition-transform ${
+                  muteDefault ? 'translate-x-6' : 'translate-x-1.5'
+                }`}
+              />
+              <span className="sr-only">Start muted</span>
+            </button>
+          </div>
+
+          {/* Data Saver setting */}
+          <div className="flex items-center justify-between gap-5 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+            <div>
+              <p className="font-bold">Data Saver</p>
+              <p id="swipe-data-saver-help" className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-300">
+                Keep upcoming stories as posters until you open them.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="Data Saver"
+              aria-checked={dataSaver}
+              aria-describedby="swipe-data-saver-help"
+              onClick={() => onDataSaverChange(!dataSaver)}
+              className={`reader-focus-ring relative h-11 w-16 shrink-0 rounded-full transition-colors ${
+                dataSaver ? 'bg-emerald-600' : 'bg-zinc-400 dark:bg-zinc-700'
+              }`}
+            >
+              <span
+                className={`absolute left-0 top-1.5 h-8 w-8 rounded-full bg-white shadow transition-transform ${
+                  dataSaver ? 'translate-x-6' : 'translate-x-1.5'
+                }`}
+              />
+              <span className="sr-only">Data Saver</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

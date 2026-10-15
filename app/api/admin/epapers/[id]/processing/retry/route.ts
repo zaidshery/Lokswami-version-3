@@ -1,72 +1,70 @@
-import { Types } from 'mongoose';
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/db/mongoose';
-import EPaper from '@/lib/models/EPaper';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
-import { canEditEpaper } from '@/lib/auth/permissions';
-import {
-  isEpaperBackgroundProcessingEnabled,
-  queueEpaperPageProcessing,
-  resolveRetryableEpaperPageNumbers,
-} from '@/lib/server/epaperProcessingJobs';
-import { shouldUseGlobalPublicationScope } from '@/lib/utils/epaperPublication';
+import { epaperProcessingService } from '@/lib/server/epaper/epaperProcessingService';
+import { EpaperDomainError } from '@/lib/server/epaper/epaperTypes';
+import { logAuditAction } from '@/lib/security/auditLogger';
+import { getClientIp } from '@/lib/security/ipUtils';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(request: NextRequest, context: RouteContext) {
-  const admin = await getAdminSessionFromReq(request);
-  if (!admin) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  if (!canEditEpaper(admin.role)) {
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
+async function POSTHandler(request: NextRequest, context: RouteContext) {
+  const actor = await getAdminSessionFromReq(request);
+  if (!actor) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
+  const startTime = Date.now();
+  const clientIp = getClientIp(request);
+  const userAgent = request.headers.get('user-agent') || 'unknown';
   const { id } = await context.params;
-  if (!Types.ObjectId.isValid(id)) {
-    return NextResponse.json({ success: false, error: 'Invalid e-paper ID.' }, { status: 400 });
-  }
 
-  await connectDB();
-  const epaper = await EPaper.findById(id)
-    .select('_id publicationType citySlug status pageCount pages')
-    .lean();
-  if (!epaper) {
-    return NextResponse.json({ success: false, error: 'E-paper not found.' }, { status: 404 });
-  }
-  // Published editions are no longer strictly immutable
-  const processingCitySlug = shouldUseGlobalPublicationScope(epaper.publicationType)
-    ? undefined
-    : epaper.citySlug;
-  if (!isEpaperBackgroundProcessingEnabled(processingCitySlug)) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Background PDF processing is not enabled for this publication scope.',
+  try {
+    const result = await epaperProcessingService.retry(actor, id, await request.json().catch(() => ({})));
+
+    void logAuditAction({
+      action: 'retry',
+      resourceType: 'epaper',
+      resourceId: id,
+      resourceName: 'E-Paper Page Processing Retry',
+      userId: actor.id,
+      userEmail: actor.email,
+      userRole: actor.role,
+      method: 'POST',
+      endpoint: `/api/admin/epapers/${id}/processing/retry`,
+      statusCode: 200,
+      duration: Date.now() - startTime,
+      ipAddress: clientIp,
+      userAgent,
+      requestData: {
+        jobId: result.data?.jobId,
+        pageNumbers: result.data?.pageNumbers,
       },
-      { status: 409 }
-    );
-  }
+      responseStatus: 'success',
+    });
 
-  const body = (await request.json().catch(() => ({}))) as { pageNumbers?: unknown };
-  const requested = Array.isArray(body.pageNumbers)
-    ? body.pageNumbers.map(Number).filter((value) => Number.isFinite(value))
-    : [];
-  const retryPages = resolveRetryableEpaperPageNumbers(
-    epaper.pages || [],
-    requested
-  );
-  if (!retryPages.length) {
-    return NextResponse.json(
-      { success: false, error: 'There are no missing or failed pages to retry.' },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: true, ...result });
+  } catch (error) {
+    if (error instanceof EpaperDomainError) {
+      void logAuditAction({
+        action: 'retry',
+        resourceType: 'epaper',
+        resourceId: id,
+        resourceName: 'E-Paper Page Processing Retry',
+        userId: actor.id,
+        userEmail: actor.email,
+        userRole: actor.role,
+        method: 'POST',
+        endpoint: `/api/admin/epapers/${id}/processing/retry`,
+        statusCode: error.status,
+        duration: Date.now() - startTime,
+        ipAddress: clientIp,
+        userAgent,
+        errorMessage: error.message,
+        responseStatus: 'error',
+      });
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
+    throw error;
   }
-
-  const job = await queueEpaperPageProcessing({ epaperId: id, pageNumbers: retryPages });
-  return NextResponse.json({
-    success: true,
-    message: 'Page processing retry queued.',
-    data: { jobId: String(job._id), pageNumbers: retryPages },
-  });
 }
+
+export const POST = withAdminMutation(POSTHandler);

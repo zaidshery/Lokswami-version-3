@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Volume2, VolumeX } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
@@ -43,7 +43,10 @@ export default function BreakingNews({
   pauseOnHover = true,
   showTime = false,
 }: BreakingNewsProps) {
-  const { language } = useAppStore();
+  const { language: storedLanguage } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+  const language = mounted ? storedLanguage : 'hi';
+  useEffect(() => { setMounted(true); }, []);
   const {
     currentIndex,
     isLoading,
@@ -84,16 +87,12 @@ export default function BreakingNews({
   }, [marqueeItems, speedSeconds]);
 
   const buttonTitle = isPreparingAudio
-    ? 'Preparing breaking news voice'
+    ? (language === 'hi' ? 'ताज़ा समाचार आवाज़ तैयार की जा रही है' : 'Preparing breaking news voice')
     : soundEnabled
-      ? 'Disable breaking news voice'
+      ? (language === 'hi' ? 'ताज़ा समाचार आवाज़ बंद करें' : 'Disable breaking news voice')
       : ttsAvailable === false
-        ? 'Breaking news voice is unavailable'
-        : 'Enable breaking news voice';
-
-  if (!visibleItem && !isLoading) {
-    return null;
-  }
+        ? (language === 'hi' ? 'ताज़ा समाचार आवाज़ उपलब्ध नहीं है' : 'Breaking news voice is unavailable')
+        : (language === 'hi' ? 'ताज़ा समाचार आवाज़ चालू करें' : 'Enable breaking news voice');
 
   const renderMarqueeSequence = (keyPrefix: string, ariaHidden = false) =>
     marqueeItems.map((item, index) => {
@@ -112,6 +111,7 @@ export default function BreakingNews({
           {timeLabel ? <span className={styles.timeLabel}>{timeLabel}</span> : null}
           <Link
             href={buildItemHref(item)}
+            tabIndex={ariaHidden ? -1 : undefined}
             className={`${styles.marqueeLink} ${isActive ? styles.marqueeLinkActive : ''}`}
           >
             <span className={styles.marqueeTitle}>{titleText}</span>
@@ -125,12 +125,13 @@ export default function BreakingNews({
 
   return (
     <div
-      className="fixed left-0 right-0 top-0 z-[60] w-full bg-gradient-to-r from-[#7f1116] via-[#97131a] to-[#7f1116] shadow-[inset_0_-1px_0_rgba(255,255,255,0.08),inset_0_1px_0_rgba(0,0,0,0.28),0_8px_24px_rgba(0,0,0,0.22)]"
+      data-testid="reader-live-bar"
+      className="reader-secondary-chrome relative z-[45] w-full bg-gradient-to-r from-[#7f1116] via-[#97131a] to-[#7f1116] shadow-[inset_0_-1px_0_rgba(255,255,255,0.08),inset_0_1px_0_rgba(0,0,0,0.28),0_8px_24px_rgba(0,0,0,0.22)]"
       role="region"
-      aria-label={language === 'hi' ? 'Breaking news' : 'Breaking News'}
+      aria-label={language === 'hi' ? 'ताज़ा समाचार' : 'Breaking News'}
     >
       <Container>
-        <div className="flex h-11 items-center gap-2 md:h-12 md:gap-3">
+        <div className="flex h-9 min-w-0 items-center gap-2 md:h-10 md:gap-3">
           <div className="flex h-full items-center">
             <span className={styles.liveBadge}>
               <span className={styles.liveDot} />
@@ -161,7 +162,9 @@ export default function BreakingNews({
                 <div className={styles.marqueeStatic}>
                   <span className={styles.marqueeEntry}>
                     <span className={styles.marqueeTitle}>
-                      {language === 'hi' ? 'ताज़ा समाचार लोड हो रहे हैं...' : 'Loading latest updates...'}
+                      {isLoading
+                        ? language === 'hi' ? 'ताज़ा समाचार लोड हो रहे हैं...' : 'Loading latest updates...'
+                        : language === 'hi' ? 'ताज़ा अपडेट उपलब्ध नहीं है।' : 'No latest update available.'}
                     </span>
                   </span>
                 </div>
@@ -178,8 +181,8 @@ export default function BreakingNews({
           <button
             type="button"
             onClick={toggleSound}
-            className="reader-touch-button reader-focus-ring flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={ttsAvailable === false || isPreparingAudio}
+            className="editorial-focus-ring relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 after:absolute after:top-1/2 after:left-1/2 after:h-11 after:w-11 after:min-h-[44px] after:min-w-[44px] after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
+            disabled={!visibleItem || ttsAvailable === false || isPreparingAudio}
             aria-label={buttonTitle}
             aria-pressed={soundEnabled}
             aria-busy={isPreparingAudio}
@@ -187,12 +190,12 @@ export default function BreakingNews({
           >
             <span className="sr-only">
               {isPreparingAudio
-                ? 'Preparing breaking news voice'
+                ? (language === 'hi' ? 'ताज़ा समाचार आवाज़ तैयार की जा रही है' : 'Preparing breaking news voice')
                 : isPlaying
-                  ? 'Breaking news voice is playing'
+                  ? (language === 'hi' ? 'ताज़ा समाचार आवाज़ चल रही है' : 'Breaking news voice is playing')
                   : soundEnabled
-                    ? 'Breaking news voice is enabled'
-                    : 'Breaking news voice is disabled'}
+                    ? (language === 'hi' ? 'ताज़ा समाचार आवाज़ सक्षम है' : 'Breaking news voice is enabled')
+                    : (language === 'hi' ? 'ताज़ा समाचार आवाज़ बंद है' : 'Breaking news voice is disabled')}
             </span>
             {isPreparingAudio ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

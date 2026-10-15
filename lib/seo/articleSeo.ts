@@ -1,4 +1,7 @@
 import { resolveNewsCategory } from '@/lib/constants/newsCategories';
+import { detectBreakingTtsLanguage } from '@/lib/types/breaking';
+import { encodePublicPathToken, getSiteUrl, toAbsolutePublicUrl } from '@/lib/utils/publicUrl';
+export { getSiteUrl } from '@/lib/utils/publicUrl';
 
 export type ArticleSeoFields = {
   metaTitle: string;
@@ -40,7 +43,6 @@ export type ArticleCanonicalEdit =
   | { kind: 'invalid' }
   | { kind: 'value'; value: string };
 
-const FALLBACK_SITE_URL = 'https://lokswami.com';
 const ARTICLE_SLUG_PATTERN = /^[\p{L}\p{M}\p{N}]+(?:-[\p{L}\p{M}\p{N}]+)*$/u;
 const INTERNAL_ARTICLE_QUERY_KEYS = new Set([
   '_rsc',
@@ -173,10 +175,6 @@ export async function resolveUniqueArticleSlug(
   return candidate;
 }
 
-export function getSiteUrl(value = process.env.NEXT_PUBLIC_SITE_URL || FALLBACK_SITE_URL) {
-  return value.replace(/\/+$/, '');
-}
-
 export function toAbsoluteArticleUrl(input: string, siteUrl = getSiteUrl()) {
   if (!input) return '';
   if (/^https?:\/\//i.test(input)) return input;
@@ -189,13 +187,13 @@ export function getArticlePublicToken(article: ArticlePublicRef) {
 }
 
 export function buildArticlePublicPath(article: ArticlePublicRef) {
-  const token = getArticlePublicToken(article);
-  return token ? `/main/article/${encodeURIComponent(token)}` : '';
+  const token = encodePublicPathToken(getArticlePublicToken(article));
+  return token ? `/main/article/${token}` : '';
 }
 
 export function buildArticlePublicUrl(article: ArticlePublicRef, siteUrl = getSiteUrl()) {
   const path = buildArticlePublicPath(article);
-  return path ? toAbsoluteArticleUrl(path, siteUrl) : '';
+  return path ? toAbsolutePublicUrl(path, siteUrl) : '';
 }
 
 export function buildArticleRedirectPath(
@@ -472,7 +470,7 @@ export function buildNewsArticleJsonLd(input: {
   return {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
-    inLanguage: 'hi',
+    inLanguage: detectBreakingTtsLanguage(`${input.title} ${input.summary}`),
     headline: seo.metaTitle || input.title,
     description: seo.metaDescription || input.summary,
     image: imageUrl ? [imageUrl] : [],

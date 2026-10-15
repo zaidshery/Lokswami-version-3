@@ -50,22 +50,30 @@ describe('e-paper workflow v3 safeguards', () => {
     );
     const createRoute = read('app/api/admin/epapers/route.ts');
     const importRoute = read('app/api/admin/epapers/import/route.ts');
+    const editorialService = read('lib/server/epaper/epaperEditorialService.ts');
+    const uploadService = read('lib/server/epaper/epaperUploadService.ts');
 
     expect(createPage).not.toContain('value="published"');
     expect(detailPage).not.toContain('Generate Audio');
     expect(pageEditor).not.toContain('Generate Audio');
     expect(pageEditor).not.toContain('Regenerate Audio');
-    expect(createRoute).toContain("const status = 'draft'");
-    expect(importRoute).toContain("status: 'draft'");
+    expect(createRoute).toContain('epaperEditorialService.create');
+    expect(editorialService).toContain("status: 'draft'");
+    expect(importRoute).toContain('epaperUploadService.importRemote');
+    expect(uploadService).toContain("status: 'draft'");
   });
 
   it('uses a cron secret and keeps processing independent of the browser', () => {
     const cronRoute = read('app/api/admin/epapers/jobs/run-due/route.ts');
     const uploadPage = read('app/(admin)/admin/epapers/new/page.tsx');
     const jobModel = read('lib/models/EPaperProcessingJob.ts');
+    const processingService = read('lib/server/epaper/epaperProcessingService.ts');
+    const workerAdapter = read('lib/server/epaper/epaperWorkerAdapter.ts');
 
     expect(cronRoute).toContain("request.headers.get('x-cron-secret')");
-    expect(cronRoute).toContain('processQueuedEpaperJobs');
+    expect(cronRoute).toContain('epaperProcessingService.processDue');
+    expect(processingService).toContain('this.worker.processDueJobs');
+    expect(workerAdapter).toContain('processQueuedEpaperJobs');
     expect(uploadPage).not.toContain('renderPdfFilePages');
     expect(jobModel).toContain('nextAttemptAt');
     expect(jobModel).toContain('leaseExpiresAt');
@@ -76,6 +84,7 @@ describe('e-paper workflow v3 safeguards', () => {
       'app/(admin)/admin/epapers/[id]/page/[pageNumber]/page.tsx'
     );
     const articleRoute = read('app/api/admin/epapers/[id]/articles/route.ts');
+    const articleService = read('lib/server/epaper/epaperArticleService.ts');
 
     expect(buildEpaperPlaceholderTitle(2, 1)).toBe('Draft story - Page 2 #1');
     expect(pageEditor).toContain('Headline (optional)');
@@ -86,7 +95,8 @@ describe('e-paper workflow v3 safeguards', () => {
     expect(pageEditor).not.toContain('Headline required before creating draft');
     expect(pageEditor).not.toContain('Clean Hindi body required before creating draft');
     expect(articleRoute).not.toContain("error: 'title is required'");
-    expect(articleRoute).toContain('buildEpaperPlaceholderTitle');
+    expect(articleRoute).toContain('epaperArticleService.create');
+    expect(articleService).toContain('buildEpaperPlaceholderTitle');
   });
 
   it('moves directly from hotspot mapping to ready to publish without page QA', () => {

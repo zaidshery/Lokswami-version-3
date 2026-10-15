@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongoose';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
@@ -8,20 +9,41 @@ import User from '@/lib/models/User';
 import { sendTeamInviteEmail } from '@/lib/notifications/teamInviteEmail';
 import { resolveShareRequestOrigin } from '@/lib/server/requestOrigin';
 
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
+import { getClientIp } from '@/lib/security/ipUtils';
+
 type RouteContext = {
   params: Promise<{
     id: string;
   }>;
 };
 
-export async function POST(req: NextRequest, context: RouteContext) {
+async function POSTHandler(req: NextRequest, context: RouteContext) {
   try {
     const admin = await getAdminSessionFromReq(req);
-    if (!admin || !canManageTeam(admin.role)) {
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!canManageTeam(admin.role)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const { id } = await context.params;
+
+    const rateLimit = await checkRateLimit({
+      scope: 'setup_link_regeneration',
+      identifier: `${admin.id || getClientIp(req)}:${id}`,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Too many setup link requests. Please try again later.',
+          code: 'RATE_LIMITED',
+        },
+        { status: 429, headers: getRateLimitHeaders(rateLimit) }
+      );
+    }
     await connectDB();
 
     const member = await User.findById(id).select('_id email role loginId').lean<{
@@ -98,3 +120,5 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

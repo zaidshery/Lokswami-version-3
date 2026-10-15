@@ -8,14 +8,46 @@ const dispatchSocialPostToAutomationMock = vi.fn();
 const getSocialAutomationConfigMock = vi.fn();
 const getSocialAutomationPublicConfigMock = vi.fn();
 
+const getSocialDraftContentSourcesMock = vi.fn();
+
 vi.mock('@/lib/auth/admin', () => ({
   getAdminSession: getAdminSessionMock,
   getAdminSessionFromReq: getAdminSessionMock,
 }));
 
+vi.mock('@/lib/db/mongoose', () => ({ default: vi.fn() }));
+vi.mock('@/lib/models/SocialPost', () => ({ default: {} }));
+vi.mock('@/lib/models/SocialDelivery', () => ({ default: {} }));
+
 vi.mock('@/lib/storage/socialPostsFile', () => ({
   getStoredSocialPostById: getStoredSocialPostByIdMock,
   updateStoredSocialPost: updateStoredSocialPostMock,
+}));
+
+vi.mock('@/lib/server/content/socialDistributionContentQueryService', () => ({
+  getSocialDraftContentSources: getSocialDraftContentSourcesMock,
+}));
+
+vi.mock('@/lib/server/distribution/socialDeliveryRepository', () => ({
+  socialDeliveryRepository: {
+    resolveStore: vi.fn().mockResolvedValue('file'),
+    findOrCreateDelivery: vi.fn().mockResolvedValue({
+      _id: 'delivery-1',
+      idempotencyKey: 'idemp-1',
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 3,
+    }),
+    atomicClaim: vi.fn().mockResolvedValue({
+      claimed: true,
+      claimId: 'claim-1',
+      delivery: { _id: 'delivery-1', status: 'dispatching', attempts: 1 },
+    }),
+    recordSuccess: vi.fn().mockResolvedValue({}),
+    recordFailure: vi.fn().mockResolvedValue({}),
+    recordReconciliationRequired: vi.fn().mockResolvedValue({}),
+    getById: vi.fn().mockResolvedValue(null),
+  },
 }));
 
 vi.mock('@/lib/server/socialAutomation', () => ({
@@ -47,14 +79,51 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
       enabled: true,
       label: 'n8n webhook automation',
     });
+    getSocialDraftContentSourcesMock.mockResolvedValue({
+      store: 'file',
+      story: {
+        _id: 'story-1',
+        title: 'Story 1',
+        workflow: { status: 'approved' },
+        videoUrl: 'https://cdn.example.com/final.mp4',
+        linkedArticleId: 'article-1',
+      },
+      article: {
+        _id: 'article-1',
+        title: 'Article 1',
+        status: 'published',
+        version: 1,
+      },
+    });
   });
+
+  it.each(['admin', 'copy_editor', 'reporter'] as const)(
+    'returns 403 for %s without invoking outbound automation',
+    async (role) => {
+      getAdminSessionMock.mockResolvedValue({
+        id: `${role}-1`,
+        email: `${role}@example.com`,
+        name: role,
+        role,
+      });
+
+      const { POST } = await import('@/app/api/admin/social-posts/[id]/dispatch/route');
+      const response = await POST(createRequest(), {
+        params: Promise.resolve({ id: 'social-1' }),
+      });
+
+      expect(response.status).toBe(403);
+      expect(dispatchSocialPostToAutomationMock).not.toHaveBeenCalled();
+      expect(updateStoredSocialPostMock).not.toHaveBeenCalled();
+    }
+  );
 
   it('blocks dispatch until the draft is approved', async () => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     getStoredSocialPostByIdMock.mockResolvedValue({
       _id: 'social-1',
@@ -78,14 +147,14 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
     expect(response.status).toBe(400);
     expect(payload.error).toContain('Approve or schedule');
     expect(dispatchSocialPostToAutomationMock).not.toHaveBeenCalled();
-  });
+  }, 15000);
 
   it('sends approved drafts to automation and marks them publishing', async () => {
     getAdminSessionMock.mockResolvedValue({
-      id: 'admin-1',
-      email: 'desk@example.com',
-      name: 'Desk',
-      role: 'admin',
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
     });
     getStoredSocialPostByIdMock.mockResolvedValue({
       _id: 'social-1',
@@ -138,5 +207,60 @@ describe('/api/admin/social-posts/[id]/dispatch route', () => {
         automationProvider: 'n8n',
       })
     );
-  });
+  }, 15000);
+
+  it('allows failed posts to retry and persists a provider failure state', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      role: 'super_admin',
+    });
+    getStoredSocialPostByIdMock.mockResolvedValue({
+      _id: 'social-1',
+      sourceStoryId: 'story-1',
+      sourceArticleId: 'article-1',
+      platform: 'facebook',
+      status: 'failed',
+      caption: 'Caption',
+      hashtags: '#Lokswami',
+      thumbnailUrl: '',
+      videoUrl: 'https://cdn.example.com/final.mp4',
+      scheduledAt: null,
+    });
+    dispatchSocialPostToAutomationMock.mockRejectedValue(new Error('Provider unavailable'));
+    updateStoredSocialPostMock.mockImplementation(
+      async (_id: string, updates: Record<string, unknown>) => ({
+        _id: 'social-1',
+        sourceStoryId: 'story-1',
+        platform: 'facebook',
+        ...updates,
+      })
+    );
+
+    const { POST } = await import('@/app/api/admin/social-posts/[id]/dispatch/route');
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: 'social-1' }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(dispatchSocialPostToAutomationMock).toHaveBeenCalledTimes(1);
+    expect(updateStoredSocialPostMock).toHaveBeenCalledWith(
+      'social-1',
+      {
+        status: 'failed',
+        lastError: 'Provider unavailable',
+        automationProvider: 'n8n',
+      }
+    );
+    expect(payload).toEqual({
+      success: false,
+      error: 'Provider unavailable',
+      data: expect.objectContaining({
+        status: 'failed',
+        lastError: 'Provider unavailable',
+      }),
+    });
+  }, 15000);
 });

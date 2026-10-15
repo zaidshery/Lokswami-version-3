@@ -183,7 +183,7 @@ describe('admin Swipe video routes', () => {
     const scheduled = await PATCH(
       request('/api/admin/videos/video-1', 'PATCH', {
         action: 'schedule',
-        scheduledFor: '2026-09-20T08:00:00.000Z',
+        scheduledFor: '2099-09-20T08:00:00.000Z',
       }),
       { params: Promise.resolve({ id: 'video-1' }) }
     );

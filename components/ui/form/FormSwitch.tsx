@@ -7,6 +7,7 @@ export interface FormSwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
+  ariaLabel?: string;
   description?: string;
   disabled?: boolean;
   id?: string;
@@ -17,6 +18,7 @@ export function FormSwitch({
   checked,
   onChange,
   label,
+  ariaLabel,
   description,
   disabled = false,
   id,
@@ -50,13 +52,14 @@ export function FormSwitch({
         id={switchId}
         role="switch"
         aria-checked={checked}
+        aria-label={ariaLabel}
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 ${
           checked ? 'bg-red-600' : 'bg-zinc-200 dark:bg-zinc-700'
         }`}
       >
-        <span className="sr-only">{label || 'Toggle switch'}</span>
+        {!ariaLabel ? <span className="sr-only">{label || 'Toggle switch'}</span> : null}
         <motion.span
           layout
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}

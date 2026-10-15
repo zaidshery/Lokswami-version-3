@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import type { UserRole } from '@/lib/auth/roles';
+import { isReaderRole, type UserRole } from '@/lib/auth/roles';
 import { useAppStore, type AppUser } from '@/lib/store/appStore';
 
 type SavedArticlesPayload = {
@@ -48,7 +48,7 @@ export default function AuthSync() {
   const clearUser = useAppStore((state) => state.clearUser);
 
   const refreshSavedArticles = useCallback(async () => {
-    if (status !== 'authenticated') {
+    if (status !== 'authenticated' || !isReaderRole(session?.user?.role)) {
       return;
     }
 
@@ -73,7 +73,7 @@ export default function AuthSync() {
     } catch (error) {
       console.error('Failed to refresh saved articles from API:', error);
     }
-  }, [setSavedArticles, status]);
+  }, [session?.user?.role, setSavedArticles, status]);
 
   useEffect(() => {
     if (status === 'loading') {
@@ -93,7 +93,9 @@ export default function AuthSync() {
     }
 
     setUser(mappedUser);
-    void refreshSavedArticles();
+    if (isReaderRole(mappedUser.role)) {
+      void refreshSavedArticles();
+    }
   }, [clearUser, refreshSavedArticles, session?.user, setUser, status]);
 
   useEffect(() => {
@@ -104,6 +106,11 @@ export default function AuthSync() {
     const handleSavedArticleUpdated = (
       event: Event
     ) => {
+      const currentUser = useAppStore.getState().currentUser;
+      if (!currentUser || !isReaderRole(currentUser.role)) {
+        return;
+      }
+
       const payload = (event as CustomEvent<{
         articleId?: string;
         saved?: boolean;
@@ -123,11 +130,6 @@ export default function AuthSync() {
       }
 
       if (!payload.articleId || typeof payload.saved !== 'boolean') {
-        return;
-      }
-
-      const currentUser = useAppStore.getState().currentUser;
-      if (!currentUser) {
         return;
       }
 

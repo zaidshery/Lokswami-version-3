@@ -102,7 +102,7 @@ describe('/api/breaking route', () => {
     expect(stale.ttsReady).toBeUndefined();
   });
 
-  it('shows every newly published article newest first and excludes non-public workflow states', async () => {
+  it('shows only active breaking articles and excludes ordinary or non-public workflow states', async () => {
     listAllStoredArticlesMock.mockResolvedValue([
       {
         _id: 'older-popular',
@@ -147,14 +147,11 @@ describe('/api/breaking route', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload.items.map((item: { id: string }) => item.id)).toEqual([
-      'new-standard',
-      'older-popular',
-    ]);
+    expect(payload.items.map((item: { id: string }) => item.id)).toEqual(['older-popular']);
     expect(payload.items[0]).toEqual(
       expect.objectContaining({
-        title: 'Newest standard article',
-        href: '/main/article/new-standard',
+        title: 'Older popular article',
+        href: '/main/article/older-popular',
       })
     );
     expect(payload.items[0].ttsAudioUrl).toBeUndefined();

@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { getAuthHeader } from '@/lib/auth/clientToken';
+import { useStoryUploadPreviews } from '@/components/admin/stories/useStoryUploadPreviews';
 import { isAdminRole, isReporterDeskRole } from '@/lib/auth/roles';
 import { NEWS_CATEGORIES } from '@/lib/constants/newsCategories';
 import {
@@ -96,6 +97,7 @@ function getMediaAssetLabel(asset: StoryMediaAsset) {
 
 type StoryMediaTileProps = {
   asset: StoryMediaAsset;
+  previewUrl?: string;
   kindLabel: string;
   replaceLabel: string;
   removeLabel: string;
@@ -108,6 +110,7 @@ type StoryMediaTileProps = {
 
 function StoryMediaTile({
   asset,
+  previewUrl,
   kindLabel,
   replaceLabel,
   removeLabel,
@@ -130,14 +133,14 @@ function StoryMediaTile({
       >
         {asset.kind === 'image' ? (
           <AdminMediaImage
-            src={asset.url}
+            src={previewUrl || asset.url}
             alt={label}
             className="h-full w-full object-cover"
           />
         ) : (
           <>
             <video
-              src={asset.url}
+              src={previewUrl || asset.url}
               muted
               playsInline
               preload="metadata"
@@ -429,6 +432,7 @@ export default function CreateStoryPage() {
   const language = useAppStore((state) => state.language);
   const [formData, setFormData] = useState<StoryFormData>(() => createInitialFormData());
   const [mediaAssets, setMediaAssets] = useState<StoryMediaAsset[]>([]);
+  const { addUploadPreview, getUploadPreview } = useStoryUploadPreviews(mediaAssets);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
@@ -566,6 +570,7 @@ export default function CreateStoryPage() {
     const body = new FormData();
     body.append('file', file);
     body.append('purpose', 'image');
+    body.append('ownerType', 'story');
 
     const response = await fetch('/api/admin/upload', {
       method: 'POST',
@@ -580,7 +585,8 @@ export default function CreateStoryPage() {
       throw new Error(data.error || t.validation.thumbnailUploadFailed);
     }
 
-    return createStoryMediaAsset({
+    const uploadedAsset = createStoryMediaAsset({
+      assetId: String(data.data?.assetId || ''),
       kind: 'image',
       url: String(data.data?.url || ''),
       key: String(data.data?.publicId || ''),
@@ -590,6 +596,8 @@ export default function CreateStoryPage() {
       originalFileName: file.name,
       order,
     });
+    addUploadPreview(uploadedAsset, file);
+    return uploadedAsset;
   };
 
   const handleThumbnailFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -684,6 +692,7 @@ export default function CreateStoryPage() {
         success?: boolean;
         error?: string;
         data?: {
+          assetId?: string;
           mediaKey?: string;
           mediaUrl?: string;
           uploadUrl?: string;
@@ -691,7 +700,7 @@ export default function CreateStoryPage() {
         };
       };
 
-      if (!initResponse.ok || !initPayload.success || !initPayload.data?.uploadUrl || !initPayload.data.mediaKey) {
+      if (!initResponse.ok || !initPayload.success || !initPayload.data?.uploadUrl || !initPayload.data.mediaKey || !initPayload.data.assetId) {
         throw new Error(initPayload.error || 'Failed to initialize video upload.');
       }
 
@@ -709,7 +718,7 @@ export default function CreateStoryPage() {
           ...getAuthHeader(),
         },
         body: JSON.stringify({
-          mediaKey: initPayload.data.mediaKey,
+          assetId: initPayload.data.assetId,
           expectedSize: file.size,
           expectedFileType: file.type || 'video/mp4',
           expectedFileName: file.name,
@@ -719,6 +728,7 @@ export default function CreateStoryPage() {
         success?: boolean;
         error?: string;
         data?: {
+          assetId?: string;
           mediaUrl?: string;
           mediaKey?: string;
           mediaSizeBytes?: number;
@@ -732,6 +742,7 @@ export default function CreateStoryPage() {
       }
 
       const uploadedAsset = createStoryMediaAsset({
+        assetId: String(completePayload.data?.assetId || ''),
         kind: 'video',
         url: String(completePayload.data?.mediaUrl || ''),
         key: String(completePayload.data?.mediaKey || ''),
@@ -741,6 +752,7 @@ export default function CreateStoryPage() {
         originalFileName: file.name,
         order,
       });
+      addUploadPreview(uploadedAsset, file);
       setSuccess(t.status.videoReady);
       return uploadedAsset;
     } catch (uploadError) {
@@ -1024,6 +1036,7 @@ export default function CreateStoryPage() {
                         <StoryMediaTile
                           key={asset.id}
                           asset={asset}
+                        previewUrl={getUploadPreview(asset)}
                           kindLabel={t.media.imageCount}
                           replaceLabel={t.media.replace}
                           removeLabel={t.media.remove}
@@ -1085,6 +1098,7 @@ export default function CreateStoryPage() {
                         <StoryMediaTile
                           key={asset.id}
                           asset={asset}
+                        previewUrl={getUploadPreview(asset)}
                           kindLabel={t.media.videoCount}
                           replaceLabel={t.media.replace}
                           removeLabel={t.media.remove}
@@ -1527,13 +1541,13 @@ export default function CreateStoryPage() {
             <div className="overflow-hidden rounded-2xl bg-gray-950">
               {previewAsset.asset.kind === 'image' ? (
                 <AdminMediaImage
-                  src={previewAsset.asset.url}
+                  src={getUploadPreview(previewAsset.asset) || previewAsset.asset.url}
                   alt={getMediaAssetLabel(previewAsset.asset)}
                   className="max-h-[75vh] w-full object-contain"
                 />
               ) : (
                 <video
-                  src={previewAsset.asset.url}
+                  src={getUploadPreview(previewAsset.asset) || previewAsset.asset.url}
                   controls
                   autoPlay
                   preload="metadata"

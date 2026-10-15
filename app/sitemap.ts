@@ -1,17 +1,14 @@
 import type { MetadataRoute } from 'next';
 import { EPAPER_CITY_OPTIONS } from '@/lib/constants/epaperCities';
 import { NEWS_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCategories';
-import { listEPapersForSitemap } from '@/lib/content/publicSitemap';
-import {
-  countPublicArticlesForSitemap,
-  getServerArticlePath,
-  listArticlesForSitemap,
-  listArticlesForSitemapSlice,
-} from '@/lib/content/serverArticles';
+import { sitemapContentQueryService } from '@/lib/server/content/sitemapContentQueryService';
+import { getSiteUrl } from '@/lib/seo/articleSeo';
+import { buildEPaperReaderPath } from '@/lib/utils/readerContentPaths';
+import { toAbsolutePublicUrl } from '@/lib/utils/publicUrl';
 
-export const revalidate = 86_400;
+// Publication, scheduling and archive changes must be visible without a stale build-time chunk.
+export const dynamic = 'force-dynamic';
 
-const FALLBACK_SITE_URL = 'http://localhost:3000';
 const ARTICLE_SITEMAP_LIMIT = 5000;
 const SITEMAP_ARTICLE_CHUNK_SIZE = 2500;
 const EPAPER_SITEMAP_LIMIT = 1000;
@@ -22,25 +19,8 @@ type StaticSitemapRoute = {
   priority: number;
 };
 
-function getSiteUrl() {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL || FALLBACK_SITE_URL;
-  return raw.replace(/\/+$/, '');
-}
-
 function absoluteUrl(baseUrl: string, path: string) {
-  if (!path.startsWith('/')) {
-    return `${baseUrl}/${path}`;
-  }
-  return `${baseUrl}${path}`;
-}
-
-function buildEpaperIssuePath(input: { id: string; citySlug: string; publishDate: string }) {
-  const params = new URLSearchParams({
-    paper: input.id,
-    city: input.citySlug,
-    date: input.publishDate,
-  });
-  return `/main/epaper?${params.toString()}`;
+  return toAbsolutePublicUrl(path, baseUrl);
 }
 
 function uniqueEntries(entries: MetadataRoute.Sitemap) {
@@ -49,20 +29,23 @@ function uniqueEntries(entries: MetadataRoute.Sitemap) {
     if (seen.has(entry.url)) return false;
     seen.add(entry.url);
     return true;
-  });
+  }).map((entry) => ({
+    ...entry,
+    // Next.js 15 serializes <loc> verbatim; escape only at this XML boundary.
+    url: entry.url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+  }));
 }
 
 /**
  * Next.js App Router dynamic sitemap indexing.
- * Generates an index of sitemaps chunked at 2,500 articles each,
+ * Generates chunk IDs for sitemaps containing 2,500 articles each.
+ * The /sitemap.xml route exposes these chunks in a sitemap index,
  * lifting the previous hardcoded 5,000 article limit.
  */
 export async function generateSitemaps(): Promise<Array<{ id: number }>> {
-  const totalArticles =
-    typeof countPublicArticlesForSitemap === 'function'
-      ? await countPublicArticlesForSitemap()
-      : 0;
-  const chunkCount = Math.max(1, Math.ceil(totalArticles / SITEMAP_ARTICLE_CHUNK_SIZE));
+  const chunkCount = await sitemapContentQueryService.countArticleChunks(
+    SITEMAP_ARTICLE_CHUNK_SIZE
+  );
   return Array.from({ length: chunkCount }, (_, index) => ({ id: index }));
 }
 
@@ -87,16 +70,16 @@ export default async function sitemap(props?: {
 
   // If this is a chunked request for page > 0, return only that article slice
   if (isChunkedRequest && sitemapId > 0) {
-    const articles = typeof listArticlesForSitemapSlice === 'function'
-      ? await listArticlesForSitemapSlice({
-          skip: sitemapId * SITEMAP_ARTICLE_CHUNK_SIZE,
-          limit: SITEMAP_ARTICLE_CHUNK_SIZE,
-        })
-      : await listArticlesForSitemap(SITEMAP_ARTICLE_CHUNK_SIZE);
+    const articles = await sitemapContentQueryService.listArticles({
+      isChunkedRequest: true,
+      sitemapId,
+      chunkSize: SITEMAP_ARTICLE_CHUNK_SIZE,
+      legacyLimit: ARTICLE_SITEMAP_LIMIT,
+    });
 
     const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
-      url: absoluteUrl(siteUrl, getServerArticlePath(article)),
-      lastModified: new Date(article.updatedAt),
+      url: absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article)),
+      lastModified: article.updatedAt ? new Date(article.updatedAt) : undefined,
       changeFrequency: 'weekly',
       priority: 0.8,
     }));
@@ -106,7 +89,6 @@ export default async function sitemap(props?: {
 
   // Base routes: static pages, categories, and e-paper editions
   const staticRoutes: StaticSitemapRoute[] = [
-    { path: '/', changeFrequency: 'daily', priority: 0.7 },
     { path: '/main', changeFrequency: 'hourly', priority: 1 },
     { path: '/main/latest', changeFrequency: 'hourly', priority: 0.9 },
     { path: '/main/videos', changeFrequency: 'daily', priority: 0.8 },
@@ -114,7 +96,6 @@ export default async function sitemap(props?: {
     { path: '/main/epaper', changeFrequency: 'daily', priority: 0.85 },
     { path: '/main/e-magazine', changeFrequency: 'monthly', priority: 0.7 },
     { path: '/main/elections', changeFrequency: 'daily', priority: 0.7 },
-    { path: '/main/search', changeFrequency: 'weekly', priority: 0.45 },
     { path: '/main/digital-newsroom', changeFrequency: 'weekly', priority: 0.55 },
     { path: '/main/about', changeFrequency: 'monthly', priority: 0.5 },
     { path: '/main/contact', changeFrequency: 'monthly', priority: 0.5 },
@@ -142,30 +123,31 @@ export default async function sitemap(props?: {
   }));
 
   const epaperCityEntries: MetadataRoute.Sitemap = EPAPER_CITY_OPTIONS.map((city) => ({
-    url: absoluteUrl(siteUrl, `/main/epaper?city=${encodeURIComponent(city.slug)}`),
+    url: absoluteUrl(siteUrl, buildEPaperReaderPath({ city: city.slug })),
     lastModified: now,
     changeFrequency: 'daily',
     priority: 0.65,
   }));
 
-  const epapers = await listEPapersForSitemap(EPAPER_SITEMAP_LIMIT);
+  const epapers = await sitemapContentQueryService.listEPapers(EPAPER_SITEMAP_LIMIT);
   const epaperEntries: MetadataRoute.Sitemap = epapers.map((paper) => ({
-    url: absoluteUrl(siteUrl, buildEpaperIssuePath(paper)),
+    url: absoluteUrl(siteUrl, buildEPaperReaderPath({ paperId: paper.id, city: paper.citySlug, publishDate: paper.publishDate })),
     lastModified: new Date(paper.updatedAt),
     changeFrequency: 'weekly',
     priority: 0.7,
   }));
 
   // Fetch articles: chunked requests fetch slice 0; legacy unparameterized calls fetch up to ARTICLE_SITEMAP_LIMIT
-  const articles = isChunkedRequest
-    ? typeof listArticlesForSitemapSlice === 'function'
-      ? await listArticlesForSitemapSlice({ skip: 0, limit: SITEMAP_ARTICLE_CHUNK_SIZE })
-      : await listArticlesForSitemap(SITEMAP_ARTICLE_CHUNK_SIZE)
-    : await listArticlesForSitemap(ARTICLE_SITEMAP_LIMIT);
+  const articles = await sitemapContentQueryService.listArticles({
+    isChunkedRequest,
+    sitemapId: 0,
+    chunkSize: SITEMAP_ARTICLE_CHUNK_SIZE,
+    legacyLimit: ARTICLE_SITEMAP_LIMIT,
+  });
 
   const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
-    url: absoluteUrl(siteUrl, getServerArticlePath(article)),
-    lastModified: new Date(article.updatedAt),
+    url: absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article)),
+    lastModified: article.updatedAt ? new Date(article.updatedAt) : undefined,
     changeFrequency: 'weekly',
     priority: 0.8,
   }));

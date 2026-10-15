@@ -75,7 +75,7 @@ describe('e-paper direct upload admin routes', () => {
   });
 
   it('initializes signed upload targets for valid e-paper assets', async () => {
-    getAdminSessionMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+    getAdminSessionMock.mockResolvedValue({ id: 'super-admin-1', role: 'super_admin' });
     createEpaperAssetUploadTargetMock.mockReturnValue({
       kind: 'epaper_pdf',
       mediaKey: 'lokswami/epapers/indore/2026-05-05/pdf/edition.pdf',
@@ -125,7 +125,7 @@ describe('e-paper direct upload admin routes', () => {
   });
 
   it('returns init validation failures before creating signed URLs', async () => {
-    getAdminSessionMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+    getAdminSessionMock.mockResolvedValue({ id: 'super-admin-1', role: 'super_admin' });
     validateEpaperAssetSelectionMock.mockReturnValue('E-paper PDF must be a PDF file.');
 
     const { POST } = await import('@/app/api/admin/uploads/epaper-asset/init/route');
@@ -150,7 +150,7 @@ describe('e-paper direct upload admin routes', () => {
   });
 
   it('verifies completed non-audio assets before returning metadata', async () => {
-    getAdminSessionMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+    getAdminSessionMock.mockResolvedValue({ id: 'super-admin-1', role: 'super_admin' });
     verifyEpaperAssetUploadMock.mockResolvedValue({
       kind: 'epaper_thumbnail',
       mediaUrl: 'https://cdn.example.com/lokswami/epapers/indore/2026-05-05/thumbnail/cover.jpg',
@@ -199,7 +199,11 @@ describe('e-paper direct upload admin routes', () => {
   it('creates a ready manual TTS asset after audio upload verification', async () => {
     const epaperId = '665000000000000000000001';
     const articleId = '665000000000000000000002';
-    getAdminSessionMock.mockResolvedValue({ id: 'admin-1', role: 'admin', email: 'admin@example.com' });
+    getAdminSessionMock.mockResolvedValue({
+      id: 'super-admin-1',
+      role: 'super_admin',
+      email: 'owner@example.com',
+    });
     verifyEpaperAssetUploadMock.mockResolvedValue({
       kind: 'epaper_story_audio',
       mediaUrl: 'https://cdn.example.com/lokswami/tts/epaperArticle/665/manual/listen.mp3',
@@ -280,8 +284,29 @@ describe('e-paper direct upload admin routes', () => {
     );
   });
 
+  it.each(['initializing', 'failed'])('rejects manual audio writes to a %s revision', async (revisionInitializationStatus) => {
+    const epaperId = '665000000000000000000001';
+    const articleId = '665000000000000000000002';
+    getAdminSessionMock.mockResolvedValue({ id: 'super-admin-1', role: 'super_admin' });
+    verifyEpaperAssetUploadMock.mockResolvedValue({ mediaUrl: 'https://cdn.example.com/audio.mp3' });
+    const select = vi.fn().mockResolvedValue({
+      _id: epaperId, status: 'draft', productionStatus: 'hotspot_mapping', revisionInitializationStatus,
+    });
+    epaperFindByIdMock.mockReturnValue({ select });
+    epaperArticleFindOneMock.mockReturnValue({
+      select: vi.fn().mockResolvedValue({ _id: articleId, epaperId, pageNumber: 1 }),
+    });
+    const { POST } = await import('@/app/api/admin/uploads/epaper-asset/complete/route');
+    const response = await POST(createJsonRequest({
+      kind: 'epaper_story_audio', mediaKey: 'manual/audio.mp3', epaperId, articleId,
+    }));
+    expect(response.status).toBe(409);
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('revisionInitializationStatus'));
+    expect(saveManualTtsAssetMock).not.toHaveBeenCalled();
+  });
+
   it('keeps the legacy multipart upload route as a friendly no-body fallback', async () => {
-    getAdminSessionFromReqMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+    getAdminSessionFromReqMock.mockResolvedValue({ id: 'super-admin-1', role: 'super_admin' });
     const formDataMock = vi.fn(() => {
       throw new Error('body disturbed');
     });
@@ -298,5 +323,24 @@ describe('e-paper direct upload admin routes', () => {
       error:
         'Direct DigitalOcean upload is required for e-paper files. Please use the updated CMS upload screen.',
     });
+  });
+
+  it('rejects ordinary admins before initializing an e-paper upload', async () => {
+    getAdminSessionMock.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+
+    const { POST } = await import('@/app/api/admin/uploads/epaper-asset/init/route');
+    const response = await POST(
+      createJsonRequest({
+        kind: 'epaper_pdf',
+        fileName: 'edition.pdf',
+        fileType: 'application/pdf',
+        fileSize: 1024,
+        citySlug: 'indore',
+        publishDate: '2026-05-05',
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(createEpaperAssetUploadTargetMock).not.toHaveBeenCalled();
   });
 });

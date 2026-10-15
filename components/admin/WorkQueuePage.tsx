@@ -24,9 +24,15 @@ export default async function WorkQueuePage({
 }) {
   const admin = await getAdminSession();
   if (!admin) redirect(`/signin?redirect=${encodeURIComponent(routePath)}`);
-  if (!canOpenWorkQueue(admin.role) || !canViewPage(admin.role, requiredPageKey)) redirect('/admin');
+  if (!canOpenWorkQueue(admin.role) || !canViewPage(admin.role, requiredPageKey)) {
+    if (routePath === '/admin/work' && !canViewPage(admin.role, 'work_queue')) {
+      redirect('/admin');
+    }
+    redirect('/admin/work?access=denied');
+  }
 
   const params = await searchParams;
+  const isMyWorkRoute = routePath === '/admin/my-work' || requiredPageKey === 'my_work';
   const overview = await getWorkQueueOverview(admin, {
     view: (value(params, 'view') as WorkQueueView | undefined) || defaultView,
     contentType: value(params, 'contentType') as never,
@@ -36,6 +42,7 @@ export default async function WorkQueuePage({
     search: value(params, 'search'),
     sort: value(params, 'sort') as never,
     cursor: value(params, 'cursor'),
+    mineOnly: isMyWorkRoute,
   });
 
   return <WorkQueueWorkbench role={admin.role} overview={overview} routePath={routePath} />;

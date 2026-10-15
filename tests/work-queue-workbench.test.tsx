@@ -37,8 +37,8 @@ describe('WorkQueueWorkbench interaction', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('keeps pagination in the URL and exposes mobile-safe triage selection', () => {
-    render(<WorkQueueWorkbench role="reporter" overview={overview} routePath="/admin/work" />);
+  it('keeps pagination in the URL and exposes mobile-safe triage selection to an authorized Admin', () => {
+    render(<WorkQueueWorkbench role="admin" overview={overview} routePath="/admin/work" />);
     expect(screen.getByRole('link', { name: 'Next page' })).toHaveAttribute('href', '/admin/work?view=mine&cursor=30');
     expect(screen.getByText('Select for triage')).toBeInTheDocument();
   });

@@ -7,7 +7,7 @@ export default async function PollsPage() {
   const admin = await getAdminSession();
 
   if (!admin || !canViewPage(admin.role, 'polls')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   return <PollManagementClient />;

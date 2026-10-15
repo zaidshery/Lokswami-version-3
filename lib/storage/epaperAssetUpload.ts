@@ -356,3 +356,9 @@ export async function verifyEpaperAssetUpload(input: {
     storageProvider: EPAPER_ASSET_STORAGE_PROVIDER,
   } satisfies EpaperUploadedAsset;
 }
+
+export {
+  createEpaperUploadReceipt,
+  verifyEpaperUploadReceipt,
+  type EpaperUploadReceiptPayload,
+} from './epaperUploadReceipt';

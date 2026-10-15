@@ -7,7 +7,9 @@ import { motion } from 'framer-motion';
 import { formatUserRoleLabel, type AdminRole } from '@/lib/auth/roles';
 import { formatUiDateTime } from '@/lib/utils/dateFormat';
 import { uploadAuthorProfileImage } from '@/lib/utils/authorProfileImageUpload';
+import { getSystemControlErrorMessage } from '@/lib/admin/systemControlFeedback';
 import AccountDirectoryTabs from '@/components/admin/AccountDirectoryTabs';
+import ConfirmModal from '@/components/ui/modal/ConfirmModal';
 
 type TeamMember = {
   id: string;
@@ -82,8 +84,13 @@ export default function TeamManagementClient({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [linkFallback, setLinkFallback] = useState<{ href: string; actionLabel: string } | null>(null);
+  const [pendingMemberAction, setPendingMemberAction] = useState<{
+    member: TeamMember;
+    kind: 'toggle' | 'demote';
+  } | null>(null);
 
   useEffect(() => {
     void fetchMembers();
@@ -129,18 +136,22 @@ export default function TeamManagementClient({
   async function fetchMembers() {
     setIsLoading(true);
     setError('');
+    setLoadFailed(false);
 
     try {
       const response = await fetch('/api/admin/team', { cache: 'no-store' });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to load team members');
+        throw new Error(
+          getSystemControlErrorMessage(response, payload, 'Unable to load the newsroom team.')
+        );
       }
 
       const nextMembers = (Array.isArray(payload.data) ? payload.data : []) as TeamMember[];
       setMembers(nextMembers);
     } catch (err) {
+      setLoadFailed(true);
       setError(err instanceof Error ? err.message : 'Failed to load team members');
     } finally {
       setIsLoading(false);
@@ -185,10 +196,12 @@ export default function TeamManagementClient({
         },
         body: JSON.stringify({ name, email, role }),
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to invite member');
+        throw new Error(
+          getSystemControlErrorMessage(response, payload, 'Unable to add this staff member.')
+        );
       }
 
       const setupLink = typeof payload?.data?.setupLink === 'string' ? payload.data.setupLink : '';
@@ -230,10 +243,12 @@ export default function TeamManagementClient({
         },
         body: JSON.stringify(updates),
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to update member');
+        throw new Error(
+          getSystemControlErrorMessage(response, payload, 'Unable to update this staff account.')
+        );
       }
 
       setToastMessage('Member updated');
@@ -253,10 +268,16 @@ export default function TeamManagementClient({
       const response = await fetch(`/api/admin/team/${id}`, {
         method: 'DELETE',
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to remove member');
+        throw new Error(
+          getSystemControlErrorMessage(
+            response,
+            payload,
+            'Unable to move this staff account to the reader directory.'
+          )
+        );
       }
 
       setToastMessage('Member moved to reader');
@@ -290,10 +311,12 @@ export default function TeamManagementClient({
       const response = await fetch(`/api/admin/team/${member.id}/setup-link`, {
         method: 'POST',
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to generate setup link');
+        throw new Error(
+          getSystemControlErrorMessage(response, payload, 'Unable to generate a setup link.')
+        );
       }
 
       const setupLink = typeof payload?.data?.setupLink === 'string' ? payload.data.setupLink : '';
@@ -367,7 +390,7 @@ export default function TeamManagementClient({
             <button
               type="button"
               onClick={() => setInviteOpen((current) => !current)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
               aria-expanded={inviteOpen}
             >
               <UserPlus className="h-4 w-4" />
@@ -391,23 +414,40 @@ export default function TeamManagementClient({
           </div>
         </div>
 
-        {inviteOpen ? <div className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_220px_auto]">
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Name (optional)"
-            className="rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-red-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-          />
-          <input
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="email@example.com"
-            className="rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-red-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-          />
+        {inviteOpen ? <div className="mt-5 grid items-end gap-3 md:grid-cols-[1fr_1fr_220px_auto]">
+          <label className="grid gap-1.5 text-xs font-semibold text-[color:var(--admin-shell-text-muted)]" htmlFor="team-member-name">
+            Name (optional)
+            <input
+              id="team-member-name"
+              name="team-member-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              autoComplete="name"
+              className="min-h-11 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-normal text-zinc-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-500/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+          </label>
+          <label className="grid gap-1.5 text-xs font-semibold text-[color:var(--admin-shell-text-muted)]" htmlFor="team-member-email">
+            Staff email
+            <input
+              id="team-member-email"
+              name="team-member-email"
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="email@example.com"
+              autoComplete="email"
+              className="min-h-11 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-normal text-zinc-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-500/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+          </label>
+          <label className="grid gap-1.5 text-xs font-semibold text-[color:var(--admin-shell-text-muted)]" htmlFor="team-member-role">
+            Staff role
           <select
+            id="team-member-role"
+            name="team-member-role"
             value={role}
             onChange={(event) => setRole(event.target.value as AdminRole)}
-            className="rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-red-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="min-h-11 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-normal text-zinc-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-500/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             {adminRoleOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -415,6 +455,7 @@ export default function TeamManagementClient({
               </option>
             ))}
           </select>
+          </label>
           <button
             type="button"
             onClick={() => void handleInvite()}
@@ -426,8 +467,8 @@ export default function TeamManagementClient({
           </button>
         </div> : null}
 
-        {error ? (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+        {error && !loadFailed ? (
+          <div role="alert" aria-live="assertive" className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
             {error}
           </div>
         ) : null}
@@ -500,8 +541,14 @@ export default function TeamManagementClient({
 
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {isLoading ? (
-          <div className="col-span-full flex items-center justify-center rounded-3xl border border-zinc-200 bg-white p-10 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div role="status" aria-live="polite" className="col-span-full flex items-center justify-center gap-3 rounded-3xl border border-zinc-200 bg-white p-10 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <Loader2 className="h-6 w-6 animate-spin text-red-500" />
+            <span>Loading team members...</span>
+          </div>
+        ) : loadFailed && members.length === 0 ? (
+          <div role="alert" className="col-span-full rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+            <p className="font-bold">The newsroom team could not be loaded.</p>
+            <button type="button" onClick={() => void fetchMembers()} className="mt-3 min-h-11 rounded-xl border border-red-300 px-4 py-2 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500">Retry</button>
           </div>
         ) : visibleMembers.length === 0 ? (
           <div className="col-span-full rounded-3xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 shadow-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
@@ -617,6 +664,9 @@ export default function TeamManagementClient({
                       </button>
                     </div>
                     <select
+                      id={`team-role-${member.id}`}
+                      name={`team-role-${member.id}`}
+                      aria-label={`Role for ${member.name || member.email}`}
                       value={member.role}
                       onChange={(event) =>
                         void updateMember(member.id, { role: event.target.value as AdminRole })
@@ -648,7 +698,7 @@ export default function TeamManagementClient({
 
                       <button
                         type="button"
-                        onClick={() => void updateMember(member.id, { isActive: !member.isActive })}
+                        onClick={() => setPendingMemberAction({ member, kind: 'toggle' })}
                         disabled={isBusy}
                         className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-zinc-300 px-2 py-2.5 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
                       >
@@ -659,17 +709,17 @@ export default function TeamManagementClient({
                         ) : (
                           <ShieldCheck className="h-4 w-4" />
                         )}
-                        <span>{member.isActive ? 'Off' : 'On'}</span>
+                        <span>{member.isActive ? 'Deactivate' : 'Activate'}</span>
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => void demoteMember(member.id)}
+                        onClick={() => setPendingMemberAction({ member, kind: 'demote' })}
                         disabled={isBusy}
                         className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-red-200 px-2 py-2.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/30 dark:text-red-300 dark:hover:bg-red-500/10"
                       >
                         {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        <span>Remove</span>
+                        <span>Move to reader</span>
                       </button>
                     </div>
                   </div>
@@ -682,9 +732,38 @@ export default function TeamManagementClient({
       </section>
 
       {toastMessage ? (
-        <div className="pointer-events-none fixed bottom-6 right-6 z-50 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 shadow-lg dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <div role="status" aria-live="polite" className="pointer-events-none fixed bottom-6 right-6 z-50 max-w-[calc(100vw-3rem)] rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 shadow-lg dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
           {toastMessage}
         </div>
+      ) : null}
+
+      {pendingMemberAction ? (
+        <ConfirmModal
+          isOpen
+          onClose={() => setPendingMemberAction(null)}
+          onConfirm={async () => {
+            const { member, kind } = pendingMemberAction;
+            if (kind === 'toggle') {
+              await updateMember(member.id, { isActive: !member.isActive });
+            } else {
+              await demoteMember(member.id);
+            }
+            setPendingMemberAction(null);
+          }}
+          isLoading={activeMemberId === pendingMemberAction.member.id}
+          title={pendingMemberAction.kind === 'demote'
+            ? `Move ${pendingMemberAction.member.name || pendingMemberAction.member.email} to readers?`
+            : `${pendingMemberAction.member.isActive ? 'Deactivate' : 'Activate'} ${pendingMemberAction.member.name || pendingMemberAction.member.email}?`}
+          message={pendingMemberAction.kind === 'demote'
+            ? 'This removes newsroom access and changes the account to Reader. At least one active Super Admin must remain.'
+            : pendingMemberAction.member.isActive
+              ? 'This staff member will immediately lose newsroom access. At least one active Super Admin must remain.'
+              : 'This staff member will regain newsroom access with their current role.'}
+          confirmLabel={pendingMemberAction.kind === 'demote'
+            ? 'Move to reader'
+            : pendingMemberAction.member.isActive ? 'Deactivate' : 'Activate'}
+          variant={pendingMemberAction.kind === 'demote' || pendingMemberAction.member.isActive ? 'danger' : 'primary'}
+        />
       ) : null}
     </div>
   );

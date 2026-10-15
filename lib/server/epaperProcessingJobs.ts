@@ -1,8 +1,12 @@
 import 'server-only';
 
 import crypto from 'crypto';
+import { Types } from 'mongoose';
 import EPaper from '@/lib/models/EPaper';
 import EPaperProcessingJob from '@/lib/models/EPaperProcessingJob';
+import EPaperOcrSuggestion from '@/lib/models/EPaperOcrSuggestion';
+import { epaperRepository } from '@/lib/server/epaper/epaperRepository';
+import { PROTECTED_EPAPER_AUTOMATION_IDS } from '@/lib/server/epaperAutomationPolicy';
 import {
   buildEpaperActivityMessage,
   recordEpaperActivity,
@@ -21,9 +25,18 @@ import { normalizeEPaperPublicationType } from '@/lib/types/epaper';
 import { shouldUseGlobalPublicationScope } from '@/lib/utils/epaperPublication';
 import { withDistributedLock } from '@/lib/security/distributedLock';
 import { queueEpaperOcr } from '@/lib/server/epaperOcrJobs';
+import { assertEpaperDraftEditable } from '@/lib/server/epaperWorkflowPolicy';
+import { EpaperConflictError } from '@/lib/server/epaper/epaperTypes';
+import {
+  EPAPER_PROCESSING_ERROR_CODES,
+  EpaperProcessingError,
+} from '@/lib/server/epaperProcessingErrors';
+
+export { EPAPER_PROCESSING_ERROR_CODES, EpaperProcessingError };
 
 const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000];
-const LEASE_MS = 10 * 60_000;
+export const LEASE_MS = 10 * 60_000;
+export const EPAPER_MAX_PAGES = 1000;
 
 export function isEpaperBackgroundProcessingEnabled(citySlug?: string) {
   if (process.env.EPAPER_BACKGROUND_PROCESSING_ENABLED?.trim() === '0') {
@@ -42,12 +55,12 @@ export function isEpaperBackgroundProcessingEnabled(citySlug?: string) {
   );
 }
 
-function uniquePageNumbers(values: number[]) {
+export function uniquePageNumbers(values: number[]) {
   return Array.from(
     new Set(
       values
         .map((value) => Math.floor(Number(value)))
-        .filter((value) => Number.isFinite(value) && value > 0 && value <= 1000)
+        .filter((value) => Number.isFinite(value) && value > 0 && value <= EPAPER_MAX_PAGES)
     )
   ).sort((left, right) => left - right);
 }
@@ -76,28 +89,172 @@ export function resolveRetryableEpaperPageNumbers(
     : Array.from(retryable).sort((left, right) => left - right);
 }
 
+export function buildPageObjectKey(
+  epaper: {
+    _id?: unknown;
+    publicationType?: unknown;
+    citySlug?: unknown;
+    publishDate?: unknown;
+    revisionNumber?: unknown;
+  },
+  pageNumber: number
+): string {
+  const normalizedPage = Math.floor(Number(pageNumber || 0));
+  if (normalizedPage <= 0 || normalizedPage > EPAPER_MAX_PAGES) {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.PAGE_SEQUENCE_INVALID,
+      `Invalid page number ${pageNumber} for derived asset key.`
+    );
+  }
+
+  const epaperId = String(epaper._id || '').trim();
+  if (!epaperId || epaperId === 'unknown') {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.SOURCE_INVALID,
+      'E-paper ID is required for derived asset key.'
+    );
+  }
+
+  const revisionNumber = Math.max(1, Number(epaper.revisionNumber || 1));
+  const publishDate = new Date(String(epaper.publishDate || ''));
+  const dateFolder = Number.isNaN(publishDate.getTime())
+    ? 'unknown-date'
+    : publishDate.toISOString().slice(0, 10);
+  const cleanCitySlug = String(epaper.citySlug || 'unknown')
+    .replace(/[^a-z0-9_-]/gi, '')
+    .toLowerCase();
+  const revisionFolder = `revision-${revisionNumber}-${epaperId}`;
+  const editionFolder =
+    normalizeEPaperPublicationType(epaper.publicationType) === 'emagazine'
+      ? 'emagazines'
+      : 'epapers';
+  const baseFolder = shouldUseGlobalPublicationScope(epaper.publicationType)
+    ? `lokswami/${editionFolder}/${dateFolder}`
+    : `lokswami/${editionFolder}/${cleanCitySlug || 'unknown'}/${dateFolder}`;
+
+  const key = `${baseFolder}/${revisionFolder}/pages/${String(normalizedPage).padStart(
+    3,
+    '0'
+  )}-rendered.jpg`;
+
+  if (key.includes('..') || key.startsWith('/') || key.includes('\\')) {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.SOURCE_INVALID,
+      'Derived asset key contains illegal path traversal sequences.'
+    );
+  }
+
+  return key;
+}
+
+export function assertValidDerivedPageKey(
+  key: string,
+  expectedEpaperId: string,
+  expectedRevisionNumber: number,
+  expectedPageNumber: number
+): void {
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.SOURCE_INVALID,
+      'Derived asset key is required.'
+    );
+  }
+  if (
+    normalizedKey.includes('..') ||
+    normalizedKey.startsWith('/') ||
+    normalizedKey.includes('\\')
+  ) {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.SOURCE_INVALID,
+      'Derived asset key contains illegal path traversal characters.'
+    );
+  }
+  const revisionMarker = `revision-${expectedRevisionNumber}-${expectedEpaperId}`;
+  if (!normalizedKey.includes(revisionMarker)) {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.SOURCE_INVALID,
+      `Derived asset key does not match revision folder ${revisionMarker}.`
+    );
+  }
+  const pageMarker = `/pages/${String(expectedPageNumber).padStart(3, '0')}-rendered.jpg`;
+  if (!normalizedKey.endsWith(pageMarker)) {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.SOURCE_INVALID,
+      `Derived asset key does not match page file ${pageMarker}.`
+    );
+  }
+}
+
 export async function queueEpaperPageProcessing(input: {
   epaperId: string;
   pageNumbers: number[];
 }) {
+  const epaper = await EPaper.findById(input.epaperId).lean<Record<string, unknown> | null>();
+  if (!epaper) {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.SOURCE_INVALID,
+      'E-paper not found.'
+    );
+  }
+
+  // Enforce draft immutability: published or archived cannot be processed
+  assertEpaperDraftEditable(epaper);
+
+  const expectedPageCount = Math.floor(Number(epaper.pageCount || 0));
+  if (expectedPageCount <= 0 || expectedPageCount > EPAPER_MAX_PAGES) {
+    throw new EpaperProcessingError(
+      EPAPER_PROCESSING_ERROR_CODES.PAGE_COUNT_INVALID,
+      `Invalid e-paper page count: ${expectedPageCount}. Must be between 1 and ${EPAPER_MAX_PAGES}.`
+    );
+  }
+
   const pageNumbers = uniquePageNumbers(input.pageNumbers);
   if (!pageNumbers.length) {
     throw new Error('At least one page is required for processing.');
   }
 
+  for (const pageNumber of pageNumbers) {
+    if (pageNumber > expectedPageCount) {
+      throw new EpaperProcessingError(
+        EPAPER_PROCESSING_ERROR_CODES.PAGE_SEQUENCE_INVALID,
+        `Page number ${pageNumber} exceeds edition page count ${expectedPageCount}.`
+      );
+    }
+  }
+
+  const generation = crypto.randomUUID();
+  const revisionNumber = Math.max(1, Number(epaper.revisionNumber || 1));
+  const sourceKey = String(epaper.pdfPublicId || epaper.pdfPath || '');
+
+  // Atomically set new generation on the edition document
+  await EPaper.findByIdAndUpdate(input.epaperId, {
+    processingGeneration: generation,
+    $inc: { version: 1 },
+  });
+
+  // Cancel prior active jobs for this edition
   await EPaperProcessingJob.updateMany(
     {
       epaperId: input.epaperId,
       kind: 'pdf_pages',
       status: { $in: ['queued', 'processing'] },
     },
-    { status: 'cancelled', completedAt: new Date() }
+    {
+      status: 'cancelled',
+      completedAt: new Date(),
+      leaseOwner: '',
+      leaseExpiresAt: null,
+    }
   );
 
   return EPaperProcessingJob.create({
     epaperId: input.epaperId,
     kind: 'pdf_pages',
     status: 'queued',
+    generation,
+    revisionNumber,
+    sourceKey,
     pageNumbers,
     totalItems: pageNumbers.length,
     processedItems: 0,
@@ -109,20 +266,25 @@ export async function queueEpaperPageProcessing(input: {
   });
 }
 
-async function claimJob() {
+export async function claimJob(options: { jobId?: string; workerId?: string } = {}) {
   const now = new Date();
-  const leaseOwner = `epaper-worker-${process.pid}-${crypto.randomUUID()}`;
+  const leaseOwner = options.workerId || `epaper-worker-${process.pid}-${crypto.randomUUID()}`;
+  const query: Record<string, unknown> = {
+    kind: 'pdf_pages',
+    epaperId: { ['$nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
+    status: { $in: ['queued', 'processing'] },
+    nextAttemptAt: { $lte: now },
+    $or: [
+      { status: 'queued' },
+      { leaseExpiresAt: null },
+      { leaseExpiresAt: { $lte: now } },
+    ],
+  };
+  if (options.jobId) {
+    query._id = options.jobId;
+  }
   return EPaperProcessingJob.findOneAndUpdate(
-    {
-      status: { $in: ['queued', 'processing'] },
-      nextAttemptAt: { $lte: now },
-      kind: 'pdf_pages',
-      $or: [
-        { status: 'queued' },
-        { leaseExpiresAt: null },
-        { leaseExpiresAt: { $lte: now } },
-      ],
-    },
+    query,
     {
       status: 'processing',
       leaseOwner,
@@ -132,35 +294,6 @@ async function claimJob() {
     },
     { new: true, sort: { nextAttemptAt: 1, createdAt: 1 } }
   );
-}
-
-function buildPageObjectKey(epaper: {
-  _id?: unknown;
-  publicationType?: unknown;
-  citySlug?: unknown;
-  publishDate?: unknown;
-  revisionNumber?: unknown;
-}, pageNumber: number) {
-  const publishDate = new Date(String(epaper.publishDate || ''));
-  const dateFolder = Number.isNaN(publishDate.getTime())
-    ? 'unknown-date'
-    : publishDate.toISOString().slice(0, 10);
-  const revisionFolder = `revision-${Math.max(
-    1,
-    Number(epaper.revisionNumber || 1)
-  )}-${String(epaper._id || 'unknown')}`;
-  const editionFolder =
-    normalizeEPaperPublicationType(epaper.publicationType) === 'emagazine'
-      ? 'emagazines'
-      : 'epapers';
-  const baseFolder = shouldUseGlobalPublicationScope(epaper.publicationType)
-    ? `lokswami/${editionFolder}/${dateFolder}`
-    : `lokswami/${editionFolder}/${String(epaper.citySlug || 'unknown')}/${dateFolder}`;
-
-  return `${baseFolder}/${revisionFolder}/pages/${String(pageNumber).padStart(
-    3,
-    '0'
-  )}-rendered.jpg`;
 }
 
 type ProcessingPage = {
@@ -212,36 +345,239 @@ function normalizePages(epaper: {
   });
 }
 
-async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof claimJob>>>) {
+export async function processClaimedJob(
+  job: NonNullable<Awaited<ReturnType<typeof claimJob>>>
+) {
+  if (PROTECTED_EPAPER_AUTOMATION_IDS.has(String(job.epaperId).toLowerCase())) {
+    return { jobId: String(job._id), status: 'cancelled' as const, processed: 0, failed: 0 };
+  }
   const startedAt = Date.now();
+
+  const abortStaleJob = async (
+    reason: string,
+    finalStatus: 'cancelled' | 'failed' = 'cancelled'
+  ) => {
+    await EPaperProcessingJob.findByIdAndUpdate(job._id, {
+      status: finalStatus,
+      lastError: reason,
+      completedAt: new Date(),
+      leaseOwner: '',
+      leaseExpiresAt: null,
+    });
+    logEpaperMetric('conversion_stale_aborted', {
+      jobId: String(job._id),
+      epaperId: String(job.epaperId),
+      reason,
+      durationMs: Date.now() - startedAt,
+    });
+    return { jobId: String(job._id), status: finalStatus, processed: 0, failed: 0 };
+  };
+
+  // 1. Initial verification of the canonical edition
   const epaper = await EPaper.findById(job.epaperId).lean<Record<string, unknown> | null>();
   if (!epaper) {
+    return abortStaleJob('EPAPER_SOURCE_INVALID: E-paper not found.', 'failed');
+  }
+  if (
+    epaper.revisionInitializationStatus === 'initializing' ||
+    epaper.revisionInitializationStatus === 'failed'
+  ) {
+    return abortStaleJob('EPAPER_REVISION_INCOMPLETE: Revision initialization must complete before processing.');
+  }
+
+  // 2. Draft immutability: published or archived editions can NEVER be modified
+  const currentStatus = String(epaper.status || '').toLowerCase();
+  const currentProductionStatus = String(epaper.productionStatus || '').toLowerCase();
+  if (
+    currentStatus === 'published' ||
+    currentProductionStatus === 'published' ||
+    currentStatus === 'archived' ||
+    currentProductionStatus === 'archived'
+  ) {
+    return abortStaleJob(
+      'EPAPER_EDITION_IMMUTABLE: Edition is published or archived and cannot be processed.'
+    );
+  }
+
+  // 3. Stale worker protection: Generation verification
+  if (
+    job.generation &&
+    epaper.processingGeneration &&
+    epaper.processingGeneration !== job.generation
+  ) {
+    return abortStaleJob(
+      'EPAPER_PROCESSING_STALE: Processing generation was superseded by a newer attempt.'
+    );
+  }
+
+  // 4. Stale worker protection: Revision verification
+  const epaperRevision = Math.max(1, Number(epaper.revisionNumber || 1));
+  const jobRevision = Math.max(1, Number(job.revisionNumber || 1));
+  if (job.revisionNumber && epaperRevision !== jobRevision) {
+    return abortStaleJob(
+      'EPAPER_PROCESSING_STALE: Edition revision was superseded.'
+    );
+  }
+
+  // 5. Source PDF verification
+  const canonicalSourceKey = String(epaper.pdfPublicId || '');
+  if (job.sourceKey && canonicalSourceKey && canonicalSourceKey !== job.sourceKey) {
+    return abortStaleJob('EPAPER_PROCESSING_STALE: Source PDF was replaced.');
+  }
+
+  // 6. Source PDF trust (3.9A invariant: no SSRF, validated Spaces URL, 25MB limit, %PDF- signature)
+  const pdfPath = String(epaper.pdfPath || '');
+  if (!pdfPath) {
+    return abortStaleJob('EPAPER_SOURCE_INVALID: Edition has no source PDF path.', 'failed');
+  }
+
+  let pdfBuffer: Buffer;
+  try {
+    pdfBuffer = await downloadVerifiedEpaperPdf(pdfPath);
+  } catch (downloadErr) {
+    const message = downloadErr instanceof Error ? downloadErr.message : 'PDF download failed.';
     await EPaperProcessingJob.findByIdAndUpdate(job._id, {
       status: 'failed',
-      lastError: 'E-paper not found.',
+      lastError: `EPAPER_SOURCE_INVALID: ${message}`,
       completedAt: new Date(),
+      leaseOwner: '',
       leaseExpiresAt: null,
     });
     logEpaperMetric('conversion_failed', {
       jobId: String(job._id),
       epaperId: String(job.epaperId),
-      reason: 'epaper_not_found',
+      reason: 'download_failed',
+      message,
       durationMs: Date.now() - startedAt,
     });
-    return { jobId: String(job._id), status: 'failed', processed: 0, failed: 0 };
+    return {
+      jobId: String(job._id),
+      status: 'failed',
+      processed: 0,
+      failed: job.pageNumbers.length,
+    };
   }
 
-  const pdfBuffer = await downloadVerifiedEpaperPdf(String(epaper.pdfPath || ''));
-  const pages = normalizePages(epaper);
+  // 7. Page count & ordering validation
+  const expectedPageCount = Math.floor(Number(epaper.pageCount || 0));
+  if (expectedPageCount <= 0 || expectedPageCount > EPAPER_MAX_PAGES) {
+    return abortStaleJob(
+      `EPAPER_PAGE_COUNT_INVALID: Expected page count is invalid (${expectedPageCount}).`,
+      'failed'
+    );
+  }
+
+  let pages = normalizePages(epaper);
+  const versionFilter = (snapshot: Record<string, unknown>) => snapshot.version == null
+    ? { version: { $exists: false } } : { version: Number(snapshot.version) };
+  const editionFilter = {
+    _id: job.epaperId, status: 'draft', productionStatus: { $ne: 'archived' },
+    revisionNumber: epaperRevision === 1 ? { $in: [1, null] } : epaperRevision,
+    ...(job.generation ? { processingGeneration: job.generation } : {}),
+  };
+  const changed = () => new EpaperConflictError('Edition changed during PDF processing. Retry with the current page snapshot.');
   let processed = 0;
   const failedPageNumbers: number[] = [];
   const failures: string[] = [];
 
+  // 8. Sequential page rendering with continuous claim & generation re-verification
   for (const pageNumber of job.pageNumbers) {
+    // Re-verify that this worker still holds the lease in Mongo
+    const activeJob = await EPaperProcessingJob.findOne({
+      _id: job._id,
+      status: 'processing',
+      leaseOwner: job.leaseOwner,
+      leaseExpiresAt: { $gt: new Date() },
+    }).lean();
+
+    if (!activeJob) {
+      logEpaperMetric('conversion_stale_aborted', {
+        jobId: String(job._id),
+        epaperId: String(job.epaperId),
+        reason: 'lease_lost_or_cancelled',
+        pageNumber,
+      });
+      return {
+        jobId: String(job._id),
+        status: 'cancelled',
+        processed,
+        failed: failedPageNumbers.length,
+      };
+    }
+
+    // Re-verify that the edition has not been superseded or published
+    const freshEdition = await EPaper.findById(job.epaperId)
+      .select('status productionStatus processingGeneration revisionNumber version pageCount pages')
+      .lean<Record<string, unknown> | null>();
+
+    if (
+      !freshEdition ||
+      freshEdition.status !== 'draft' ||
+      freshEdition.productionStatus === 'archived' ||
+      Number(freshEdition.revisionNumber || 1) !== epaperRevision ||
+      Number(freshEdition.pageCount || expectedPageCount) !== expectedPageCount
+    ) {
+      logEpaperMetric('conversion_stale_aborted', {
+        jobId: String(job._id),
+        epaperId: String(job.epaperId),
+        reason: 'edition_superseded_or_immutable',
+        pageNumber,
+      });
+      return {
+        jobId: String(job._id),
+        status: 'cancelled',
+        processed,
+        failed: failedPageNumbers.length,
+      };
+    }
+
+    if (
+      job.generation &&
+      freshEdition.processingGeneration &&
+      freshEdition.processingGeneration !== job.generation
+    ) {
+      logEpaperMetric('conversion_stale_aborted', {
+        jobId: String(job._id),
+        epaperId: String(job.epaperId),
+        reason: 'generation_superseded_mid_flight',
+        pageNumber,
+      });
+      return {
+        jobId: String(job._id),
+        status: 'cancelled',
+        processed,
+        failed: failedPageNumbers.length,
+      };
+    }
+
+    // Refresh every page before replacing the array, including pages rendered
+    // in earlier loop iterations and independent editor/QA changes.
+    pages = normalizePages({ ...freshEdition, pageCount: expectedPageCount });
     const pageIndex = pages.findIndex((page) => page.pageNumber === pageNumber);
-    if (pageIndex < 0) {
+    if (pageIndex < 0 || pageNumber > expectedPageCount) {
       failedPageNumbers.push(pageNumber);
-      failures.push(`Page ${pageNumber}: page metadata is missing.`);
+      failures.push(`Page ${pageNumber}: page metadata is missing or out of bounds.`);
+      continue;
+    }
+
+    const freshPages = Array.isArray(freshEdition.pages) ? freshEdition.pages : [];
+    const freshPage = freshPages.find((entry) => {
+      const candidate = typeof entry === 'object' && entry
+        ? (entry as Record<string, unknown>)
+        : {};
+      return Number(candidate.pageNumber) === pageNumber;
+    }) as Record<string, unknown> | undefined;
+    if (
+      freshPage?.processingStatus === 'ready' &&
+      String(freshPage.imagePath || '').trim()
+    ) {
+      pages[pageIndex] = {
+        ...pages[pageIndex],
+        ...freshPage,
+        pageNumber,
+        imagePath: String(freshPage.imagePath),
+        processingStatus: 'ready',
+      };
       continue;
     }
 
@@ -250,12 +586,25 @@ async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof clai
       processingStatus: 'processing',
       processingError: '',
     };
-    await EPaper.findByIdAndUpdate(job.epaperId, { pages });
+    const processingWrite = await EPaper.updateOne(
+      { ...editionFilter, ...versionFilter(freshEdition) },
+      { $set: { pages }, $inc: { version: 1 } }
+    );
+    if (!processingWrite.matchedCount) throw changed();
+    const processingVersion = Number(freshEdition.version || 0) + 1;
 
     try {
       const rendered = await renderPdfPageToJpeg({ pdfBuffer, pageNumber });
+      const objectKey = buildPageObjectKey(epaper, pageNumber);
+      assertValidDerivedPageKey(
+        objectKey,
+        String(epaper._id),
+        epaperRevision,
+        pageNumber
+      );
+
       const uploaded = await uploadBufferToDigitalOceanSpaces(rendered.buffer, {
-        publicId: buildPageObjectKey(epaper, pageNumber),
+        publicId: objectKey,
         resourceType: 'image',
         overwrite: true,
         originalFilename: `${pageNumber}.jpg`,
@@ -275,20 +624,30 @@ async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof clai
       };
       processed += 1;
 
-      const automationUpdates = buildEpaperImageAutomationUpdates({
-        pageCount: Number(epaper.pageCount || pages.length),
-        pages,
-        currentThumbnailPath: epaper.thumbnailPath,
-        currentProductionStatus: epaper.productionStatus,
-        currentStatus: epaper.status,
+      // Atomic conditional update on EPaper: only update if still in same draft generation
+      const updateFilter: Record<string, unknown> = {
+        ...editionFilter, version: processingVersion,
+      };
+      if (job.generation) {
+        updateFilter.processingGeneration = job.generation;
+      }
+
+      const updateResult = await EPaper.updateOne(updateFilter, {
+        $set: { pages },
+        $inc: { version: 1 },
       });
-      await EPaper.findByIdAndUpdate(job.epaperId, {
-        pages,
-        ...automationUpdates,
-      });
+      if (updateResult.matchedCount === 0) {
+        // The queue supervisor releases the lease and retries from fresh data.
+        throw changed();
+      }
+
       await queueEpaperOcr(String(job.epaperId), [pageNumber]).catch(() => {
-        logEpaperMetric('ocr_queue_reconciliation_needed', { epaperId: String(job.epaperId), pageNumber });
+        logEpaperMetric('ocr_queue_reconciliation_needed', {
+          epaperId: String(job.epaperId),
+          pageNumber,
+        });
       });
+
       await EPaperProcessingJob.findByIdAndUpdate(job._id, {
         processedItems: processed,
         failedItems: failedPageNumbers.length,
@@ -296,13 +655,20 @@ async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof clai
         leaseExpiresAt: new Date(Date.now() + LEASE_MS),
       });
     } catch (error) {
+      if (error instanceof EpaperConflictError) throw error;
       const message = error instanceof Error ? error.message : 'Page render failed.';
       const isTimeout =
         error instanceof PdfWorkerTimeoutError ||
-        (typeof error === 'object' && error !== null && 'code' in error && (error as { code: unknown }).code === 'PDF_WORKER_TIMEOUT');
+        (typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          (error as { code: unknown }).code === 'PDF_WORKER_TIMEOUT');
       const isMemory =
         error instanceof PdfWorkerMemoryExceededError ||
-        (typeof error === 'object' && error !== null && 'code' in error && (error as { code: unknown }).code === 'PDF_WORKER_MEMORY_EXCEEDED');
+        (typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          (error as { code: unknown }).code === 'PDF_WORKER_MEMORY_EXCEEDED');
 
       if (isTimeout || isMemory) {
         logEpaperMetric('conversion_failed', {
@@ -321,10 +687,59 @@ async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof clai
         processingStatus: 'failed',
         processingError: message,
       };
-      await EPaper.findByIdAndUpdate(job.epaperId, { pages });
+      const failureWrite = await EPaper.updateOne({
+        ...editionFilter, version: processingVersion,
+      }, { $set: { pages }, $inc: { version: 1 } });
+      if (!failureWrite.matchedCount) throw changed();
     }
   }
 
+  // 9. Post-loop Integrity & Readiness Check (Tasks 8, 9, 11, 12)
+  // Ensure strict page order 1..expectedPageCount, no duplicates, no gaps
+  const latestEdition = await EPaper.findById(job.epaperId).lean<Record<string, unknown> | null>();
+  if (!latestEdition || latestEdition.status !== 'draft' || latestEdition.productionStatus === 'archived' ||
+      Number(latestEdition.revisionNumber || 1) !== epaperRevision ||
+      job.generation && latestEdition.processingGeneration !== job.generation ||
+      Number(latestEdition.pageCount || expectedPageCount) !== expectedPageCount) throw changed();
+  const sortedPages = normalizePages({ ...latestEdition, pageCount: expectedPageCount }).sort((a, b) => a.pageNumber - b.pageNumber);
+  const pageNumbersSet = new Set(sortedPages.map((p) => p.pageNumber));
+  const hasExactSequence =
+    sortedPages.length === expectedPageCount &&
+    pageNumbersSet.size === expectedPageCount &&
+    sortedPages.every((p, idx) => p.pageNumber === idx + 1);
+
+  const allPagesReady =
+    hasExactSequence &&
+    sortedPages.every(
+      (p) =>
+        p.processingStatus === 'ready' &&
+        String(p.imagePath || '').trim().length > 0
+    );
+
+  const automationUpdates = buildEpaperImageAutomationUpdates({
+    pageCount: expectedPageCount,
+    pages: sortedPages,
+    currentThumbnailPath: latestEdition.thumbnailPath,
+    currentProductionStatus: latestEdition.productionStatus,
+    currentStatus: latestEdition.status,
+    deferWorkflow: true,
+  });
+  if (allPagesReady || Object.keys(automationUpdates).length > 0) {
+    const updateFilter: Record<string, unknown> = {
+      ...editionFilter, ...versionFilter(latestEdition),
+    };
+    if (job.generation) {
+      updateFilter.processingGeneration = job.generation;
+    }
+
+    const finalWrite = await EPaper.updateOne(updateFilter, {
+      $set: { pages: sortedPages, ...automationUpdates },
+      $inc: { version: 1 },
+    });
+    if (!finalWrite.matchedCount) throw changed();
+  }
+
+  // 10. Update EPaperProcessingJob status
   const currentAttempt = Number(job.attemptCount || 1);
   const shouldRetry =
     failedPageNumbers.length > 0 && currentAttempt < Number(job.maxAttempts || 4);
@@ -336,7 +751,9 @@ async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof clai
         : 'failed'
       : 'completed';
   const delay =
-    RETRY_DELAYS_MS[Math.min(Math.max(currentAttempt - 1, 0), RETRY_DELAYS_MS.length - 1)];
+    RETRY_DELAYS_MS[
+      Math.min(Math.max(currentAttempt - 1, 0), RETRY_DELAYS_MS.length - 1)
+    ];
 
   await EPaperProcessingJob.findByIdAndUpdate(job._id, {
     status: finalStatus,
@@ -369,12 +786,15 @@ async function processClaimedJob(job: NonNullable<Awaited<ReturnType<typeof clai
         backgroundJob: true,
         processed,
         failedPageNumbers,
+        generation: job.generation,
       },
     });
   }
+
   logEpaperMetric(shouldRetry ? 'conversion_retry_scheduled' : 'conversion_completed', {
     jobId: String(job._id),
     epaperId: String(job.epaperId),
+    generation: job.generation,
     attempt: currentAttempt,
     processedPages: processed,
     failedPages: failedPageNumbers.length,
@@ -434,6 +854,7 @@ export async function processQueuedEpaperJobs(options: { limit?: number } = {}) 
               {
                 jobId: String(job._id),
                 epaperId: String(job.epaperId),
+                generation: job.generation,
                 attempt: currentAttempt,
                 failedPages: job.pageNumbers.length,
                 reason: message,
@@ -461,29 +882,245 @@ export async function processQueuedEpaperJobs(options: { limit?: number } = {}) 
   }
 }
 
-export async function cleanupAbandonedEpaperUploads() {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const abandoned = await EPaper.find({
-    status: 'draft',
-    productionStatus: 'draft_upload',
-    pdfPath: { $in: ['', null] },
-    createdAt: { $lt: cutoff },
-  })
-    .select('_id pdfPublicId')
-    .lean();
-
-  let deleted = 0;
-  for (const epaper of abandoned) {
-    const publicId = String(epaper.pdfPublicId || '').trim();
-    if (publicId) {
-      await deleteDigitalOceanSpacesAssetByPublicId(publicId, 'raw').catch(
-        () => undefined
-      );
-    }
-    await EPaperProcessingJob.deleteMany({ epaperId: epaper._id });
-    const result = await EPaper.deleteOne({ _id: epaper._id, pdfPath: { $in: ['', null] } });
-    deleted += result.deletedCount || 0;
+export async function processEpaperJobForEdition(options: {
+  epaperId: string;
+  workerId?: string;
+}) {
+  if (!Types.ObjectId.isValid(options.epaperId)) {
+    throw new Error('A valid e-paper ID is required.');
+  }
+  if (!isEpaperBackgroundProcessingEnabled()) {
+    return { claimed: 0, status: 'paused' as const };
   }
 
-  return { checked: abandoned.length, deleted };
+  return withDistributedLock(
+    'lock:epaper-job-worker',
+    async () => {
+      const job = await EPaperProcessingJob.findOne({
+        epaperId: options.epaperId,
+        kind: 'pdf_pages',
+        status: { $in: ['queued', 'processing'] },
+      }).sort({ createdAt: -1 });
+
+      if (!job) {
+        const latest = await EPaperProcessingJob.findOne({
+          epaperId: options.epaperId,
+          kind: 'pdf_pages',
+        })
+          .sort({ createdAt: -1 })
+          .select('_id status nextAttemptAt');
+        return {
+          claimed: 0,
+          status: 'no_active_job' as const,
+          jobId: latest ? String(latest._id) : '',
+          jobStatus: latest ? String(latest.status) : 'missing',
+        };
+      }
+
+      const claimed = await claimJob({
+        jobId: String(job._id),
+        workerId:
+          options.workerId ||
+          `epaper-targeted-${process.pid}-${crypto.randomUUID()}`,
+      });
+      if (!claimed) {
+        const retryAt = job.nextAttemptAt ? new Date(job.nextAttemptAt) : null;
+        return {
+          claimed: 0,
+          status:
+            job.status === 'queued' && retryAt && retryAt.getTime() > Date.now()
+              ? ('retry_scheduled' as const)
+              : ('already_claimed' as const),
+          jobId: String(job._id),
+          jobStatus: String(job.status),
+          nextAttemptAt: retryAt?.toISOString() || null,
+        };
+      }
+
+      try {
+        const result = await processClaimedJob(claimed);
+        return {
+          claimed: 1,
+          status: result.status,
+          jobId: String(claimed._id),
+          result,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Processing failed.';
+        const currentAttempt = Number(claimed.attemptCount || 1);
+        const shouldRetry = currentAttempt < Number(claimed.maxAttempts || 4);
+        const delay =
+          RETRY_DELAYS_MS[
+            Math.min(Math.max(currentAttempt - 1, 0), RETRY_DELAYS_MS.length - 1)
+          ];
+        const nextAttemptAt = shouldRetry
+          ? new Date(Date.now() + delay)
+          : new Date();
+        await EPaperProcessingJob.findByIdAndUpdate(claimed._id, {
+          status: shouldRetry ? 'queued' : 'failed',
+          nextAttemptAt,
+          lastError: message,
+          leaseOwner: '',
+          leaseExpiresAt: null,
+          completedAt: shouldRetry ? null : new Date(),
+        });
+        return {
+          claimed: 1,
+          status: shouldRetry ? ('queued' as const) : ('failed' as const),
+          jobId: String(claimed._id),
+          nextAttemptAt: nextAttemptAt.toISOString(),
+          result: {
+            jobId: String(claimed._id),
+            status: shouldRetry ? 'queued' : 'failed',
+            processed: 0,
+            failed: claimed.pageNumbers.length,
+          },
+        };
+      }
+    },
+    120
+  );
+}
+
+export type AbandonedCleanupOptions = {
+  now?: Date;
+  dryRun?: boolean;
+  maxAgeMs?: number;
+};
+
+export function isAbandonedDraftCandidate(
+  epaper: {
+    status?: string;
+    productionStatus?: string;
+    pdfPath?: string | null;
+    isCurrentRevision?: boolean;
+    createdAt?: Date | string | null;
+  },
+  context: {
+    now?: Date;
+    maxAgeMs?: number;
+    hasActiveJobs?: boolean;
+  } = {}
+): boolean {
+  if (epaper.status !== 'draft') return false;
+  if (epaper.productionStatus !== 'draft_upload') return false;
+  if (epaper.isCurrentRevision === true) return false;
+  if (epaper.pdfPath && String(epaper.pdfPath).trim() !== '') return false;
+  if (context.hasActiveJobs) return false;
+
+  const createdAt = epaper.createdAt ? new Date(epaper.createdAt).getTime() : 0;
+  if (!createdAt || Number.isNaN(createdAt)) return false;
+
+  const now = context.now ? context.now.getTime() : Date.now();
+  const maxAge = context.maxAgeMs ?? 24 * 60 * 60 * 1000;
+  return now - createdAt >= maxAge;
+}
+
+export async function cleanupAbandonedEpaperUploads(
+  options: AbandonedCleanupOptions = {}
+) {
+  const maxAgeMs = options.maxAgeMs ?? 24 * 60 * 60 * 1000;
+  const now = options.now ?? new Date();
+  const cutoff = new Date(now.getTime() - maxAgeMs);
+
+  return withDistributedLock(
+    'epaper-abandoned-draft-sweeper',
+    async () => {
+      logEpaperMetric('epaper_cleanup_started', {
+        type: 'abandoned_draft_sweep',
+        cutoff: cutoff.toISOString(),
+        dryRun: Boolean(options.dryRun),
+      });
+
+      const candidates = await EPaper.find({
+        _id: { ['$nin']: [...PROTECTED_EPAPER_AUTOMATION_IDS] },
+        status: 'draft',
+        productionStatus: 'draft_upload',
+        isCurrentRevision: { $ne: true },
+        pdfPath: { $in: ['', null] },
+        createdAt: { $lte: cutoff },
+      })
+        .select('_id pdfPublicId thumbnailPath createdAt')
+        .lean();
+
+      const eligible: Array<{ _id: unknown; pdfPublicId?: string; thumbnailPath?: string }> = [];
+      for (const epaper of candidates) {
+        const activeJobs = await EPaperProcessingJob.countDocuments({
+          epaperId: epaper._id,
+          status: { $in: ['queued', 'processing'] },
+        });
+        if (activeJobs > 0) continue;
+
+        if (
+          isAbandonedDraftCandidate(epaper, {
+            now,
+            maxAgeMs,
+            hasActiveJobs: false,
+          })
+        ) {
+          eligible.push(epaper);
+        }
+      }
+
+      if (options.dryRun) {
+        return {
+          checked: candidates.length,
+          eligible: eligible.length,
+          deleted: 0,
+          dryRun: true,
+        };
+      }
+
+      let deleted = 0;
+      for (const epaper of eligible) {
+        const publicId = String(epaper.pdfPublicId || '').trim();
+        if (publicId) {
+          const isReferenced =
+            await epaperRepository.isAssetReferencedElsewhere(
+              publicId,
+              String(epaper._id)
+            );
+          if (!isReferenced) {
+            await deleteDigitalOceanSpacesAssetByPublicId(
+              publicId,
+              'raw'
+            ).catch(() => undefined);
+          }
+        }
+        await EPaperProcessingJob.deleteMany({ epaperId: epaper._id });
+        await EPaperOcrSuggestion.deleteMany({ epaperId: epaper._id });
+        const result = await EPaper.deleteOne({
+          _id: epaper._id,
+          pdfPath: { $in: ['', null] },
+          status: 'draft',
+        });
+        deleted += result.deletedCount || 0;
+      }
+
+      logEpaperMetric('epaper_cleanup_completed', {
+        type: 'abandoned_draft_sweep',
+        checked: candidates.length,
+        deleted,
+      });
+
+      return {
+        checked: candidates.length,
+        eligible: eligible.length,
+        deleted,
+      };
+    },
+    60
+  ).catch((error) => {
+    if (
+      error instanceof Error &&
+      error.message.includes('Could not acquire distributed lock')
+    ) {
+      return { checked: 0, eligible: 0, deleted: 0, locked: true };
+    }
+    logEpaperMetric('epaper_cleanup_failed', {
+      type: 'abandoned_draft_sweep',
+      error: error instanceof Error ? error.message : 'Unknown cleanup error',
+    });
+    throw error;
+  });
 }

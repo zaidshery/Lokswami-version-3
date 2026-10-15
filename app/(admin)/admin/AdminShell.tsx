@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { startTransition, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import {
   Activity,
+  AlertTriangle,
   ClipboardList,
   BarChart3,
   BellRing,
@@ -33,6 +34,7 @@ import {
   X,
 } from 'lucide-react';
 import Logo from '@/components/layout/Logo';
+import NewsroomLoading from './loading';
 import {
   formatUserRoleLabel,
   isAdminRole,
@@ -148,7 +150,7 @@ const ADMIN_SURFACES: SidebarItem[] = [
   { icon: Settings2, labelEn: 'AI Ops', labelHi: '\u090f\u0906\u0908 \u0911\u092a\u0930\u0947\u0936\u0902\u0938', href: '/admin/ai', pageKey: 'ai_ops', section: 'insights' },
   { icon: ClipboardList, labelEn: 'Audit Log', labelHi: HI.auditLog, href: '/admin/audit-log', pageKey: 'audit_log', section: 'governance' },
   { icon: ShieldCheck, labelEn: 'Permission Review', labelHi: HI.permissionReview, href: '/admin/permission-review', pageKey: 'permission_review', section: 'governance' },
-  { icon: Users, labelEn: 'Users & Subscribers', labelHi: 'उपयोगकर्ता एवं ग्राहक', href: '/admin/users', pageKey: 'users', section: 'governance' },
+  { icon: Users, labelEn: 'User Accounts', labelHi: '\u0909\u092a\u092f\u094b\u0917\u0915\u0930\u094d\u0924\u093e \u0916\u093e\u0924\u0947', href: '/admin/users', pageKey: 'users', section: 'governance' },
   { icon: Activity, labelEn: 'Operations Diagnostics', labelHi: HI.operationsDiagnostics, href: '/admin/operations-diagnostics', pageKey: 'operations_diagnostics', section: 'governance' },
   { icon: Activity, labelEn: 'Elections', labelHi: '\u091a\u0941\u0928\u093e\u0935', href: '/admin/settings/elections', pageKey: 'newsroom_settings', section: 'governance' },
   { icon: Settings2, labelEn: 'Newsroom Settings', labelHi: HI.newsroomSettings, href: '/admin/settings/newsroom', pageKey: 'newsroom_settings', section: 'governance' },
@@ -160,7 +162,7 @@ const ADMIN_MOBILE_DOCK_HREFS = [
   '/admin/work',
   '/admin/copy-desk',
   '/admin/push-alerts',
-  '/admin/team',
+  '/admin/articles',
 ] as const;
 
 const COPY_EDITOR_MOBILE_DOCK_HREFS = [
@@ -382,6 +384,7 @@ export default function AdminShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isHydrated, setIsHydrated] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [toolSearch, setToolSearch] = useState('');
@@ -393,7 +396,7 @@ export default function AdminShell({
   const { theme, setTheme, language, toggleLanguage } = useAppStore();
 
   useEffect(() => {
-    setIsHydrated(true);
+    startTransition(() => setIsHydrated(true));
   }, []);
 
   useEffect(() => {
@@ -522,6 +525,14 @@ export default function AdminShell({
     : adminRoleLabel;
   const hasMobileDock = mobileDockItems.length > 0;
   const mobileHeaderLabel = headerLabel;
+  const showAccessDenied = isHydrated && searchParams.get('access') === 'denied';
+
+  const dismissAccessDenied = () => {
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    nextSearchParams.delete('access');
+    const query = nextSearchParams.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
 
   const handleLogout = async () => {
     try {
@@ -539,7 +550,7 @@ export default function AdminShell({
       <div className="flex h-[68px] items-center gap-3 border-b border-[color:var(--admin-shell-border)] px-4">
         <Link href="/admin" className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex-shrink-0">
-            <Logo size="sm" />
+            <Logo size="sm" priority />
           </div>
           <div className="min-w-0">
             <div className="truncate text-xs text-[color:var(--admin-shell-text-muted)]">
@@ -683,7 +694,7 @@ export default function AdminShell({
         <header
           className={cx(
             'admin-shell-surface fixed left-0 right-0 top-0 flex h-[68px] flex-nowrap items-center justify-between gap-3 border-b border-[color:var(--admin-shell-border)] px-4 sm:px-6 lg:left-[248px]',
-            mobileToolsOpen ? 'z-50' : 'z-20'
+            mobileToolsOpen ? 'z-50' : 'z-30'
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -709,7 +720,7 @@ export default function AdminShell({
             </div>
           </div>
 
-          <div className="relative ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <div className="relative ml-auto flex shrink-0 items-center justify-end gap-2 sm:gap-3">
             <WorkflowNotificationBell />
             <button
               onClick={toggleLanguage}
@@ -744,11 +755,11 @@ export default function AdminShell({
             </div>
             <Link
               href="/main"
-              className="admin-shell-toolbar-btn hidden rounded-xl px-3 py-2 text-sm font-medium md:inline-flex"
+              className="admin-shell-toolbar-btn hidden rounded-xl px-3 py-2 text-sm font-medium xl:inline-flex"
             >
               {isHindi ? HI.viewSite : 'View Site'}
             </Link>
-            <div className="admin-shell-surface hidden rounded-2xl px-3 py-2 text-right sm:block">
+            <div className="admin-shell-surface hidden rounded-2xl px-3 py-2 text-right lg:block">
               <p className="text-sm font-semibold text-[color:var(--admin-shell-text)]">
                 {adminName}
               </p>
@@ -830,7 +841,33 @@ export default function AdminShell({
             hasMobileDock && 'pb-28 lg:pb-8'
           )}
         >
-          {children}
+          {showAccessDenied ? (
+            <div
+              role="alert"
+              className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-400/40 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm dark:bg-amber-500/10 dark:text-amber-100"
+            >
+              <AlertTriangle aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  {isHindi ? 'एक्सेस अस्वीकृत' : 'Access denied'}
+                </p>
+                <p className="mt-0.5 text-sm opacity-80">
+                  {isHindi
+                    ? 'आपकी भूमिका को उस पेज को देखने की अनुमति नहीं है।'
+                    : 'Your role does not have permission to view that page.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={dismissAccessDenied}
+                aria-label={isHindi ? 'संदेश बंद करें' : 'Dismiss access denied message'}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-amber-950/10 dark:hover:bg-white/10"
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
+          <Suspense fallback={<NewsroomLoading />}>{children}</Suspense>
         </div>
       </main>
 

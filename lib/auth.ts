@@ -2,7 +2,7 @@ import NextAuth, { CredentialsSignin, type NextAuthConfig } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { LOKSWAMI_SESSION_COOKIE } from '@/lib/auth/cookies';
-import { authorizeAdminCredentials } from '@/lib/auth/adminCredentials';
+import { authorizeAdminCredentials, isBootstrapAdminUserId } from '@/lib/auth/adminCredentials';
 import { authorizeStaffCredentials } from '@/lib/auth/staffCredentials';
 import { normalizeRedirectPath } from '@/lib/auth/redirect';
 import {
@@ -677,6 +677,17 @@ function buildAuthOptions(): NextAuthConfig {
         }
 
         const tokenEmail = normalizeEmail(token.email);
+        const tokenUserId =
+          (typeof token.userId === 'string' && token.userId) ||
+          (typeof token.id === 'string' && token.id) ||
+          '';
+
+        if (isBootstrapAdminUserId(tokenUserId)) {
+          token.role = 'super_admin';
+          token.isActive = true;
+          return token;
+        }
+
         const hasHydratedRole = Boolean(normalizeRole(token.role));
         const hasHydratedUserId =
           typeof token.userId === 'string' && token.userId.trim().length > 0;
@@ -736,6 +747,17 @@ function buildAuthOptions(): NextAuthConfig {
 
         if (typeof token.name === 'string' && token.name.trim()) {
           session.user.name = token.name;
+        }
+
+        // Bootstrap Super Admin identity cannot be overridden by database records
+        if (
+          isBootstrapAdminUserId(fallbackUserId) ||
+          isBootstrapAdminUserId(token.userId) ||
+          isBootstrapAdminUserId(token.id)
+        ) {
+          session.user.role = 'super_admin';
+          session.user.isActive = true;
+          return session;
         }
 
         if (!sessionEmail) {

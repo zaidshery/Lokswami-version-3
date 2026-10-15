@@ -1,34 +1,75 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { runDueLeadershipReportSchedules } from '@/lib/admin/leadershipReportRunner';
-import { getAdminSession } from '@/lib/auth/admin';
+import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import { canManageLeadershipReports } from '@/lib/auth/permissions';
 
-function hasValidCronSecret(req: NextRequest) {
+function safeCompareSecret(provided: string, expected: string): boolean {
+  if (!provided || !expected) return false;
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expected);
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+export function hasValidCronSecret(req: NextRequest): boolean {
   const configured = String(process.env.LEADERSHIP_REPORT_CRON_SECRET || '').trim();
   if (!configured) return false;
 
   const authHeader = req.headers.get('authorization') || '';
-  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (safeCompareSecret(bearer, configured)) {
+      return true;
+    }
+  }
+
   const directHeader = String(req.headers.get('x-lokswami-cron-secret') || '').trim();
-  const url = new URL(req.url);
-  const querySecret = String(url.searchParams.get('secret') || '').trim();
-
-  return bearer === configured || directHeader === configured || querySecret === configured;
-}
-
-async function isAuthorized(req: NextRequest) {
-  if (hasValidCronSecret(req)) {
+  if (directHeader && safeCompareSecret(directHeader, configured)) {
     return true;
   }
 
-  const admin = await getAdminSession();
-  return Boolean(admin && canManageLeadershipReports(admin.role));
+  const url = new URL(req.url);
+  const querySecret = String(url.searchParams.get('secret') || '').trim();
+  if (querySecret) {
+    if (process.env.NODE_ENV === 'production') {
+      // In production, reject query-string secret transport
+      return false;
+    }
+    // In dev/test/staging: emit safe deprecation warning without logging secret
+    console.warn(
+      '[DEPRECATION] Passing cron secret via ?secret= query parameter is deprecated and disallowed in production. Use Authorization: Bearer or X-Lokswami-Cron-Secret header.'
+    );
+    if (safeCompareSecret(querySecret, configured)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function authorize(req: NextRequest) {
+  if (hasValidCronSecret(req)) {
+    return null;
+  }
+
+  const admin = await getAdminSessionFromReq(req);
+  if (!admin) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!canManageLeadershipReports(admin.role)) {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+
+  return null;
 }
 
 async function handleRunDue(req: NextRequest) {
-  if (!(await isAuthorized(req))) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await authorize(req);
+  if (denied) return denied;
 
   try {
     const payload = await runDueLeadershipReportSchedules();
@@ -57,10 +98,8 @@ async function handleRunDue(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   return handleRunDue(req);
 }
 
-export async function POST(req: NextRequest) {
-  return handleRunDue(req);
-}
+export const POST = withAdminMutation(POSTHandler, { machineRequest: hasValidCronSecret });

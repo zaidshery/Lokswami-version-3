@@ -41,7 +41,7 @@ describe('SEO Phase 3B - Schema.org JSON-LD Structured Data', () => {
 
     expect(jsonLd['@context']).toBe('https://schema.org');
     expect(jsonLd['@type']).toBe('NewsArticle');
-    expect(jsonLd.inLanguage).toBe('hi');
+    expect(jsonLd.inLanguage).toBe('hi-IN');
     expect(jsonLd.headline).toBe('भोपाल मेट्रो विस्तार 2026');
     expect(jsonLd.description).toBe('भोपाल मेट्रो का नया रूट मंजूर, 15 नए स्टेशन बनेंगे।');
     expect(jsonLd.articleSection).toBe('Regional');

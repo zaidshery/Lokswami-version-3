@@ -66,6 +66,7 @@ type ArticleSource = {
 
 type StorySource = {
   _id?: unknown;
+  version?: unknown;
   title?: string;
   caption?: string;
   category?: string;
@@ -340,6 +341,10 @@ function buildStoryItem(source: StorySource): DeskItem | null {
     contentType: 'story',
     publicationType: null,
     id,
+    version:
+      typeof source.version === 'number' && Number.isInteger(source.version) && source.version > 0
+        ? source.version
+        : 1,
     title,
     category: String(source.category || 'General').trim() || 'General',
     author: workflow.createdBy?.name || String(source.author || 'Desk').trim() || 'Desk',

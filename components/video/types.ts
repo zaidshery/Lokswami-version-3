@@ -25,10 +25,13 @@ export type PublicCursor = {
 
 export type PublicVideoFeedItem = {
   _id: string;
+  slug?: string;
   title: string;
   description: string;
   thumbnail: string;
   videoUrl: string;
+  captionUrl?: string;
+  captionLanguage?: string;
   duration: number;
   category: string;
   isShort: boolean;
@@ -41,6 +44,8 @@ export type PublicVideoFeedItem = {
 };
 
 export type VideoItem = ShortsVideoItem & {
+  captionUrl?: string;
+  captionLanguage?: string;
   isShort: boolean;
   isPublished: boolean;
   createdAt?: string;
@@ -174,10 +179,13 @@ export function resolveThumbnail(item: Pick<PublicVideoFeedItem, 'thumbnail' | '
 export function mapApiVideo(item: PublicVideoFeedItem): VideoItem {
   return {
     id: safeString(item._id),
+    slug: safeString(item.slug) || undefined,
     title: safeString(item.title, 'Lokswami Video'),
     description: safeString(item.description),
     thumbnail: resolveThumbnail(item),
     videoUrl: safeString(item.videoUrl, FALLBACK_VIDEO_URL),
+    captionUrl: safeString(item.captionUrl),
+    captionLanguage: safeString(item.captionLanguage, 'hi'),
     duration: Math.max(0, Math.floor(safeNumber(item.duration, 0))),
     category: safeString(item.category, 'regional'),
     views: Math.max(0, Math.floor(safeNumber(item.views, 0))),

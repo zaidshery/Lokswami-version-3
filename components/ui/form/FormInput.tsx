@@ -40,7 +40,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(function F
 
       <div className="relative flex items-center">
         {leftIcon && (
-          <div className="pointer-events-none absolute left-3 flex items-center text-zinc-400 dark:text-zinc-500">
+          <div className="pointer-events-none absolute left-3 flex items-center text-zinc-500 dark:text-zinc-400">
             {leftIcon}
           </div>
         )}
@@ -49,7 +49,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(function F
           ref={ref}
           id={inputId}
           disabled={disabled}
-          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm text-zinc-900 transition placeholder:text-zinc-400 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:opacity-60 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:disabled:bg-zinc-950 ${
+          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm text-zinc-900 transition placeholder:text-zinc-500 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:opacity-60 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:disabled:bg-zinc-950 ${
             leftIcon ? 'pl-10' : ''
           } ${rightIcon ? 'pr-10' : ''} ${
             error
@@ -60,7 +60,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(function F
         />
 
         {rightIcon && (
-          <div className="absolute right-3 flex items-center text-zinc-400 dark:text-zinc-500">
+          <div className="absolute right-3 flex items-center text-zinc-500 dark:text-zinc-400">
             {rightIcon}
           </div>
         )}

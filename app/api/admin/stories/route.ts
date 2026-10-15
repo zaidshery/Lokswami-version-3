@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongoose';
 import Story from '@/lib/models/Story';
@@ -44,6 +45,9 @@ import {
   toWorkflowActorRef,
 } from '@/lib/workflow/story';
 import { isWorkflowStatus } from '@/lib/workflow/types';
+import { resolveStoryVersion } from '@/lib/server/storyEditorialService';
+import { storyMediaAssetService } from '@/lib/server/media/storyMediaAssetService';
+import { MediaValidationError } from '@/lib/server/media/mediaService';
 
 const FILE_STORE_UNBOUNDED_LIMIT = Number.MAX_SAFE_INTEGER;
 
@@ -113,12 +117,16 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : '';
 }
 
-function normalizeCreateIntent(value: unknown, legacyPublished: boolean): CreateIntent {
+const DIRECT_PUBLICATION_FIELDS = ['isPublished', 'publishedAt', 'scheduledFor', 'workflow'] as const;
+
+function normalizeCreateIntent(value: unknown): CreateIntent | null {
+  if (value === undefined) return 'draft';
+
   if (value === 'draft' || value === 'submit' || value === 'publish') {
     return value;
   }
 
-  return legacyPublished ? 'publish' : 'draft';
+  return null;
 }
 
 function normalizeMediaSizeBytes(value: unknown) {
@@ -150,13 +158,7 @@ function normalizeStoryInput(body: unknown) {
   const priority = Number.parseInt(String(source.priority ?? 0), 10);
   const views = Number.parseInt(String(source.views ?? 0), 10);
   const durationSeconds = toBoundedDuration(source.durationSeconds, 6);
-  const isPublished =
-    typeof source.isPublished === 'boolean' ? source.isPublished : true;
-
-  const publishedAt =
-    typeof source.publishedAt === 'string' || source.publishedAt instanceof Date
-      ? new Date(source.publishedAt)
-      : new Date();
+  const publishedAt = new Date();
 
   return {
     title,
@@ -176,8 +178,8 @@ function normalizeStoryInput(body: unknown) {
     priority: Number.isFinite(priority) ? priority : 0,
     views: Number.isFinite(views) ? Math.max(0, views) : 0,
     durationSeconds,
-    isPublished,
-    publishedAt: Number.isNaN(publishedAt.getTime()) ? new Date() : publishedAt,
+    isPublished: false,
+    publishedAt,
     reporterMeta: normalizeReporterMeta(source.reporterMeta),
     copyEditorMeta: normalizeCopyEditorMeta(source.copyEditorMeta),
   };
@@ -262,6 +264,13 @@ function validateStoryInput(
     if (input.mediaMimeType !== 'video/mp4') {
       return 'Uploaded story videos must be MP4 files';
     }
+
+    const trustedVideo = input.mediaAssets.find(
+      (asset) => asset.kind === 'video' && asset.assetId
+    );
+    if (!trustedVideo) {
+      return 'Uploaded story videos must include a verified upload receipt';
+    }
   }
 
   if (input.linkUrl.length > 500) {
@@ -336,6 +345,7 @@ function resolveStoryRecord(story: StoryLike, createdBy?: ReturnType<typeof toWo
 
   return {
     ...story,
+    version: resolveStoryVersion((story as { version?: unknown }).version),
     isPublished: workflow.status === 'published',
     linkedArticleId:
       typeof story.linkedArticleId === 'string' ? story.linkedArticleId.trim() : '',
@@ -532,7 +542,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
+  let canonicalAssetsForCleanup: StoryMediaAsset[] = [];
+  let contentPersisted = false;
   try {
     // Read JSON body FIRST to avoid disturbed/locked body errors in Next.js 15
     const body = await req.json();
@@ -551,12 +563,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const bodyRecord =
+      typeof body === 'object' && body ? (body as Record<string, unknown>) : {};
+    if (DIRECT_PUBLICATION_FIELDS.some((field) => field in bodyRecord)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Publication state can only be changed through workflow actions.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const intent = normalizeCreateIntent(bodyRecord.intent);
+    if (!intent) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid story intent' },
+        { status: 400 }
+      );
+    }
+
     const rawInput = normalizeStoryInput(body);
-    const input = sanitizeCreateInputForUser(user, rawInput);
+    const sanitizedInput = sanitizeCreateInputForUser(user, rawInput);
+    const canonicalAssets = await storyMediaAssetService.resolveForWrite(
+      sanitizedInput.mediaAssets,
+      user
+    );
+    canonicalAssetsForCleanup = canonicalAssets;
+    const canonicalPrimary = derivePrimaryStoryMedia(canonicalAssets, sanitizedInput.thumbnail);
+    const input = {
+      ...sanitizedInput,
+      ...canonicalPrimary,
+      mediaAssets: canonicalAssets,
+    };
     const validationError = validateStoryInput(input, {
       allowLongCaption: user.role === 'reporter',
     });
-    const intent = normalizeCreateIntent((body as Record<string, unknown>)?.intent, input.isPublished);
     const workflow = buildInitialWorkflow(intent, user);
 
     if (
@@ -595,24 +637,35 @@ export async function POST(req: NextRequest) {
           publishedAt: workflow.publishedAt?.toISOString() || null,
         },
       });
+      contentPersisted = true;
+      await storyMediaAssetService.syncReferences(String(stored._id), [], input.mediaAssets);
 
-      await recordStoryActivity({
-        storyId: stored._id,
-        actor: user,
-        action: 'created',
-        toStatus: stored.workflow.status,
-        message: buildStoryActivityMessage({
+      try {
+        await recordStoryActivity({
+          storyId: stored._id,
+          actor: user,
           action: 'created',
           toStatus: stored.workflow.status,
-        }),
-        metadata: {
-          intent,
-          priority: stored.workflow.priority,
-          createdById: stored.workflow.createdBy?.id || '',
-        },
-      });
+          message: buildStoryActivityMessage({
+            action: 'created',
+            toStatus: stored.workflow.status,
+          }),
+          metadata: {
+            intent,
+            priority: stored.workflow.priority,
+            createdById: stored.workflow.createdBy?.id || '',
+          },
+        });
+      } catch (activityError) {
+        console.error('Failed to record story activity on create:', activityError);
+      }
 
-      const usage = await getStoryVideoMonthlyUsageSummary();
+      let usage = null;
+      try {
+        usage = await getStoryVideoMonthlyUsageSummary();
+      } catch (usageError) {
+        console.error('Failed to get story video usage summary:', usageError);
+      }
 
       return NextResponse.json(
         {
@@ -627,29 +680,41 @@ export async function POST(req: NextRequest) {
 
     const story = new Story({
       ...input,
+      version: 1,
       isPublished: workflow.status === 'published',
       updatedAt: new Date(),
       workflow,
     });
     const saved = await story.save();
+    contentPersisted = true;
+    await storyMediaAssetService.syncReferences(String(saved._id), [], input.mediaAssets);
 
-    await recordStoryActivity({
-      storyId: String(saved._id),
-      actor: user,
-      action: 'created',
-      toStatus: workflow.status,
-      message: buildStoryActivityMessage({
+    try {
+      await recordStoryActivity({
+        storyId: String(saved._id),
+        actor: user,
         action: 'created',
         toStatus: workflow.status,
-      }),
-      metadata: {
-        intent,
-        priority: workflow.priority,
-        createdById: workflow.createdBy?.id || '',
-      },
-    });
+        message: buildStoryActivityMessage({
+          action: 'created',
+          toStatus: workflow.status,
+        }),
+        metadata: {
+          intent,
+          priority: workflow.priority,
+          createdById: workflow.createdBy?.id || '',
+        },
+      });
+    } catch (activityError) {
+      console.error('Failed to record story activity on create:', activityError);
+    }
 
-    const usage = await getStoryVideoMonthlyUsageSummary();
+    let usage = null;
+    try {
+      usage = await getStoryVideoMonthlyUsageSummary();
+    } catch (usageError) {
+      console.error('Failed to get story video usage summary:', usageError);
+    }
 
     return NextResponse.json(
       {
@@ -661,6 +726,13 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error: unknown) {
+    if (!contentPersisted && canonicalAssetsForCleanup.length) {
+      await storyMediaAssetService.markUnattachedForCleanup([], canonicalAssetsForCleanup)
+        .catch(() => undefined);
+    }
+    if (error instanceof MediaValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     console.error('Error creating story:', error);
     const message =
       process.env.NODE_ENV !== 'production'
@@ -669,3 +741,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

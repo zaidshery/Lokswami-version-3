@@ -94,9 +94,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'tesseract.js'],
+  serverExternalPackages: ['@hyzyla/pdfium', '@napi-rs/canvas', 'pdfjs-dist', 'tesseract.js'],
   outputFileTracingIncludes: {
     '/api/admin/epapers/**/*': [
+      './node_modules/@hyzyla/pdfium/dist/**/*',
       './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
       './scripts/epaper-local-ocr-worker.cjs',
       './node_modules/tesseract.js/**/*',

@@ -1,4 +1,8 @@
 import type { EPaperArticleRecord, EPaperPageData } from '@/lib/types/epaper';
+import {
+  buildEpaperReadiness,
+  type MinimalEpaperRecord,
+} from '@/lib/utils/epaperAdminReadiness';
 
 export type EPaperPageQualityLevel = 'good' | 'watch' | 'critical';
 
@@ -28,6 +32,17 @@ export type EPaperEditionQualitySummary = {
     readyQa: number;
   };
   publishBlockers: string[];
+};
+
+export type EPaperEditionQualitySummaryInput = {
+  pageCount: number;
+  pages: EPaperPageData[];
+  articles: EPaperArticleRecord[];
+  epaper?: MinimalEpaperRecord | Partial<MinimalEpaperRecord> | Record<string, unknown> | null;
+  readinessBlockers?: string[];
+  thumbnailPath?: string;
+  pdfPath?: string;
+  isStaleGeneration?: boolean;
 };
 
 function clampPercent(value: number) {
@@ -124,11 +139,9 @@ export function buildEpaperPageQualitySignal(input: {
   };
 }
 
-export function buildEpaperEditionQualitySummary(input: {
-  pageCount: number;
-  pages: EPaperPageData[];
-  articles: EPaperArticleRecord[];
-}): EPaperEditionQualitySummary {
+export function buildEpaperEditionQualitySummary(
+  input: EPaperEditionQualitySummaryInput
+): EPaperEditionQualitySummary {
   const { pageCount, pages, articles } = input;
   const normalizedPageCount = Math.max(1, pageCount || pages.length || 1);
   const pageSignals = Array.from({ length: normalizedPageCount }, (_, index) => {
@@ -176,7 +189,29 @@ export function buildEpaperEditionQualitySummary(input: {
     }
   );
 
-  const publishBlockers: string[] = [];
+  let publishBlockers: string[] = [];
+  if (input.readinessBlockers) {
+    publishBlockers = [...input.readinessBlockers];
+  } else {
+    const epaperRecord: MinimalEpaperRecord = {
+      _id: String(input.epaper?._id || ''),
+      cityName: String(input.epaper?.cityName || ''),
+      citySlug: String(input.epaper?.citySlug || ''),
+      pageCount: normalizedPageCount,
+      pages: (input.epaper?.pages || pages) as MinimalEpaperRecord['pages'],
+      pdfPath: String(input.epaper?.pdfPath ?? input.pdfPath ?? ''),
+      thumbnailPath: String(input.epaper?.thumbnailPath ?? input.thumbnailPath ?? ''),
+      sourceType: typeof input.epaper?.sourceType === 'string' ? input.epaper.sourceType : undefined,
+      sourceLabel: typeof input.epaper?.sourceLabel === 'string' ? input.epaper.sourceLabel : undefined,
+      sourceUrl: typeof input.epaper?.sourceUrl === 'string' ? input.epaper.sourceUrl : undefined,
+      isStaleGeneration: Boolean(input.epaper?.isStaleGeneration ?? input.isStaleGeneration),
+    };
+    const readiness = buildEpaperReadiness({
+      epaper: epaperRecord,
+      articles,
+    });
+    publishBlockers = [...readiness.blockers];
+  }
 
   return {
     pageSignals,

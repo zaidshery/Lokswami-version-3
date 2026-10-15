@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 describe('short share redirect routes', () => {
-  it('builds previewable short article metadata with a PNG social image', async () => {
+  it('builds bridge metadata using the canonical article hero image', async () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://lokswami.com';
 
     const { generateMetadata, resolveShortArticleTargetPath } = await import('@/app/a/[id]/page');
@@ -78,16 +78,13 @@ describe('short share redirect routes', () => {
           url: 'https://lokswami.com/main/article/brics-agriculture-meeting-indore',
           images: [
             expect.objectContaining({
-              url: 'https://lokswami.com/api/og/article/brics-agriculture-meeting-indore',
-              width: 1200,
-              height: 630,
-              type: 'image/png',
+              url: publishedArticle.image,
             }),
           ],
         }),
         twitter: expect.objectContaining({
           card: 'summary_large_image',
-          images: ['https://lokswami.com/api/og/article/brics-agriculture-meeting-indore'],
+          images: [publishedArticle.image],
         }),
       })
     );

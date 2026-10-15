@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSiteUrl } from '@/lib/seo/articleSeo';
-import { getPublicVideoFeedPage } from '@/lib/server/publicVideos';
 import { buildVideoReaderPath } from '@/lib/utils/readerContentPaths';
+import { sitemapContentQueryService } from '@/lib/server/content/sitemapContentQueryService';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,18 +20,30 @@ function absoluteUrl(baseUrl: string, path: string) {
 
 export async function GET() {
   const siteUrl = getSiteUrl();
-  const { items: videos } = await getPublicVideoFeedPage({ limit: 1000 });
 
-  const urlNodes = videos
-    .map((video) => {
-      const pagePath = buildVideoReaderPath(video._id, video.slug);
-      const loc = absoluteUrl(siteUrl, pagePath);
-      const thumbnailLoc = video.thumbnail.startsWith('http')
-        ? video.thumbnail
-        : absoluteUrl(siteUrl, video.thumbnail);
-      const description = video.description || video.title;
+  const allVideos = await sitemapContentQueryService.listVideos();
 
-      return [
+  const seenUrls = new Set<string>();
+  const urlNodes: string[] = [];
+
+  for (const video of allVideos) {
+    const pagePath = buildVideoReaderPath(
+      video._id,
+      video.isShort ? video.slug : undefined
+    );
+    const loc = absoluteUrl(siteUrl, pagePath);
+    if (seenUrls.has(loc)) {
+      continue;
+    }
+    seenUrls.add(loc);
+
+    const thumbnailLoc = video.thumbnail.startsWith('http')
+      ? video.thumbnail
+      : absoluteUrl(siteUrl, video.thumbnail);
+    const description = video.description || video.title;
+
+    urlNodes.push(
+      [
         '  <url>',
         `    <loc>${escapeXml(loc)}</loc>`,
         '    <video:video>',
@@ -43,11 +55,11 @@ export async function GET() {
         `      <video:duration>${Math.max(1, Math.floor(video.duration || 60))}</video:duration>`,
         '    </video:video>',
         '  </url>',
-      ].join('\n');
-    })
-    .join('\n');
+      ].join('\n')
+    );
+  }
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n${urlNodes}\n</urlset>`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n${urlNodes.join('\n')}\n</urlset>`;
 
   return new NextResponse(xml, {
     headers: {

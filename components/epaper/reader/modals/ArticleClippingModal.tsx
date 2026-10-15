@@ -4,6 +4,8 @@ import React, { memo } from 'react';
 import Image from 'next/image';
 import { Newspaper, Share2, X, Check } from 'lucide-react';
 import type { EPaperArticleRecord } from '@/lib/types/epaper';
+import ShareMenu from '@/components/ui/ShareMenu';
+import { buildWhatsAppShareUrl, copyCanonicalUrl } from '@/lib/utils/universalShare';
 
 export interface ArticleClippingModalProps {
   isOpen: boolean;
@@ -16,6 +18,7 @@ export interface ArticleClippingModalProps {
   publishDate?: string;
   language?: 'en' | 'hi';
   publicationType?: 'epaper' | 'emagazine';
+  embedded?: boolean;
 }
 
 /**
@@ -32,6 +35,7 @@ function ArticleClippingModalComponent({
   publishDate = '',
   language = 'hi',
   publicationType = 'epaper',
+  embedded = false,
 }: ArticleClippingModalProps) {
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
@@ -41,18 +45,14 @@ function ArticleClippingModalComponent({
   if (!isOpen || !article) return null;
 
   const handleCopy = async () => {
-    if (shareUrl && typeof navigator !== 'undefined' && navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setCopied(true);
-      } catch { setShareError('Could not copy the link. Please retry.'); }
-    }
+    const success = await copyCanonicalUrl(shareUrl);
+    setCopied(success);
+    setShareError(success ? '' : 'Could not copy the link. Please retry.');
   };
 
   const handleWhatsAppShare = () => {
-    const text = encodeURIComponent(`${shareText}\n${shareUrl}`);
-    const whatsappUrl = `https://api.whatsapp.com/send?text=${text}`;
-    if (typeof window !== 'undefined') {
+    const whatsappUrl = buildWhatsAppShareUrl({ url: shareUrl, text: shareText });
+    if (whatsappUrl && typeof window !== 'undefined') {
       window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     }
   };
@@ -70,7 +70,7 @@ function ArticleClippingModalComponent({
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: article.title, text: shareText, url: shareUrl });
       } else {
-        setShareError('Image sharing is unavailable on this device. Use Download image, then Copy Link.');
+        setShareError(embedded ? 'Image sharing is unavailable on this device. Use Download image.' : 'Image sharing is unavailable on this device. Use Download image, then Copy Link.');
       }
     } catch (error) {
       if (!(error instanceof Error && error.name === 'AbortError')) setShareError(error instanceof Error ? error.message : 'Sharing failed. Please retry.');
@@ -78,6 +78,15 @@ function ArticleClippingModalComponent({
   };
   const pageLabel = article.pageNumber ? `पृष्ठ ${article.pageNumber}` : '';
   const metaParts = [editionName, publishDate, pageLabel].filter(Boolean).join(' • ');
+
+  // The full-screen story reader uses sharing tools inline, without a duplicate image dialog.
+  if (embedded) return <section aria-label="Clipping sharing tools">
+    <div className="flex flex-col gap-2">
+      <button type="button" disabled={sharing} onClick={() => void handleImageShare()} className="min-h-11 rounded-lg bg-red-700 px-3 text-sm font-semibold text-white disabled:opacity-50">{sharing ? 'Preparing…' : 'Share image'}</button>
+      <a href={displayImage} download={`lokswami-page-${article.pageNumber}.png`} className="flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 px-3 text-center text-sm dark:border-zinc-700">Download image</a>
+    </div>
+    {copied || shareError ? <p role="status" className="mt-2 text-sm">{copied ? 'Link copied' : shareError}</p> : null}
+  </section>;
 
   return (
     <div
@@ -194,6 +203,7 @@ function ArticleClippingModalComponent({
           {/* Action buttons */}
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
             <button type="button" disabled={sharing || !imageReady} onClick={() => void handleImageShare()} className="min-h-11 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{sharing ? 'Preparing…' : 'Share image + link'}</button>
+            <ShareMenu title={article.title} url={shareUrl} text={shareText} whatsappText={shareText} contentType={publicationType} contentId={article._id} language={language} placement="publication_clipping" />
             {imageReady ? <a href={`${displayImage}&download=1`} download className="min-h-11 rounded-xl border px-4 py-2 text-sm">Download image</a> : null}
             <button
               type="button"
@@ -213,7 +223,7 @@ function ArticleClippingModalComponent({
               <span>{copied ? 'Copied' : 'Copy Link'}</span>
             </button>
           </div>
-          <p role="status" className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{shareError}</p>
+          <p role="status" className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{copied ? 'Link copied' : shareError}</p>
         </div>
       </div>
     </div>

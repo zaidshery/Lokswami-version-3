@@ -50,6 +50,59 @@ describe('public articles service', () => {
     isMongoAvailableMock.mockResolvedValue(false);
   });
 
+  it('supplies progressive National candidates only through the existing public publication guard', async () => {
+    const rows = Array.from({ length: 10 }, (_, i) => ({ ...publishedBase, _id: `national-${i}`, title: `National ${i}`, slug: `national-${i}`, category: 'National', publishedAt: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z` }));
+    listAllStoredArticlesMock.mockResolvedValue([
+      ...rows,
+      { ...rows[0], _id: 'draft', workflow: { status: 'draft' } },
+      { ...rows[0], _id: 'unpublished', workflow: { status: 'in_review' } },
+      { ...rows[0], _id: 'future', workflow: { status: 'scheduled', scheduledFor: '2099-01-01T00:00:00Z' }, publishedAt: '2099-01-01T00:00:00Z' },
+    ]);
+    const { listPublicArticles } = await import('@/lib/server/publicArticles');
+    const { mapPublicArticlesToUiArticles } = await import('@/lib/content/publicArticles');
+    const { selectHomepageCategories } = await import('@/lib/content/homepageDiscovery');
+    const result = await listPublicArticles({ category: 'national', limit: 13 });
+    const candidates = selectHomepageCategories([], { national: mapPublicArticlesToUiArticles(result.items) })[0].articles;
+    expect(candidates.map((a) => a.id)).toEqual(rows.slice().reverse().map((a) => a._id));
+  });
+
+  it.each([
+    ['madhya-pradesh', 'Madhya Pradesh'], ['maharashtra', 'Maharashtra'], ['rajasthan', 'Rajasthan'],
+    ['uttar-pradesh', 'Uttar Pradesh'], ['gujarat', 'Gujarat'], ['lokswami-special', 'Lokswami Special'],
+    ['crime', 'Crime'], ['national', 'National'], ['politics', 'Politics'],
+    ['international', 'International'], ['entertainment', 'Entertainment'],
+    ['sports', 'Sports'], ['business', 'Business'], ['technology', 'Tech'],
+  ])('matches %s CMS names without exposing drafts or scheduled stories', async (slug, name) => {
+    const row = { ...publishedBase, _id: 'mp-published', title: 'MP story', slug: 'mp-story',
+      category: name, publishedAt: '2026-05-09T08:00:00.000Z' };
+    listAllStoredArticlesMock.mockResolvedValue([
+      row,
+      { ...row, _id: 'mp-draft', workflow: { status: 'draft' } },
+      { ...row, _id: 'mp-scheduled', workflow: { status: 'scheduled' }, scheduledAt: '2099-01-01T00:00:00.000Z' },
+      { ...row, _id: 'foreign', category: 'Regional' },
+    ]);
+    const { listPublicArticles } = await import('@/lib/server/publicArticles');
+    const result = await listPublicArticles({ category: slug, limit: 10 });
+    expect(result.items.map(item => item.id)).toEqual(['mp-published']);
+  });
+
+  it.each([
+    ['madhya-pradesh', 'Madhya Pradesh'], ['maharashtra', 'Maharashtra'], ['rajasthan', 'Rajasthan'],
+    ['uttar-pradesh', 'Uttar Pradesh'], ['gujarat', 'Gujarat'], ['lokswami-special', 'Lokswami Special'],
+  ])('includes %s CMS aliases in the existing Mongo category query', async (slug, name) => {
+    isMongoAvailableMock.mockResolvedValue(true);
+    const query = { select: () => query, sort: () => query, maxTimeMS: () => query,
+      limit: () => query, lean: async () => [] };
+    articleFindMock.mockReturnValue(query);
+    const { listPublicArticles } = await import('@/lib/server/publicArticles');
+    await listPublicArticles({ category: slug, limit: 10 });
+    const filter = articleFindMock.mock.calls[0][0];
+    const categoryClause = filter.$and.find((clause: { $or?: Array<{ category?: unknown }> }) => clause.$or?.some(item => item.category));
+    expect(categoryClause.$or).toContainEqual({ category: { $regex: `^${name}$`, $options: 'i' } });
+    expect(categoryClause.$or).toContainEqual({ category: { $regex: `^${slug}$`, $options: 'i' } });
+    expect(listAllStoredArticlesMock).not.toHaveBeenCalled();
+  });
+
   it('pages beyond the first Mongo candidate window with stable timestamp ties', async () => {
     const rows = Array.from({ length: 85 }, (_, index) => ({
       ...publishedBase,

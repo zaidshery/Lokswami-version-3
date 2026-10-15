@@ -1,6 +1,7 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
-import { canViewPage } from '@/lib/auth/permissions';
+import { canRunGlobalAiOps } from '@/lib/auth/permissions';
 import { processQueuedTtsAssets } from '@/lib/server/ttsAssets';
 
 function hasCronSecret(request: NextRequest) {
@@ -9,15 +10,22 @@ function hasCronSecret(request: NextRequest) {
   return request.headers.get('x-cron-secret')?.trim() === expected;
 }
 
-async function canRunWorker(request: NextRequest) {
-  if (hasCronSecret(request)) return true;
+async function authorizeWorker(request: NextRequest) {
+  if (hasCronSecret(request)) return null;
 
   const admin = await getAdminSessionFromReq(request);
-  return Boolean(admin && canViewPage(admin.role, 'ai_ops'));
-}
+  if (!admin) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+      },
+      { status: 401 }
+    );
+  }
 
-export async function POST(request: NextRequest) {
-  if (!(await canRunWorker(request))) {
+  if (!canRunGlobalAiOps(admin.role)) {
     return NextResponse.json(
       {
         success: false,
@@ -27,6 +35,13 @@ export async function POST(request: NextRequest) {
       { status: 403 }
     );
   }
+
+  return null;
+}
+
+async function POSTHandler(request: NextRequest) {
+  const denied = await authorizeWorker(request);
+  if (denied) return denied;
 
   const body = (await request.json().catch(() => ({}))) as { limit?: unknown };
   const rawLimit = typeof body.limit === 'number' ? body.limit : Number(body.limit || 5);
@@ -39,3 +54,4 @@ export async function POST(request: NextRequest) {
   });
 }
 
+export const POST = withAdminMutation(POSTHandler, { machineRequest: hasCronSecret });

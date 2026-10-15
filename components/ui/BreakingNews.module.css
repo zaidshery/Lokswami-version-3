@@ -281,6 +281,12 @@
 }
 
 @media (max-width: 640px) {
+  .liveBadge {
+    /* Keep the ticker's layout space while making the mobile pill compact. */
+    transform: scale(0.875);
+    transform-origin: left center;
+  }
+
   .marqueeEntry {
     gap: 0.25rem;
   }

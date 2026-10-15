@@ -21,7 +21,7 @@ type RouteGuardDecision =
   | { action: 'next' }
   | { action: 'redirect'; location: string; status?: 301 | 302 };
 
-function isReaderProtectedPath(pathname: string) {
+export function isReaderProtectedPath(pathname: string) {
   return READER_PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );

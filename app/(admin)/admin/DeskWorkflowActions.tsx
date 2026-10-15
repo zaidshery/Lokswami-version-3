@@ -104,6 +104,7 @@ export default function DeskWorkflowActions({
   const [assignPanelOpen, setAssignPanelOpen] = useState(false);
   const [reasonPanelOpen, setReasonPanelOpen] = useState(false);
   const [urgentPanelOpen, setUrgentPanelOpen] = useState(false);
+  const [schedulePanelOpen, setSchedulePanelOpen] = useState(false);
   const [teamOptions, setTeamOptions] = useState<AssignableTeamMember[]>([]);
   const [teamOptionsLoaded, setTeamOptionsLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -198,6 +199,7 @@ export default function DeskWorkflowActions({
         body: JSON.stringify({
           action,
           ...(contentType === 'article' ? { expectedVersion: articleVersion } : {}),
+          ...(contentType === 'story' ? { expectedVersion: articleVersion } : {}),
           ...extra,
         }),
       });
@@ -210,11 +212,11 @@ export default function DeskWorkflowActions({
       };
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || `Failed to ${action.replace(/_/g, ' ')}.`);
+        throw new Error(response.status === 409 ? 'This content was updated elsewhere. Refresh before saving again.' : payload.error || `Failed to ${action.replace(/_/g, ' ')}.`);
       }
 
       if (
-        contentType === 'article' &&
+        (contentType === 'article' || contentType === 'story') &&
         typeof payload.data?.version === 'number' &&
         payload.data.version > 0
       ) {
@@ -230,6 +232,7 @@ export default function DeskWorkflowActions({
       }
       if (action === 'schedule') {
         setScheduledFor('');
+        setSchedulePanelOpen(false);
       }
 
       setFeedback({
@@ -292,6 +295,15 @@ export default function DeskWorkflowActions({
       return;
     }
 
+    const scheduledDate = new Date(scheduledFor);
+    if (isNaN(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
+      setFeedback({
+        kind: 'error',
+        text: 'Scheduled time must be set to a future date and time.',
+      });
+      return;
+    }
+
     void runAction('schedule', { scheduledFor });
   }
 
@@ -323,6 +335,8 @@ export default function DeskWorkflowActions({
             onClick={() => void openAssignPanel()}
             disabled={isSubmitting}
             className={cx(ACTION_BUTTON_CLASS, SECONDARY_ACTION_CLASS)}
+            aria-expanded={assignPanelOpen}
+            aria-controls="desk-assign-panel"
           >
             <UserRoundCheck className="h-4 w-4" />
             {assignedToName ? 'Reassign' : 'Assign'}
@@ -335,6 +349,7 @@ export default function DeskWorkflowActions({
             onClick={() => setReasonPanelOpen((current) => !current)}
             className={cx(ACTION_BUTTON_CLASS, SECONDARY_ACTION_CLASS)}
             aria-expanded={reasonPanelOpen}
+            aria-controls="desk-reason-panel"
           >
             <CornerUpLeft className="h-4 w-4" />
             Desk Action
@@ -389,6 +404,20 @@ export default function DeskWorkflowActions({
           </button>
         ) : null}
 
+        {canSchedule ? (
+          <button
+            type="button"
+            onClick={() => setSchedulePanelOpen((current) => !current)}
+            disabled={isSubmitting}
+            className={cx(ACTION_BUTTON_CLASS, SECONDARY_ACTION_CLASS)}
+            aria-expanded={schedulePanelOpen}
+            aria-controls="desk-schedule-panel"
+          >
+            <CalendarClock className="h-4 w-4" />
+            Schedule
+          </button>
+        ) : null}
+
         {canPublish ? (
           <button
             type="button"
@@ -408,6 +437,7 @@ export default function DeskWorkflowActions({
             disabled={isSubmitting}
             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-300 bg-rose-50 px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
             aria-expanded={urgentPanelOpen}
+            aria-controls="desk-urgent-panel"
           >
             <Send className="h-4 w-4" />
             {language === 'hi' ? '\u0924\u0924\u094d\u0915\u093e\u0932 \u092a\u094d\u0930\u0915\u093e\u0936\u0928' : 'Urgent Publish'}
@@ -416,7 +446,7 @@ export default function DeskWorkflowActions({
       </div>
 
       {assignPanelOpen && canAssign ? (
-        <div className="rounded-[22px] border border-zinc-200/80 bg-zinc-50/78 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+        <div id="desk-assign-panel" className="rounded-[22px] border border-zinc-200/80 bg-zinc-50/78 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr),minmax(0,0.8fr),minmax(0,0.9fr),auto]">
             <label className="space-y-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
               Assign To
@@ -469,7 +499,7 @@ export default function DeskWorkflowActions({
       ) : null}
 
       {reasonPanelOpen && (canRequestChanges || canReject) && isWorkflowContent ? (
-        <div className="rounded-[18px] border border-zinc-200/80 bg-zinc-50/78 p-3 shadow-sm sm:rounded-[22px] sm:p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <div id="desk-reason-panel" className="rounded-[18px] border border-zinc-200/80 bg-zinc-50/78 p-3 shadow-sm sm:rounded-[22px] sm:p-4 dark:border-white/10 dark:bg-white/[0.03]">
           <label className="space-y-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
             Desk Reason
             <textarea
@@ -507,7 +537,7 @@ export default function DeskWorkflowActions({
       ) : null}
 
       {urgentPanelOpen && canFastPublish ? (
-        <div className="rounded-[22px] border border-rose-500/25 bg-rose-500/[0.06] p-4">
+        <div id="desk-urgent-panel" className="rounded-[22px] border border-rose-500/25 bg-rose-500/[0.06] p-4">
           <label className="space-y-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-700 dark:text-rose-200">
             {language === 'hi' ? '\u0911\u0921\u093f\u091f \u0915\u093f\u090f \u0917\u090f \u0905\u092a\u0935\u093e\u0926 \u0915\u093e \u0915\u093e\u0930\u0923' : 'Audited exception reason'}
             <textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder={language === 'hi' ? '\u0938\u092e\u091d\u093e\u090f\u0902 \u0915\u093f \u092f\u0939 \u0924\u0924\u094d\u0915\u093e\u0932 \u0906\u0907\u091f\u092e \u0938\u093e\u092e\u093e\u0928\u094d\u092f \u0915\u0949\u092a\u0940-\u0930\u093f\u0935\u094d\u092f\u0942 \u092e\u093e\u0930\u094d\u0917 \u0915\u094b \u0915\u094d\u092f\u094b\u0902 \u092c\u093e\u0907\u092a\u093e\u0938 \u0915\u0930\u0947\u0964' : 'Explain why this urgent item must bypass the normal copy-review path.'} className="min-h-[96px] w-full rounded-2xl border border-rose-500/25 bg-white px-4 py-3 text-sm normal-case tracking-normal text-zinc-900 outline-none dark:bg-zinc-950 dark:text-zinc-100" />
@@ -517,17 +547,22 @@ export default function DeskWorkflowActions({
         </div>
       ) : null}
 
-      {canSchedule ? (
-        <div className="rounded-[22px] border border-zinc-200/80 bg-zinc-50/78 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+      {schedulePanelOpen && canSchedule ? (
+        <div id="desk-schedule-panel" className="rounded-[22px] border border-zinc-200/80 bg-zinc-50/78 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr),auto]">
             <label className="space-y-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
               Schedule For
               <input
+                id="desk-schedule-input"
                 type="datetime-local"
                 value={scheduledFor}
                 onChange={(event) => setScheduledFor(event.target.value)}
+                aria-describedby="desk-schedule-guidance"
                 className="h-11 w-full rounded-2xl border border-zinc-200/80 bg-white px-4 text-sm font-medium text-zinc-900 outline-none transition-colors focus:border-zinc-300 dark:border-white/10 dark:bg-zinc-950/70 dark:text-zinc-100"
               />
+              <span id="desk-schedule-guidance" className="block text-[11px] normal-case tracking-normal text-zinc-500 dark:text-zinc-400">
+                Must be a future date and time. Scheduling queues content for release and does not publish immediately.
+              </span>
             </label>
             <button
               type="button"
@@ -544,6 +579,8 @@ export default function DeskWorkflowActions({
 
       {feedback ? (
         <div
+          role={feedback.kind === 'error' ? 'alert' : 'status'}
+          aria-live={feedback.kind === 'error' ? 'assertive' : 'polite'}
           className={cx(
             'rounded-2xl border px-4 py-3 text-sm',
             feedback.kind === 'success'
@@ -556,7 +593,11 @@ export default function DeskWorkflowActions({
       ) : null}
 
       {isSubmitting ? (
-        <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
+        <div
+          role="status"
+          aria-live="polite"
+          className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400"
+        >
           <Loader2 className="h-4 w-4 animate-spin" />
           Updating {formatStatusLabel(status)}
         </div>

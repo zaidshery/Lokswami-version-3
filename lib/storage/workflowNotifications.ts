@@ -8,9 +8,13 @@ import type { EPaperPublicationType } from '@/lib/types/epaper';
 
 export type WorkflowNotificationEvent =
   | 'assigned'
+  | 'reassigned'
+  | 'review_started'
   | 'changes_requested'
   | 'ready_for_approval'
   | 'approved'
+  | 'rejected'
+  | 'scheduled'
   | 'published'
   | 'overdue'
   | 'fast_published';

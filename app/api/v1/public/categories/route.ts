@@ -1,6 +1,6 @@
 import { longPublicCache } from '@/lib/api/cache';
 import { apiSuccessResponse } from '@/lib/api/response';
-import { listPublicCategories } from '@/lib/server/publicTaxonomy';
+import { publicTaxonomyService } from '@/lib/server/content/publicTaxonomyService';
 
 const PUBLIC_CATEGORIES_CACHE_HEADERS = longPublicCache({
   sMaxAge: 3600,
@@ -9,7 +9,7 @@ const PUBLIC_CATEGORIES_CACHE_HEADERS = longPublicCache({
 
 export async function GET() {
   return apiSuccessResponse(
-    { items: listPublicCategories() },
+    { items: publicTaxonomyService.listPublicCategories() },
     {
       headers: PUBLIC_CATEGORIES_CACHE_HEADERS,
       meta: { source: 'static' },

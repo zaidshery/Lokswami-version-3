@@ -59,8 +59,12 @@ describe('newsroom publishing helpers', () => {
         role: 'copy_editor',
       },
       editorNotes: 'Ready for final polish.',
+      masterAssetId: '',
       masterExportUrl: 'https://cdn.example.com/master.mp4',
       thumbnailUrl: 'https://cdn.example.com/thumb.jpg',
+      verifiedAt: null,
+      technicalMetadata: null,
+      lastError: null,
       updatedAt: '2026-04-20T12:00:00.000Z',
     });
   });

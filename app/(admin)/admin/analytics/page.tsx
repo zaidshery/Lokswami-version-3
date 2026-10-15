@@ -698,7 +698,7 @@ export default async function AdminAnalyticsPage({
   }
 
   if (!canViewPage(admin.role, 'analytics')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const params = await searchParams;

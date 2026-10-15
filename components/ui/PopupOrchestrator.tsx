@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { BellRing, MapPin, Smartphone, Sparkles, X } from 'lucide-react';
@@ -74,7 +74,7 @@ const PERSONALIZATION_TOPICS = [
 
 type PopupSnapshot = ReturnType<typeof readPopupState>;
 
-function PopupFrame({
+export function PopupFrame({
   title,
   subtitle,
   dismissLabel,
@@ -91,9 +91,26 @@ function PopupFrame({
   onNeverShow: () => void;
   children: React.ReactNode;
 }) {
+  const frameRef = useRef<HTMLElement>(null);
+  const dismissRef = useRef(onDismiss);
+  useEffect(() => { dismissRef.current = onDismiss; }, [onDismiss]);
+  useEffect(() => {
+    // Recommendations are non-modal. Never leave a keyboard control covered.
+    const dismissIfCovered = () => {
+      const frame = frameRef.current;
+      const target = document.activeElement;
+      if (!frame || !(target instanceof HTMLElement) || target === document.body || frame.contains(target)) return;
+      const control = target.getBoundingClientRect();
+      const popup = frame.getBoundingClientRect();
+      if (control.width > 0 && control.height > 0 && control.left < popup.right && control.right > popup.left && control.top < popup.bottom && control.bottom > popup.top) dismissRef.current();
+    };
+    dismissIfCovered();
+    document.addEventListener('focusin', dismissIfCovered);
+    return () => document.removeEventListener('focusin', dismissIfCovered);
+  }, []);
   return (
     <div className="pointer-events-none fixed inset-0 z-[120] flex items-end justify-center bg-[radial-gradient(circle_at_top,rgba(231,33,41,0.18),transparent_42%),rgba(10,10,12,0.55)] p-3 backdrop-blur-[2px] sm:items-center sm:p-5">
-      <section className="pointer-events-auto relative w-full max-w-lg overflow-hidden rounded-[1.75rem] border border-white/65 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,248,248,0.95))] p-4 shadow-[0_28px_72px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(24,24,27,0.96),rgba(15,15,18,0.98))] sm:p-5">
+      <section ref={frameRef} data-popup-frame className="pointer-events-auto relative w-full max-w-lg overflow-hidden rounded-[1.75rem] border border-white/65 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,248,248,0.95))] p-4 shadow-[0_28px_72px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(24,24,27,0.96),rgba(15,15,18,0.98))] sm:p-5">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(circle_at_top,rgba(231,33,41,0.16),transparent_70%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#8b141a_0%,#e72129_52%,#c61d24_100%)]" />
         <header className="relative mb-4 flex items-start justify-between gap-3">

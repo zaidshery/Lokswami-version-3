@@ -66,6 +66,13 @@ const storedPaper = {
 };
 
 describe('public e-paper MongoDB fallback', () => {
+  it('does not resurrect stale file issues when connected Mongo has no public records', async () => {
+    countDocumentsMock.mockResolvedValue(0);
+    latestLeanMock.mockResolvedValue([]);
+    const response = await getPublicEpapers(new NextRequest('http://localhost/api/epapers?limit=20&status=published'));
+    const payload = await response.json();
+    expect(payload.data).toEqual([]);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.MONGODB_URI = 'mongodb://example.invalid/lokswami';

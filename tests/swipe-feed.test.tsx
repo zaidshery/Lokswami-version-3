@@ -7,6 +7,21 @@ import { trackClientEvent } from '@/lib/analytics/trackClient';
 
 vi.mock('@/lib/analytics/trackClient', () => ({ trackClientEvent: vi.fn() }));
 
+const mockAppState = {
+  language: 'en',
+  isMobile: false,
+  isTablet: false,
+  isImmersiveVideoMode: false,
+  setImmersiveVideoMode: vi.fn(),
+};
+
+vi.mock('@/lib/store/appStore', () => ({
+  useAppStore: (selector?: (state: typeof mockAppState) => unknown) =>
+    typeof selector === 'function'
+      ? selector(mockAppState)
+      : mockAppState,
+}));
+
 function item(index: number): SwipeFeedItem {
   return {
     _id: `video-${index}`,
@@ -39,6 +54,25 @@ function item(index: number): SwipeFeedItem {
 }
 
 describe('SwipeFeed', () => {
+  it('lets the last desktop Next control load another page and disables it at the final boundary', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true, json: async () => ({ items: [item(2)], hasMore: false, nextCursor: null }),
+    } as Response);
+    try {
+      render(<SwipeFeed initialItems={[item(1)]} initialArticle={null} initialHasMore
+        initialNextCursor={{ publishedAt: '2026-09-01T09:00:00.000Z', id: 'video-1' }} />);
+      const next = screen.getByRole('button', { name: 'Next story' });
+      expect(next).toBeEnabled();
+      fireEvent.click(next);
+      await screen.findByText('Story 1 of 2: Swipe story 1');
+      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/api/v1/public/shorts?'), expect.any(Object));
+      expect(next).toBeEnabled();
+      fireEvent.click(next);
+      expect(screen.getByText('Story 2 of 2: Swipe story 2')).toBeInTheDocument();
+      expect(next).toBeDisabled();
+    } finally { fetchSpy.mockRestore(); }
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
@@ -100,9 +134,49 @@ describe('SwipeFeed', () => {
     expect(iframe).not.toBeNull();
     fireEvent.load(iframe!);
     fireEvent.load(iframe!);
+    expect(vi.mocked(trackClientEvent).mock.calls.some(([payload]) => payload.event === 'video_play')).toBe(false);
+    for (const [origin, source] of [
+      ['https://www.youtube-nocookie.com', window],
+      ['https://attacker-youtube-nocookie.com', iframe!.contentWindow],
+    ] as const) fireEvent(window, new MessageEvent('message', {
+      origin, source, data: JSON.stringify({ event: 'onStateChange', info: 1 }),
+    }));
+    expect(vi.mocked(trackClientEvent).mock.calls.some(([payload]) => payload.event === 'video_play')).toBe(false);
+    for (let i = 0; i < 2; i++) fireEvent(window, new MessageEvent('message', {
+      origin: 'https://www.youtube-nocookie.com', source: iframe!.contentWindow,
+      data: JSON.stringify({ event: 'onStateChange', info: 1 }),
+    }));
     const events = vi.mocked(trackClientEvent).mock.calls.map(([payload]) => payload.event);
     expect(events.filter((event) => event === 'short_impression')).toHaveLength(1);
     expect(events.filter((event) => event === 'video_play')).toHaveLength(1);
+  });
+
+  it('shares the active canonical slug and keeps keyboard menu navigation inside the menu', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    render(<SwipeFeed initialItems={[{ ...item(1), title: 'भोपाल की बड़ी खबर आज', slug: 'bhopal-major-news-today' }, item(2)]} initialArticle={null} initialHasMore={false} initialNextCursor={null} />);
+    screen.getByRole('button', { name: 'Share this Swipe story' }).focus();
+    await user.keyboard(' ');
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: 'WhatsApp' }), { key: 'ArrowDown' });
+    expect(window.location.pathname).toBe('/main/shorts/bhopal-major-news-today');
+    await user.click(screen.getByRole('menuitem', { name: 'Copy link' }));
+    expect(writeText).toHaveBeenCalledWith('https://lokswami.com/main/shorts/bhopal-major-news-today');
+    expect(trackClientEvent).toHaveBeenCalledWith(expect.objectContaining({ event: 'swipe_share', source: 'lokswami_swipe', page: '/main/shorts/bhopal-major-news-today', metadata: expect.objectContaining({ videoSlug: 'bhopal-major-news-today', platform: 'copy' }) }));
+  });
+
+  it('keeps the active Short identity during touch scrolling inside its Share menu', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    render(<SwipeFeed initialItems={[{ ...item(1), title: 'A different headline', slug: 'first-canonical' }, item(2)]} initialArticle={null} initialHasMore={false} initialNextCursor={null} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Share this Swipe story' }));
+    const menu = await screen.findByRole('menu');
+    fireEvent.touchStart(menu, { touches: [{ clientY: 250 }] });
+    fireEvent.touchEnd(menu, { changedTouches: [{ clientY: 100 }] });
+    expect(window.location.pathname).toBe('/main/shorts/first-canonical');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link' }));
+    expect(await screen.findByRole('menuitem', { name: 'Link copied' })).toBeInTheDocument();
+    expect(writeText).toHaveBeenLastCalledWith('https://lokswami.com/main/shorts/first-canonical');
   });
 
   it('opens an accessible settings dialog and persists Data Saver preference', async () => {

@@ -11,7 +11,7 @@ export default async function ArticlesPage() {
   }
 
   if (!canViewPage(admin.role, 'articles')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   return <ArticlesManagementClient />;

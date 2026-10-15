@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import { canManageWorkflowAssignments, canViewPage } from '@/lib/auth/permissions';
@@ -7,7 +8,7 @@ import { isWorkflowPriority } from '@/lib/workflow/types';
 
 type BulkItem = { contentType?: unknown; id?: unknown; expectedVersion?: unknown };
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   const admin = await getAdminSession();
   if (!admin) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   if (!canViewPage(admin.role, 'work_queue') || !canManageWorkflowAssignments(admin.role)) {
@@ -20,7 +21,21 @@ export async function PATCH(request: Request) {
     priority?: unknown;
     dueAt?: unknown;
   };
-  const items = Array.isArray(body.items) ? body.items.slice(0, 25) : [];
+  const submittedItems = Array.isArray(body.items) ? body.items : [];
+  if (submittedItems.length > 25) {
+    return NextResponse.json(
+      { success: false, error: 'Bulk triage is limited to 25 selected items.' },
+      { status: 400 }
+    );
+  }
+  const items = Array.from(
+    new Map(
+      submittedItems.map((item) => [
+        `${String(item.contentType || '')}:${String(item.id || '').trim()}`,
+        item,
+      ])
+    ).values()
+  );
   const assignedToId = String(body.assignedToId || '').trim();
   if (!items.length || !assignedToId) {
     return NextResponse.json({ success: false, error: 'Choose work items and an assignee.' }, { status: 400 });
@@ -54,3 +69,5 @@ export async function PATCH(request: Request) {
     data: { succeeded, failed: results.length - succeeded, results },
   }, { status: succeeded ? 200 : 400 });
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

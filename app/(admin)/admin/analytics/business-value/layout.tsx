@@ -10,7 +10,7 @@ export default async function BusinessValueLayout({ children }: { children: Reac
   }
 
   if (!canViewPage(admin.role, 'business_value')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   return children;

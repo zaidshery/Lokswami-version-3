@@ -10,7 +10,7 @@ export default async function AdminApiDocsPage() {
   }
 
   if (!canViewPage(admin.role, 'operations_center')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   const spec = getOpenApiDocument();

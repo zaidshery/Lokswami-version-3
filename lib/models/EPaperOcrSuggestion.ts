@@ -1,4 +1,5 @@
 import mongoose, { type Model } from 'mongoose';
+import { addEpaperMutationFence } from './schemas/epaperMutationFence';
 import {
   EPAPER_OCR_SUGGESTION_STATUSES,
   type EPaperOcrSuggestionStatus,
@@ -23,6 +24,9 @@ export interface IEPaperOcrSuggestion {
   createdArticleId: mongoose.Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
+  readinessContentVersion?: number;
+  readinessMutationToken?: string;
+  readinessMutationHidden?: boolean;
 }
 
 const HotspotSchema = new mongoose.Schema(
@@ -78,6 +82,9 @@ const EPaperOcrSuggestionSchema = new mongoose.Schema<IEPaperOcrSuggestion>(
       ref: 'EPaperArticle',
       default: null,
     },
+    readinessContentVersion: { type: Number, min: 0, default: 0 },
+    readinessMutationToken: { type: String },
+    readinessMutationHidden: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -93,6 +100,7 @@ EPaperOcrSuggestionSchema.index({
   createdAt: -1,
 });
 
+addEpaperMutationFence(EPaperOcrSuggestionSchema, 'readinessMutationToken', true);
 const EPaperOcrSuggestion: Model<IEPaperOcrSuggestion> =
   (mongoose.models.EPaperOcrSuggestion as Model<IEPaperOcrSuggestion>) ||
   mongoose.model<IEPaperOcrSuggestion>(

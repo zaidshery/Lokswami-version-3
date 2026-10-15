@@ -1,4 +1,6 @@
 import connectDB from '@/lib/db/mongoose';
+import { isMongoAvailable } from '@/lib/db/mongoAvailability';
+import { sanitizeDiagnosticsText } from '@/lib/admin/diagnosticsSanitizer';
 import TtsAsset from '@/lib/models/TtsAsset';
 import TtsAuditEvent from '@/lib/models/TtsAuditEvent';
 import { getTtsStorageConfig } from '@/lib/utils/ttsStorage';
@@ -104,7 +106,26 @@ function toneForStatus(status: SystemHealthStatus): SystemHealthSignal['tone'] {
 export async function getSystemHealthSummary(
   options: SystemHealthOptions
 ): Promise<SystemHealthSummary> {
-  const dataSourceStatus = mapDataSourceStatus(options.dataSource);
+  let isDbAlive = false;
+  let effectiveDataSource = options.dataSource;
+
+  if (effectiveDataSource !== 'file') {
+    isDbAlive = await isMongoAvailable({
+      label: 'System health probe',
+      timeoutMs: 2000,
+      unavailableTtlMs: 5000,
+    });
+    if (!isDbAlive && effectiveDataSource === 'mongodb') {
+      effectiveDataSource = 'hybrid';
+    }
+  }
+
+  const dataSourceStatus = mapDataSourceStatus(effectiveDataSource);
+  if (!isDbAlive && effectiveDataSource !== 'file') {
+    dataSourceStatus.status = 'critical';
+    dataSourceStatus.summary = 'MongoDB connection probe failed.';
+    dataSourceStatus.detail = 'MongoDB is currently unreachable; operational features are using file storage fallback.';
+  }
 
   let writableStorage = false;
   let storageMode: 'public' | 'proxy' | 'spaces' | null = null;
@@ -115,14 +136,16 @@ export async function getSystemHealthSummary(
     writableStorage = true;
     storageMode = storage.mode;
   } catch (error) {
-    storageError = error instanceof Error ? error.message : 'Shared TTS storage is unavailable.';
+    storageError = sanitizeDiagnosticsText(
+      error instanceof Error ? error.message : 'Shared TTS storage is unavailable.'
+    );
   }
 
   let failedAssets = 0;
   let staleAssets = 0;
   let recentFailures: SystemHealthFailure[] = [];
 
-  if (options.dataSource !== 'file') {
+  if (isDbAlive) {
     try {
       await connectDB();
 
@@ -149,10 +172,10 @@ export async function getSystemHealthSummary(
       staleAssets = staleAssetsCount;
       recentFailures = recentFailureDocs.map((event) => ({
         id: typeof event._id?.toString === 'function' ? event._id.toString() : String(event._id || ''),
-        message: String(event.message || 'Audio operation failed.'),
-        action: String(event.action || 'unknown'),
-        sourceType: String(event.sourceType || 'unknown'),
-        variant: String(event.variant || 'unknown'),
+        message: sanitizeDiagnosticsText(String(event.message || 'Audio operation failed.')),
+        action: sanitizeDiagnosticsText(String(event.action || 'unknown')),
+        sourceType: sanitizeDiagnosticsText(String(event.sourceType || 'unknown')),
+        variant: sanitizeDiagnosticsText(String(event.variant || 'unknown')),
         createdAt:
           event.createdAt instanceof Date
             ? event.createdAt.toISOString()

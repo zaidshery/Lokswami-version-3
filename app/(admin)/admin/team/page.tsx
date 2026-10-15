@@ -8,7 +8,7 @@ export default async function TeamPage() {
   const admin = await getAdminSession();
 
   if (!admin || !canViewPage(admin.role, 'team')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   return (

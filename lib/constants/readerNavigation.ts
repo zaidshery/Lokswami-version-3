@@ -1,3 +1,5 @@
+import { READER_CATEGORIES, getNewsCategoryHref } from '@/lib/constants/newsCategories';
+
 export type ReaderNavigationLink = {
   name: string;
   nameEn: string;
@@ -16,11 +18,55 @@ export const READER_NAVIGATION = {
   contact: { name: '\u0938\u0902\u092a\u0930\u094d\u0915', nameEn: 'Contact', href: '/main/contact' },
 } as const satisfies Record<string, ReaderNavigationLink>;
 
-export function isReaderNavigationActive(pathname: string, href: string) {
-  if (href === READER_NAVIGATION.videos.href && pathname.startsWith('/main/shorts/')) {
+const categoryLink = (slug: string): ReaderNavigationLink => {
+  const category = READER_CATEGORIES.find((item) => item.slug === slug)!;
+  return { name: category.name, nameEn: category.nameEn, href: getNewsCategoryHref(category.slug) };
+};
+
+// Primary destinations; supported children are mapped in HOMEPAGE_NAVIGATION below.
+export const HOMEPAGE_PRIMARY_NAVIGATION: ReaderNavigationLink[] = [
+  READER_NAVIGATION.home,
+  { ...categoryLink('regional'), name: 'राज्य', nameEn: 'States' },
+  { ...READER_NAVIGATION.videos, nameEn: 'Video' },
+  READER_NAVIGATION.epaper,
+  READER_NAVIGATION.emagazine,
+  categoryLink('lokswami-special'),
+  ...['politics', 'national', 'international', 'sports', 'entertainment', 'technology', 'business'].map(categoryLink),
+  { ...READER_NAVIGATION.elections, nameEn: 'Election' },
+];
+
+export type ReaderNavigationItem = ReaderNavigationLink & { id: string; children?: ReaderNavigationLink[] };
+export const STATE_NAVIGATION = ['madhya-pradesh', 'maharashtra', 'rajasthan', 'uttar-pradesh', 'gujarat'].map(categoryLink);
+export const HOMEPAGE_NAVIGATION: ReaderNavigationItem[] = [
+  ...HOMEPAGE_PRIMARY_NAVIGATION.map(link => ({
+    ...link, id: link.href.split('/').pop() || 'home',
+    ...(link.href === getNewsCategoryHref('regional') ? {
+      children: STATE_NAVIGATION,
+    } : {}),
+  })),
+  { id: 'more', name: 'अन्य', nameEn: 'More', href: '',
+    children: ['kisaan', 'jobs', 'sarkari-yojana', 'dharm-jyotish'].map(categoryLink).concat(READER_NAVIGATION.contact) },
+];
+export function isReaderNavigationItemActive(pathname: string, item: ReaderNavigationItem): boolean {
+  return isReaderNavigationActive(pathname, item.href) || !!item.children?.some(child => isReaderNavigationActive(pathname, child.href));
+}
+
+export function isReaderNavigationActive(pathname: string, href: string): boolean {
+  if (!pathname || !href) return false;
+  const cleanPath = pathname.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const cleanHref = href.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+
+  if (cleanHref === '/main' || cleanHref === '/') {
+    return cleanPath === '/main' || cleanPath === '/';
+  }
+
+  const shortsRoot = '/main/shorts';
+  if (
+    cleanHref === READER_NAVIGATION.videos.href &&
+    (cleanPath === shortsRoot || cleanPath.startsWith(`${shortsRoot}/`))
+  ) {
     return true;
   }
-  return href === '/main'
-    ? pathname === href
-    : pathname === href || pathname.startsWith(`${href}/`);
+
+  return cleanPath === cleanHref || cleanPath.startsWith(`${cleanHref}/`);
 }

@@ -13,7 +13,12 @@ import {
   resolvePublicEpaperCityFilter,
   type EPaperCityFilter,
 } from '@/lib/utils/publicEpaperFilters';
-import type { EPaperPublicationType } from '@/lib/types/epaper';
+import type {
+  EPaperArticleRecord,
+  EPaperPublicationType,
+  EPaperRecord,
+} from '@/lib/types/epaper';
+import { epaperService } from '@/lib/server/epaper/epaperService';
 import {
   isMonthlyEPaperPublication,
   normalizePublicationIssueDate,
@@ -94,7 +99,7 @@ export async function generateEPaperMetadata(
       })
     : null;
   const story =
-    storyToken && (issue?.id || paperId)
+    storyToken && issue?.id
       ? await getPublicEpaperStoryForMetadata({
           epaperId: issue?.id || paperId,
           storyToken,
@@ -102,17 +107,17 @@ export async function generateEPaperMetadata(
         })
       : null;
   const resolvedPage = requestedPage || story?.pageNumber || 0;
-  const previewQuery = new URLSearchParams({ paper: issue?.id || paperId, publicationType, brand: '1' });
-  if (story) { previewQuery.set('story', story.id); previewQuery.set('v', String(story.releaseVersion || 1)); }
-  const shareImage = issue ? `/api/og/epaper?${previewQuery}` : '';
+  const shareImage = story?.coverImagePath || story?.pageImagePath ||
+    issue?.pages?.find((page) => page.pageNumber === (resolvedPage || 1))?.imagePath || issue?.thumbnailPath;
 
   return buildEpaperPageMetadata({
+    index: !(paperId && !issue) && !(storyToken && !story),
     publicationType,
     city: issue?.citySlug || filters.city,
     publishDate: issue?.publishDate || normalizePublicationIssueDate(filters.issueDate, publicationType),
     paperId: issue?.id || paperId,
     page: resolvedPage,
-    storyToken: story?.slug || storyToken,
+    storyToken,
     issueTitle: issue?.title,
     issueCityName: issue?.cityName,
     storyTitle: story?.title,
@@ -153,13 +158,13 @@ async function listInitialEPapers(
 const listCachedDefaultEPapers = unstable_cache(
   () => listInitialEPapers('all', '', 'epaper'),
   ['public-epaper-feed-first-page-v1'],
-  { revalidate: 300 }
+  { revalidate: 300, tags: ['epaper-reader-feed'] }
 );
 
 const listCachedDefaultEMagazines = unstable_cache(
   () => listInitialEPapers('all', '', 'emagazine'),
   ['public-emagazine-feed-first-page-v1'],
-  { revalidate: 300 }
+  { revalidate: 300, tags: ['emagazine-reader-feed'] }
 );
 
 async function fetchInitialEPapers(
@@ -205,6 +210,24 @@ export async function renderEPaperPage(
   const publicBasePath =
     publicationType === 'emagazine' ? '/main/e-magazine' : '/main/epaper';
 
+  const requestedPaperId = toSingleString(resolvedParams.paper).trim();
+  const requestedPage = parsePositiveInt(resolvedParams.page);
+  const storyToken = toSingleString(resolvedParams.story).trim();
+
+  let initialDetail: (EPaperRecord & { articles: EPaperArticleRecord[] }) | null = null;
+  let isRequestedPaperUnavailable = false;
+
+  if (requestedPaperId) {
+    try {
+      initialDetail = (await epaperService.getPublicEditionDetail(
+        requestedPaperId,
+        publicationType
+      )) as unknown as (EPaperRecord & { articles: EPaperArticleRecord[] });
+    } catch {
+      isRequestedPaperUnavailable = true;
+    }
+  }
+
   return (
     <EPaperPageClient
       initialItems={initial.items}
@@ -215,6 +238,11 @@ export async function renderEPaperPage(
       initialPublishDate={filters.issueDate}
       publicationType={publicationType}
       publicBasePath={publicBasePath}
+      initialDetail={initialDetail}
+      initialPaperId={requestedPaperId}
+      initialPage={requestedPage || 1}
+      initialStoryToken={storyToken}
+      isRequestedPaperUnavailable={isRequestedPaperUnavailable}
     />
   );
 }

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongoose';
@@ -18,7 +19,7 @@ function utcDay(value = new Date()) {
   return value.toISOString().slice(0, 10);
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   const configured = process.env.ADMIN_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim();
   if (!configured) {
     return NextResponse.json({ success: false, error: 'Cron secret is not configured.' }, { status: 503 });
@@ -71,3 +72,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ success: true, data: { candidates: items.length, created, skippedInactive, dedupeWindow: utcDay() } });
 }
+
+export const POST = withAdminMutation(POSTHandler, { machineRequest: hasCronSecret });

@@ -1,0 +1,25 @@
+{
+  "success": true,
+  "data": {
+    "generatedAt": "2026-09-10T10:00:00.000Z",
+    "hero": [],
+    "latest": [],
+    "trending": [],
+    "breaking": [],
+    "videos": [],
+    "shorts": [],
+    "epaper": null,
+    "emagazine": {
+      "id": "magazine-501",
+      "publicationType": "emagazine",
+      "title": "Sanitized September issue",
+      "cityName": "LokSwami",
+      "citySlug": "lokswami",
+      "publishDate": "2026-09-01",
+      "pageCount": 24,
+      "thumbnailPath": "https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/emagazines/2026-09-01/cover.jpg",
+      "pdfPath": "https://lokswami-storage-2026.sgp1.cdn.digitaloceanspaces.com/lokswami/emagazines/2026-09-01/issue.pdf",
+      "href": "/main/e-magazine?month=2026-09"
+    }
+  }
+}

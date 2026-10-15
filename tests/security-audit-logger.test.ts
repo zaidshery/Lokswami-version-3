@@ -1,5 +1,9 @@
+import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
-import { sanitizeAuditPayload } from '@/lib/security/auditLogger';
+import {
+  buildAuditRequestContext,
+  sanitizeAuditPayload,
+} from '@/lib/security/auditLogger';
 
 describe('Audit Logger', () => {
   it('redacts sensitive fields before storing audit payloads', () => {
@@ -16,6 +20,9 @@ describe('Audit Logger', () => {
           label: 'mobile',
         },
       ],
+      cookie: 'session-cookie-value',
+      clientCredential: 'private-client-credential',
+      setupUrl: 'https://cms.example.test/setup-admin-account?token=private-setup-token',
     });
 
     expect(payload.title).toBe('Public headline');
@@ -30,6 +37,9 @@ describe('Audit Logger', () => {
         label: 'mobile',
       },
     ]);
+    expect(payload.cookie).toBe('[REDACTED]');
+    expect(payload.clientCredential).toBe('[REDACTED]');
+    expect(payload.setupUrl).toBe('[REDACTED]');
   });
 
   it('truncates oversized strings and objects', () => {
@@ -40,5 +50,20 @@ describe('Audit Logger', () => {
 
     expect(String(payload.longText)).toContain('[truncated]');
     expect(payload.__truncatedKeys).toBe(11);
+  });
+
+  it('redacts secret-bearing query values from stored endpoints', () => {
+    const request = new NextRequest(
+      'https://cms.example.test/api/admin/jobs/run-due?secret=cron-value&token=token-value&limit=5'
+    );
+
+    const context = buildAuditRequestContext(request);
+    const endpoint = new URL(context.endpoint, 'https://cms.example.test');
+
+    expect(endpoint.searchParams.get('secret')).toBe('[REDACTED]');
+    expect(endpoint.searchParams.get('token')).toBe('[REDACTED]');
+    expect(endpoint.searchParams.get('limit')).toBe('5');
+    expect(context.endpoint).not.toContain('cron-value');
+    expect(context.endpoint).not.toContain('token-value');
   });
 });

@@ -34,24 +34,77 @@ export function Modal({
 }: ModalProps) {
   const [mounted, setMounted] = React.useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const titleId = React.useId();
+  const descriptionId = React.useId();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Handle ESC key to close
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Manage initial focus, keyboard containment, Escape, and focus return.
   useEffect(() => {
     if (!isOpen) return;
 
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const focusableSelector = [
+      'a[href]',
+      'button:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+
+    const focusInitialControl = window.requestAnimationFrame(() => {
+      const dialog = modalRef.current;
+      const firstFocusable = dialog?.querySelector<HTMLElement>(focusableSelector);
+      (firstFocusable || dialog)?.focus();
+    });
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+
+      const dialog = modalRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector));
+      if (!focusable.length) {
+        e.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    return () => {
+      window.cancelAnimationFrame(focusInitialControl);
+      window.removeEventListener('keydown', handleKeyDown);
+      returnFocusRef.current?.focus();
+    };
+  }, [isOpen]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -86,23 +139,27 @@ export function Modal({
             ref={modalRef}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-describedby={description ? descriptionId : undefined}
+            aria-label={!title ? 'Dialog' : undefined}
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.95, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 12 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className={`relative w-full ${maxWidthMap[maxWidth]} overflow-hidden rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900`}
+            className={`relative max-h-[calc(100dvh-2rem)] w-full ${maxWidthMap[maxWidth]} overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-zinc-800 dark:bg-zinc-900`}
           >
             {/* Header */}
             {(title || showCloseButton) && (
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   {title && (
-                    <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                    <h3 id={titleId} className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                       {title}
                     </h3>
                   )}
                   {description && (
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    <p id={descriptionId} className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                       {description}
                     </p>
                   )}
@@ -113,7 +170,7 @@ export function Modal({
                     type="button"
                     onClick={onClose}
                     aria-label="Close modal"
-                    className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                   >
                     <X className="h-5 w-5" />
                   </button>

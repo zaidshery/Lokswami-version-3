@@ -6,7 +6,6 @@
 import { mkdir, appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { NextRequest } from 'next/server';
-import { getClientIp } from '@/lib/security/ipUtils';
 
 export type RequestLogEntry = {
   timestamp: string;
@@ -29,21 +28,6 @@ type SessionLike = {
   role?: unknown;
 };
 
-const SENSITIVE_QUERY_KEYS = [
-  'password',
-  'token',
-  'secret',
-  'apikey',
-  'api_key',
-  'authorization',
-  'auth',
-  'code',
-  'state',
-  'session',
-];
-
-const MAX_LOG_FIELD_LENGTH = 1000;
-
 function isRequestLoggingDisabled() {
   return process.env.DISABLE_REQUEST_LOG === 'true' || process.env.DISABLE_REQUEST_LOG === '1';
 }
@@ -60,33 +44,12 @@ function getLogFilePath(timestamp: Date) {
   return path.join(getLogDir(), `${date}-api-requests.jsonl`);
 }
 
-function truncateField(value: string) {
-  if (value.length <= MAX_LOG_FIELD_LENGTH) return value;
-  return `${value.slice(0, MAX_LOG_FIELD_LENGTH)}...[truncated]`;
-}
-
 function getString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function isSensitiveQueryKey(key: string) {
-  const normalized = key.toLowerCase().replace(/[-\s]/g, '_');
-  return SENSITIVE_QUERY_KEYS.some((sensitive) => normalized.includes(sensitive));
-}
-
 export function sanitizeRequestLogPath(pathWithSearch: string) {
-  const [pathname, query = ''] = pathWithSearch.split('?');
-  if (!query) return pathname || '/';
-
-  const params = new URLSearchParams(query);
-  const sanitized = new URLSearchParams();
-
-  params.forEach((value, key) => {
-    sanitized.append(key, isSensitiveQueryKey(key) ? '[REDACTED]' : truncateField(value));
-  });
-
-  const nextQuery = sanitized.toString();
-  return nextQuery ? `${pathname || '/'}?${nextQuery}` : pathname || '/';
+  return pathWithSearch.split(/[?#]/, 1)[0] || '/';
 }
 
 export function buildRequestLogEntry(args: {
@@ -99,7 +62,6 @@ export function buildRequestLogEntry(args: {
   const timestamp = args.timestamp || new Date();
   const session = args.session || null;
   const userId = getString(session?.userId) || getString(session?.id) || getString(session?.sub);
-  const userEmail = getString(session?.email);
   const userRole = getString(session?.role);
   const rawPath = `${args.request.nextUrl.pathname}${args.request.nextUrl.search}`;
 
@@ -110,15 +72,17 @@ export function buildRequestLogEntry(args: {
     status: args.status,
     duration: Math.max(0, Math.round(args.duration)),
     userId,
-    userEmail,
+    userEmail: null,
     userRole,
-    ip: getClientIp(args.request),
-    userAgent: truncateField(args.request.headers.get('user-agent') || 'unknown'),
+    ip: '',
+    userAgent: '',
   };
 }
 
 export function serializeRequestLogEntry(entry: RequestLogEntry) {
-  return `${JSON.stringify(entry)}\n`;
+  // Enforce minimization at the final persistence boundary, including callers
+  // that construct an entry themselves instead of using buildRequestLogEntry.
+  return `${JSON.stringify({ ...entry, path: sanitizeRequestLogPath(entry.path), userEmail: null, ip: '', userAgent: '' })}\n`;
 }
 
 export async function writeRequestLog(entry: RequestLogEntry) {
@@ -127,8 +91,8 @@ export async function writeRequestLog(entry: RequestLogEntry) {
   try {
     const timestamp = new Date(entry.timestamp);
     const filePath = getLogFilePath(Number.isNaN(timestamp.getTime()) ? new Date() : timestamp);
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await appendFile(filePath, serializeRequestLogEntry(entry), 'utf8');
+    await mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
+    await appendFile(filePath, serializeRequestLogEntry(entry), { encoding: 'utf8', mode: 0o600 });
   } catch (error) {
     console.error('Failed to write request log:', error);
   }

@@ -1,3 +1,8 @@
+import { buildArticlePublicPath, getSiteUrl } from '@/lib/seo/articleSeo';
+import { buildPublicationReaderPath } from '@/lib/utils/readerContentPaths';
+import type { EPaperPublicationType } from '@/lib/types/epaper';
+import { buildWhatsAppShareUrl } from './universalShare';
+
 export type BuildArticleWhatsAppShareInput = {
   title: string;
   articleUrl: string;
@@ -30,9 +35,13 @@ export type BuildEpaperStoryShareInput = {
 };
 
 export type BuildEpaperSharePathInput = {
+  publicationType?: EPaperPublicationType;
   paperId?: string;
   page?: number;
   story?: string;
+  city?: string;
+  publishDate?: string;
+  month?: string;
 };
 
 export type BuildArticleSharePathInput = {
@@ -81,8 +90,8 @@ function getPreferredOrigin(origin: string) {
   const runtimeOrigin = trimTrailingSlash(cleanUrl(origin));
   const configured = trimTrailingSlash(cleanUrl(process.env.NEXT_PUBLIC_SITE_URL || ''));
 
-  if (configured && !isLocalOrigin(configured)) return configured;
-  return runtimeOrigin;
+  if (configured && !isLocalOrigin(configured)) return getSiteUrl(configured);
+  return getSiteUrl(runtimeOrigin);
 }
 
 export function toAbsoluteShareUrl(value: string, origin: string) {
@@ -121,31 +130,15 @@ export function buildArticleWhatsAppShareText({
 
 export function buildArticleWhatsAppShareUrl(input: BuildArticleWhatsAppShareInput) {
   const text = buildArticleWhatsAppShareText(input);
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  return buildWhatsAppShareUrl({ url: input.articleUrl, text });
 }
 
 export function buildArticleSharePath({ id, slug }: BuildArticleSharePathInput) {
-  const token = cleanShareLine(slug) || cleanShareLine(id);
-  return token ? `/a/${encodeURIComponent(token)}` : '/main';
+  return buildArticlePublicPath({ id: id || '', slug }) || '/main';
 }
 
-export function buildEpaperSharePath({ paperId, page, story }: BuildEpaperSharePathInput) {
-  const cleanPaperId = cleanShareLine(paperId);
-  const pageNumber = Number.parseInt(String(page ?? ''), 10);
-  const storyToken = cleanShareLine(story);
-
-  if (!cleanPaperId) return '/main/epaper';
-
-  const params = new URLSearchParams();
-  if (Number.isFinite(pageNumber) && pageNumber > 0) {
-    params.set('p', String(Math.floor(pageNumber)));
-  }
-  if (storyToken) params.set('s', storyToken);
-
-  const query = params.toString();
-  return query
-    ? `/e/${encodeURIComponent(cleanPaperId)}?${query}`
-    : `/e/${encodeURIComponent(cleanPaperId)}`;
+export function buildEpaperSharePath({ paperId, page, story, publicationType, city, publishDate, month }: BuildEpaperSharePathInput) {
+  return buildPublicationReaderPath({ paperId, page, storyToken: story, publicationType, city, publishDate, month });
 }
 
 export function buildEpaperIssueShareText({
@@ -172,7 +165,7 @@ export function buildEpaperIssueShareText({
 
 export function buildEpaperIssueWhatsAppShareUrl(input: BuildEpaperIssueShareInput) {
   const text = buildEpaperIssueShareText(input);
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  return buildWhatsAppShareUrl({ url: input.issueUrl, text });
 }
 
 export function buildEpaperStoryShareText({
@@ -207,5 +200,5 @@ export function buildEpaperStoryShareText({
 
 export function buildEpaperStoryWhatsAppShareUrl(input: BuildEpaperStoryShareInput) {
   const text = buildEpaperStoryShareText(input);
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  return buildWhatsAppShareUrl({ url: input.storyUrl, text });
 }

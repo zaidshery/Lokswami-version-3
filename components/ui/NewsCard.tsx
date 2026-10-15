@@ -316,7 +316,7 @@ export default function NewsCard({ article, variant = 'default', size = 'default
           ) : null}
 
           {article.isTrending ? (
-            <div className={`absolute flex items-center rounded-full bg-gray-900 font-bold text-orange-500 shadow-sm backdrop-blur-sm dark:bg-gray-800/80 dark:text-orange-400 ${isSmall ? 'right-2.5 top-2.5 gap-1 px-2 py-1 text-[10px]' : 'right-3 top-3 gap-1.5 px-3 py-1.5 text-xs'}`}>
+            <div className={`absolute flex items-center rounded-full bg-gray-900 font-bold text-orange-400 shadow-sm backdrop-blur-sm dark:bg-gray-800/80 dark:text-orange-400 ${isSmall ? 'right-2.5 top-2.5 gap-1 px-2 py-1 text-[10px]' : 'right-3 top-3 gap-1.5 px-3 py-1.5 text-xs'}`}>
               <TrendingUp className={isSmall ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
               {language === 'hi' ? '\u091f\u094d\u0930\u0947\u0902\u0921\u093f\u0902\u0917' : 'Trending'}
             </div>

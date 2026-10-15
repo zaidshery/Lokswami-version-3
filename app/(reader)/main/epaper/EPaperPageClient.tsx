@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { usePublicationReaderTheme } from '@/lib/hooks/usePublicationReaderTheme';
 import {
   type SyntheticEvent as ReactSyntheticEvent,
   type TouchEvent as ReactTouchEvent,
@@ -38,10 +39,17 @@ import Logo from '@/components/layout/Logo';
 import EPaperDatePicker from '@/components/ui/EPaperDatePicker';
 import EPaperCityPicker from '@/components/ui/EPaperCityPicker';
 import ShareMenu from '@/components/ui/ShareMenu';
+import { resolveCanonicalShareUrl, shareNative } from '@/lib/utils/universalShare';
 import dynamic from 'next/dynamic';
 import EPaperCanvasViewport from '@/components/epaper/reader/EPaperCanvasViewport';
 import EPaperToolbar from '@/components/epaper/reader/EPaperToolbar';
 import EPaperPageStrip from '@/components/epaper/reader/EPaperPageStrip';
+import { getEpaperReaderImage } from '@/lib/utils/epaperReaderImage';
+import EPaperStoryPreview from '@/components/epaper/reader/EPaperStoryPreview';
+import readerStyles from '@/components/epaper/reader/reader.module.css';
+import { useEPaperPageTurn } from '@/components/epaper/reader/useEPaperPageTurn';
+import { buildPublicationArticlePath, buildPublicationReaderPath } from '@/lib/utils/readerContentPaths';
+import { epaperReaderKeyboardAction } from '@/lib/utils/epaperReaderKeyboard';
 
 const ArticleClippingModal = dynamic(
   () => import('@/components/epaper/reader/modals/ArticleClippingModal'),
@@ -49,10 +57,6 @@ const ArticleClippingModal = dynamic(
 );
 const EPaperDownloadModal = dynamic(
   () => import('@/components/epaper/reader/modals/EPaperDownloadModal'),
-  { ssr: false }
-);
-const ArticleStoryModal = dynamic(
-  () => import('@/components/epaper/reader/modals/ArticleStoryModal'),
   { ssr: false }
 );
 import {
@@ -79,10 +83,6 @@ import {
   type SavedEpaperPaperInput,
   type SavedEpaperStoryEntry,
 } from '@/lib/utils/epaperReaderLibrary';
-import {
-  resolveEpaperPreviewMaxZoom,
-  resolveEpaperTouchPreviewMaxZoom,
-} from '@/lib/utils/epaperPageImage';
 import {
   type EPaperCityFilter,
 } from '@/lib/utils/publicEpaperFilters';
@@ -144,6 +144,11 @@ type EPaperPageClientProps = {
   initialPublishDate: string;
   publicationType?: EPaperPublicationType;
   publicBasePath?: string;
+  initialDetail?: (EPaperRecord & { articles: EPaperArticleRecord[] }) | null;
+  initialPaperId?: string;
+  initialPage?: number;
+  initialStoryToken?: string;
+  isRequestedPaperUnavailable?: boolean;
 };
 
 const COPY = {
@@ -397,6 +402,7 @@ const EPAPER_LAST_PAGE_STORAGE_KEY = 'lokswami_epaper_last_page_v1';
 const EPAPER_ZOOM_HINT_STORAGE_KEY = 'lokswami_epaper_zoom_hint_seen_v1';
 const EPAPER_OFFLINE_CACHE_NAME = 'lokswami-epaper-offline-v2';
 const MIN_PREVIEW_ZOOM = 1;
+const MAX_PREVIEW_ZOOM = 4;
 const PREVIEW_ZOOM_STEP = 0.2;
 const PREVIEW_DOUBLE_TAP_ZOOM = 2;
 const MIN_ARTICLE_IMAGE_ZOOM = 1;
@@ -978,9 +984,14 @@ export default function EPaperPageClient({
   initialPublishDate,
   publicationType = 'epaper',
   publicBasePath = '/main/epaper',
+  initialDetail = null,
+  initialPaperId = '',
+  initialPage = 1,
+  initialStoryToken = '',
+  isRequestedPaperUnavailable = false,
 }: EPaperPageClientProps) {
   const language = useAppStore((state) => state.language);
-  const theme = useAppStore((state) => state.theme);
+  const theme = usePublicationReaderTheme();
   const toggleTheme = useAppStore((state) => state.toggleTheme);
   const setEpaperReaderOpen = useAppStore((state) => state.setEpaperReaderOpen);
   const prefersReducedMotion = useReducedMotion();
@@ -1004,23 +1015,32 @@ export default function EPaperPageClient({
   const [listLimit] = useState(
     Number.isFinite(initialLimit) && initialLimit > 0 ? initialLimit : 20
   );
-  const [hasInitializedListEffect, setHasInitializedListEffect] = useState(false);
+  const hasInitializedListEffect = useRef(false);
   const [error, setError] = useState('');
   const [readerSidebarView, setReaderSidebarView] = useState<ReaderSidebarView>('pages');
-  const [readerDisplayMode, setReaderDisplayMode] = useState<'single' | 'spread'>('single');
+  const [readerDisplayMode, setReaderDisplayMode] = useState<'single' | 'spread' | 'auto'>('auto');
   const [isDesktopContextRailVisible, setIsDesktopContextRailVisible] = useState(false);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement | null>(null);
 
-  const [activePaper, setActivePaper] = useState<(EPaperRecord & { articles: EPaperArticleRecord[] }) | null>(null);
-  const [activePage, setActivePage] = useState(1);
+  const [activePaper, setActivePaper] = useState<(EPaperRecord & { articles: EPaperArticleRecord[] }) | null>(initialDetail);
+  const [activePage, setActivePage] = useState(() => {
+    if (initialDetail && initialDetail.pageCount) {
+      return clampPage(initialPage, 1, Math.max(1, initialDetail.pageCount));
+    }
+    return initialPage > 0 ? initialPage : 1;
+  });
   const [activeArticle, setActiveArticle] = useState<EPaperArticleRecord | null>(null);
   const [articleReaderMode, setArticleReaderMode] = useState<ArticleReaderMode>('story');
   const [articleTextScale, setArticleTextScale] = useState(1);
   const [isPreparingArticleListen, setIsPreparingArticleListen] = useState(false);
   const [isPlayingArticleAudio, setIsPlayingArticleAudio] = useState(false);
   const [articleListenError, setArticleListenError] = useState('');
-  const [pendingStorySlug, setPendingStorySlug] = useState('');
+  const [pendingStorySlug, setPendingStorySlug] = useState(initialStoryToken);
+  const [isEditionUnavailable, setIsEditionUnavailable] = useState(isRequestedPaperUnavailable);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [thumbnailsOpen, setThumbnailsOpen] = useState(true);
+  const readerContainerRef = useRef<HTMLDivElement | null>(null);
   const [savedPapers, setSavedPapers] = useState<SavedEpaperPaperEntry[]>([]);
   const [savedStories, setSavedStories] = useState<SavedEpaperStoryEntry[]>([]);
   const [readerNotice, setReaderNotice] = useState<ReaderActionNotice | null>(null);
@@ -1036,13 +1056,16 @@ export default function EPaperPageClient({
     src: '',
     naturalWidth: 0,
   });
-  const [showHotspotHints, setShowHotspotHints] = useState(true);
+  const [showHotspotHints, setShowHotspotHints] = useState(false);
+  const [showStoryHint, setShowStoryHint] = useState(true);
   const [articleImageZoom, setArticleImageZoom] = useState(1);
   const [pageTurnDirection, setPageTurnDirection] = useState(0);
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const [isWideScreen, setIsWideScreen] = useState(false);
 
-  const [pendingPaperId, setPendingPaperId] = useState('');
+  const [pendingPaperId, setPendingPaperId] = useState(
+    initialDetail ? '' : initialPaperId
+  );
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isClippingModalOpen, setIsClippingModalOpen] = useState(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -1084,7 +1107,7 @@ export default function EPaperPageClient({
   const canUseSpreadMode = Boolean(
     activePaper && activePaper.pageCount > 1 && isWideScreen && !isCoarsePointer
   );
-  const shouldShowSpreadMode = canUseSpreadMode && readerDisplayMode === 'spread';
+  const shouldShowSpreadMode = canUseSpreadMode && readerDisplayMode !== 'single';
   const hasArchiveFilters =
     (!isMonthlyPublication && selectedCity !== 'all') || Boolean(selectedPublishDate);
   const syncSavedLibrary = useCallback(() => {
@@ -1134,7 +1157,7 @@ export default function EPaperPageClient({
     const page = Number.parseInt(params.get('page') || '', 10);
     const story = (params.get('story') || '').trim();
 
-    if (paper) {
+    if (paper && initialDetail?._id !== paper) {
       setPendingPaperId(paper);
     }
 
@@ -1146,13 +1169,6 @@ export default function EPaperPageClient({
       setPendingStorySlug(story);
     }
 
-    if (typeof window !== 'undefined') {
-      if (window.innerWidth >= 768) {
-        setReaderDisplayMode('spread');
-      } else {
-        setReaderDisplayMode('single');
-      }
-    }
   }, []);
 
   useEffect(() => {
@@ -1216,6 +1232,13 @@ export default function EPaperPageClient({
     setEpaperReaderOpen(Boolean(activePaper));
   }, [activePaper, setEpaperReaderOpen]);
 
+  // Page turns use history state rather than a server navigation; keep the tab title current.
+  useEffect(() => {
+    document.title = activePaper
+      ? `${activeArticle?.title || activePaper.title} | Lokswami ${publicationLabels.singular} | Page ${activePage}`
+      : `Lokswami ${publicationLabels.singular} Archive`;
+  }, [activePaper, activeArticle, activePage, publicationLabels.singular]);
+
   useEffect(() => {
     return () => {
       setEpaperReaderOpen(false);
@@ -1223,8 +1246,8 @@ export default function EPaperPageClient({
   }, [setEpaperReaderOpen]);
 
   useEffect(() => {
-    if (!hasInitializedListEffect) {
-      setHasInitializedListEffect(true);
+    if (!hasInitializedListEffect.current) {
+      hasInitializedListEffect.current = true;
       return;
     }
 
@@ -1271,7 +1294,6 @@ export default function EPaperPageClient({
       cancelled = true;
     };
   }, [
-    hasInitializedListEffect,
     buildListQueryParams,
     publicationLabels.plural,
   ]);
@@ -1382,15 +1404,30 @@ export default function EPaperPageClient({
         1;
 
       setActivePaper(payload.data);
+      setThumbnailsOpen(true);
       setPageTurnDirection(0);
-      setActivePage(
-        clampPage(pageToOpen, 1, Math.max(1, Number(payload.data.pageCount || 1)))
-      );
+      const targetPage = clampPage(pageToOpen, 1, Math.max(1, Number(payload.data.pageCount || 1)));
+      setActivePage(targetPage);
       setActiveArticle(null);
       setPreviewZoom(1);
       setPdfFallbackPreview('');
       setFallbackError('');
       setIsOverflowOpen(false);
+      setIsEditionUnavailable(false);
+
+      if (typeof window !== 'undefined') {
+        const params = buildReaderSearchParams({
+          city: (payload.data.citySlug as EPaperCityFilter) || selectedCity,
+          publishDate: payload.data.publishDate || selectedPublishDate,
+          publicationType,
+          paperId: payload.data._id,
+          page: targetPage,
+        });
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        if (window.location.search !== `?${params.toString()}`) {
+          window.history.pushState({ page: targetPage, paperId: payload.data._id }, '', nextUrl);
+        }
+      }
     } catch (err: unknown) {
       setError(toErrorMessage(err, `Failed to open ${publicationLabels.lowercase}`));
     }
@@ -1399,6 +1436,8 @@ export default function EPaperPageClient({
     publicationLabels.lowercase,
     publicationType,
     savedPapers,
+    selectedCity,
+    selectedPublishDate,
     showReaderNotice,
     t.offlineCachedNotice,
   ]);
@@ -1461,45 +1500,168 @@ export default function EPaperPageClient({
     return activePaper.articles.filter((item) => item.pageNumber === activePage);
   }, [activePaper, activePage]);
 
+  const { turn: readerTurn, start: startReaderTurn, cancel: cancelReaderTurn, complete: completeReaderTurn } = useEPaperPageTurn(`${activePaper?._id || ''}:${shouldShowSpreadMode}`);
+  const navigateToPage = useCallback(
+    (nextPage: number) => {
+      if (!activePaper) return;
+      const maxPages = Math.max(1, Number(activePaper.pageCount || 1));
+      const resolvedPage = clampPage(nextPage, 1, shouldShowSpreadMode ? Math.max(1, maxPages - 1) : maxPages);
+      if (resolvedPage === activePage) return;
+      const nextPageMeta = activePaper.pages.find(page => page.pageNumber === resolvedPage);
+      const nextCompanion = shouldShowSpreadMode ? activePaper.pages.find(page => page.pageNumber === resolvedPage + 1) : undefined;
+      const delivery = getEpaperReaderImage(nextPageMeta?.imagePath || '', nextPageMeta?.width || 1200, nextPageMeta?.height || 1600, { spread: shouldShowSpreadMode });
+      const companionDelivery = nextCompanion ? getEpaperReaderImage(nextCompanion.imagePath || '', nextCompanion.width || 1200, nextCompanion.height || 1600, { spread: true }) : undefined;
+      const accepted = startReaderTurn({ page: resolvedPage, direction: resolvedPage > activePage ? 1 : -1,
+        image: delivery.src, srcSet: delivery.srcSet, sizes: delivery.sizes,
+        secondImage: companionDelivery?.src, secondSrcSet: companionDelivery?.srcSet,
+      }, () => {
+      setActivePage(resolvedPage);
+      setPreviewZoom(1);
+      if (typeof window !== 'undefined') {
+        const params = buildReaderSearchParams({
+          city: (activePaper.citySlug as EPaperCityFilter) || selectedCity,
+          publishDate: activePaper.publishDate || selectedPublishDate,
+          publicationType,
+          paperId: activePaper._id,
+          page: resolvedPage,
+        });
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        if (window.location.search !== `?${params.toString()}`) {
+          window.history.pushState({ page: resolvedPage, paperId: activePaper._id }, '', nextUrl);
+        }
+      }
+      });
+      if (accepted) {
+        if (document.activeElement?.closest('[data-hotspot-id]')) readerContainerRef.current?.querySelector<HTMLElement>('[data-reader-canvas]')?.focus({ preventScroll: true });
+        setActiveArticle(null);
+        setIsClippingModalOpen(false);
+        setPreviewZoom(1);
+      }
+    },
+    [activePaper, activePage, publicationType, selectedCity, selectedPublishDate, shouldShowSpreadMode, startReaderTurn]
+  );
+
   const goToRelativePage = useCallback(
     (delta: number) => {
       if (!activePaper || !delta) return;
       const maxPages = Math.max(1, Number(activePaper.pageCount || 1));
       const step = shouldShowSpreadMode && maxPages > 1 ? 2 : 1;
-
-      setActivePage((current) => {
-        const nextPage = clampPage(current + delta * step, 1, maxPages);
-        if (nextPage !== current) {
-          setPageTurnDirection(delta > 0 ? 1 : -1);
-          setActiveArticle(null);
-        }
-        return nextPage;
-      });
+      const targetPage = clampPage(activePage + delta * step, 1, maxPages);
+      if (targetPage !== activePage) {
+        navigateToPage(targetPage);
+      }
     },
-    [activePaper, shouldShowSpreadMode]
+    [activePage, activePaper, navigateToPage, shouldShowSpreadMode]
   );
 
-  const navigateToPage = useCallback(
-    (nextPage: number) => {
-      if (!activePaper) return;
-      const maxPages = Math.max(1, Number(activePaper.pageCount || 1));
-
-      setActivePage((current) => {
-        const resolvedPage = clampPage(nextPage, 1, maxPages);
-        if (resolvedPage !== current) {
-          setPageTurnDirection(resolvedPage > current ? 1 : -1);
-          setActiveArticle(null);
-        }
-        return resolvedPage;
-      });
-    },
-    [activePaper]
-  );
   const zoomPreviewOut = useCallback(() => {
     setPreviewZoom((current) =>
       Math.max(MIN_PREVIEW_ZOOM, Number((current - PREVIEW_ZOOM_STEP).toFixed(2)))
     );
   }, []);
+
+  const resetPreviewZoom = useCallback(() => {
+    setPreviewZoom(1);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (typeof document === 'undefined') return;
+    try {
+      if (!document.fullscreenElement) {
+        // Include story/download dialogs, which render alongside the reader shell.
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      }
+    } catch {
+      // Graceful fallback when Fullscreen API is unsupported or rejected
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleCloseReader = useCallback(() => {
+    if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+    setActivePaper(null);
+    setActiveArticle(null);
+    if (typeof window !== 'undefined') {
+      const params = buildReaderSearchParams({
+        city: selectedCity,
+        publishDate: selectedPublishDate,
+        publicationType,
+      });
+      const nextUrl = params.toString()
+        ? `${window.location.pathname}?${params.toString()}`
+        : window.location.pathname;
+      window.history.pushState({}, '', nextUrl);
+    }
+  }, [publicationType, selectedCity, selectedPublishDate]);
+
+  const selectReaderStory = useCallback((story: EPaperArticleRecord) => {
+    if (!activePaper || readerTurn) return;
+    setActiveArticle(story);
+    setShowStoryHint(false);
+    const path = buildPublicationReaderPath({ publicationType, paperId: activePaper._id, city: activePaper.citySlug, publishDate: activePaper.publishDate, page: story.pageNumber, storyToken: story._id });
+    if (`${window.location.pathname}${window.location.search}` !== path) window.history.pushState({}, '', path);
+  }, [activePaper, publicationType, readerTurn]);
+
+  const closeReaderStory = useCallback(() => {
+    setActiveArticle(null);
+    setIsClippingModalOpen(false);
+    const params = new URLSearchParams(window.location.search);
+    params.delete('story');
+    const path = `${window.location.pathname}?${params.toString()}`;
+    if (`${window.location.pathname}${window.location.search}` !== path) window.history.pushState({}, '', path);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      cancelReaderTurn();
+      setIsClippingModalOpen(false);
+      const params = new URLSearchParams(window.location.search);
+      const paper = (params.get('paper') || '').trim();
+      const page = Number.parseInt(params.get('page') || '', 10);
+      const story = (params.get('story') || '').trim();
+
+      if (paper) {
+        if (activePaper && activePaper._id === paper) {
+          if (Number.isFinite(page) && page > 0) {
+            const safePage = clampPage(Math.floor(page), 1, Math.max(1, Number(activePaper.pageCount || 1)));
+            setActivePage(safePage);
+          }
+          if (story) {
+            const matchedArticle = activePaper.articles.find(
+              (item) => item.slug === story || item._id === story
+            );
+            setActiveArticle(matchedArticle || null);
+            if (matchedArticle) setActivePage(matchedArticle.pageNumber);
+          } else {
+            setActiveArticle(null);
+          }
+        } else {
+          setPendingStorySlug(story);
+          void openPaper(paper, Number.isFinite(page) ? page : 1);
+        }
+      } else if (activePaper) {
+        setActivePaper(null);
+        setActiveArticle(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activePaper, openPaper, cancelReaderTurn]);
+
 
   useEffect(() => {
     if (!activePaper || !pendingStorySlug) return;
@@ -1510,10 +1672,12 @@ export default function EPaperPageClient({
 
     if (!matchedArticle) return;
 
-    navigateToPage(matchedArticle.pageNumber);
+    setActivePage(matchedArticle.pageNumber);
     setActiveArticle(matchedArticle);
+    const path = buildPublicationReaderPath({ publicationType, paperId: activePaper._id, city: activePaper.citySlug, publishDate: activePaper.publishDate, page: matchedArticle.pageNumber, storyToken: matchedArticle._id });
+    window.history.replaceState({}, '', path);
     setPendingStorySlug('');
-  }, [activePaper, pendingStorySlug, navigateToPage]);
+  }, [activePaper, pendingStorySlug, publicationType]);
 
   useEffect(() => {
     if (!activePaper) return;
@@ -1531,19 +1695,12 @@ export default function EPaperPageClient({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (activePaper) return;
 
-    const effectivePaperId = activePaper?._id || pendingPaperId;
-    const effectiveStoryToken = String(
-      activeArticle?.slug || activeArticle?._id || pendingStorySlug || ''
-    ).trim();
-    const effectivePage = effectivePaperId ? activePage : 0;
     const params = buildReaderSearchParams({
       city: selectedCity,
       publishDate: selectedPublishDate,
       publicationType,
-      paperId: effectivePaperId,
-      page: effectivePage,
-      story: effectiveStoryToken,
     });
     const nextUrl = params.toString()
       ? `${window.location.pathname}?${params.toString()}`
@@ -1551,12 +1708,7 @@ export default function EPaperPageClient({
 
     window.history.replaceState(window.history.state, '', nextUrl);
   }, [
-    activeArticle?._id,
-    activeArticle?.slug,
-    activePage,
-    activePaper?._id,
-    pendingPaperId,
-    pendingStorySlug,
+    activePaper,
     publicationType,
     selectedCity,
     selectedPublishDate,
@@ -1608,9 +1760,9 @@ export default function EPaperPageClient({
     [pageSummaries]
   );
   const spreadCompanionPage = useMemo(() => {
-    if (!shouldShowSpreadMode) return null;
+    if (readerDisplayMode === 'single') return null;
     return pageSummaries.find((item) => item.pageNumber === activePage + 1) || null;
-  }, [activePage, pageSummaries, shouldShowSpreadMode]);
+  }, [activePage, pageSummaries, readerDisplayMode]);
   const previewSrc = activePageImage || pdfFallbackPreview;
   const previewIsDataUrl = previewSrc.startsWith('data:');
   const previewWidth = activePageMeta?.width || 1200;
@@ -1618,9 +1770,7 @@ export default function EPaperPageClient({
   const previewNaturalWidth =
     previewImageMetrics.src === previewSrc ? previewImageMetrics.naturalWidth : 0;
   const previewSourceWidth = previewNaturalWidth || Number(activePageMeta?.width || 0);
-  const maxPreviewZoom = isCoarsePointer
-    ? resolveEpaperTouchPreviewMaxZoom(previewSourceWidth)
-    : resolveEpaperPreviewMaxZoom(previewSourceWidth);
+  const maxPreviewZoom = MAX_PREVIEW_ZOOM;
   const isPreviewZoomed = previewZoom > MIN_PREVIEW_ZOOM + 0.01;
   const maxReaderPage = Math.max(1, Number(activePaper?.pageCount || 1));
   const maxSpreadStartPage = Math.max(1, maxReaderPage - 1);
@@ -1634,6 +1784,92 @@ export default function EPaperPageClient({
       Math.min(maxPreviewZoom, Number((current + PREVIEW_ZOOM_STEP).toFixed(2)))
     );
   }, [maxPreviewZoom]);
+
+  useEffect(() => {
+    if (!activePaper) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Tab' && !event.defaultPrevented) {
+        const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]');
+        const scope = dialogs[dialogs.length - 1] || readerContainerRef.current;
+        const controls = Array.from(scope?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], select, input, textarea, [tabindex="0"]') || []).filter((node) => node.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (first && last && (!scope?.contains(document.activeElement) || (event.shiftKey ? document.activeElement === first : document.activeElement === last))) {
+          event.preventDefault();
+          (event.shiftKey ? last : first).focus();
+        }
+        return;
+      }
+      const action = epaperReaderKeyboardAction(event);
+      if (!action) return;
+
+      if (activeArticle || isClippingModalOpen || isDownloadModalOpen) {
+        if (event.key === 'Escape') {
+          if (isClippingModalOpen) setIsClippingModalOpen(false);
+          else if (isDownloadModalOpen) setIsDownloadModalOpen(false);
+          else if (activeArticle) closeReaderStory();
+        }
+        return;
+      }
+
+      switch (action) {
+        case 'next':
+          event.preventDefault();
+          goToRelativePage(1);
+          break;
+        case 'previous':
+          event.preventDefault();
+          goToRelativePage(-1);
+          break;
+        case 'first':
+          event.preventDefault();
+          navigateToPage(1);
+          break;
+        case 'last':
+          event.preventDefault();
+          navigateToPage(maxReaderPage);
+          break;
+        case 'zoom-in':
+          event.preventDefault();
+          zoomPreviewIn();
+          break;
+        case 'zoom-out':
+          event.preventDefault();
+          zoomPreviewOut();
+          break;
+        case 'reset':
+          event.preventDefault();
+          resetPreviewZoom();
+          break;
+        case 'escape':
+          if (document.fullscreenElement) {
+            void document.exitFullscreen?.();
+          } else {
+            handleCloseReader();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    activePaper,
+    activeArticle,
+    isClippingModalOpen,
+    isDownloadModalOpen,
+    goToRelativePage,
+    zoomPreviewIn,
+    zoomPreviewOut,
+    resetPreviewZoom,
+    navigateToPage,
+    maxReaderPage,
+    handleCloseReader,
+    closeReaderStory,
+  ]);
 
   const onPreviewImageLoad = useCallback(
     (event: ReactSyntheticEvent<HTMLImageElement>) => {
@@ -1663,7 +1899,11 @@ export default function EPaperPageClient({
       const pageData = pageSummaries.find((s) => s.pageNumber === pNum);
       if (pageData?.imagePath) {
         const img = new window.Image();
-        img.src = pageData.imagePath;
+        const delivery = getEpaperReaderImage(pageData.imagePath, pageData.width, pageData.height, { spread: shouldShowSpreadMode });
+        if (delivery.sizes) img.sizes = delivery.sizes;
+        if (delivery.srcSet) img.srcset = delivery.srcSet;
+        img.onload = () => { void img.decode?.().catch(() => {}); };
+        img.src = delivery.src;
       }
     });
   }, [activePage, activePaper, pageSummaries, shouldShowSpreadMode]);
@@ -1762,31 +2002,17 @@ export default function EPaperPageClient({
   useEffect(() => {
     if (!activePaper) return;
 
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setActivePaper(null);
-        setActiveArticle(null);
-        return;
-      }
-
-      if (event.key === 'ArrowLeft') {
-        goToRelativePage(-1);
-      }
-
-      if (event.key === 'ArrowRight') {
-        goToRelativePage(1);
-      }
-    };
-
     const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
     document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', handleKeydown);
+    const frame = requestAnimationFrame(() => readerContainerRef.current?.querySelector<HTMLElement>('[data-reader-canvas]')?.focus());
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', handleKeydown);
+      cancelAnimationFrame(frame);
+      if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [activePaper, goToRelativePage]);
+  }, [activePaper]);
 
   const openPdfInNewTab = () => {
     if (!pdfUrlForOpen) return;
@@ -1798,10 +2024,13 @@ export default function EPaperPageClient({
 
   const activePaperSharePath = activePaper
     ? buildEpaperSharePath({
+      publicationType,
       paperId: activePaper._id,
+      city: activePaper.citySlug,
+      publishDate: activePaper.publishDate,
       page: activePage,
     })
-    : '/main/epaper';
+    : publicBasePath;
   const activePaperShareDateLabel = activePaper?.publishDate
       ? formatPublicationIssueLabel(activePaper.publishDate, publicationType, activePaper.publishDate)
       : selectedPublishDate;
@@ -1820,12 +2049,15 @@ export default function EPaperPageClient({
 
     const storyToken = String(activeArticle._id || activeArticle.slug || '').trim();
     const sharePath = buildEpaperSharePath({
+      publicationType,
       paperId: activePaper._id,
+      city: activePaper.citySlug,
+      publishDate: activePaper.publishDate,
       page: activeArticle.pageNumber || activePage,
       story: storyToken,
     });
 
-    return toAbsoluteShareUrl(sharePath, window.location.origin);
+    return resolveCanonicalShareUrl(sharePath);
   };
 
   const shareActiveArticleOnWhatsApp = async () => {
@@ -1859,18 +2091,8 @@ export default function EPaperPageClient({
       includeUrl: false,
     });
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: activeArticle.title || activePaper.title,
-          text: shareText,
-          url: shareUrl || undefined,
-        });
-        return;
-      } catch (error: unknown) {
-        if (isAbortError(error)) return;
-      }
-    }
+    const result = await shareNative({ title: activeArticle.title || activePaper.title, text: shareText, url: shareUrl });
+    if (result === 'shared' || result === 'cancelled') return;
 
     await shareActiveArticleOnWhatsApp();
   };
@@ -2765,12 +2987,22 @@ export default function EPaperPageClient({
         : '';
 
   return (
-    <div className="relative pb-2 md:pb-4">
+    <div className={`relative pb-2 md:pb-4 ${activePaper ? readerStyles.readerOpenMarker : ''}`} data-publication-reader-open={activePaper ? 'true' : undefined}>
+      {!activePaper ? (
+        <h1 className="sr-only">
+          {isMonthlyPublication
+            ? (language === 'hi' ? 'ई-मैगज़ीन' : 'E-Magazine')
+            : (language === 'hi' ? 'ई-पेपर' : 'E-Paper')}
+          {selectedPublishDate
+            ? ` - ${isMonthlyPublication ? selectedPublishDate : selectedIssueDateLabel}`
+            : ''}
+        </h1>
+      ) : null}
       <div className="pointer-events-none absolute -top-10 right-3 h-44 w-44 rounded-full bg-orange-200/30 blur-3xl dark:bg-orange-900/12 sm:-top-12 sm:right-6 sm:h-56 sm:w-56" />
       <div className="pointer-events-none absolute top-[24rem] -left-12 h-52 w-52 rounded-full bg-cyan-200/28 blur-3xl dark:bg-cyan-900/12 sm:top-[27rem] sm:h-64 sm:w-64" />
 
-      {readerNotice ? (
-        <div className="pointer-events-none fixed inset-x-0 top-20 z-[120] flex justify-center px-3">
+      {readerNotice && !activeArticle ? (
+        <div className={`${readerStyles.readerNotice} pointer-events-none fixed inset-x-0 top-20 z-[120] flex justify-center px-3`}>
           <div
             className={`pointer-events-auto inline-flex max-w-xl items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur ${
               readerNotice.tone === 'success'
@@ -2788,6 +3020,7 @@ export default function EPaperPageClient({
         </div>
       ) : null}
 
+      <div hidden={Boolean(activePaper)}>
       <section className="cnp-surface relative overflow-hidden rounded-2xl border border-zinc-200/80 p-3.5 shadow-sm dark:border-zinc-800 sm:p-4 md:p-5">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 shadow-[0_1px_8px_rgba(225,29,72,0.35)]" />
         <div className="mb-4 border-b border-zinc-200/80 pb-4 dark:border-zinc-800">
@@ -2821,6 +3054,36 @@ export default function EPaperPageClient({
             )}
           </div>
         </div>
+
+        {isEditionUnavailable ? (
+          <div
+            role="alert"
+            className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 p-5 text-center dark:border-amber-900/60 dark:bg-amber-950/40"
+          >
+            <Newspaper className="mx-auto h-10 w-10 text-amber-600 dark:text-amber-400" />
+            <h3 className="mt-2 text-base font-bold text-amber-900 dark:text-amber-200">
+              {language === 'hi' ? 'यह संस्करण उपलब्ध नहीं है' : 'Edition Unavailable'}
+            </h3>
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+              {language === 'hi'
+                ? 'अनुरोधित ई-पेपर संस्करण उपलब्ध नहीं है या हटा दिया गया है।'
+                : 'The requested e-paper edition is unavailable or has not been published.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditionUnavailable(false);
+                if (typeof window !== 'undefined') {
+                  const url = publicationType === 'emagazine' ? '/main/e-magazine' : '/main/epaper';
+                  window.history.pushState({}, '', url);
+                }
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+            >
+              {language === 'hi' ? 'सभी संस्करण देखें' : 'View all editions'}
+            </button>
+          </div>
+        ) : null}
 
         {error ? (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
@@ -2991,7 +3254,7 @@ export default function EPaperPageClient({
                           alt={paper.title}
                           fill
                           quality={60}
-                          priority={index < 4}
+                          priority={!activePaper && index < 4}
                           className="object-contain p-2"
                           sizes="(max-width: 639px) 44vw, (max-width: 767px) 46vw, (max-width: 1279px) 30vw, 22vw"
                         />
@@ -3040,10 +3303,11 @@ export default function EPaperPageClient({
           </div>
         )}
       </section>
+      </div>
 
       {activePaper ? (
-        <div className={`fixed inset-0 z-[95] bg-zinc-950/70 p-0 backdrop-blur-md sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
-          <div className="relative mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden border-0 bg-white shadow-2xl dark:bg-zinc-950 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-200 sm:dark:border-zinc-800">
+        <div ref={readerContainerRef} role="dialog" aria-modal="true" aria-label={`${activePaper.title} publication reader`} className={`${readerStyles.readerOverlay} fixed inset-0 z-[95] bg-zinc-950/70 p-0 sm:bg-black/75 sm:p-4 ${theme === 'dark' ? 'dark' : ''}`} data-swipe-ignore="true">
+          <div data-publication-reader-frame className={`${readerStyles.readerFrame} relative mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden border-0 bg-white shadow-2xl dark:bg-zinc-950 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-200 sm:dark:border-zinc-800`}>
             <EPaperToolbar
               title={activePaper.title}
               editionLabel={isMonthlyPublication
@@ -3056,6 +3320,8 @@ export default function EPaperPageClient({
               currentPage={activePage}
               pageCount={activePaper.pageCount}
               zoom={previewZoom}
+              minZoom={MIN_PREVIEW_ZOOM}
+              maxZoom={maxPreviewZoom}
               canUseSpreadMode={canUseSpreadMode}
               isSpreadMode={shouldShowSpreadMode}
               canGoPrevious={canGoPreviousPage}
@@ -3065,14 +3331,14 @@ export default function EPaperPageClient({
               onPageSelect={navigateToPage}
               onZoomIn={zoomPreviewIn}
               onZoomOut={zoomPreviewOut}
+              onResetZoom={resetPreviewZoom}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
               onToggleSpreadMode={() =>
-                setReaderDisplayMode((mode) => (mode === 'spread' ? 'single' : 'spread'))
+                setReaderDisplayMode((mode) => (mode === 'single' ? 'spread' : 'single'))
               }
               onOpenDownload={() => setIsDownloadModalOpen(true)}
-              onClose={() => {
-                setActivePaper(null);
-                setActiveArticle(null);
-              }}
+              onClose={handleCloseReader}
               shareUrl={activePaperSharePath}
               shareText={activePaperShareText}
               shareContentType={publicationType === 'emagazine' ? 'emagazine' : 'epaper'}
@@ -3082,6 +3348,9 @@ export default function EPaperPageClient({
               onToggleSave={handleIssueSaveToggle}
               theme={theme}
               onToggleTheme={toggleTheme}
+              companionPage={shouldShowSpreadMode ? spreadCompanionPage?.pageNumber : undefined}
+              thumbnailsOpen={thumbnailsOpen}
+              onToggleThumbnails={() => setThumbnailsOpen((open) => !open)}
             />
 
             {/* Preserved reader toolbar placement contracts */}
@@ -3108,9 +3377,19 @@ export default function EPaperPageClient({
               />
             </div>
 
-            {activePaper.articles.length === 0 ? <p role="status" className="bg-white px-4 py-2 text-sm text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">{language === 'hi' ? 'अखबार उपलब्ध है। क्लिक करके पढ़ने वाली खबरें तैयार की जा रही हैं।' : 'Newspaper available. Clickable stories are being prepared.'}</p> : null}
+            {pageArticles.length || (shouldShowSpreadMode && spreadCompanionPage?.articles?.length) ? <div className={`${readerStyles.storyNavigation} shrink-0 border-b border-zinc-200 bg-white px-3 text-xs dark:border-zinc-800 dark:bg-zinc-950`}>
+              <div className="flex items-center justify-between gap-2 py-1">
+                {showStoryHint ? <span className="text-zinc-500 dark:text-zinc-400">{language === 'hi' ? 'खबर पर टैप करके पढ़ें' : 'Tap a story to read'}</span> : <span className="text-zinc-500 dark:text-zinc-400">{language === 'hi' ? 'इंटरैक्टिव खबरें' : 'Interactive stories available'}</span>}
+                <button type="button" aria-pressed={showHotspotHints} onClick={() => setShowHotspotHints((shown) => !shown)} className="reader-focus-ring min-h-11 rounded-lg px-2 font-semibold text-red-700 dark:text-red-300 sm:min-h-8">{showHotspotHints ? 'Hide story areas' : 'Show story areas'}</button>
+              </div>
+              <details><summary className="reader-focus-ring cursor-pointer py-2 font-semibold text-zinc-700 dark:text-zinc-200">{language === 'hi' ? 'इस पृष्ठ की खबरें' : 'Stories on this page'}</summary><ol className="max-h-[25dvh] overflow-y-auto pb-2">{[...pageArticles, ...(shouldShowSpreadMode ? spreadCompanionPage?.articles || [] : [])].map((story) => <li key={story._id}><button type="button" onClick={() => selectReaderStory(story)} className="reader-focus-ring min-h-11 w-full rounded-lg px-2 py-2 text-left text-zinc-700 hover:bg-red-50 dark:text-zinc-200 dark:hover:bg-zinc-800">{story.title} <span className="text-zinc-500">· Page {story.pageNumber}</span></button></li>)}</ol></details>
+            </div> : <p className={`${readerStyles.storyNavigationPlaceholder} m-0 flex shrink-0 items-center border-b border-zinc-200 bg-white px-3 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 sm:hidden`}>{language === 'hi' ? 'पृष्ठ बदलने के लिए स्वाइप करें' : 'Swipe to turn pages'}</p>}
+
+            {activePaper.articles.length === 0 ? <p role="status" className="bg-white px-4 py-2 text-sm text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">{language === 'hi' ? 'प्रकाशन उपलब्ध है। प्रकाशित क्लिक करने योग्य खबरें अभी उपलब्ध नहीं हैं।' : 'Publication available. Released clickable stories are not available yet.'}</p> : null}
             <EPaperCanvasViewport
               imagePath={previewSrc}
+              pageTurn={readerTurn}
+              onTurnComplete={completeReaderTurn}
               pageNumber={activePage}
               pageWidth={previewWidth}
               pageHeight={previewHeight}
@@ -3120,48 +3399,61 @@ export default function EPaperPageClient({
               onZoomChange={setPreviewZoom}
               articles={pageArticles}
               activeStoryId={activeArticle?._id}
-              onSelectStory={(story) => {
-                setActiveArticle(story);
-              }}
+              onSelectStory={selectReaderStory}
               showHotspots={showHotspotHints}
               onNextPage={() => goToRelativePage(1)}
               onPrevPage={() => goToRelativePage(-1)}
+              canGoPrevious={canGoPreviousPage}
+              canGoNext={canGoNextPage}
               isSpreadMode={shouldShowSpreadMode}
               spreadSecondImagePath={spreadCompanionPage?.imagePath}
+              responsiveSpread={readerDisplayMode === 'auto' && activePaper.pageCount > 1 && Boolean(spreadCompanionPage)}
+              spreadSecondWidth={spreadCompanionPage?.width}
+              spreadSecondHeight={spreadCompanionPage?.height}
               spreadSecondPageNumber={spreadCompanionPage?.pageNumber}
               spreadSecondArticles={spreadCompanionPage?.articles}
             />
 
             <EPaperPageStrip
+              key={activePaper._id}
               pages={pageSummaries}
               activePage={activePage}
-              onSelectPage={navigateToPage}
-              isOpen={true}
+              onSelectPage={(page) => {
+                navigateToPage(page);
+                readerContainerRef.current?.querySelector<HTMLElement>('[data-reader-canvas]')?.focus();
+              }}
+              companionPage={shouldShowSpreadMode ? spreadCompanionPage?.pageNumber : undefined}
+              onReturnToReading={() => {
+                setThumbnailsOpen(false);
+                readerContainerRef.current?.querySelector<HTMLElement>('[data-reader-canvas]')?.focus();
+              }}
+              isOpen={thumbnailsOpen}
             />
           </div>
         </div>
       ) : null}
 
-      {activeArticle ? (
-        <ArticleStoryModal
-          article={activeArticle}
-          isOpen={Boolean(activeArticle)}
-          onClose={() => { setActiveArticle(null); setIsClippingModalOpen(false); }}
-          pageImageUrl={activePaper?.pages.find((page) => page.pageNumber === activeArticle.pageNumber)?.imagePath || previewSrc}
+      {activeArticle && activePaper ? <EPaperStoryPreview
+        key={activeArticle._id} story={activeArticle}
+        pageImagePath={activePaper.pages.find((page) => page.pageNumber === activeArticle.pageNumber)?.imagePath}
+        issueTitle={activePaper.title} language={language} onClose={closeReaderStory}
+        issueContext={`${getPublicationLocationLabel(publicationType, activePaper.cityName)} · ${formatPublicationIssueLabel(activePaper.publishDate, publicationType, activePaper.publishDate)}`}
+        onOpenClipping={() => setIsClippingModalOpen(open => !open)}
+        onCloseClipping={() => setIsClippingModalOpen(false)}
+        onPlayAudio={() => { void handleArticleListen(); }} onPauseAudio={stopArticleListening}
+        canListen={canListenToActiveArticle} isPlayingAudio={isPlayingArticleAudio}
+        isPreparingAudio={isPreparingArticleListen} audioError={articleListenError}
+        clippingControl={isClippingModalOpen ? <ArticleClippingModal
+          key={activeArticle._id} embedded publicationType={publicationType} isOpen
+          onClose={() => setIsClippingModalOpen(false)} article={activeArticle}
+          shareUrl={buildActiveArticleShareUrl()}
+          shareText={buildEpaperStoryShareText({ title: activeArticle.title || activePaper.title, storyUrl: buildActiveArticleShareUrl(), paperTitle: activePaper.title, excerpt: activeArticle.excerpt, page: activeArticle.pageNumber || activePage, includeUrl: false })}
           language={language}
-          onShareClipping={() => setIsClippingModalOpen(true)}
-          onShareWhatsApp={() => {
-            void shareActiveArticleOnWhatsApp();
-          }}
-          onPlayAudio={() => {
-            void handleArticleListen();
-          }}
-          onPauseAudio={stopArticleListening}
-          isPlayingAudio={isPlayingArticleAudio}
-          isPreparingAudio={isPreparingArticleListen}
-          hasAudioSource={canListenToActiveArticle}
-        />
-      ) : null}
+        /> : null}
+        articlePath={buildPublicationArticlePath({ publicationType, paperId: activePaper._id, city: activePaper.citySlug, publishDate: activePaper.publishDate, page: activeArticle.pageNumber, storyToken: activeArticle._id })}
+        whatsappControl={<ShareMenu title={activeArticle.title} url={buildActiveArticleShareUrl()} contentType={publicationType} contentId={activeArticle._id} language={language} placement="publication_story" ariaLabel="Share story on WhatsApp" triggerIcon="whatsapp" directWhatsApp buttonClassName="inline-flex h-11 w-11 items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 [&>span]:hidden" />}
+      /> : null}
+
 
       {isDownloadModalOpen && activePaper ? (
         <EPaperDownloadModal
@@ -3175,28 +3467,6 @@ export default function EPaperPageClient({
         />
       ) : null}
 
-      {isClippingModalOpen && activeArticle && activePaper ? (
-        <ArticleClippingModal
-          key={activeArticle._id}
-          publicationType={publicationType}
-          isOpen={isClippingModalOpen}
-          onClose={() => setIsClippingModalOpen(false)}
-          article={activeArticle}
-          pageImageUrl={previewSrc}
-          shareUrl={buildActiveArticleShareUrl()}
-          shareText={buildEpaperStoryShareText({
-            title: activeArticle.title || activePaper.title,
-            storyUrl: buildActiveArticleShareUrl(),
-            paperTitle: activePaper.title,
-            excerpt: activeArticle.excerpt,
-            page: activeArticle.pageNumber || activePage,
-            includeUrl: false,
-          })}
-          editionName={activePaper.cityName || activePaper.title}
-          publishDate={activePaper.publishDate}
-          language={language}
-        />
-      ) : null}
 
     </div>
   );

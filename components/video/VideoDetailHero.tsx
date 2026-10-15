@@ -35,7 +35,9 @@ export interface VideoDetailHeroProps {
     shorts?: string;
   };
   onSeek?: (seconds: number) => void;
+  onSeeking?: () => void;
   onPausedChange: (paused: boolean) => void;
+  onPlaybackChange?: (playing: boolean) => void;
   onMutedChange: (muted: boolean) => void;
   onTimeChange?: (current: number, duration: number) => void;
   onAutoAdvanceChange?: (autoAdvance: boolean) => void;
@@ -43,6 +45,7 @@ export interface VideoDetailHeroProps {
   onPlaybackRateChange: (rate: (typeof PLAYER_SPEED_OPTIONS)[number]) => void;
   onToggleWatchLater?: (videoId: string) => void;
   onAdvanceToNext: () => void;
+  onEnded?: () => void;
   onBackToList?: () => void;
   isMobileModal?: boolean;
 }
@@ -57,11 +60,14 @@ export default function VideoDetailHero({
   playbackRate,
   initialStartTime = 0,
   onPausedChange,
+  onPlaybackChange,
   onMutedChange,
   onTimeChange,
+  onSeeking,
   onCaptionsChange,
   onPlaybackRateChange,
   onAdvanceToNext,
+  onEnded,
   onBackToList,
   isMobileModal = false,
 }: VideoDetailHeroProps) {
@@ -97,6 +103,8 @@ export default function VideoDetailHero({
             videoId={selectedVideo.id}
             title={selectedVideo.title}
             src={selectedVideo.videoUrl}
+            captionUrl={selectedVideo.captionUrl}
+            captionLanguage={selectedVideo.captionLanguage}
             poster={selectedVideo.thumbnail}
             fallbackDuration={selectedVideo.duration}
             isActive={true}
@@ -112,11 +120,14 @@ export default function VideoDetailHero({
             isShort={selectedVideo.isShort}
             className="h-full w-full object-contain"
             onPausedChange={onPausedChange}
+            onPlaybackChange={onPlaybackChange}
             onMutedChange={onMutedChange}
+            onSeeking={onSeeking}
             onTimeChange={(current, dur) => {
               if (onTimeChange) onTimeChange(current, dur);
             }}
             onEnded={() => {
+              onEnded?.();
               if (!autoAdvance) {
                 onPausedChange(true);
                 return;
@@ -137,7 +148,7 @@ export default function VideoDetailHero({
           <button
             type="button"
             onClick={onBackToList}
-            className="absolute left-3 top-3 z-50 rounded-full bg-black/60 p-2 backdrop-blur transition-all hover:bg-black/80 active:scale-90"
+            className="reader-focus-ring absolute left-3 top-3 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 p-2 backdrop-blur transition-all hover:bg-black/80 active:scale-90"
             aria-label="Back to list"
           >
             <ChevronLeft className="h-5 w-5 text-white" />

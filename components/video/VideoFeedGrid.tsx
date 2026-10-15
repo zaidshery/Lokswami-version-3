@@ -53,7 +53,7 @@ export default function VideoFeedGrid({
       <section className="rounded-[30px] border border-zinc-200 bg-white px-3 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.1)] dark:border-white/8 dark:bg-[#141418] dark:shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
         <div className="mb-3 flex items-center justify-between px-1">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#ff6b5f]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-red-700 dark:text-[#ff6b5f]">
               {copy.upNext}
             </p>
             <h2 className="mt-1 text-lg font-bold text-zinc-950 dark:text-white">

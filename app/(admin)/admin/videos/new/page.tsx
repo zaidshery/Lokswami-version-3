@@ -257,7 +257,7 @@ export default function CreateVideoPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({
-        mediaKey: initPayload.data.mediaKey,
+        assetId: initPayload.data.assetId,
         expectedSize: videoFile.size,
         expectedFileType: videoFile.type || 'video/mp4',
         expectedFileName: videoFile.name,

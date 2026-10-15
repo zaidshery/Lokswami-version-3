@@ -137,6 +137,9 @@ describe('public home feed service', () => {
       },
     ]);
     listAllStoredEPapersMock.mockResolvedValue([
+      { _id: 'paper-draft', city: 'Indore', title: 'Draft', publishDate: '2026-05-12', thumbnailPath: '/draft.jpg', status: 'draft' },
+      { _id: 'paper-ready', city: 'Indore', title: 'Ready', publishDate: '2026-05-11', thumbnailPath: '/ready.jpg', status: 'ready_to_publish' },
+      { _id: 'magazine', city: 'Indore', title: 'Magazine', publishDate: '2026-05-13', thumbnailPath: '/magazine.jpg', publicationType: 'emagazine', status: 'published' },
       {
         _id: 'paper-mumbai-newer',
         city: 'Mumbai',
@@ -171,6 +174,9 @@ describe('public home feed service', () => {
     );
     expect(result.feed.latest.map((item) => item.id)).toEqual(['article-2']);
     expect(result.feed.trending.map((item) => item.id)).toEqual(['article-1']);
+    expect(result.feed.topPackage.lead?.id).toBe('article-1');
+    expect(result.feed.topPackage.latest.map((item) => item.id)).toEqual(['article-2', 'article-1']);
+    expect(result.feed.topPackage.popular.map((item) => item.id)).not.toContain('draft-1');
     expect(result.feed.breaking.map((item) => item.id)).toEqual(['article-1']);
     expect(result.feed.videos[0]?.id).toBe('video-1');
     expect(result.feed.shorts[0]?.id).toBe('short-1');

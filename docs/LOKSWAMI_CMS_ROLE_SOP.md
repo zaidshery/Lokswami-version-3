@@ -1,8 +1,10 @@
 # Lokswami Newsroom CMS - Role SOP
 
-Version: 1.1
+Version: 1.3
 Reviewed against the CMS: 4 August 2026
-Audience: Admin, Copy Editor, and Reporter
+Publication permissions reviewed against runtime: 11 October 2026
+Story media requirements verified against UI/API: 12 October 2026
+Audience: Super Admin, Admin, Copy Editor, and Reporter
 
 This is the daily operating guide for the Lokswami newsroom CMS. Menu names and
 workflow actions below match the role-aware CMS. A staff member should only see
@@ -87,13 +89,17 @@ Push Alerts, or Settings.
    - Location Tag
    - Reporter Notes and Source Info
    - Mark **Source is confidential** when the source must remain internal
-3. Upload at least one JPG/PNG/WEBP image and one MP4 video for the story package.
-   Current limits are up to 5 images (5 MB each) and 10 videos (1.9 GB each).
-   The first image becomes the cover.
+3. Add a cover image or thumbnail URL. JPG/PNG/WEBP uploads are limited to 5 MB
+   each. MP4 video is optional; upload it through the Story editor when the
+   reporting needs video. Each MP4 can be up to 1.9 GB. The current UI/API have
+   no per-story file-count or combined-video-size cap. The first image becomes
+   the cover. An image-only Story can be saved and submitted.
 4. Preview uploaded media. Replace or remove the wrong file before handoff.
-5. Choose **Save Draft** when the package should remain private. Important: the
-   current Story form still requires one image and one video before Save Draft;
-   it is not a text-only recovery save.
+5. Choose **Save Draft** when the package should remain private. A title and
+   cover/thumbnail are still required; it is not a text-only recovery save.
+   MP4 is not required for Save Draft or Submit For Review. Uploaded videos
+   must complete verification before they can be attached; do not substitute
+   an unverified URL for an upload receipt.
 6. Choose **Submit For Review** only when the package is complete and verified.
 7. Check **My Stories** or **My Work** for the status, assignee, latest desk note,
    and next action. Submitted and later stages are read-only unless the desk
@@ -132,8 +138,8 @@ before sending.
 - [ ] Names, numbers, dates, location, and spellings are verified.
 - [ ] Source and rights/credit information are recorded.
 - [ ] Confidential source information is marked internal.
-- [ ] Image and video are the correct files and finish uploading.
-- [ ] The script/caption matches the media.
+- [ ] The cover is correct; every uploaded image/video finishes verification.
+- [ ] The script/caption matches the included media. Include video when relevant.
 - [ ] Reporter notes explain anything the desk must know.
 - [ ] The story is submitted once; duplicate records are not created.
 
@@ -149,7 +155,7 @@ Editor/Admin completes linked-Article SEO, audio, and publication handoff.
 
 - **Dashboard**, **My Work**, and **Copy Desk**
 - **Articles**, **Stories**, **Videos**, and **Social Posts**
-- **E-Papers**, **E-Magazines**, and **Media**
+- **Media**
 
 The Copy Editor can claim unassigned submitted work, edit assigned items, return
 work for changes, and mark clean work ready for Admin approval. The Copy Editor
@@ -187,13 +193,13 @@ design.
 3. Resolve every readiness blocker.
 4. Choose **Submit for review**. A Copy Editor cannot publish directly.
 
-### E-paper/E-magazine desk work
+### Publication production notes
 
-- Open an assigned edition/issue and review missing page images, OCR text,
-  hotspots, captions, and linked story text.
-- Correct OCR before accepting it; OCR output is never assumed to be final copy.
-- Add production notes for missing pages or publish blockers.
-- Move clean work toward **Ready To Publish**. Admin owns final release.
+- Send page, OCR, hotspot, caption, or linked-story quality notes to Super Admin.
+- Super Admin applies those notes in the publication CMS and owns final release.
+- E-Paper/E-Magazine CMS viewing, uploads, editing, OCR/hotspot work, release and
+  archive are restricted to Super Admin. An editorial assignment does not grant
+  publication CMS access to Copy Editor.
 - Treat E-Magazine as a monthly issue workflow, not a daily E-Paper edition.
 
 ### Copy Editor handoff checklist
@@ -211,11 +217,11 @@ design.
 
 - Daily desk: **Review Queue**, **Assignments**, **Content Queue**, **Copy Desk**
 - Release tools: **Push Alerts**, Articles, Stories, Videos, Social Posts,
-  E-Papers/E-Magazines, Media, Polls, and Categories
+  Media, Polls, and Categories
 - Operations: Team, Analytics, AI Ops, Newsroom Settings, Contact Messages, and
   Operations Center
 
-System Settings, Revenue, Business Value, Audit Log, Permission Review,
+E-Papers/E-Magazines, System Settings, Revenue, Business Value, Audit Log, Permission Review,
 Operations Diagnostics, and leadership-report management remain
 Super-Admin-only boundaries.
 
@@ -259,7 +265,10 @@ Super-Admin-only boundaries.
 8. For breaking news, upload the required breaking audio before publication.
 9. Select **Publish now**, **Schedule publication**, or **Submit for review**.
 
-### Manage E-Paper and E-Magazine releases
+### Publication handoff to Super Admin
+
+Admin coordinates publication requests with Super Admin. The following upload,
+production, release and archive workflow is performed using a Super Admin account.
 
 1. Open **E-Papers** or **E-Magazines** -> **New Upload**.
 2. Enter edition/issue metadata and upload the PDF.
@@ -329,10 +338,14 @@ Super-Admin-only boundaries.
 | Request changes | No | Yes | Yes |
 | Mark ready for approval | No | Yes | Yes |
 | Approve/schedule/publish | No | No | Yes |
-| Review E-Paper OCR/hotspots | No | Yes | Yes |
-| Create/publish E-Paper | No | No | Yes |
+| Review E-Paper/E-Magazine OCR/hotspots | No | No | No |
+| Create/publish E-Paper/E-Magazine | No | No | No |
 | Manage newsroom users | No | No | Yes, except Super Admin |
 | Prepare/copy push alert | No | No | Yes; external channel delivers it |
+
+Super Admin owns all publication CMS actions: view, upload/create, edit metadata
+or pages, OCR/hotspots, release/publish, and archive. Reporter, Copy Editor and
+Admin have no publication CMS access. Published reader pages remain public.
 
 ## 10. End-of-shift check
 

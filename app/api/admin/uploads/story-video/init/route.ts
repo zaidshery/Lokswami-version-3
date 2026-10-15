@@ -1,18 +1,25 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSessionFromReq } from '@/lib/auth/admin';
 import {
-  createStoryVideoUploadTarget,
   parseStoryVideoSize,
   validateStoryVideoSelection,
 } from '@/lib/storage/storyVideoUpload';
+import { storyVideoAssetService } from '@/lib/server/media/storyVideoAssetService';
+import { MediaValidationError } from '@/lib/server/media/mediaService';
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/getRateLimiter';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
+async function POSTHandler(req: NextRequest) {
   try {
     const user = await getAdminSessionFromReq(req);
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    const rateLimit = await checkRateLimit({ scope: 'heavy', identifier: `story-video-init:${user.id}` });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ success: false, error: 'Too many upload attempts.' }, { status: 429, headers: getRateLimitHeaders(rateLimit) });
     }
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
@@ -26,12 +33,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: validationError }, { status: 400 });
     }
 
-    const target = createStoryVideoUploadTarget({
+    const target = await storyVideoAssetService.initialize({
       fileName,
       fileType,
       fileSize,
       storyId,
-    });
+    }, user);
 
     return NextResponse.json(
       {
@@ -42,10 +49,15 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof MediaValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     console.error('Error initializing story video upload:', error);
-    const message =
-      error instanceof Error ? error.message : 'Failed to initialize story video upload';
-
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to initialize story video upload' },
+      { status: 500 }
+    );
   }
 }
+
+export const POST = withAdminMutation(POSTHandler);

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import ConfirmModal from '@/components/ui/modal/ConfirmModal';
 
 type AssetStatus = 'pending' | 'ready' | 'failed' | 'stale';
 type AssetVariant = 'breaking_headline' | 'article_full' | 'epaper_story';
@@ -115,6 +116,7 @@ export default function TtsOperationsPanel() {
   const [activeAssetId, setActiveAssetId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -295,6 +297,8 @@ export default function TtsOperationsPanel() {
     } catch (requestError) {
       setError(getErrorMessage(requestError, 'Failed to clean up expired TTS assets.'));
       setRunning('');
+    } finally {
+      setCleanupConfirmOpen(false);
     }
   }, [
     loadOverview,
@@ -436,9 +440,9 @@ export default function TtsOperationsPanel() {
 
           <button
             type="button"
-            onClick={() => void handleCleanup()}
+            onClick={() => setCleanupConfirmOpen(true)}
             disabled={loading || running !== ''}
-            className="rounded-xl border border-zinc-200 bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200 disabled:opacity-60"
+            className="min-h-11 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-60"
           >
             {running === 'cleanup' ? 'Cleaning up...' : 'Cleanup expired'}
           </button>
@@ -446,16 +450,27 @@ export default function TtsOperationsPanel() {
       </div>
 
       {error ? (
-        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p role="alert" aria-live="assertive" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       ) : null}
 
       {success ? (
-        <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <p role="status" aria-live="polite" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           {success}
         </p>
       ) : null}
+
+      <ConfirmModal
+        isOpen={cleanupConfirmOpen}
+        onClose={() => setCleanupConfirmOpen(false)}
+        onConfirm={handleCleanup}
+        isLoading={running === 'cleanup'}
+        title="Clean up expired TTS assets?"
+        message="This permanently removes expired TTS asset records and stored files matching the current filters and retention policy."
+        confirmLabel="Clean up expired assets"
+        variant="danger"
+      />
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (

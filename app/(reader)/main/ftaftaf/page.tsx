@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
-import { articles as mockArticles, type Article } from '@/lib/mock/data';
+import type { Article } from '@/lib/mock/data';
 import { fetchMergedLiveArticles } from '@/lib/content/liveArticles';
 import { buildArticlePublicPath } from '@/lib/seo/articleSeo';
 import { buildArticleImageVariantUrl } from '@/lib/utils/articleMedia';
@@ -19,7 +19,7 @@ export default function FtaftafPage() {
   const isAnimatingRef = useRef(false);
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [ftaftafArticles, setFtaftafArticles] = useState<Article[]>(mockArticles.slice(0, 10));
+  const [ftaftafArticles, setFtaftafArticles] = useState<Article[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -133,6 +133,7 @@ export default function FtaftafPage() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (!ftaftafArticles.length) return;
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
       event.preventDefault();
       if (event.key === 'ArrowDown') scrollToIndex(activeIndex + 1);
@@ -141,8 +142,16 @@ export default function FtaftafPage() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeIndex, scrollToIndex]);
+  }, [activeIndex, scrollToIndex, ftaftafArticles.length]);
 
+
+  if (!ftaftafArticles.length) {
+    return (
+      <section className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        {language === 'hi' ? 'अभी कोई खबर उपलब्ध नहीं है।' : 'No stories available right now.'}
+      </section>
+    );
+  }
 
   return (
     <section className="relative">

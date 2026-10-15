@@ -2,6 +2,7 @@ import type { LeadershipReport } from '@/lib/admin/leadershipReports';
 import type { LeadershipReportDeliveryPerformanceAlert } from '@/lib/admin/leadershipReportDeliveryPerformanceAlerts';
 import type { LeadershipReportDeliveryTrends } from '@/lib/admin/leadershipReportDeliveryTrends';
 import type { LeadershipReportWebhookProvider } from '@/lib/storage/leadershipReportSchedulesFile';
+import { safeWebhookFetch } from '@/lib/security/safeUrlFetch';
 
 const FALLBACK_SITE_URL = 'http://localhost:3000';
 
@@ -372,26 +373,31 @@ export async function sendLeadershipReportWebhook(
 
   for (const url of urls) {
     try {
-      const response = await fetch(url, {
+      const response = await safeWebhookFetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
-        cache: 'no-store',
       });
 
       if (!response.ok) {
         const errorPayload = await response.text().catch(() => '');
         return {
           sent: false,
-          error: errorPayload.slice(0, 240) || `Webhook returned status ${response.status}`,
+          error:
+            response.error ||
+            errorPayload.slice(0, 240) ||
+            `Webhook returned status ${response.status}`,
         };
       }
 
       deliveredTo.push(url);
-    } catch {
-      return { sent: false, error: 'Webhook delivery failed' };
+    } catch (error) {
+      return {
+        sent: false,
+        error: error instanceof Error ? error.message : 'Webhook delivery failed',
+      };
     }
   }
 
@@ -411,26 +417,31 @@ export async function sendLeadershipReportCriticalAlertWebhook(
 
   for (const url of urls) {
     try {
-      const response = await fetch(url, {
+      const response = await safeWebhookFetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
-        cache: 'no-store',
       });
 
       if (!response.ok) {
         const errorPayload = await response.text().catch(() => '');
         return {
           sent: false,
-          error: errorPayload.slice(0, 240) || `Webhook returned status ${response.status}`,
+          error:
+            response.error ||
+            errorPayload.slice(0, 240) ||
+            `Webhook returned status ${response.status}`,
         };
       }
 
       deliveredTo.push(url);
-    } catch {
-      return { sent: false, error: 'Webhook delivery failed' };
+    } catch (error) {
+      return {
+        sent: false,
+        error: error instanceof Error ? error.message : 'Webhook delivery failed',
+      };
     }
   }
 

@@ -2,14 +2,31 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const getPublicVideoFeedPageMock = vi.fn();
+const getPublicVideosByIdsMock = vi.fn();
 
 vi.mock('@/lib/server/publicVideos', () => ({
   getPublicVideoFeedPage: (...args: unknown[]) => getPublicVideoFeedPageMock(...args),
+  getPublicVideosByIds: (...args: unknown[]) => getPublicVideosByIdsMock(...args),
 }));
 
 describe('GET /api/videos/latest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('returns a bounded noncached public lookup for saved IDs', async () => {
+    getPublicVideosByIdsMock.mockResolvedValue([{ _id: 'off-page' }]);
+    const { GET } = await import('@/app/api/v1/public/videos/route');
+    const response = await GET(new NextRequest('http://localhost/api/v1/public/videos?ids=off-page,off-page'));
+    expect(await response.json()).toEqual({ items: [{ _id: 'off-page' }] });
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(getPublicVideosByIdsMock).toHaveBeenCalledWith(['off-page']);
+  });
+
+  it.each(['', '../private', Array.from({ length: 51 }, (_, i) => `video-${i}`).join(',')])('rejects invalid or oversized saved ID lists: %s', async (ids) => {
+    const { GET } = await import('@/app/api/v1/public/videos/route');
+    expect((await GET(new NextRequest(`http://localhost/api/v1/public/videos?ids=${encodeURIComponent(ids)}`))).status).toBe(400);
+    expect(getPublicVideosByIdsMock).not.toHaveBeenCalled();
   });
 
   it('delegates to getPublicVideoFeedPage and returns cached JSON payload', async () => {

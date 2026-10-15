@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getServerArticlePath, listNewsArticlesForSitemap } from '@/lib/content/serverArticles';
 import { getSiteUrl } from '@/lib/seo/articleSeo';
+import { sitemapContentQueryService } from '@/lib/server/content/sitemapContentQueryService';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +19,10 @@ function absoluteUrl(baseUrl: string, path: string) {
 
 export async function GET() {
   const siteUrl = getSiteUrl();
-  const articles = await listNewsArticlesForSitemap(1000);
+  const articles = await sitemapContentQueryService.listNewsArticles(1000);
   const urlNodes = articles
     .map((article) => {
-      const loc = absoluteUrl(siteUrl, getServerArticlePath(article));
+      const loc = absoluteUrl(siteUrl, sitemapContentQueryService.articlePath(article));
       return [
         '  <url>',
         `    <loc>${escapeXml(loc)}</loc>`,

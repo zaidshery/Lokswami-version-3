@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ArticleClippingModal from '@/components/epaper/reader/modals/ArticleClippingModal';
@@ -26,6 +26,26 @@ describe('ArticleClippingModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it('offers only image sharing and downloading in the reader panel', () => {
+    render(<ArticleClippingModal embedded isOpen article={sampleArticle} onClose={vi.fn()} language="en" />);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByRole('button',{name:'Share image'})).toBeEnabled();
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(screen.getByRole('link',{name:'Download image'})).toBeVisible();
+    expect(screen.queryByRole('button', {name:'Share link'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name:'Close clipping tools'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name:'Copy Link'})).not.toBeInTheDocument();
+  });
+
+  it('embeds clipping tools without opening another image reader or fetching a preview', () => {
+    render(<ArticleClippingModal embedded isOpen article={sampleArticle} onClose={vi.fn()} publicationType="emagazine" />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mock-clipping-image')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', {name:'Download image'})).toHaveAttribute('href', expect.stringContaining('publicationType=emagazine'));
+    expect(screen.getByRole('button', {name:'Share image'})).toBeEnabled();
+  });
 
   it('renders null when isOpen is false', () => {
     const { container } = render(
@@ -46,7 +66,7 @@ describe('ArticleClippingModal', () => {
         article={sampleArticle}
         editionName="इंदौर संस्करण"
         publishDate="2026-09-05"
-        shareUrl="https://lokswami.com/main/epaper?article=art-1"
+        shareUrl="https://lokswami.com/main/epaper?paper=epaper-123&page=3&story=art-1"
         shareText="इंदौर में मेट्रो का विस्तार"
         language="hi"
       />
@@ -76,7 +96,7 @@ describe('ArticleClippingModal', () => {
         isOpen={true}
         onClose={vi.fn()}
         article={sampleArticle}
-        shareUrl="https://lokswami.com/main/epaper?article=art-1"
+        shareUrl="https://lokswami.com/main/epaper?paper=epaper-123&page=3&story=art-1"
         language="hi"
       />
     );
@@ -84,7 +104,7 @@ describe('ArticleClippingModal', () => {
     const copyBtn = screen.getByRole('button', { name: /Copy Link/i });
     await user.click(copyBtn);
 
-    expect(writeTextSpy).toHaveBeenCalledWith('https://lokswami.com/main/epaper?article=art-1');
+    expect(writeTextSpy).toHaveBeenCalledWith('https://lokswami.com/main/epaper?paper=epaper-123&page=3&story=art-1');
     expect(await screen.findByText('Copied')).toBeInTheDocument();
   });
 
@@ -97,7 +117,7 @@ describe('ArticleClippingModal', () => {
         isOpen={true}
         onClose={vi.fn()}
         article={sampleArticle}
-        shareUrl="https://lokswami.com/main/epaper?article=art-1"
+        shareUrl="https://lokswami.com/main/epaper?paper=epaper-123&page=3&story=art-1"
         shareText="मेट्रो समाचार"
         language="hi"
       />
@@ -107,7 +127,7 @@ describe('ArticleClippingModal', () => {
     await user.click(whatsappBtn);
 
     expect(openSpy).toHaveBeenCalledWith(
-      expect.stringContaining('https://api.whatsapp.com/send?text='),
+      expect.stringContaining('https://wa.me/?text='),
       '_blank',
       'noopener,noreferrer'
     );

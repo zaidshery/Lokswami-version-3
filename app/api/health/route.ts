@@ -7,26 +7,34 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const dbConnected = await isMongoAvailable({
-    label: 'health check',
-    timeoutMs: 1500,
-    unavailableTtlMs: 5000,
-  });
-
-  if (dbConnected) {
-    return NextResponse.json({
-      status: 'ok',
-      db: 'connected',
+  try {
+    const dbConnected = await isMongoAvailable({
+      label: 'health check',
+      timeoutMs: 1500,
+      unavailableTtlMs: 5000,
     });
-  }
 
-  const snapshot = getMongoAvailabilitySnapshot();
-  return NextResponse.json(
-    {
-      status: 'error',
-      db: 'unavailable',
-      message: snapshot.reason || 'MongoDB is unavailable.',
-    },
-    { status: 503 }
-  );
+    if (dbConnected) {
+      return NextResponse.json({
+        status: 'ok',
+        db: 'connected',
+      });
+    }
+
+    return NextResponse.json(
+      {
+        status: 'error',
+        db: 'unavailable',
+      },
+      { status: 503 }
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        status: 'error',
+        db: 'unavailable',
+      },
+      { status: 503 }
+    );
+  }
 }

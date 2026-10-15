@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/api/adminRoute';
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin';
 import {
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ success: true, data: { items, unreadCount: unreadItems.length } });
 }
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   const admin = await getAdminSession();
   if (!admin) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
@@ -51,3 +52,5 @@ export async function PATCH(request: Request) {
   });
   return NextResponse.json({ success: true, data: { updated } });
 }
+
+export const PATCH = withAdminMutation(PATCHHandler);

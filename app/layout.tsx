@@ -1,5 +1,6 @@
 
 import type { Metadata, Viewport } from 'next';
+import { getSiteUrl } from '@/lib/seo/articleSeo';
 import Script from 'next/script';
 import './globals.css';
 import SitePageTracker from '@/components/analytics/SitePageTracker';
@@ -9,8 +10,9 @@ import AuthSessionProvider from '@/components/providers/SessionProvider';
 import InstallAppPrompt from '@/components/ui/InstallAppPrompt';
 import FullscreenFix from '@/components/providers/FullscreenFix';
 import ToastProvider from '@/components/ui/toast/ToastProvider';
+import AccessibilityMotionProvider from '@/components/providers/AccessibilityMotionProvider';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://lokswami.com';
+const siteUrl = getSiteUrl();
 
 /*
  Human overview:
@@ -44,8 +46,13 @@ const THEME_INIT_SCRIPT = `
       return;
     }
     var parsed = JSON.parse(raw);
+    var storedPref = parsed && parsed.state && parsed.state.themePreference;
     var storedTheme = parsed && parsed.state && parsed.state.theme;
-    var finalTheme = (storedTheme === 'dark' || storedTheme === 'light') ? storedTheme : getSystemTheme();
+    var finalTheme = storedPref === 'auto'
+      ? getSystemTheme()
+      : ((storedPref === 'dark' || storedPref === 'light')
+          ? storedPref
+          : ((storedTheme === 'dark' || storedTheme === 'light') ? storedTheme : getSystemTheme()));
     applyTheme(finalTheme);
   } catch (error) {
     applyTheme(getSystemTheme());
@@ -233,13 +240,7 @@ const ASSET_RECOVERY_SCRIPT = `
       }
 
       var message = String(event.message || '');
-      var filename = String(event.filename || '');
-      if (
-        chunkErrorPattern.test(message) ||
-        filename.indexOf('/_next/static/') !== -1 ||
-        filename.indexOf('/next/static/') !== -1 ||
-        filename.indexOf('/__next_static__/') !== -1
-      ) {
+      if (chunkErrorPattern.test(message)) {
         recoverFromStaleAssets();
       }
     },
@@ -329,6 +330,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   themeColor: '#e72129',
+  viewportFit: 'cover',
 };
 
 /** Renders the shared HTML shell and top-level client providers. */
@@ -338,7 +340,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="hi" suppressHydrationWarning>
+    <html lang="hi" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <meta charSet="utf-8" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -397,13 +399,15 @@ window.gtag('config','${googleAnalyticsMeasurementId}',{
         ) : null}
         <AuthSessionProvider>
           <ThemeProvider>
-            <ToastProvider>
-              <AuthSync />
-              <FullscreenFix />
-              <SitePageTracker />
-              {children}
-              <InstallAppPrompt />
-            </ToastProvider>
+            <AccessibilityMotionProvider>
+              <ToastProvider>
+                <AuthSync />
+                <FullscreenFix />
+                <SitePageTracker />
+                {children}
+                <InstallAppPrompt />
+              </ToastProvider>
+            </AccessibilityMotionProvider>
           </ThemeProvider>
         </AuthSessionProvider>
       </body>

@@ -12,6 +12,11 @@ function applyThemeToDom(theme: 'dark' | 'light') {
   root.style.colorScheme = theme;
 }
 
+export function applyLanguageToDom(language: 'hi' | 'en') {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = language;
+}
+
 function readSystemTheme(): 'dark' | 'light' {
   if (typeof window === 'undefined') return 'dark';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -36,11 +41,15 @@ export interface AppUser {
   savedArticles: string[];
 }
 
+export type ThemePreference = 'auto' | 'light' | 'dark';
+
 interface AppState {
   // Theme
   theme: 'dark' | 'light';
+  themePreference: ThemePreference;
   toggleTheme: () => void;
   setTheme: (theme: 'dark' | 'light') => void;
+  setThemePreference: (preference: ThemePreference) => void;
   
   // Language
   language: 'hi' | 'en';
@@ -92,6 +101,7 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       // Theme
       theme: resolveTheme(undefined),
+      themePreference: 'auto',
       toggleTheme: () =>
         set((state) => {
           const domDark =
@@ -100,12 +110,21 @@ export const useAppStore = create<AppState>()(
               : state.theme === 'dark';
           const nextTheme = domDark ? 'light' : 'dark';
           applyThemeToDom(nextTheme);
-          return { theme: nextTheme };
+          return { theme: nextTheme, themePreference: nextTheme };
         }),
       setTheme: (theme) =>
-        set(() => {
+        set((state) => {
           applyThemeToDom(theme);
-          return { theme };
+          return {
+            theme,
+            themePreference: state.themePreference === 'auto' ? 'auto' : theme,
+          };
+        }),
+      setThemePreference: (themePreference) =>
+        set(() => {
+          const effectiveTheme = themePreference === 'auto' ? readSystemTheme() : themePreference;
+          applyThemeToDom(effectiveTheme);
+          return { themePreference, theme: effectiveTheme };
         }),
 
       // Device
@@ -116,10 +135,16 @@ export const useAppStore = create<AppState>()(
 
       // Language
       language: 'hi',
-      toggleLanguage: () => set((state) => ({ 
-        language: state.language === 'hi' ? 'en' : 'hi' 
-      })),
-      setLanguage: (language) => set({ language }),
+      toggleLanguage: () =>
+        set((state) => {
+          const nextLang = state.language === 'hi' ? 'en' : 'hi';
+          applyLanguageToDom(nextLang);
+          return { language: nextLang };
+        }),
+      setLanguage: (language) => {
+        applyLanguageToDom(language);
+        set({ language });
+      },
       
       // UI State
       isMobileMenuOpen: false,
@@ -180,11 +205,17 @@ export const useAppStore = create<AppState>()(
     {
       name: 'lokswami-storage',
       partialize: (state) => ({ 
-        theme: state.theme, 
+        theme: state.theme,
+        themePreference: state.themePreference,
         language: state.language
       }),
       onRehydrateStorage: () => (state) => {
-        applyThemeToDom(resolveTheme(state?.theme));
+        const pref = state?.themePreference;
+        const resolved = (pref === 'light' || pref === 'dark') ? pref : readSystemTheme();
+        applyThemeToDom(resolved);
+        if (state?.language) {
+          applyLanguageToDom(state.language);
+        }
       },
     }
   )

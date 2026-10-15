@@ -41,17 +41,34 @@ describe('admin publication role guard', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(403);
-    expect(payload.error).toContain('Only admins can assign');
+    expect(payload.error).toBe('Forbidden');
     expect(connectDBMock).not.toHaveBeenCalled();
   });
 
-  it('allows admins through the publication assignment guard', async () => {
+  it('blocks admins from changing publication desk ownership before database access', async () => {
     getAdminSessionMock.mockResolvedValue({
       id: 'admin-1',
       email: 'desk@example.com',
       name: 'Admin Desk',
       username: 'desk@example.com',
       role: 'admin',
+    });
+    const { PATCH } = await import('@/app/api/admin/epapers/[id]/route');
+    const response = await PATCH(createPatchRequest({ assignedToId: 'copy-1' }), {
+      params: Promise.resolve({ id: '665000000000000000000001' }),
+    });
+
+    expect(response.status).toBe(403);
+    expect(connectDBMock).not.toHaveBeenCalled();
+  });
+
+  it('allows super admins through the publication assignment guard', async () => {
+    getAdminSessionMock.mockResolvedValue({
+      id: 'super-1',
+      email: 'owner@example.com',
+      name: 'Owner',
+      username: 'owner@example.com',
+      role: 'super_admin',
     });
     connectDBMock.mockRejectedValue(new Error('stop after authorization'));
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);

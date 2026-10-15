@@ -7,7 +7,7 @@ export default async function AdminUsersPage() {
   const admin = await getAdminSession();
 
   if (!admin || !canViewPage(admin.role, 'users')) {
-    redirect('/admin');
+    redirect('/admin/work?access=denied');
   }
 
   return <UsersManagementClient viewerRole={admin.role} />;

@@ -18,18 +18,34 @@ export const STORY_VIDEO_PRODUCTION_STATUSES = [
   'qa_review',
   'ready_to_publish',
   'published',
+  'failed',
 ] as const;
 export type StoryVideoProductionStatus =
   (typeof STORY_VIDEO_PRODUCTION_STATUSES)[number];
 
 export type StoryVideoProductionAssignment = WorkflowActorRef | null;
 
+export type StoryVideoTechnicalMetadata = {
+  sizeBytes: number;
+  durationSeconds?: number;
+  width?: number;
+  height?: number;
+  aspectRatio?: '9:16' | '16:9' | '1:1' | 'unknown';
+  container: string;
+  codec?: string;
+  etag?: string;
+};
+
 export type StoryVideoProduction = {
   status: StoryVideoProductionStatus;
   assignedTo: StoryVideoProductionAssignment;
   editorNotes: string;
+  masterAssetId?: string;
   masterExportUrl: string;
   thumbnailUrl: string;
+  verifiedAt?: string | null;
+  technicalMetadata?: StoryVideoTechnicalMetadata | null;
+  lastError?: string | null;
   updatedAt: string | null;
 };
 
@@ -121,8 +137,12 @@ export function createEmptyStoryVideoProduction(): StoryVideoProduction {
     status: 'not_started',
     assignedTo: null,
     editorNotes: '',
+    masterAssetId: '',
     masterExportUrl: '',
     thumbnailUrl: '',
+    verifiedAt: null,
+    technicalMetadata: null,
+    lastError: null,
     updatedAt: null,
   };
 }
@@ -160,12 +180,26 @@ export function normalizeStoryVideoProduction(
     assignedTo: normalizeWorkflowActorRef(source.assignedTo),
     editorNotes:
       typeof source.editorNotes === 'string' ? source.editorNotes.trim() : '',
+    masterAssetId:
+      typeof source.masterAssetId === 'string' ? source.masterAssetId.trim() : '',
     masterExportUrl:
       typeof source.masterExportUrl === 'string'
         ? source.masterExportUrl.trim()
         : '',
     thumbnailUrl:
       typeof source.thumbnailUrl === 'string' ? source.thumbnailUrl.trim() : '',
+    verifiedAt:
+      typeof source.verifiedAt === 'string' && source.verifiedAt.trim()
+        ? source.verifiedAt
+        : null,
+    technicalMetadata:
+      typeof source.technicalMetadata === 'object' && source.technicalMetadata
+        ? (source.technicalMetadata as StoryVideoTechnicalMetadata)
+        : null,
+    lastError:
+      typeof source.lastError === 'string' && source.lastError.trim()
+        ? source.lastError
+        : null,
     updatedAt:
       typeof source.updatedAt === 'string' && source.updatedAt.trim()
         ? source.updatedAt
