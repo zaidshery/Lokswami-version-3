@@ -64,6 +64,7 @@ describe('trackClient privacy and session migration', () => {
   });
 
   it('resolves the existing timezone metadata once per document across repeated events', () => {
+    localStore['lokswami_google_analytics_consent_v1'] = 'granted';
     const expected = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const formatter = vi.spyOn(Intl, 'DateTimeFormat');
     Object.defineProperty(navigator, 'sendBeacon', { configurable: true, value: vi.fn(() => true) });
@@ -87,6 +88,31 @@ describe('trackClient privacy and session migration', () => {
     );
     expect(window.localStorage.setItem).not.toHaveBeenCalled();
     expect(window.localStorage.getItem('lokswami_analytics_session_id')).toBeNull();
+  });
+
+  it('blocks Google forwarding without consent while preserving first-party telemetry', () => {
+    localStore['lokswami_google_analytics_consent_v1'] = 'denied';
+    window.dataLayer = [];
+    window.gtag = vi.fn();
+    const beacon = vi.fn(() => true);
+    Object.defineProperty(navigator, 'sendBeacon', { configurable: true, value: beacon });
+    trackClientEvent({ event: 'advertise_inquiry_start', page: '/main/advertise', source: 'advertise_page' });
+    expect(window.dataLayer).toEqual([]);
+    expect(window.gtag).not.toHaveBeenCalled();
+    expect(beacon).toHaveBeenCalledTimes(1);
+  });
+
+  it('separates consented Google page views from first-party page views', () => {
+    localStore['lokswami_google_analytics_consent_v1'] = 'granted';
+    window.dataLayer = [];
+    const beacon = vi.fn(() => true);
+    Object.defineProperty(navigator, 'sendBeacon', { configurable: true, value: beacon });
+    trackClientEvent({ event: 'page_view', page: '/main', destination: 'first-party' });
+    expect(beacon).toHaveBeenCalledTimes(1);
+    expect(window.dataLayer).toEqual([]);
+    trackClientEvent({ event: 'page_view', page: '/main', destination: 'google' });
+    expect(beacon).toHaveBeenCalledTimes(1);
+    expect(window.dataLayer.filter((entry) => entry.event === 'page_view')).toHaveLength(1);
   });
 
   it('migrates a valid legacy localStorage session ID into sessionStorage and removes it from localStorage', () => {

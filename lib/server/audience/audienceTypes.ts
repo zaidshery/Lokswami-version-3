@@ -22,6 +22,10 @@ export type AdvertiseInquiryInput = {
   budget: string;
   campaignType: string;
   targetLocations: string;
+  timeline: string;
+  consent: true;
+  consentAt: string;
+  consentVersion: string;
   message: string;
   source: string;
   ipAddress: string;

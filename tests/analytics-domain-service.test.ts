@@ -25,6 +25,16 @@ describe('AnalyticsService domain boundaries', () => {
   });
 
   describe('trackPublicEvent', () => {
+    it('classifies advertising events as anonymous and retains only coarse campaign metadata', async () => {
+      await service.trackPublicEvent({
+        event: 'advertise_inquiry_success', page: '/main/advertise', source: 'advertise_page',
+        metadata: { campaignType: 'display', email: 'buyer@example.com', message: 'Private brief', deviceCategory: 'mobile' },
+      }, { clientIp: '198.51.100.31', userAgent: 'private browser' });
+      expect(mockSavedEvents[0]).toEqual(expect.objectContaining({
+        ipAddress: '', userAgent: '', metadata: { campaignType: 'display', deviceCategory: 'mobile' },
+      }));
+    });
+
     it('rejects invalid event names', async () => {
       await expect(
         service.trackPublicEvent({ event: 'ab', page: '/home' })

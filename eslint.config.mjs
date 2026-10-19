@@ -16,6 +16,7 @@ const eslintConfig = [
       '.next/**',
       '.next-dev/**',
       '.hostinger/**',
+      'artifacts/**',
       'out/**',
       'build/**',
       'dist/**',

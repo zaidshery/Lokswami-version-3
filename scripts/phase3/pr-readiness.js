@@ -7,7 +7,7 @@
  *
  * Inspects a PR to verify that it meets the repository's strict readiness criteria:
  * 1. PR exists and is in OPEN state (not closed, not merged).
- * 2. Target base branch is strictly 'b3/foundation'.
+ * 2. Target base branch matches --base (default 'b3/foundation').
  * 3. Remote head SHA matches local git HEAD (when on the corresponding branch).
  * 4. Mergeable status is clean (no git conflicts).
  * 5. Pull request CI checks on the EXACT head SHA have all passed.
@@ -63,10 +63,10 @@ function getLocalHeadSha() {
   return runGit(['rev-parse', 'HEAD']);
 }
 
-function parseCliArgs() {
-  const args = process.argv.slice(2);
+function parseCliArgs(args = process.argv.slice(2)) {
   let prNumber = null;
   let strict = false;
+  let baseBranch = 'b3/foundation';
 
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === '--pr' && args[i + 1]) {
@@ -74,12 +74,15 @@ function parseCliArgs() {
       i += 1;
     } else if (/^\d+$/.test(args[i])) {
       prNumber = args[i];
+    } else if (args[i] === '--base' && args[i + 1]) {
+      baseBranch = args[i + 1];
+      i += 1;
     } else if (args[i] === '--strict') {
       strict = true;
     }
   }
 
-  return { prNumber, strict };
+  return { prNumber, strict, baseBranch };
 }
 
 function queryPrData(prNumber) {
@@ -226,6 +229,7 @@ function queryReviewThreads(prNumber, runGhFn = runGh) {
 }
 
 function main() {
+  const { prNumber, baseBranch } = parseCliArgs();
   console.log('================================================================================');
   console.log('LokSwami B3 — Pull Request Readiness Inspector (READ-ONLY)');
   console.log('================================================================================\n');
@@ -237,7 +241,7 @@ function main() {
     console.warn('Manual PR verification checklist:');
     console.warn('  1. Visit: https://github.com/zaidshery/Lokswami-version-3/pulls');
     console.warn('  2. Verify PR state: OPEN (merged = false)');
-    console.warn('  3. Verify base branch: b3/foundation');
+    console.warn(`  3. Verify base branch: ${baseBranch}`);
     console.warn('  4. Verify exact head SHA matches local git HEAD');
     console.warn('  5. Verify all GitHub Actions CI checks on exact head have passed');
     console.warn('  6. Verify all review threads are resolved (0 unresolved)');
@@ -245,7 +249,6 @@ function main() {
     process.exit(1);
   }
 
-  const { prNumber } = parseCliArgs();
   const prData = queryPrData(prNumber);
 
   if (!prData) {
@@ -274,9 +277,9 @@ function main() {
   });
 
   // Check 3: Base Branch
-  const isBaseFoundation = prData.baseRefName === 'b3/foundation';
+  const isBaseFoundation = prData.baseRefName === baseBranch;
   checks.push({
-    name: 'Base Branch is b3/foundation',
+    name: `Base Branch is ${baseBranch}`,
     pass: isBaseFoundation,
     details: `base = ${prData.baseRefName}`,
   });

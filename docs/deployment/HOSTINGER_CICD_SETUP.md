@@ -12,8 +12,8 @@ That is the correct default for this project. Hostinger already supports pulling
 The repo is now set up with:
 
 - `.github/workflows/ci.yml` for lint, typecheck, tests, and CI-safe build verification
-- `.github/workflows/deploy-hostinger.yml` for creating a clean Hostinger upload artifact on `main` or by manual dispatch
-- `package.json` `engines.node = 20.x` so Hostinger can detect the intended runtime
+- `.github/workflows/deploy-hostinger.yml` for packaging the exact main commit after successful main push CI; manual dispatch requires that successful CI run ID
+- `package.json` `engines.node = 24.x` so Hostinger can detect the intended runtime
 - `npm run build` and `npm start` mapped to the repo's Hostinger-safe release flow
 
 ## Recommended Production Flow
@@ -28,14 +28,14 @@ If you allow direct pushes to `main`, Hostinger will still redeploy, but you los
 
 ## Hostinger hPanel Steps
 
-Use these exact settings in Hostinger on June 10, 2026:
+Use the following settings, verifying the current hPanel controls before deployment:
 
 1. Open `Websites` -> `Add website` -> `Node.js Web App`.
 2. Choose `Import Git Repository`.
-3. Authorize Hostinger to access the GitHub account that owns `zaidshery/Zaid-lokswami`.
+3. Use the existing Hostinger GitHub connection for `zaidshery/Lokswami-version-3`.
 4. Select the repository and connect the `main` branch.
 5. Confirm the runtime settings:
-   - Node.js version: `20`
+   - Node.js version: `24`
    - Package manager: `npm`
    - Build command: `npm run build`
    - Start command: `npm start`
@@ -79,7 +79,9 @@ Set branch protection on `main`:
 1. `Settings` -> `Branches`
 2. Require pull requests before merging
 3. Require status checks to pass before merging
-4. Select the `CI` workflow check
+4. Require the `build` check from GitHub Actions, an up-to-date branch, one independent approving review, and resolved conversations; enforce the policy for administrators and disallow force pushes/deletion.
+
+On 19 October 2026 these protections were applied to both `main` and `b3/foundation`. Only `zaidshery` was listed as a collaborator. GitHub does not allow a PR author to approve their own PR; merge requires an eligible independent reviewer or an explicitly agreed sole-maintainer policy. Do not bypass the gate to make a deployment succeed.
 
 This is what makes the CI/CD flow reliable instead of just automatic.
 
@@ -99,6 +101,10 @@ If you need a manual upload instead of Git-based deploy:
 
 - run `npm run package:hostinger-upload`
 - or download the `lokswami-hostinger-upload` artifact from the `Hostinger Release Package` workflow
+
+The local command now requires a clean committed Git checkout and uses `git archive` with the committed `.gitattributes`. It excludes local env files, runtime data and review artifacts. The accompanying `release-evidence.json` records the source commit, archive SHA-256, runtime and CI run. It is a source archive, so the host still needs to build it; it is not the CI-built standalone artifact. A ZIP without Git metadata cannot by itself establish the build-time Git identity used by `/api/version`; prefer the Git-connected deployment for certified releases.
+
+Package jobs accept only successful main-branch push CI from this repository for the exact checked-out SHA. Pull-request/fork workflow runs cannot enter the packaging job. The workflow never uploads to Hostinger or restarts production.
 
 That ZIP fallback is for manual recovery or first-time setup. It is not the primary automatic deployment path.
 

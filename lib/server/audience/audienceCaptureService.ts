@@ -9,6 +9,7 @@ import type {
   CareerApplicationInput,
   MarketingLeadInput,
 } from './audienceTypes';
+import { sendAdvertisingInquiryNotification } from '@/lib/notifications/advertisingInquiryEmail';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[+()\-\s0-9]{7,20}$/;
@@ -48,7 +49,10 @@ function isValidUrl(value: string) {
 }
 
 export class AudienceCaptureService {
-  constructor(private readonly repo: AudienceRepository = audienceRepository) {}
+  constructor(
+    private readonly repo: AudienceRepository = audienceRepository,
+    private readonly notifyAdvertising = sendAdvertisingInquiryNotification
+  ) {}
 
   async subscribe(body: Record<string, unknown>): Promise<AudienceCaptureOutcome> {
     const email = String(body.email || '').trim().toLowerCase();
@@ -124,6 +128,10 @@ export class AudienceCaptureService {
       budget: clean(body.budget, 80),
       campaignType: CAMPAIGN_TYPES.has(campaignTypeInput) ? campaignTypeInput : 'display',
       targetLocations: clean(body.targetLocations, 300),
+      timeline: clean(body.timeline, 120),
+      consent: true,
+      consentAt: new Date().toISOString(),
+      consentVersion: 'advertise-contact-v1',
       message: cleanMessage(body.message),
       source: SOURCE_REGEX.test(sourceInput) ? sourceInput : 'main-advertise',
       ipAddress: metadata.ipAddress,
@@ -143,7 +151,17 @@ export class AudienceCaptureService {
       return { status: 202, body: { success: true, message: 'Inquiry received' } };
     }
 
-    await this.repo.createAdvertiseInquiry(input);
+    if (body.consent !== true) return validation('Please agree to be contacted about this enquiry');
+
+    const receipt = await this.repo.createAdvertiseInquiry(input);
+    try {
+      const notification = await this.notifyAdvertising(receipt);
+      if (!notification.accepted && notification.reason !== 'disabled') {
+        console.warn('Advertising notification not accepted; enquiry remains in Contact Inbox.', { reason: notification.reason });
+      }
+    } catch {
+      console.warn('Advertising notification unavailable; enquiry remains in Contact Inbox.');
+    }
     return {
       status: 201,
       body: { success: true, message: 'Inquiry submitted successfully' },

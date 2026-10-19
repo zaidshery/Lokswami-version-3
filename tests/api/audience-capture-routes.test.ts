@@ -14,6 +14,7 @@ const createStoredCareerApplicationMock = vi.fn();
 const createStoredContactMessageMock = vi.fn();
 const verifyAntiBotMock = vi.fn();
 const sendContactAcknowledgementEmailMock = vi.fn();
+const sendAdvertisingNotificationMock = vi.fn();
 const generateContactTicketIdMock = vi.fn();
 
 vi.mock('@/lib/db/mongoose', () => ({ default: connectDBMock }));
@@ -51,6 +52,9 @@ vi.mock('@/lib/security/antiBot', () => ({ verifyAntiBot: verifyAntiBotMock }));
 vi.mock('@/lib/notifications/contactAckEmail', () => ({
   sendContactAcknowledgementEmail: sendContactAcknowledgementEmailMock,
 }));
+vi.mock('@/lib/notifications/advertisingInquiryEmail', () => ({
+  sendAdvertisingInquiryNotification: sendAdvertisingNotificationMock,
+}));
 vi.mock('@/lib/contact/ticket', () => ({
   generateContactTicketId: generateContactTicketIdMock,
 }));
@@ -76,6 +80,9 @@ describe('audience capture route compatibility', () => {
     connectDBMock.mockResolvedValue(undefined);
     verifyAntiBotMock.mockResolvedValue({ ok: true });
     sendContactAcknowledgementEmailMock.mockResolvedValue({ sent: true, skipped: false });
+    sendAdvertisingNotificationMock.mockResolvedValue({ accepted: true });
+    advertiseCreateMock.mockResolvedValue({ _id: '6ad1e53a79c188cabb59ac41' });
+    createStoredAdvertiseInquiryMock.mockResolvedValue({ _id: 'file-reference-001' });
     generateContactTicketIdMock.mockReturnValue('LS-TEST-0001');
   });
 
@@ -196,6 +203,7 @@ describe('audience capture route compatibility', () => {
     expect(await response.json()).toEqual({ success: true, message: 'Inquiry received' });
     expect(advertiseCreateMock).not.toHaveBeenCalled();
     expect(createStoredAdvertiseInquiryMock).not.toHaveBeenCalled();
+    expect(sendAdvertisingNotificationMock).not.toHaveBeenCalled();
   });
 
   it('preserves advertising file fallback and request metadata', async () => {
@@ -209,6 +217,9 @@ describe('audience capture route compatibility', () => {
           email: 'BUYER@example.com',
           phone: '+91 98765 43210',
           campaignType: 'video',
+          consent: true,
+          timeline: 'November 2026, two weeks',
+          consentAt: 'untrusted-client-time',
           message: 'Please share the current advertising inventory.',
         },
         '198.51.100.31'
@@ -226,10 +237,66 @@ describe('audience capture route compatibility', () => {
         company: 'Example Media',
         email: 'buyer@example.com',
         campaignType: 'video',
+        consent: true,
+        consentVersion: 'advertise-contact-v1',
+        consentAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        timeline: 'November 2026, two weeks',
         source: 'main-advertise',
         ipAddress: '198.51.100.31',
       })
     );
+    expect(sendAdvertisingNotificationMock).toHaveBeenCalledWith({ id: 'file-reference-001', store: 'file' });
+  });
+
+  it.each([undefined, false, 'true'])('rejects advertising without explicit contact consent (%s)', async (consent) => {
+    const { POST } = await import('@/app/api/advertise/inquiry/route');
+    const response = await POST(jsonRequest('/api/advertise/inquiry', {
+      name: 'Example Buyer', company: 'Example Media', email: 'buyer@example.com',
+      message: 'Please share campaign availability.', consent,
+    }));
+    expect(response.status).toBe(400);
+    expect(createStoredAdvertiseInquiryMock).not.toHaveBeenCalled();
+    expect(advertiseCreateMock).not.toHaveBeenCalled();
+    expect(sendAdvertisingNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it('persists campaign timing and server-recorded consent to Mongo', async () => {
+    process.env.MONGODB_URI = 'mongodb://isolated-test';
+    const { POST } = await import('@/app/api/advertise/inquiry/route');
+    const response = await POST(jsonRequest('/api/advertise/inquiry', {
+      name: 'Example Buyer', company: 'Example Media', email: 'buyer@example.com',
+      message: 'Please share campaign availability.', consent: true,
+      timeline: ' Next month ', consentVersion: 'client-override',
+    }));
+    expect(response.status).toBe(201);
+    expect(advertiseCreateMock).toHaveBeenCalledWith(expect.objectContaining({
+      timeline: 'Next month', consent: true, consentVersion: 'advertise-contact-v1',
+    }));
+    expect(createStoredAdvertiseInquiryMock).not.toHaveBeenCalled();
+    expect(sendAdvertisingNotificationMock).toHaveBeenCalledWith({ id: '6ad1e53a79c188cabb59ac41', store: 'mongo' });
+  });
+
+  it('keeps an accepted enquiry successful if notification delivery throws', async () => {
+    sendAdvertisingNotificationMock.mockRejectedValue(new Error('Isolated provider failure'));
+    const { POST } = await import('@/app/api/advertise/inquiry/route');
+    const response = await POST(jsonRequest('/api/advertise/inquiry', {
+      name: 'Example Buyer', company: 'Example Media', email: 'buyer@example.com',
+      message: 'Please share campaign availability.', consent: true,
+    }));
+    expect(response.status).toBe(201);
+    expect(createStoredAdvertiseInquiryMock).toHaveBeenCalledTimes(1);
+    expect(sendAdvertisingNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not notify before durable persistence succeeds', async () => {
+    createStoredAdvertiseInquiryMock.mockRejectedValueOnce(new Error('Isolated storage failure'));
+    const { POST } = await import('@/app/api/advertise/inquiry/route');
+    const response = await POST(jsonRequest('/api/advertise/inquiry', {
+      name: 'Example Buyer', company: 'Example Media', email: 'buyer@example.com',
+      message: 'Please share campaign availability.', consent: true,
+    }));
+    expect(response.status).toBe(500);
+    expect(sendAdvertisingNotificationMock).not.toHaveBeenCalled();
   });
 
   it('preserves career URL validation and file persistence metadata', async () => {

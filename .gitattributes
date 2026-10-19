@@ -1,0 +1,15 @@
+# Runtime data and local credentials never belong in a source release archive.
+/.env* export-ignore
+/.env.example -export-ignore
+/.env.local.example -export-ignore
+/.env.staging.example -export-ignore
+/data export-ignore
+/storage export-ignore
+/artifacts export-ignore
+/.agents export-ignore
+/.codex export-ignore
+/.aws export-ignore
+/.ssh export-ignore
+/.hostinger export-ignore
+/test-results export-ignore
+/playwright-report export-ignore

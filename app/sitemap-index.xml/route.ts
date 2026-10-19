@@ -3,7 +3,7 @@ import { getSiteUrl } from '@/lib/seo/articleSeo';
 
 export const dynamic = 'force-dynamic';
 
-/** Discover the existing Next.js sitemap chunks without duplicating their content. */
+/** Keep the index outside Next's special sitemap.xml metadata route namespace. */
 export async function GET() {
   const siteUrl = getSiteUrl();
   const chunks = await generateSitemaps();

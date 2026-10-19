@@ -1,9 +1,16 @@
 name: Hostinger Release Package
 
 on:
-  push:
+  workflow_run:
+    workflows: [ CI ]
+    types: [ completed ]
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful main push CI run for this exact commit
+        required: true
+        type: string
 
 concurrency:
   group: hostinger-package-${{ github.workflow }}-${{ github.ref }}
@@ -11,26 +18,45 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   package:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
+    env:
+      RELEASE_SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      RELEASE_CI_RUN_ID: ${{ github.event.workflow_run.id || inputs.ci_run_id }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_SOURCE_SHA }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
+
+      - name: Require successful CI for this exact main commit
+        run: node scripts/verify-release-ci.js
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build (CI-safe)
         run: npm run build:ci
+        env:
+          NEXT_PUBLIC_GTM_ID: ${{ vars.NEXT_PUBLIC_GTM_ID }}
+          NEXT_PUBLIC_GA4_MEASUREMENT_ID: ${{ vars.NEXT_PUBLIC_GA4_MEASUREMENT_ID }}
 
       - name: Validate production env snapshot
         if: ${{ vars.HOSTINGER_VALIDATE_ENV == 'true' }}
@@ -61,6 +87,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lokswami-hostinger-upload
-          path: lokswami-upload.zip
+          path: |
+            lokswami-upload.zip
+            release-evidence.json
           if-no-files-found: error
           retention-days: 7

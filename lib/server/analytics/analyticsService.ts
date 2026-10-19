@@ -29,6 +29,7 @@ export const ANONYMOUS_PUBLIC_SOURCES = new Set([
   'share_menu',
   'homepage_top',
   'contact_form',
+  'advertise_page',
   'engagement_popup',
   'lokswami_video_hub',
   'lokswami_swipe',
@@ -175,6 +176,12 @@ function normalizeAnonymousPublicMetadata(
       safe.countryCode = countryCode.toUpperCase();
     }
 
+    return safe;
+  }
+
+  if (source === 'advertise_page') {
+    const campaignType = cleanEnum(raw.campaignType, new Set(['display', 'sponsored', 'video', 'mixed']));
+    if (campaignType) safe.campaignType = campaignType;
     return safe;
   }
 

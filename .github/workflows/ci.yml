@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -46,9 +46,11 @@ jobs:
 
       - name: Build (CI-safe)
         run: npm run build:ci
+        env:
+          NEXT_PUBLIC_GTM_ID: 'GTM-CITEST'
 
       - name: Critical browser smoke (production build)
-        run: npx playwright test tests/e2e/admin-critical-flows.spec.js
+        run: npx playwright test tests/e2e/admin-critical-flows.spec.js tests/e2e/audience-readiness.spec.js
         env:
           DISABLE_REQUEST_LOG: 'true'
           AUTH_SECRET: 'ci-browser-smoke-only-not-a-production-secret'

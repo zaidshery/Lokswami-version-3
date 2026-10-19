@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "scripts": {
     "clean:next": "node scripts/clean-next-artifacts.js .next .next-dev",
@@ -57,6 +57,8 @@
     "verify:staging": "node scripts/verify-staging.js",
     "verify:dependency-security": "node scripts/validate-dependency-security.js",
     "verify:deploy": "node scripts/verify-deploy.js",
+    "verify:reader-release": "node scripts/verify-reader-release.js",
+    "diagnose:publication": "node scripts/diagnose-publication-readiness.js",
     "seed": "node scripts/seed.js",
     "demo:seed": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/demo/seed.ts",
     "demo:verify": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\",\\\"baseUrl\\\":\\\".\\\"}\" scripts/demo/verify.ts",

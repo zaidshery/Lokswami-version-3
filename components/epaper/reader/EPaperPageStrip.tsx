@@ -39,6 +39,7 @@ function EPaperPageStripComponent({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const activeThumbnailRef = useRef<HTMLButtonElement | null>(null);
   const [failedImages, setFailedImages] = useState<string[]>([]);
+  const [originalImages, setOriginalImages] = useState<string[]>([]);
   const [visibleImages, setVisibleImages] = useState(() => new Set(
     pages.filter(page => Math.abs(page.pageNumber - activePage) <= 1).map(page => page.pageNumber)
   ));
@@ -118,13 +119,23 @@ function EPaperPageStripComponent({
               <div className={`${styles.thumbnailImage} relative h-20 w-14 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800 sm:h-24 sm:w-16`}>
                 {visibleImages.has(page.pageNumber) && page.imagePath && !failedImages.includes(page.imagePath) ? (
                   <Image
+                    key={`${page.imagePath}:${originalImages.includes(page.imagePath)}`}
                     src={page.imagePath}
                     alt={`Page ${page.pageNumber}`}
                     fill
                     sizes="64px"
                     className="object-contain"
                     quality={55}
-                    onError={() => setFailedImages((failed) => [...failed, page.imagePath!])}
+                    unoptimized={originalImages.includes(page.imagePath)}
+                    onError={() => {
+                      const source = page.imagePath!;
+                      // Retry the same public asset once if the optimizer is unavailable.
+                      if (!originalImages.includes(source)) {
+                        setOriginalImages((previous) => [...previous, source]);
+                      } else {
+                        setFailedImages((previous) => [...previous, source]);
+                      }
+                    }}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-zinc-400 dark:text-zinc-500">

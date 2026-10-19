@@ -36,6 +36,7 @@ describe('SitePageTracker', () => {
       event: 'page_view',
       page: '/main',
       source: 'reader_home',
+      destination: 'first-party',
       metadata: {
         pageType: 'home',
         section: 'home',
@@ -59,6 +60,7 @@ describe('SitePageTracker', () => {
       event: 'page_view',
       page: '/main/article/breaking-news-slug',
       source: 'article_page',
+      destination: 'first-party',
       metadata: {
         pageType: 'article_detail',
         section: 'article',
@@ -103,6 +105,20 @@ describe('SitePageTracker', () => {
     rerender(<SitePageTracker />);
 
     expect(trackClientEventMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['/admin/dashboard', '/api/health', '/signin'])('counts a return visit after excluded path %s without duplicate rerenders', (excludedPath) => {
+    const { rerender } = render(<StrictMode><SitePageTracker /></StrictMode>);
+    expect(trackClientEventMock).toHaveBeenCalledTimes(1);
+    navigationState.pathname = excludedPath;
+    rerender(<StrictMode><SitePageTracker /></StrictMode>);
+    expect(trackClientEventMock).toHaveBeenCalledTimes(1);
+    navigationState.pathname = '/main';
+    rerender(<StrictMode><SitePageTracker /></StrictMode>);
+    expect(trackClientEventMock).toHaveBeenCalledTimes(2);
+    expect(trackClientEventMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: '/main', destination: 'first-party' }));
+    rerender(<StrictMode><SitePageTracker /></StrictMode>);
+    expect(trackClientEventMock).toHaveBeenCalledTimes(2);
   });
 
   it('does not emit page view for excluded paths (/admin, /api, /signin)', () => {

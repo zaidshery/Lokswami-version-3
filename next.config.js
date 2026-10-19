@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
+const { readBuildIdentity } = require('./scripts/build-identity');
+const buildIdentity = readBuildIdentity();
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const scriptSrc = [
@@ -84,6 +86,10 @@ const searchPageCache = [
 ];
 
 const nextConfig = {
+  env: {
+    LOKSWAMI_BUILD_COMMIT: buildIdentity.commit,
+    LOKSWAMI_BUILD_DIRTY: buildIdentity.dirty,
+  },
   distDir: isDevelopment ? '.next-dev' : '.next',
   output: 'standalone',
   // GitHub CI runs lint and typecheck before the build. Hostinger installs
@@ -298,6 +304,16 @@ const nextConfig = {
             ].join(', '),
           },
         ],
+      },
+    ];
+  },
+  async redirects() {
+    return [
+      {
+        // app/sitemap.ts owns the generated chunks; give the index one route owner.
+        source: '/sitemap.xml',
+        destination: '/sitemap-index.xml',
+        permanent: true,
       },
     ];
   },
