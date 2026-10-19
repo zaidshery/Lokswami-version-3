@@ -4,6 +4,10 @@ import { expect, test } from '@playwright/test';
 test.use({ serviceWorkers: 'block' });
 
 async function openFixture(page, publicationType = 'epaper') {
+  await page.addInitScript(() => {
+    localStorage.setItem('lokswami_google_analytics_consent_v1', 'denied');
+    localStorage.setItem('lokswami-storage', JSON.stringify({ state: { language: 'en', theme: 'light' }, version: 0 }));
+  });
   await page.route('**/api/**', route => route.request().method() === 'GET'
     ? route.fallback()
     : route.fulfill({ json: { success: true } }));
@@ -96,10 +100,10 @@ test('mobile reader reserves page space and supports touch page navigation', asy
     const image = await page.getByRole('img', { name: 'Page 1', exact: true }).boundingBox();
     const hud = await page.getByTestId('mobile-epaper-zoom-hud').boundingBox();
     expect(image.y + image.height).toBeLessThan(hud.y);
-    await page.getByLabel('Next page on mobile').tap();
+    await page.getByRole('button', { name: 'Next page', exact: true }).tap();
     await expect(page.getByLabel('Jump to page', { exact: true })).toHaveValue('2');
     await page.getByLabel('Jump to page', { exact: true }).selectOption('6');
-    await expect(page.getByLabel('Next page on mobile')).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Next page', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Show pages', exact: true }).tap();
     await page.getByRole('button', { name: 'Return to reading' }).tap();
     await expect(page.getByLabel('Page navigation thumbnails')).toBeHidden();

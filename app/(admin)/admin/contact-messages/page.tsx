@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { getAuthHeader } from '@/lib/auth/clientToken';
 import { formatUiDateTime } from '@/lib/utils/dateFormat';
+import AdvertisingInquiryInbox from '@/components/admin/AdvertisingInquiryInbox';
 
 type ContactStatus = 'new' | 'in_progress' | 'resolved';
 
@@ -225,6 +226,7 @@ export default function AdminContactInboxPage() {
 
   return (
     <div className="space-y-5">
+      <AdvertisingInquiryInbox />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Contact Inbox</h1>

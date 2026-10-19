@@ -1,6 +1,8 @@
 ﻿import mongoose from 'mongoose';
 
-export interface IAdvertiseInquiry extends mongoose.Document {
+import { ADVERTISING_OWNER, ADVERTISING_STATUSES, type AdvertisingWorkflow } from '@/lib/advertising/inquiryWorkflow';
+
+export interface IAdvertiseInquiry extends mongoose.Document, AdvertisingWorkflow {
   name: string;
   company: string;
   email: string;
@@ -8,6 +10,10 @@ export interface IAdvertiseInquiry extends mongoose.Document {
   budget?: string;
   campaignType: string;
   targetLocations?: string;
+  timeline?: string;
+  consent?: boolean;
+  consentAt?: string;
+  consentVersion?: string;
   message: string;
   source: string;
   ipAddress?: string;
@@ -18,6 +24,11 @@ export interface IAdvertiseInquiry extends mongoose.Document {
 
 const AdvertiseInquirySchema = new mongoose.Schema<IAdvertiseInquiry>(
   {
+    status: { type: String, enum: ADVERTISING_STATUSES, default: 'new', index: true },
+    assignee: { type: String, default: ADVERTISING_OWNER, maxlength: 120 },
+    followUpAt: { type: String, default: '' },
+    followUpNote: { type: String, default: '', maxlength: 1000 },
+    updatedBy: { type: String, default: '', maxlength: 120 },
     name: {
       type: String,
       required: true,
@@ -62,6 +73,10 @@ const AdvertiseInquirySchema = new mongoose.Schema<IAdvertiseInquiry>(
       maxlength: 300,
       default: '',
     },
+    timeline: { type: String, trim: true, maxlength: 120, default: '' },
+    consent: { type: Boolean, default: false },
+    consentAt: { type: String, default: '' },
+    consentVersion: { type: String, maxlength: 80, default: '' },
     message: {
       type: String,
       required: true,

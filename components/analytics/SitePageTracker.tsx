@@ -10,7 +10,7 @@ type PageTrackingPayload = {
   metadata: Record<string, unknown>;
 };
 
-function getPublicPageTrackingPayload(pathname: string): PageTrackingPayload | null {
+export function getPublicPageTrackingPayload(pathname: string): PageTrackingPayload | null {
   const normalizedPath = String(pathname || '/').trim() || '/';
 
   if (
@@ -103,6 +103,7 @@ export default function SitePageTracker() {
       page: normalizedPath,
       source: payload.source,
       metadata: payload.metadata,
+      destination: 'first-party',
     });
   }, [pathname]);
 

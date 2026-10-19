@@ -1,7 +1,7 @@
 
 import type { Metadata, Viewport } from 'next';
 import { getSiteUrl } from '@/lib/seo/articleSeo';
-import Script from 'next/script';
+import GoogleAnalyticsConsent from '@/components/analytics/GoogleAnalyticsConsent';
 import './globals.css';
 import SitePageTracker from '@/components/analytics/SitePageTracker';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
@@ -269,9 +269,6 @@ const googleAnalyticsMeasurementId = readPublicAnalyticsId(
   process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID,
   /^G-[A-Z0-9]+$/
 );
-const loadDirectGoogleAnalytics = Boolean(
-  googleAnalyticsMeasurementId && !googleTagManagerId
-);
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -355,48 +352,11 @@ export default function RootLayout({
           id="lokswami-asset-recovery"
           dangerouslySetInnerHTML={{ __html: ASSET_RECOVERY_SCRIPT }}
         />
-        {googleTagManagerId ? (
-          <Script id="lokswami-google-tag-manager" strategy="afterInteractive">
-            {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${googleTagManagerId}');`}
-          </Script>
-        ) : null}
-        {loadDirectGoogleAnalytics ? (
-          <>
-            <Script
-              id="lokswami-google-analytics-loader"
-              src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`}
-              strategy="afterInteractive"
-            />
-            <Script id="lokswami-google-analytics" strategy="afterInteractive">
-              {`window.dataLayer=window.dataLayer||[];
-window.gtag=window.gtag||function(){window.dataLayer.push(arguments);};
-window.gtag('js',new Date());
-window.gtag('config','${googleAnalyticsMeasurementId}',{
-  send_page_view:false,
-  anonymize_ip:true
-});`}
-            </Script>
-          </>
-        ) : null}
       </head>
       <body
         suppressHydrationWarning
         className="min-h-screen bg-white text-gray-900 antialiased transition-colors duration-300 dark:bg-gray-950 dark:text-gray-50"
       >
-        {googleTagManagerId ? (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerId}`}
-              height="0"
-              width="0"
-              style={{ display: 'none', visibility: 'hidden' }}
-            />
-          </noscript>
-        ) : null}
         <AuthSessionProvider>
           <ThemeProvider>
             <AccessibilityMotionProvider>
@@ -404,6 +364,7 @@ window.gtag('config','${googleAnalyticsMeasurementId}',{
                 <AuthSync />
                 <FullscreenFix />
                 <SitePageTracker />
+                <GoogleAnalyticsConsent gtmId={googleTagManagerId} ga4Id={googleAnalyticsMeasurementId} />
                 {children}
                 <InstallAppPrompt />
               </ToastProvider>

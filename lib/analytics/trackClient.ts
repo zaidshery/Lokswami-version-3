@@ -1,5 +1,7 @@
 'use client';
 
+import { readGoogleConsent } from '@/lib/analytics/googleConsent';
+
 const ANALYTICS_SESSION_KEY = 'lokswami_analytics_session_id';
 const ANALYTICS_TAB_KEY = 'lokswami_analytics_tab_id';
 const ANALYTICS_OWNED_NAME = /^lok_tab_[a-z0-9]{10}$/;
@@ -159,7 +161,7 @@ function trackGoogleTagManagerEvent(payload: {
   sessionId: string;
   metadata: Record<string, unknown>;
 }) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || readGoogleConsent() !== 'granted') return;
 
   try {
     window.dataLayer = window.dataLayer || [];
@@ -170,7 +172,8 @@ function trackGoogleTagManagerEvent(payload: {
       lokswami_metadata: payload.metadata,
     });
 
-    if (typeof window.gtag === 'function' && /^[a-z][a-z0-9_]{0,39}$/.test(payload.event)) {
+    const usesGtm = /^GTM-[A-Z0-9]+$/.test(String(process.env.NEXT_PUBLIC_GTM_ID || '').trim().toUpperCase());
+    if (!usesGtm && typeof window.gtag === 'function' && /^[a-z][a-z0-9_]{0,39}$/.test(payload.event)) {
       window.gtag('event', payload.event, {
         page_path: payload.page,
         content_group: payload.source,
@@ -192,6 +195,7 @@ type TrackClientEventInput = {
   page?: string;
   source?: string;
   metadata?: Record<string, unknown>;
+  destination?: 'first-party' | 'google';
 };
 
 function getDeviceCategory() {
@@ -397,7 +401,8 @@ export function trackClientEvent(input: TrackClientEventInput) {
         },
   };
 
-  trackGoogleTagManagerEvent(payload);
+  if (input.destination !== 'first-party') trackGoogleTagManagerEvent(payload);
+  if (input.destination === 'google') return;
 
   const raw = JSON.stringify(payload);
 

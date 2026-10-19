@@ -75,7 +75,7 @@
   .toolbar > div:nth-last-child(2) { margin-top: 0; padding-top: 0; }
   .stripHeading { display: none; }
   .stripList { padding-top: 4px; padding-bottom: 4px; gap: 8px; }
-  .thumbnailImage { height: 44px; width: 44px; }
+  .thumbnailImage { height: 32px; width: 44px; }
   .canvas { padding-top: 8px; }
   .storyNavigation { position: relative; }
   .storyNavigation > div { position: absolute; top: 0; right: 12px; padding: 0; }

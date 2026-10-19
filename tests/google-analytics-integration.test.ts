@@ -12,7 +12,8 @@ describe('Google analytics integration', () => {
     expect(layout).toContain('NEXT_PUBLIC_GA4_MEASUREMENT_ID');
     expect(layout).toContain('/^GTM-[A-Z0-9]+$/');
     expect(layout).toContain('/^G-[A-Z0-9]+$/');
-    expect(layout).toContain('strategy="afterInteractive"');
+    expect(read('components/analytics/GoogleAnalyticsConsent.tsx')).toContain('strategy="afterInteractive"');
+    expect(layout).not.toContain('googletagmanager.com/ns.html');
     expect(layout).not.toMatch(/lokswami-google-tag-manager" strategy="beforeInteractive"/);
   });
 

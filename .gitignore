@@ -28,6 +28,7 @@ pnpm-debug.log*
 source-code.zip
 lokswami-upload.zip
 lokswami-hostinger-upload.zip
+/release-evidence.json
 __zip_filelist.txt
 __create_zip.ps1
 

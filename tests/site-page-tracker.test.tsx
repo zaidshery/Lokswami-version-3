@@ -36,6 +36,7 @@ describe('SitePageTracker', () => {
       event: 'page_view',
       page: '/main',
       source: 'reader_home',
+      destination: 'first-party',
       metadata: {
         pageType: 'home',
         section: 'home',
@@ -59,6 +60,7 @@ describe('SitePageTracker', () => {
       event: 'page_view',
       page: '/main/article/breaking-news-slug',
       source: 'article_page',
+      destination: 'first-party',
       metadata: {
         pageType: 'article_detail',
         section: 'article',

@@ -124,6 +124,10 @@ export class AudienceCaptureService {
       budget: clean(body.budget, 80),
       campaignType: CAMPAIGN_TYPES.has(campaignTypeInput) ? campaignTypeInput : 'display',
       targetLocations: clean(body.targetLocations, 300),
+      timeline: clean(body.timeline, 120),
+      consent: true,
+      consentAt: new Date().toISOString(),
+      consentVersion: 'advertise-contact-v1',
       message: cleanMessage(body.message),
       source: SOURCE_REGEX.test(sourceInput) ? sourceInput : 'main-advertise',
       ipAddress: metadata.ipAddress,
@@ -142,6 +146,8 @@ export class AudienceCaptureService {
     if (website) {
       return { status: 202, body: { success: true, message: 'Inquiry received' } };
     }
+
+    if (body.consent !== true) return validation('Please agree to be contacted about this enquiry');
 
     await this.repo.createAdvertiseInquiry(input);
     return {

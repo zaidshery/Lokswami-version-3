@@ -209,6 +209,9 @@ describe('audience capture route compatibility', () => {
           email: 'BUYER@example.com',
           phone: '+91 98765 43210',
           campaignType: 'video',
+          consent: true,
+          timeline: 'November 2026, two weeks',
+          consentAt: 'untrusted-client-time',
           message: 'Please share the current advertising inventory.',
         },
         '198.51.100.31'
@@ -226,10 +229,40 @@ describe('audience capture route compatibility', () => {
         company: 'Example Media',
         email: 'buyer@example.com',
         campaignType: 'video',
+        consent: true,
+        consentVersion: 'advertise-contact-v1',
+        consentAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        timeline: 'November 2026, two weeks',
         source: 'main-advertise',
         ipAddress: '198.51.100.31',
       })
     );
+  });
+
+  it.each([undefined, false, 'true'])('rejects advertising without explicit contact consent (%s)', async (consent) => {
+    const { POST } = await import('@/app/api/advertise/inquiry/route');
+    const response = await POST(jsonRequest('/api/advertise/inquiry', {
+      name: 'Example Buyer', company: 'Example Media', email: 'buyer@example.com',
+      message: 'Please share campaign availability.', consent,
+    }));
+    expect(response.status).toBe(400);
+    expect(createStoredAdvertiseInquiryMock).not.toHaveBeenCalled();
+    expect(advertiseCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('persists campaign timing and server-recorded consent to Mongo', async () => {
+    process.env.MONGODB_URI = 'mongodb://isolated-test';
+    const { POST } = await import('@/app/api/advertise/inquiry/route');
+    const response = await POST(jsonRequest('/api/advertise/inquiry', {
+      name: 'Example Buyer', company: 'Example Media', email: 'buyer@example.com',
+      message: 'Please share campaign availability.', consent: true,
+      timeline: ' Next month ', consentVersion: 'client-override',
+    }));
+    expect(response.status).toBe(201);
+    expect(advertiseCreateMock).toHaveBeenCalledWith(expect.objectContaining({
+      timeline: 'Next month', consent: true, consentVersion: 'advertise-contact-v1',
+    }));
+    expect(createStoredAdvertiseInquiryMock).not.toHaveBeenCalled();
   });
 
   it('preserves career URL validation and file persistence metadata', async () => {

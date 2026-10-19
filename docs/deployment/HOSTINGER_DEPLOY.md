@@ -13,7 +13,7 @@ Assumption:
 
 ## Required Runtime
 
-- Node.js 20 or newer
+- Node.js 24 LTS, matching `.nvmrc`, the package engine, and CI
 - MongoDB Atlas or another persistent MongoDB
 - Writable app directory for `data/` and `storage/uploads/`
 
@@ -195,7 +195,7 @@ Recommended settings:
 - Application root: project root
 - Build command: `npm run build`
 - Start command: `npm start`
-- Node version: `20` or newer
+- Node version: `24` (LTS). Configure the hosting runtime before deploying a Node 24 release.
 
 After deploy, verify:
 
@@ -263,6 +263,13 @@ After deployment:
 
 1. Run `npm run verify:deploy -- https://your-domain.com`
 2. Complete the manual checks in [`DEPLOY_SMOKE_CHECKLIST.md`](./DEPLOY_SMOKE_CHECKLIST.md) and [`ADMIN_RUNTIME_CHECKLIST.md`](../operations/ADMIN_RUNTIME_CHECKLIST.md)
+3. Run `npm run verify:reader-release -- --base-url https://your-domain.com --sha <full-tested-commit> --paper <reviewed-published-edition-id> --min-news <current-eligible-count>`.
+
+The new `/api/version` response embeds the Git commit and dirty state at build time and reports the runtime Node major. Build from a clean Git checkout with Git metadata available: unknown or dirty identity deliberately fails the release check. An uncommitted local build can be tested but cannot certify a deployed commit. This endpoint is evidence for smoke checks, not a cryptographic artifact attestation; retain the package digest, CI run and release/rollback receipts separately.
+
+`--min-news` should be set from a fresh eligible-content audit; the news sitemap legitimately empties when no included story falls within the last 48 hours. `--paper` fails on a published issue without released clickable stories. These checks do not replace editorial review or real-device touch QA. For a main-target PR, use `npm run check:pr-readiness -- --pr <number> --base main`; the legacy default remains `b3/foundation`.
+
+In the packaging workflow, set public analytics IDs as GitHub variables before building; see [`GTM_GA4_SETUP.md`](../analytics/GTM_GA4_SETUP.md). Verify the resulting container configuration and consent in the actual deployed site.
 
 `verify:deploy` runs all three:
 

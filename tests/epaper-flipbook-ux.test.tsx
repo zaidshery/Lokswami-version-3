@@ -11,6 +11,20 @@ import { epaperReaderKeyboardAction } from '@/lib/utils/epaperReaderKeyboard';
 afterEach(() => vi.restoreAllMocks());
 
 describe('flipbook reader interactions', () => {
+  it('recovers a failed optimized thumbnail through the original asset without looping', () => {
+    const select = vi.fn();
+    render(<EPaperPageStrip pages={[{ pageNumber: 1, imagePath: '/page-one.jpg' }]} activePage={1} onSelectPage={select} />);
+    const optimized = screen.getByRole('img', { name: 'Page 1' });
+    expect(optimized.getAttribute('src')).toContain('/_next/image?');
+    fireEvent.error(optimized);
+    const original = screen.getByRole('img', { name: 'Page 1' });
+    expect(new URL(original.getAttribute('src')!, window.location.origin).pathname).toBe('/page-one.jpg');
+    expect(original).not.toHaveAttribute('srcset');
+    fireEvent.error(original);
+    expect(screen.queryByRole('img', { name: 'Page 1' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to page 1' }));
+    expect(select).toHaveBeenCalledWith(1);
+  });
   it('requests a thumbnail quality allowed by the production image optimizer', () => {
     const config = fs.readFileSync(path.join(process.cwd(), 'next.config.js'), 'utf8');
     const strip = fs.readFileSync(path.join(process.cwd(), 'components/epaper/reader/EPaperPageStrip.tsx'), 'utf8');
@@ -119,6 +133,7 @@ describe('flipbook reader interactions', () => {
   it('keeps a failed thumbnail navigable', () => {
     const select = vi.fn();
     render(<EPaperPageStrip pages={[{ pageNumber: 1, imagePath: '/one.jpg' }]} activePage={1} onSelectPage={select} />);
+    fireEvent.error(screen.getByAltText('Page 1'));
     fireEvent.error(screen.getByAltText('Page 1'));
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Jump to page 1'));

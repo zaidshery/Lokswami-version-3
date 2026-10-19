@@ -4,9 +4,34 @@ const test = base.extend({
   page: async ({ page }, providePage) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    await page.route('**/api/analytics/track', (route) => route.fulfill({ json: { success: true } }));
+    await page.route('**/api/analytics/web-vitals', (route) => route.fulfill({ json: { success: true } }));
     await providePage(page);
     expect(errors, 'Uncaught browser errors').toEqual([]);
   },
+});
+
+test('advertised sitemap resolves to an index and a working chunk in the built app', async ({ request }) => {
+  const robots = await request.get('/robots.txt');
+  expect(robots.status()).toBe(200);
+  expect(await robots.text()).toMatch(/Sitemap:\s*https?:\/\/[^\s]+\/sitemap\.xml/);
+
+  const redirect = await request.get('/sitemap.xml', { maxRedirects: 0 });
+  expect(redirect.status()).toBe(308);
+  expect(redirect.headers().location).toBe('/sitemap-index.xml');
+  const index = await request.get('/sitemap.xml');
+  expect(index.status()).toBe(200);
+  expect(new URL(index.url()).pathname).toBe('/sitemap-index.xml');
+  expect(index.headers()['content-type']).toContain('application/xml');
+  const xml = await index.text();
+  expect(xml).toContain('<sitemapindex');
+  const chunks = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
+  expect(chunks.length).toBeGreaterThan(0);
+  expect(chunks[0]).toBe('/sitemap/0.xml');
+  const chunk = await request.get(chunks[0]);
+  expect(chunk.status()).toBe(200);
+  expect(chunk.headers()['content-type']).toContain('xml');
+  expect(await chunk.text()).toContain('<urlset');
 });
 
 base.describe('Shared stale-asset recovery', () => {

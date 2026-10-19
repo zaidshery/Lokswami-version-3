@@ -6,6 +6,9 @@ Regenerate the source inventory with `npm run audit:structure`.
 
 ## 5-Minute Setup
 
+Use Node.js 24 LTS (see `.nvmrc`), matching the package engine and CI. With nvm,
+run `nvm install 24` and `nvm use 24` before installing dependencies.
+
 1. Copy `.env.local.example` to `.env.local`.
 2. Set the values you actually need in `.env.local`.
 3. Install dependencies, optionally seed sample data, then start the app.

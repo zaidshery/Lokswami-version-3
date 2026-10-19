@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import sitemap, { generateSitemaps } from '@/app/sitemap';
 import robots from '@/app/robots';
-import { GET as getSitemapIndex } from '@/app/sitemap.xml/route';
+import { GET as getSitemapIndex } from '@/app/sitemap-index.xml/route';
 import { buildArticlePageMetadata, normalizeMetadataSiteUrl } from '@/lib/seo/articleMetadata';
 import { resolveSiteUrl } from '@/lib/seo/readerPageMetadata';
 import { buildArticlePublicPath, buildNewsArticleJsonLd, defaultArticleSeo, getSiteUrl } from '@/lib/seo/articleSeo';
