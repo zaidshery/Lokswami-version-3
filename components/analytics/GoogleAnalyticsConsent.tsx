@@ -61,7 +61,11 @@ export default function GoogleAnalyticsConsent({ gtmId, ga4Id }: { gtmId: string
   useEffect(() => {
     if (!enabled || consent !== 'granted' || !initialized.current) return;
     const payload = getPublicPageTrackingPayload(pathname);
-    if (!payload || lastGooglePage.current === pathname) return;
+    if (!payload) {
+      lastGooglePage.current = '';
+      return;
+    }
+    if (lastGooglePage.current === pathname) return;
     lastGooglePage.current = pathname;
     trackClientEvent({ event: 'page_view', page: pathname, ...payload, destination: 'google' });
   }, [consent, enabled, pathname]);

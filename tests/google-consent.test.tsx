@@ -52,6 +52,12 @@ describe('Google analytics consent', () => {
     rerender(<StrictMode><GoogleAnalyticsConsent gtmId="GTM-TEST" ga4Id="G-TEST" /></StrictMode>);
     expect(track).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId('google-script')).toBeNull();
+    state.pathname = '/main/advertise';
+    rerender(<StrictMode><GoogleAnalyticsConsent gtmId="GTM-TEST" ga4Id="G-TEST" /></StrictMode>);
+    expect(track).toHaveBeenCalledTimes(3);
+    expect(track).toHaveBeenLastCalledWith(expect.objectContaining({ event: 'page_view', page: '/main/advertise', destination: 'google' }));
+    rerender(<StrictMode><GoogleAnalyticsConsent gtmId="GTM-TEST" ga4Id="G-TEST" /></StrictMode>);
+    expect(track).toHaveBeenCalledTimes(3);
   });
 
   it('restores granted consent in direct mode without automatic duplicate page views', () => {

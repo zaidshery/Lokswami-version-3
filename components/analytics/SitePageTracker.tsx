@@ -93,7 +93,10 @@ export default function SitePageTracker() {
     const normalizedPath = String(pathname || '/').trim() || '/';
     const payload = getPublicPageTrackingPayload(normalizedPath);
 
-    if (!payload) return;
+    if (!payload) {
+      lastTrackedPathRef.current = '';
+      return;
+    }
     if (lastTrackedPathRef.current === normalizedPath) return;
 
     lastTrackedPathRef.current = normalizedPath;

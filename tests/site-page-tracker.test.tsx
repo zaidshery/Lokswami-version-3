@@ -107,6 +107,20 @@ describe('SitePageTracker', () => {
     expect(trackClientEventMock).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['/admin/dashboard', '/api/health', '/signin'])('counts a return visit after excluded path %s without duplicate rerenders', (excludedPath) => {
+    const { rerender } = render(<StrictMode><SitePageTracker /></StrictMode>);
+    expect(trackClientEventMock).toHaveBeenCalledTimes(1);
+    navigationState.pathname = excludedPath;
+    rerender(<StrictMode><SitePageTracker /></StrictMode>);
+    expect(trackClientEventMock).toHaveBeenCalledTimes(1);
+    navigationState.pathname = '/main';
+    rerender(<StrictMode><SitePageTracker /></StrictMode>);
+    expect(trackClientEventMock).toHaveBeenCalledTimes(2);
+    expect(trackClientEventMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: '/main', destination: 'first-party' }));
+    rerender(<StrictMode><SitePageTracker /></StrictMode>);
+    expect(trackClientEventMock).toHaveBeenCalledTimes(2);
+  });
+
   it('does not emit page view for excluded paths (/admin, /api, /signin)', () => {
     navigationState.pathname = '/admin/dashboard';
     const { rerender } = render(<SitePageTracker />);
