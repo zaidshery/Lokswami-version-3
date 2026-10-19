@@ -223,6 +223,24 @@ function validateProductionEnv(env = process.env) {
     warnings
   );
 
+  const advertisingEmailEnabled = readEnv('ADVERTISE_INQUIRY_EMAIL_ENABLED', env);
+  if (advertisingEmailEnabled && !['true', 'false'].includes(advertisingEmailEnabled)) {
+    errors.push('ADVERTISE_INQUIRY_EMAIL_ENABLED must be true or false');
+  }
+  if (advertisingEmailEnabled === 'true') {
+    validateRequiredEnvGroup('Advertising enquiry email', ['RESEND_API_KEY', 'RESEND_FROM_EMAIL'], env, errors);
+    const recipient = readEnv('ADVERTISE_INQUIRY_NOTIFY_EMAIL', env);
+    if (recipient && !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(recipient)) {
+      errors.push('ADVERTISE_INQUIRY_NOTIFY_EMAIL must contain one valid email address');
+    }
+    if (parsedPublicSiteUrl?.protocol !== 'https:' || parsedPublicSiteUrl?.username || parsedPublicSiteUrl?.password) {
+      errors.push('Advertising enquiry email requires an HTTPS NEXT_PUBLIC_SITE_URL without credentials');
+    }
+    if (/[\r\n]/.test(readEnv('RESEND_FROM_EMAIL', env))) {
+      errors.push('RESEND_FROM_EMAIL must not contain line breaks');
+    }
+  }
+
   return {
     ok: errors.length === 0,
     errors,

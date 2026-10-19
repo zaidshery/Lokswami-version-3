@@ -28,6 +28,35 @@ function buildBaseEnv(overrides: Record<string, string> = {}) {
 }
 
 describe('production environment validation', () => {
+  it('rejects enabled advertising notifications without provider configuration', () => {
+    const result = validateProductionEnv(buildBaseEnv({ ADMIN_CRON_SECRET: 'test', ADVERTISE_INQUIRY_EMAIL_ENABLED: 'true' }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('Advertising enquiry email is missing required env: RESEND_API_KEY, RESEND_FROM_EMAIL');
+  });
+
+  it('accepts fully configured advertising notifications', () => {
+    const result = validateProductionEnv(buildBaseEnv({
+      ADMIN_CRON_SECRET: 'test', ADVERTISE_INQUIRY_EMAIL_ENABLED: 'true',
+      RESEND_API_KEY: 'isolated-test', RESEND_FROM_EMAIL: 'Lokswami <alerts@lokswami.com>',
+      ADVERTISE_INQUIRY_NOTIFY_EMAIL: 'tech.lokswami@gmail.com',
+    }));
+    expect(result.ok).toBe(true);
+  });
+
+  it.each<Record<string, string>>([
+    { ADVERTISE_INQUIRY_EMAIL_ENABLED: 'yes' },
+    { ADVERTISE_INQUIRY_NOTIFY_EMAIL: 'one@example.test,two@example.test' },
+    { NEXTAUTH_URL: 'http://lokswami.com', NEXT_PUBLIC_SITE_URL: 'http://lokswami.com' },
+    { NEXTAUTH_URL: 'https://user:pass@lokswami.com', NEXT_PUBLIC_SITE_URL: 'https://user:pass@lokswami.com' },
+    { RESEND_FROM_EMAIL: 'alerts@lokswami.com\r\nInjected: header' },
+  ])('rejects unsafe advertising notification configuration %j', (overrides) => {
+    const result = validateProductionEnv(buildBaseEnv({
+      ADMIN_CRON_SECRET: 'test', ADVERTISE_INQUIRY_EMAIL_ENABLED: 'true',
+      RESEND_API_KEY: 'isolated-test', RESEND_FROM_EMAIL: 'alerts@lokswami.com', ...overrides,
+    }));
+    expect(result.ok).toBe(false);
+  });
+
   it('requires a cron secret for e-paper and e-magazine background conversion', () => {
     const result = validateProductionEnv(buildBaseEnv());
 

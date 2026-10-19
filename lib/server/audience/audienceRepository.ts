@@ -3,6 +3,7 @@ import AdvertiseInquiry from '@/lib/models/AdvertiseInquiry';
 import CareerApplication from '@/lib/models/CareerApplication';
 import MarketingLead from '@/lib/models/MarketingLead';
 import Subscriber from '@/lib/models/Subscriber';
+import type { AdvertisingInquiryReceipt } from '@/lib/advertising/inquiryWorkflow';
 import { createStoredAdvertiseInquiry } from '@/lib/storage/advertiseInquiriesFile';
 import { createStoredCareerApplication } from '@/lib/storage/careerApplicationsFile';
 import { upsertStoredMarketingLead } from '@/lib/storage/marketingLeadsFile';
@@ -73,18 +74,19 @@ export class AudienceRepository {
     await upsertStoredMarketingLead(input);
   }
 
-  async createAdvertiseInquiry(input: AdvertiseInquiryInput) {
+  async createAdvertiseInquiry(input: AdvertiseInquiryInput): Promise<AdvertisingInquiryReceipt> {
     if (process.env.MONGODB_URI) {
       try {
         await connectDB();
-        await AdvertiseInquiry.create(input);
-        return;
+        const record = await AdvertiseInquiry.create(input);
+        return { id: String(record?._id || ''), store: 'mongo' };
       } catch (mongoError) {
         console.error('Mongo write failed, falling back to file storage:', mongoError);
       }
     }
 
-    await createStoredAdvertiseInquiry(input);
+    const record = await createStoredAdvertiseInquiry(input);
+    return { id: String(record?._id || ''), store: 'file' };
   }
 
   async createCareerApplication(input: CareerApplicationInput) {
